@@ -1,0 +1,102 @@
+"use client";
+import { useEffect, useState } from "react";
+import { useAuthStore } from "@/store/authStore";
+import { useSkipStore } from "@/store/skipStore";
+import { subscribeToSkips, logSkip, LogSkipParams, updateSkip as firebaseUpdateSkip, deleteSkip as firebaseDeleteSkip } from "@/lib/services/firebase/skips";
+import { recordDonation, subscribeToDonations, updateDonation as firebaseUpdateDonation, deleteDonation as firebaseDeleteDonation } from "@/lib/services/firebase/users";
+import { DEMO_MODE } from "@/lib/constants/demo";
+import { today } from "@/lib/utils/dates";
+import { getImpactMessage } from "@/lib/constants/impactMessages";
+import { xpForSkip, levelForXp } from "@/lib/utils/xp";
+import { Skip, DonationEvent } from "@/lib/types/models";
+
+export function useSkips() {
+  const { user, profile, updateProfile } = useAuthStore();
+  const { recentSkips, isLogging, setRecentSkips, setLogging, addSkip, updateSkip: storeUpdateSkip, removeSkip } = useSkipStore();
+  const [donations, setDonations] = useState<DonationEvent[]>([]);
+
+  useEffect(() => {
+    if (DEMO_MODE || !user) return;
+    const unsub = subscribeToSkips(user.uid, setRecentSkips);
+    return unsub;
+  }, [user?.uid]);
+
+  useEffect(() => {
+    if (DEMO_MODE || !user) return;
+    const unsub = subscribeToDonations(user.uid, setDonations);
+    return unsub;
+  }, [user?.uid]);
+
+  async function log(params: Omit<LogSkipParams, "uid" | "currentTotalSaved" | "currentTotalSkips" | "currentXp" | "currentStreak" | "currentLongestStreak" | "lastSkipDate" | "savedTowardActiveCause">) {
+    if (!user || !profile) return null;
+    setLogging(true);
+    try {
+      const result = await logSkip({
+        ...params,
+        uid: user.uid,
+        currentTotalSaved: profile.totalSaved,
+        currentTotalSkips: profile.totalSkips,
+        currentXp: profile.xp,
+        currentStreak: profile.streak,
+        currentLongestStreak: profile.longestStreak,
+        lastSkipDate: profile.lastSkipDate,
+        savedTowardActiveCause: profile.savedTowardActiveCause,
+        displayName: user.displayName || profile.displayName,
+        photoURL: user.photoURL || profile.photoURL || undefined,
+      });
+      return result;
+    } finally {
+      setLogging(false);
+    }
+  }
+
+  async function donate(amount: number, projectId: string, projectTitle: string, date?: string): Promise<void> {
+    if (!user || !profile) return;
+    await recordDonation(user.uid, amount, projectId, projectTitle, date);
+    const prevDonated = profile.causeStats?.[projectId]?.donated ?? 0;
+    updateProfile({
+      totalDonated: profile.totalDonated + amount,
+      causeStats: { ...profile.causeStats, [projectId]: { donated: prevDonated + amount } },
+    });
+  }
+
+  async function edit(
+    skip: Skip,
+    updates: Partial<Pick<Skip, "category" | "categoryLabel" | "categoryEmoji" | "amount" | "projectId" | "projectTitle" | "whatSkipped" | "notes">>
+  ): Promise<void> {
+    if (!user || !profile) return;
+    const amountDelta = updates.amount !== undefined ? updates.amount - skip.amount : 0;
+    await firebaseUpdateSkip(user.uid, skip.id, updates, amountDelta);
+    storeUpdateSkip(skip.id, updates);
+    if (amountDelta !== 0) {
+      updateProfile({ totalSaved: profile.totalSaved + amountDelta });
+    }
+  }
+
+  async function deleteSkip(skip: Skip): Promise<void> {
+    if (!user || !profile) return;
+    await firebaseDeleteSkip(user.uid, skip.id, skip.amount);
+    removeSkip(skip.id);
+    updateProfile({
+      totalSaved: profile.totalSaved - skip.amount,
+      totalSkips: profile.totalSkips - 1,
+    });
+  }
+
+  async function editDonation(donation: DonationEvent, newAmount: number, date?: string): Promise<void> {
+    if (!user || !profile) return;
+    const delta = newAmount - donation.amount;
+    await firebaseUpdateDonation(user.uid, donation.id, newAmount, donation.amount, date);
+    if (delta !== 0) {
+      updateProfile({ totalDonated: profile.totalDonated + delta });
+    }
+  }
+
+  async function deleteDonation(donation: DonationEvent): Promise<void> {
+    if (!user || !profile) return;
+    await firebaseDeleteDonation(user.uid, donation.id, donation.amount);
+    updateProfile({ totalDonated: profile.totalDonated - donation.amount });
+  }
+
+  return { recentSkips, isLogging, log, donate, edit, deleteSkip, donations, editDonation, deleteDonation };
+}

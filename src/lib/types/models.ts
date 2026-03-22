@@ -1,0 +1,101 @@
+import { Timestamp } from "firebase/firestore";
+
+export interface UserProfile {
+  uid: string;
+  displayName: string;
+  email: string;
+  photoURL: string | null;
+  totalSaved: number;
+  totalSkips: number;
+  streak: number;
+  longestStreak: number;
+  xp: number;
+  level: number;
+  activeProjectId: string | null;
+  savedTowardActiveCause: number;
+  totalDonated: number;
+  followingCount: number;
+  followersCount: number;
+  createdAt: Timestamp;
+  lastSkipDate: string | null; // YYYY-MM-DD
+  favoriteCauseIds: string[];
+  causeStats?: Record<string, { donated: number }>;
+}
+
+export interface SkipCategory {
+  id: string;
+  label: string;
+  emoji: string;
+  defaultAmount: number;
+  color: string;
+}
+
+export interface Skip {
+  id: string;
+  uid: string;
+  category: string;
+  categoryLabel: string;
+  categoryEmoji: string;
+  amount: number;
+  date: string; // YYYY-MM-DD
+  projectId: string | null;
+  projectTitle: string | null;
+  impactMessage: string;
+  createdAt: Timestamp;
+  whatSkipped?: string;
+  notes?: string;
+}
+
+export interface Project {
+  id: string;
+  title: string;
+  sponsor: string;
+  description: string;
+  goalAmount: number;
+  totalRaised: number;
+  imageURL: string | null;
+  donationURL: string | null;
+  isCustom: boolean;
+  createdBy: string | null; // uid for custom causes
+  tags: string[];
+}
+
+export interface Badge {
+  id: string;
+  title: string;
+  description: string;
+  emoji: string;
+  earnedAt: Timestamp;
+}
+
+export interface FeedItem {
+  id: string;
+  uid: string;
+  displayName: string;
+  photoURL: string | null;
+  type: "skip" | "badge" | "milestone" | "donation";
+  skipAmount?: number;
+  skipCategory?: string;
+  skipEmoji?: string;
+  badgeTitle?: string;
+  badgeEmoji?: string;
+  milestoneAmount?: number;
+  projectTitle?: string;
+  message: string;
+  createdAt: Timestamp;
+}
+
+export interface DonationEvent {
+  id: string;
+  causeId: string;
+  causeTitle: string;
+  amount: number;
+  date?: string; // YYYY-MM-DD, user-specified donation date
+  donatedAt: Timestamp;
+}
+
+export interface GlobalStats {
+  totalSaved: number;
+  totalSkips: number;
+  totalUsers: number;
+}
