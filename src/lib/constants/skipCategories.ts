@@ -44,6 +44,13 @@ export const SKIP_CATEGORIES: SkipCategory[] = [
     color: "#1D4ED8",
   },
   {
+    id: "entertainment",
+    label: "Entertainment",
+    emoji: "🎬",
+    defaultAmount: 20,
+    color: "#DB2777",
+  },
+  {
     id: "custom",
     label: "Custom",
     emoji: "✏️",
