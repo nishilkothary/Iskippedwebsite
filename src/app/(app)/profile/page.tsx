@@ -45,7 +45,7 @@ export default function ProfilePage() {
       {/* Stats */}
       <div className="grid grid-cols-2 gap-4 mb-6">
         {[
-          { label: "Total Saved", value: formatCurrency(profile.totalSaved), emoji: "💰" },
+          { label: "Total Skipped", value: formatCurrency(profile.totalSaved), emoji: "💰" },
           { label: "Total Skips", value: String(profile.totalSkips), emoji: "✅" },
           { label: "Total Donated", value: formatCurrency(profile.totalDonated), emoji: "💚" },
           { label: "Longest Streak", value: `${profile.longestStreak} days`, emoji: "🏆" },

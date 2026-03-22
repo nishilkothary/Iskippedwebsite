@@ -12,6 +12,7 @@ import {
   limit,
   onSnapshot,
   Unsubscribe,
+  getDocs,
 } from "firebase/firestore";
 import { User } from "firebase/auth";
 import { db } from "./config";
@@ -119,4 +120,10 @@ export async function deleteDonation(uid: string, donationId: string, amount: nu
   batch.delete(doc(db, "users", uid, "donations", donationId));
   batch.update(doc(db, "users", uid), { totalDonated: increment(-amount) });
   await batch.commit();
+}
+
+export async function getAllUsers(): Promise<UserProfile[]> {
+  const q = query(collection(db, "users"), orderBy("createdAt", "desc"));
+  const snap = await getDocs(q);
+  return snap.docs.map((d) => d.data() as UserProfile);
 }

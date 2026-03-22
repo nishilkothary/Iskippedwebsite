@@ -2,7 +2,7 @@
 import { useEffect, useState } from "react";
 import { subscribeToCommunityFeed, subscribeToGlobalStats, getCommunityTotalSaved } from "@/lib/services/firebase/social";
 import { FeedItem, GlobalStats } from "@/lib/types/models";
-import { formatCurrencyShort } from "@/lib/utils/currency";
+import { formatCurrencyShort, formatCurrency } from "@/lib/utils/currency";
 import { formatRelativeTime } from "@/lib/utils/dates";
 
 export default function CommunityPage() {
@@ -34,7 +34,7 @@ export default function CommunityPage() {
           <div className="grid grid-cols-2 gap-4 mb-4">
             <div className="bg-white rounded-2xl p-5 shadow-sm border border-[#E5E7EB] text-center">
               <p className="text-2xl font-bold text-[#3D8B68]">{formatCurrencyShort(communityTotalSaved)}</p>
-              <p className="text-xs text-[#6B7280] mt-1">Total Saved</p>
+              <p className="text-xs text-[#6B7280] mt-1">Total Skipped</p>
             </div>
             <div className="bg-white rounded-2xl p-5 shadow-sm border border-[#E5E7EB] text-center">
               <p className="text-2xl font-bold text-[#111827]">{stats.totalSkips.toLocaleString()}</p>
@@ -44,8 +44,8 @@ export default function CommunityPage() {
           <div className="bg-[#3D8B68] rounded-2xl p-5 mb-8 text-white flex items-center gap-4">
             <span className="text-4xl">🎓</span>
             <div>
-              <p className="text-2xl font-bold">{(communityTotalSaved / 300).toFixed(1)} years</p>
-              <p className="text-[#B7D9C6] text-sm mt-0.5">of education funded by the community</p>
+              <p className="text-2xl font-bold">{(communityTotalSaved / 300).toFixed(1)}</p>
+              <p className="text-[#B7D9C6] text-sm mt-0.5">years of education that could be funded by community skips</p>
             </div>
           </div>
         </>
@@ -64,17 +64,17 @@ export default function CommunityPage() {
             {feed.map((item) => (
               <div key={item.id} className="bg-white rounded-xl px-5 py-4 border border-[#E5E7EB] flex items-start gap-3">
                 <div className="w-9 h-9 rounded-full bg-[#E4F0E8] flex items-center justify-center text-base flex-shrink-0">
-                  {item.photoURL ? (
-                    <img src={item.photoURL} alt="" className="w-full h-full rounded-full object-cover" />
-                  ) : (
-                    item.skipEmoji || "👤"
-                  )}
+                  {item.skipEmoji || "✅"}
                 </div>
                 <div className="flex-1 min-w-0">
-                  <p className="text-sm text-[#111827]">
-                    <span className="font-semibold">{item.displayName?.split(" ")[0] || "Skipper"}</span>{" "}
-                    {item.message}
-                  </p>
+                  {item.type === "skip" ? (
+                    <p className="text-sm text-[#111827]">
+                      <span className="font-semibold">{item.skipCategory || "Something"}</span> was just skipped
+                      {item.skipAmount ? <span>, saving <span className="font-semibold text-[#3D8B68]">{formatCurrency(item.skipAmount)}</span></span> : null}
+                    </p>
+                  ) : (
+                    <p className="text-sm text-[#111827]">{item.message}</p>
+                  )}
                   {item.projectTitle && (
                     <p className="text-xs text-[#6B7280] mt-0.5">for {item.projectTitle}</p>
                   )}
