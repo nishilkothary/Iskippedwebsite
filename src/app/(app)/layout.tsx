@@ -39,7 +39,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
   return (
     <div className="flex h-screen bg-[#F9FAFB]">
       {/* Sidebar */}
-      <aside className="w-60 flex-shrink-0 bg-white border-r border-[#E5E7EB] flex flex-col">
+      <aside className="w-60 flex-shrink-0 bg-white border-r border-[#E5E7EB] hidden md:flex flex-col">
         <div className="px-6 py-5 border-b border-[#E5E7EB]">
           <Image
             src="/logo.png"
@@ -82,11 +82,37 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
       </aside>
 
       {/* Main content */}
-      <main className="flex-1 overflow-y-auto">
+      <main className="flex-1 overflow-y-auto pb-16 md:pb-0">
         {children}
       </main>
 
       {showSkipPicker && <SkipModal onClose={() => setShowSkipPicker(false)} />}
+
+      {/* Mobile bottom nav */}
+      <nav className="flex md:hidden fixed bottom-0 left-0 right-0 bg-white border-t border-[#E5E7EB] z-10">
+        {NAV_ITEMS.map((item) => {
+          const active = pathname === item.href;
+          return (
+            <Link
+              key={item.href}
+              href={item.href}
+              className={`flex-1 flex flex-col items-center py-2 text-xs font-medium transition-colors ${
+                active ? "text-[#3D8B68]" : "text-[#6B7280]"
+              }`}
+            >
+              <span className="text-xl">{item.emoji}</span>
+              {item.label}
+            </Link>
+          );
+        })}
+        <button
+          onClick={() => setShowSkipPicker(true)}
+          className="flex-1 flex flex-col items-center py-2 text-xs font-medium text-[#3D8B68]"
+        >
+          <span className="text-xl">✨</span>
+          Log Skip
+        </button>
+      </nav>
     </div>
   );
 }
