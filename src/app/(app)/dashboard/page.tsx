@@ -13,7 +13,7 @@ export default function DashboardPage() {
   const xp = xpProgress(profile.xp);
   const progressPct = Math.round(xp.progress * 100);
   const causeProgress = profile.activeProjectId
-    ? Math.min((profile.savedTowardActiveCause / 180) * 100, 100)
+    ? Math.min((profile.savedTowardActiveCause / 300) * 100, 100)
     : 0;
 
   const stats = [

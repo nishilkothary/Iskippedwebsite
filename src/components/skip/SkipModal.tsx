@@ -6,7 +6,7 @@ import { useAuthStore } from "@/store/authStore";
 import { SKIP_CATEGORIES } from "@/lib/constants/skipCategories";
 import { formatCurrency } from "@/lib/utils/currency";
 
-const CHILD_YEAR_COST = 180;
+const CHILD_YEAR_COST = 300;
 
 
 interface Props {
