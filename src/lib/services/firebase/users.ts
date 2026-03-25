@@ -97,7 +97,6 @@ export async function recordDonation(uid: string, amount: number, projectId: str
   if (projectSnap.exists()) {
     batch.update(projectRef, { totalRaised: increment(amount) });
   }
-  batch.update(doc(db, "globalStats", "totals"), { totalPledged: increment(amount) });
   await batch.commit();
 }
 

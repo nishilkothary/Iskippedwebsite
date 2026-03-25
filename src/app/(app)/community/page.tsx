@@ -1,6 +1,6 @@
 "use client";
 import { useEffect, useState } from "react";
-import { subscribeToCommunityFeed, subscribeToGlobalStats } from "@/lib/services/firebase/social";
+import { subscribeToCommunityFeed, subscribeToGlobalStats, getCommunityTotalSaved } from "@/lib/services/firebase/social";
 import { FeedItem, GlobalStats } from "@/lib/types/models";
 import { formatCurrencyShort, formatCurrency } from "@/lib/utils/currency";
 import { formatRelativeTime } from "@/lib/utils/dates";
@@ -8,6 +8,7 @@ import { formatRelativeTime } from "@/lib/utils/dates";
 export default function CommunityPage() {
   const [feed, setFeed] = useState<FeedItem[]>([]);
   const [stats, setStats] = useState<GlobalStats | null>(null);
+  const [communityTotalSaved, setCommunityTotalSaved] = useState<number>(0);
 
   useEffect(() => {
     const unsubFeed = subscribeToCommunityFeed((items) => {
@@ -15,6 +16,7 @@ export default function CommunityPage() {
       setFeed(shuffled);
     });
     const unsubStats = subscribeToGlobalStats(setStats);
+    getCommunityTotalSaved().then(setCommunityTotalSaved);
     return () => {
       unsubFeed();
       unsubStats();
@@ -29,25 +31,21 @@ export default function CommunityPage() {
       {/* Global stats */}
       {stats && (
         <>
-          <div className="grid grid-cols-3 gap-3 mb-4">
-            <div className="bg-white rounded-2xl p-4 shadow-sm border border-[#E5E7EB] text-center">
-              <p className="text-xl font-bold text-[#111827]">{stats.totalSkips.toLocaleString()}</p>
+          <div className="grid grid-cols-2 gap-4 mb-4">
+            <div className="bg-white rounded-2xl p-5 shadow-sm border border-[#E5E7EB] text-center">
+              <p className="text-2xl font-bold text-[#3D8B68]">{formatCurrencyShort(communityTotalSaved)}</p>
+              <p className="text-xs text-[#6B7280] mt-1">Total Skipped</p>
+            </div>
+            <div className="bg-white rounded-2xl p-5 shadow-sm border border-[#E5E7EB] text-center">
+              <p className="text-2xl font-bold text-[#111827]">{stats.totalSkips.toLocaleString()}</p>
               <p className="text-xs text-[#6B7280] mt-1">Total Skips</p>
-            </div>
-            <div className="bg-white rounded-2xl p-4 shadow-sm border border-[#E5E7EB] text-center">
-              <p className="text-xl font-bold text-[#3D8B68]">{formatCurrencyShort(stats.totalPledged ?? 0)}</p>
-              <p className="text-xs text-[#6B7280] mt-1">Total Pledged</p>
-            </div>
-            <div className="bg-white rounded-2xl p-4 shadow-sm border border-[#E5E7EB] text-center">
-              <p className="text-xl font-bold text-[#3D8B68]">{formatCurrencyShort(stats.totalPledged ?? 0)}</p>
-              <p className="text-xs text-[#6B7280] mt-1">Total Donated</p>
             </div>
           </div>
           <div className="bg-[#3D8B68] rounded-2xl p-5 mb-8 text-white flex items-center gap-4">
             <span className="text-4xl">🎓</span>
             <div>
-              <p className="text-2xl font-bold">{((stats.totalPledged ?? 0) / 300).toFixed(1)}</p>
-              <p className="text-[#B7D9C6] text-sm mt-0.5">years of education funded by community pledges</p>
+              <p className="text-2xl font-bold">{(communityTotalSaved / 300).toFixed(1)}</p>
+              <p className="text-[#B7D9C6] text-sm mt-0.5">years of education that could be funded by community skips</p>
             </div>
           </div>
         </>

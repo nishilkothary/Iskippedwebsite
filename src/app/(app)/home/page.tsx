@@ -23,25 +23,25 @@ export default function HomePage() {
         <h1 className="text-2xl font-bold text-[#111827]">
           Hey, {profile.displayName.split(" ")[0]} 👋
         </h1>
-        <p className="text-[#6B7280] mt-1">Skip, save, pledge.</p>
+        <p className="text-[#6B7280] mt-1">Skip, save, impact.</p>
       </div>
 
       {/* Stats row */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mb-8">
         <div className="bg-white rounded-2xl p-5 shadow-sm border border-[#E5E7EB]">
-          <p className="text-xs text-[#6B7280] uppercase tracking-wide mb-1">Total Skipped</p>
+          <p className="text-xs text-[#6B7280] uppercase tracking-wide mb-1">Total Saved</p>
           <p className="text-2xl font-bold text-[#3D8B68]">{formatCurrency(profile.totalSaved)}</p>
         </div>
         <div className="bg-white rounded-2xl p-5 shadow-sm border border-[#E5E7EB]">
-          <p className="text-xs text-[#6B7280] uppercase tracking-wide mb-1">Personal Savings</p>
-          <p className="text-2xl font-bold text-[#3D8B68]">{formatCurrency(Math.max(0, profile.totalSaved - profile.totalDonated))}</p>
-        </div>
-        <div className="bg-white rounded-2xl p-5 shadow-sm border border-[#E5E7EB]">
-          <p className="text-xs text-[#6B7280] uppercase tracking-wide mb-1">Total Pledged</p>
+          <p className="text-xs text-[#6B7280] uppercase tracking-wide mb-1">Total Donated</p>
           <p className="text-2xl font-bold text-[#3D8B68]">{formatCurrency(profile.totalDonated)}</p>
         </div>
         <div className="bg-white rounded-2xl p-5 shadow-sm border border-[#E5E7EB]">
-          <p className="text-xs text-[#6B7280] uppercase tracking-wide mb-1">Skip Streak</p>
+          <p className="text-xs text-[#6B7280] uppercase tracking-wide mb-1">Total Skips</p>
+          <p className="text-2xl font-bold text-[#111827]">{profile.totalSkips}</p>
+        </div>
+        <div className="bg-white rounded-2xl p-5 shadow-sm border border-[#E5E7EB]">
+          <p className="text-xs text-[#6B7280] uppercase tracking-wide mb-1">Streak</p>
           <p className="text-2xl font-bold text-[#F59E0B]">🔥 {profile.streak}</p>
         </div>
       </div>

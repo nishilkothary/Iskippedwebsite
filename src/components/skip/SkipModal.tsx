@@ -9,7 +9,6 @@ import { recordDonation } from "@/lib/services/firebase/users";
 
 const CHILD_YEAR_COST = 300;
 
-type SplitPreset = "none" | "half" | "all" | "custom";
 
 interface Props {
   onClose: () => void;
@@ -28,58 +27,17 @@ export function SkipModal({ onClose }: Props) {
   const [whatSkipped, setWhatSkipped] = useState("");
   const [notes, setNotes] = useState("");
   const [shareWithCommunity, setShareWithCommunity] = useState(true);
-
-  const [pledgeAmount, setPledgeAmount] = useState(0);
-  const [pledgeStr, setPledgeStr] = useState("0");
-  const [splitPreset, setSplitPreset] = useState<SplitPreset>("none");
-
+  const [donateToo, setDonateToo] = useState(false);
+  const projectId = profile?.activeProjectId ?? projects[0]?.id ?? null;
   const [success, setSuccess] = useState(false);
-  const [successPledge, setSuccessPledge] = useState(0);
-  const [successAmount, setSuccessAmount] = useState(0);
   const [copied, setCopied] = useState(false);
   const [successProjectTitle, setSuccessProjectTitle] = useState<string | null>(null);
 
-  const projectId = profile?.activeProjectId ?? projects[0]?.id ?? null;
-
-  function applyPreset(preset: SplitPreset, currentAmount: number) {
-    setSplitPreset(preset);
-    let p = 0;
-    if (preset === "half") p = Math.round((currentAmount / 2) * 100) / 100;
-    else if (preset === "all") p = currentAmount;
-    setPledgeAmount(p);
-    setPledgeStr(String(p));
-  }
-
   function handleCatSelect(cat: typeof defaultCat) {
     setSelectedCat(cat);
-    const newAmt = cat.defaultAmount;
-    setAmount(newAmt);
-    setAmountStr(String(newAmt));
+    setAmount(cat.defaultAmount);
+    setAmountStr(String(cat.defaultAmount));
     setCustomLabel("");
-    applyPreset(splitPreset, newAmt);
-  }
-
-  function handleAmountChange(raw: string) {
-    if (raw === "" || /^\d*\.?\d{0,2}$/.test(raw)) {
-      setAmountStr(raw);
-      const v = parseFloat(raw);
-      if (!isNaN(v) && v > 0) {
-        setAmount(v);
-        applyPreset(splitPreset, v);
-      }
-    }
-  }
-
-  function handlePledgeInput(raw: string) {
-    if (raw === "" || /^\d*\.?\d{0,2}$/.test(raw)) {
-      setPledgeStr(raw);
-      const v = parseFloat(raw);
-      if (!isNaN(v)) {
-        const clamped = Math.min(v, amount);
-        setPledgeAmount(clamped);
-        setSplitPreset("custom");
-      }
-    }
   }
 
   async function handleSubmit() {
@@ -96,11 +54,9 @@ export function SkipModal({ onClose }: Props) {
       notes: notes || undefined,
     });
     if (result) {
-      if (pledgeAmount > 0 && projectId && selectedProject && profile?.uid) {
-        await recordDonation(profile.uid, pledgeAmount, projectId, selectedProject.title);
+      if (donateToo && projectId && selectedProject && profile?.uid) {
+        await recordDonation(profile.uid, amount, projectId, selectedProject.title);
       }
-      setSuccessPledge(pledgeAmount);
-      setSuccessAmount(amount);
       setSuccessProjectTitle(selectedProject?.title ?? null);
       setSuccess(true);
     }
@@ -116,10 +72,10 @@ export function SkipModal({ onClose }: Props) {
       "Love to see it. Keep skipping!",
     ];
     const encouragement = encouragements[Math.floor(Math.random() * encouragements.length)];
+
     const itemLabel = whatSkipped || customLabel || selectedCat.label.toLowerCase();
     const causeLabel = successProjectTitle || "Caring for Cambodia";
-    const shareText = `I skipped ${itemLabel} and saved ${formatCurrency(successAmount)} toward a child's education! Every skip makes a difference. Join the movement on Iskipped.com`;
-    const personalSavings = successAmount - successPledge;
+    const shareText = `I skipped ${itemLabel} and saved ${formatCurrency(amount)} toward a child's education! Every skip makes a difference. Join the movement on Iskipped.com`;
 
     return (
       <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4" onClick={onClose}>
@@ -127,18 +83,7 @@ export function SkipModal({ onClose }: Props) {
           <button onClick={onClose} className="absolute top-4 right-4 text-[#9CA3AF] hover:text-[#111827] text-2xl leading-none">×</button>
           <div className="text-6xl mb-3">🎉</div>
           <p className="text-2xl font-bold text-[#111827]">Great job!</p>
-
-          {successPledge > 0 ? (
-            <div className="mt-3 space-y-1">
-              <p className="text-[#3D8B68] font-bold text-lg">🌍 {formatCurrency(successPledge)} pledged to {causeLabel}</p>
-              {personalSavings > 0 && (
-                <p className="text-[#6B7280] font-medium">💰 {formatCurrency(personalSavings)} saved for you</p>
-              )}
-            </div>
-          ) : (
-            <p className="text-[#3D8B68] font-bold text-lg mt-1">💰 {formatCurrency(successAmount)} saved</p>
-          )}
-
+          <p className="text-[#3D8B68] font-bold text-lg mt-1">{formatCurrency(amount)} saved</p>
           <p className="text-[#6B7280] text-sm mt-2">{encouragement}</p>
           <div className="mt-5 text-left">
             <p className="text-xs text-[#6B7280] mb-1 uppercase tracking-wide">Share</p>
@@ -166,15 +111,11 @@ export function SkipModal({ onClose }: Props) {
     );
   }
 
-  const impactBase = pledgeAmount > 0 ? pledgeAmount : amount;
-  const pct = (impactBase / CHILD_YEAR_COST) * 100;
+  const pct = (amount / CHILD_YEAR_COST) * 100;
   const impactMessage =
     pct < 100
-      ? `${pledgeAmount > 0 ? "Your pledge" : "Your skip"} funds ${Math.round(pct)}% of a child's yearly education in Cambodia`
-      : `${pledgeAmount > 0 ? "Your pledge" : "Your skip"} could fund ${(impactBase / CHILD_YEAR_COST).toFixed(1)} years of a child's education in Cambodia`;
-
-  const activeProject = projects.find((p) => p.id === projectId);
-  const saveAmount = Math.max(0, Math.round((amount - pledgeAmount) * 100) / 100);
+      ? `Your skip funds ${Math.round(pct)}% of a child's yearly education in Cambodia`
+      : `Your skip could fund ${(amount / CHILD_YEAR_COST).toFixed(1)} years of a child's education in Cambodia`;
 
   return (
     <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4" onClick={onClose}>
@@ -203,19 +144,25 @@ export function SkipModal({ onClose }: Props) {
 
           {/* Amount */}
           <div>
-            <label className="block text-sm font-medium text-[#111827] mb-2">Amount saved</label>
+            <label className="block text-sm font-medium text-[#111827] mb-2">Amount skipped</label>
             <div className="flex items-center gap-2">
               <span className="text-2xl font-bold text-[#3D8B68]">$</span>
               <input
                 type="text"
                 inputMode="decimal"
                 value={amountStr}
-                onChange={(e) => handleAmountChange(e.target.value)}
+                onChange={(e) => {
+                  const raw = e.target.value;
+                  if (raw === "" || /^\d*\.?\d{0,2}$/.test(raw)) {
+                    setAmountStr(raw);
+                    const v = parseFloat(raw);
+                    if (!isNaN(v) && v > 0) setAmount(v);
+                  }
+                }}
                 onBlur={() => {
                   if (!amountStr || parseFloat(amountStr) <= 0) {
                     setAmount(0.01);
                     setAmountStr("0.01");
-                    applyPreset(splitPreset, 0.01);
                   }
                 }}
                 className="w-28 text-2xl font-bold text-[#3D8B68] border-b-2 border-[#3D8B68] focus:outline-none bg-transparent"
@@ -227,49 +174,6 @@ export function SkipModal({ onClose }: Props) {
               </span>
             </div>
           </div>
-
-          {/* Pledge split */}
-          {activeProject && (
-            <div className="bg-[#F9FAFB] rounded-2xl p-4 border border-[#E5E7EB]">
-              <p className="text-sm font-semibold text-[#111827] mb-3">Pledge to {activeProject.title}</p>
-
-              {/* Preset pills */}
-              <div className="flex items-center gap-2 mb-3">
-                {(["none", "half", "all"] as SplitPreset[]).map((preset) => (
-                  <button
-                    key={preset}
-                    onClick={() => applyPreset(preset, amount)}
-                    className={`flex-1 py-2 rounded-xl text-sm font-semibold transition-all capitalize ${
-                      splitPreset === preset
-                        ? "bg-[#3D8B68] text-white"
-                        : "bg-white border border-[#E5E7EB] text-[#6B7280] hover:border-[#3D8B68]/50"
-                    }`}
-                  >
-                    {preset === "none" ? "None" : preset === "half" ? "Half" : "All"}
-                  </button>
-                ))}
-                <div className="flex items-center gap-1 flex-1">
-                  <span className="text-sm text-[#6B7280]">$</span>
-                  <input
-                    type="text"
-                    inputMode="decimal"
-                    value={pledgeStr}
-                    onChange={(e) => handlePledgeInput(e.target.value)}
-                    placeholder="0"
-                    className={`w-full border rounded-xl px-2 py-2 text-sm text-center font-semibold focus:outline-none focus:ring-2 focus:ring-[#3D8B68]/30 ${
-                      splitPreset === "custom" ? "border-[#3D8B68] bg-white" : "border-[#E5E7EB] bg-white"
-                    }`}
-                  />
-                </div>
-              </div>
-
-              {/* Split summary */}
-              <div className="flex justify-between text-sm">
-                <span className="text-[#3D8B68] font-medium">🌍 To Cambodia: <strong>{formatCurrency(pledgeAmount)}</strong></span>
-                <span className="text-[#6B7280] font-medium">💰 To you: <strong>{formatCurrency(saveAmount)}</strong></span>
-              </div>
-            </div>
-          )}
 
           {/* Categories */}
           <div>
@@ -325,6 +229,22 @@ export function SkipModal({ onClose }: Props) {
             </div>
             <span className="text-sm text-[#111827]">Share with community</span>
           </label>
+
+          {/* Donate too toggle — only shown when user has an active cause */}
+          {projectId && projects.find((p) => p.id === projectId) && (
+            <div
+              onClick={() => setDonateToo((v) => !v)}
+              className={`flex items-center gap-3 cursor-pointer rounded-xl px-4 py-3 border transition-all ${donateToo ? "border-[#3D8B68] bg-[#E4F0E8]" : "border-[#E5E7EB] bg-white"}`}
+            >
+              <div className={`w-11 h-6 rounded-full transition-colors relative flex-shrink-0 ${donateToo ? "bg-[#3D8B68]" : "bg-[#E5E7EB]"}`}>
+                <span className={`absolute top-0.5 left-0.5 w-5 h-5 rounded-full bg-white shadow transition-transform ${donateToo ? "translate-x-5" : ""}`} />
+              </div>
+              <div>
+                <p className="text-sm font-medium text-[#111827]">🌍 Donate this now</p>
+                <p className="text-xs text-[#6B7280]">Also log {formatCurrency(amount)} as a donation to {projects.find((p) => p.id === projectId)?.title}</p>
+              </div>
+            </div>
+          )}
         </div>
 
         {/* Submit */}
@@ -334,11 +254,7 @@ export function SkipModal({ onClose }: Props) {
             disabled={isLogging}
             className="w-full bg-[#3D8B68] hover:bg-[#2D6A4F] text-white font-bold py-4 rounded-xl text-base transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
           >
-            {isLogging
-              ? "Saving…"
-              : pledgeAmount > 0
-              ? `Skip & Pledge ${formatCurrency(pledgeAmount)} to Cambodia`
-              : `Skip ${formatCurrency(amount)}`}
+            {isLogging ? "Saving…" : `Skip ${formatCurrency(amount)}`}
           </button>
         </div>
       </div>
