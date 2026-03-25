@@ -5,7 +5,7 @@ import { getAuth } from "firebase/auth";
 
 const firebaseConfig = {
   apiKey: "AIzaSyDrI00uOoNLgAFrv92aRHPXQzPlzQkMvfo",
-  authDomain: "iskip-54034.firebaseapp.com",
+  authDomain: "iskipped.com",
   databaseURL: "https://iskip-54034-default-rtdb.firebaseio.com",
   projectId: "iskip-54034",
   storageBucket: "iskip-54034.firebasestorage.app",
