@@ -18,7 +18,7 @@ interface Props {
 export function SkipModal({ onClose }: Props) {
   const { log, isLogging } = useSkips();
   const { projects } = useProjects();
-  const { profile } = useAuthStore();
+  const { profile, updateProfile } = useAuthStore();
 
   const defaultCat = SKIP_CATEGORIES[0];
   const [selectedCat, setSelectedCat] = useState(defaultCat);
@@ -98,6 +98,7 @@ export function SkipModal({ onClose }: Props) {
     if (result) {
       if (pledgeAmount > 0 && projectId && selectedProject && profile?.uid) {
         await recordDonation(profile.uid, pledgeAmount, projectId, selectedProject.title);
+        updateProfile({ totalDonated: (profile.totalDonated ?? 0) + pledgeAmount });
       }
       setSuccessPledge(pledgeAmount);
       setSuccessAmount(amount);
@@ -174,7 +175,6 @@ export function SkipModal({ onClose }: Props) {
       : `${pledgeAmount > 0 ? "Your pledge" : "Your skip"} could fund ${(impactBase / CHILD_YEAR_COST).toFixed(1)} years of a child's education in Cambodia`;
 
   const activeProject = projects.find((p) => p.id === projectId);
-  const saveAmount = Math.max(0, Math.round((amount - pledgeAmount) * 100) / 100);
 
   return (
     <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4" onClick={onClose}>
@@ -221,17 +221,12 @@ export function SkipModal({ onClose }: Props) {
                 className="w-28 text-2xl font-bold text-[#3D8B68] border-b-2 border-[#3D8B68] focus:outline-none bg-transparent"
               />
             </div>
-            <div className="flex justify-center mt-3">
-              <span className="inline-flex items-center gap-1.5 bg-[#E4F0E8] text-[#3D8B68] text-xs font-semibold px-3 py-1.5 rounded-full">
-                🌱 {impactMessage}
-              </span>
-            </div>
           </div>
 
           {/* Pledge split */}
           {activeProject && (
             <div className="bg-[#F9FAFB] rounded-2xl p-4 border border-[#E5E7EB]">
-              <p className="text-sm font-semibold text-[#111827] mb-3">Pledge to {activeProject.title}</p>
+              <p className="text-sm font-semibold text-[#111827] mb-3">Pledge to Caring for Cambodia</p>
 
               {/* Preset pills */}
               <div className="flex items-center gap-2 mb-3">
@@ -263,11 +258,14 @@ export function SkipModal({ onClose }: Props) {
                 </div>
               </div>
 
-              {/* Split summary */}
-              <div className="flex justify-between text-sm">
-                <span className="text-[#3D8B68] font-medium">🌍 To Cambodia: <strong>{formatCurrency(pledgeAmount)}</strong></span>
-                <span className="text-[#6B7280] font-medium">💰 To you: <strong>{formatCurrency(saveAmount)}</strong></span>
-              </div>
+              {/* Impact badge — only when pledging */}
+              {pledgeAmount > 0 && (
+                <div className="flex justify-center">
+                  <span className="inline-flex items-center gap-1.5 bg-[#E4F0E8] text-[#3D8B68] text-xs font-semibold px-3 py-1.5 rounded-full">
+                    🌱 {impactMessage}
+                  </span>
+                </div>
+              )}
             </div>
           )}
 
