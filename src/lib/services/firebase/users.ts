@@ -40,6 +40,8 @@ export async function createOrUpdateUser(user: User): Promise<void> {
       followersCount: 0,
       lastSkipDate: null,
       favoriteCauseIds: [],
+      jarSplit: { giving: 34, spending: 33, savings: 33 },
+      spendingGoal: null,
       createdAt: serverTimestamp(),
     };
     await setDoc(ref, profile);
@@ -56,6 +58,14 @@ export async function updateUserStats(
   updates: Partial<UserProfile>
 ): Promise<void> {
   await updateDoc(doc(db, "users", uid), updates);
+}
+
+export async function updateJarSettings(
+  uid: string,
+  jarSplit: { giving: number; spending: number; savings: number },
+  spendingGoal: { label: string; targetAmount: number } | null
+): Promise<void> {
+  await updateDoc(doc(db, "users", uid), { jarSplit, spendingGoal });
 }
 
 export async function setActiveProject(uid: string, projectId: string | null): Promise<void> {

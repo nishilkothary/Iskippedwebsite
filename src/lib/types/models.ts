@@ -20,6 +20,8 @@ export interface UserProfile {
   lastSkipDate: string | null; // YYYY-MM-DD
   favoriteCauseIds: string[];
   causeStats?: Record<string, { donated: number }>;
+  jarSplit?: { giving: number; spending: number; savings: number };
+  spendingGoal?: { label: string; targetAmount: number } | null;
 }
 
 export interface SkipCategory {
