@@ -21,7 +21,7 @@ export interface UserProfile {
   favoriteCauseIds: string[];
   causeStats?: Record<string, { donated: number }>;
   jarSplit?: { giving: number; spending: number; savings: number };
-  spendingGoal?: { label: string; targetAmount: number } | null;
+  spendingGoal?: { label: string; targetAmount: number; shoppingLink?: string } | null;
   totalSpent?: number;
 }
 
@@ -59,6 +59,7 @@ export interface Project {
   imageURL: string | null;
   donationURL: string | null;
   isCustom: boolean;
+  impactPer100?: string; // e.g. "121 days of a child's education"
   createdBy: string | null; // uid for custom causes
   tags: string[];
 }

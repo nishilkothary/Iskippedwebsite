@@ -1,6 +1,7 @@
 "use client";
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 import { useAuthStore } from "@/store/authStore";
 import { useSkips } from "@/hooks/useSkips";
 import { useUIStore } from "@/store/uiStore";
@@ -110,17 +111,28 @@ export default function HomePage() {
       <div className="grid grid-cols-3 gap-3 mb-6">
 
         {/* Giving Jar */}
-        <div className="bg-white rounded-2xl p-4 border border-[#E5E7EB] shadow-sm flex flex-col items-center text-center">
+        <Link href="/jars?tab=cause" className="bg-white rounded-2xl p-4 border border-[#E5E7EB] shadow-sm flex flex-col items-center text-center hover:border-[#3D8B68]/40 transition-colors">
           <p className="text-xs font-bold text-[#6B7280] uppercase tracking-wide mb-2">🌍 Giving</p>
-          <Jar fillPct={givingFillPct} color="bg-[#3D8B68]" emptyColor="bg-[#F9FAFB]" />
-          <p className="text-[#3D8B68] font-bold text-sm mt-3">{formatCurrency(givingBalance)}</p>
-          <p className="text-[#6B7280] text-xs mt-1 leading-tight">{givingImpact(givingBalance)}<br />funded</p>
-        </div>
+          {profile.activeProjectId ? (
+            <>
+              <Jar fillPct={givingFillPct} color="bg-[#3D8B68]" emptyColor="bg-[#F9FAFB]" />
+              <p className="text-[#3D8B68] font-bold text-sm mt-3">{formatCurrency(givingBalance)}</p>
+              <p className="text-[#6B7280] text-xs mt-1 leading-tight">{givingImpact(givingBalance)}<br />funded</p>
+            </>
+          ) : (
+            <>
+              <div className="w-16 h-24 mx-auto flex items-center justify-center">
+                <span className="text-3xl opacity-30">🌍</span>
+              </div>
+              <p className="text-[#3D8B68] text-xs font-semibold mt-3">Pick a cause →</p>
+            </>
+          )}
+        </Link>
 
         {/* Spending Jar */}
         <div
           className="bg-white rounded-2xl p-4 border border-[#E5E7EB] shadow-sm flex flex-col items-center text-center cursor-pointer hover:border-[#8B5CF6]/40 transition-colors"
-          onClick={() => !spendingGoal && router.push("/jars")}
+          onClick={() => !spendingGoal && router.push("/jars?tab=splurge")}
         >
           <p className="text-xs font-bold text-[#6B7280] uppercase tracking-wide mb-2">🛍️ Spending</p>
           {spendingGoal ? (
@@ -134,7 +146,7 @@ export default function HomePage() {
               <div className="w-16 h-24 mx-auto flex items-center justify-center">
                 <span className="text-3xl opacity-30">🛍️</span>
               </div>
-              <p className="text-[#3D8B68] text-xs font-semibold mt-3">Set a goal →</p>
+              <p className="text-[#3D8B68] text-xs font-semibold mt-3">Pick your splurge →</p>
             </>
           )}
         </div>

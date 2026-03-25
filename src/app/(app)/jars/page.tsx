@@ -1,5 +1,6 @@
 "use client";
-import { useEffect, useState } from "react";
+import { useEffect, useState, Suspense } from "react";
+import { useSearchParams } from "next/navigation";
 import { useAuthStore } from "@/store/authStore";
 import { useSkips } from "@/hooks/useSkips";
 import { useProjects } from "@/hooks/useProjects";
@@ -27,7 +28,13 @@ function givingImpact(amount: number): string {
   return `${years.toFixed(1)} years of education`;
 }
 
-export default function JarsPage() {
+type Tab = "cause" | "splurge" | "split";
+
+function JarsPageInner() {
+  const searchParams = useSearchParams();
+  const initialTab = (searchParams.get("tab") as Tab) ?? "cause";
+  const [activeTab, setActiveTab] = useState<Tab>(initialTab);
+
   const { user, profile, updateProfile } = useAuthStore();
   const { donate, donations, editDonation, deleteDonation } = useSkips();
   const { projects } = useProjects();
@@ -47,7 +54,6 @@ export default function JarsPage() {
   const givingBalance = Math.max(0, givingTotal - (profile.totalDonated ?? 0));
   const spendingBalance = Math.max(0, spendingTotal - (profile.totalSpent ?? 0));
 
-  // Resolve the active cause from projects (falls back to first project)
   const activeProject = projects.find((p) => p.id === profile.activeProjectId) ?? projects[0] ?? null;
 
   async function handleSelectCause(project: Project) {
@@ -55,68 +61,101 @@ export default function JarsPage() {
     updateProfile({ activeProjectId: project.id });
   }
 
+  const tabs: { id: Tab; label: string; emoji: string }[] = [
+    { id: "cause",   label: "Cause",   emoji: "🌍" },
+    { id: "splurge", label: "Splurge", emoji: "🛍️" },
+    { id: "split",   label: "Split",   emoji: "⚙️" },
+  ];
+
   return (
     <div className="p-4 md:p-8 max-w-2xl mx-auto pb-20 md:pb-8">
-      <h1 className="text-2xl font-bold text-[#111827] mb-8">My Jars</h1>
+      <h1 className="text-2xl font-bold text-[#111827] mb-5">My Jars</h1>
 
-      {/* Giving Jar */}
-      <GivingSection
-        givingBalance={givingBalance}
-        totalDonated={profile.totalDonated}
-        donations={donations}
-        activeProject={activeProject}
-        projects={projects}
-        onSelectCause={handleSelectCause}
-        onDonate={(amount) =>
-          donate(amount, activeProject?.id ?? "giving", activeProject?.title ?? "Giving")
-        }
-        onEditDonation={editDonation}
-        onDeleteDonation={deleteDonation}
-      />
+      {/* Tab row */}
+      <div className="flex gap-2 mb-6 bg-[#F3F4F6] p-1 rounded-xl">
+        {tabs.map((t) => (
+          <button
+            key={t.id}
+            onClick={() => setActiveTab(t.id)}
+            className={`flex-1 py-2 text-sm font-semibold rounded-lg transition-colors ${
+              activeTab === t.id
+                ? "bg-white text-[#111827] shadow-sm"
+                : "text-[#6B7280] hover:text-[#111827]"
+            }`}
+          >
+            {t.emoji} {t.label}
+          </button>
+        ))}
+      </div>
 
-      {/* Spending Jar */}
-      <SpendingSection
-        uid={user.uid}
-        spendingBalance={spendingBalance}
-        spendingGoal={profile.spendingGoal ?? null}
-        spendingHistory={spendingHistory}
-        totalSpent={profile.totalSpent ?? 0}
-        onPurchased={(label, targetAmount, amountSaved) => {
-          updateProfile({ spendingGoal: null, totalSpent: (profile.totalSpent ?? 0) + amountSaved });
-          return completePurchase(user.uid, label, targetAmount, amountSaved);
-        }}
-        onGoalSaved={(goal) => {
-          updateProfile({ spendingGoal: goal });
-          return updateJarSettings(user.uid, split, goal);
-        }}
-        onEditHistory={(event, newAmount) => {
-          updateProfile({ totalSpent: (profile.totalSpent ?? 0) + (newAmount - event.amountSaved) });
-          return updateSpendingHistory(user.uid, event.id, newAmount, event.amountSaved);
-        }}
-        onDeleteHistory={(event) => {
-          updateProfile({ totalSpent: (profile.totalSpent ?? 0) - event.amountSaved });
-          return deleteSpendingHistory(user.uid, event.id, event.amountSaved);
-        }}
-      />
+      {activeTab === "cause" && (
+        <CauseTab
+          givingBalance={givingBalance}
+          totalDonated={profile.totalDonated}
+          donations={donations}
+          projects={projects}
+          activeProject={activeProject}
+          onSelectCause={handleSelectCause}
+          onDonate={(amount) =>
+            donate(amount, activeProject?.id ?? "giving", activeProject?.title ?? "Giving")
+          }
+          onEditDonation={editDonation}
+          onDeleteDonation={deleteDonation}
+        />
+      )}
 
-      {/* Jar Split */}
-      <JarSplitSection
-        uid={user.uid}
-        initialSplit={split}
-        spendingGoal={profile.spendingGoal ?? null}
-        onSave={(newSplit) => updateProfile({ jarSplit: newSplit })}
-      />
+      {activeTab === "splurge" && (
+        <SplurgeTab
+          uid={user.uid}
+          spendingBalance={spendingBalance}
+          spendingGoal={profile.spendingGoal ?? null}
+          spendingHistory={spendingHistory}
+          onPurchased={(label, targetAmount, amountSaved) => {
+            updateProfile({ spendingGoal: null, totalSpent: (profile.totalSpent ?? 0) + amountSaved });
+            return completePurchase(user.uid, label, targetAmount, amountSaved);
+          }}
+          onGoalSaved={(goal) => {
+            updateProfile({ spendingGoal: goal });
+            return updateJarSettings(user.uid, split, goal);
+          }}
+          onEditHistory={(event, newAmount) => {
+            updateProfile({ totalSpent: (profile.totalSpent ?? 0) + (newAmount - event.amountSaved) });
+            return updateSpendingHistory(user.uid, event.id, newAmount, event.amountSaved);
+          }}
+          onDeleteHistory={(event) => {
+            updateProfile({ totalSpent: (profile.totalSpent ?? 0) - event.amountSaved });
+            return deleteSpendingHistory(user.uid, event.id, event.amountSaved);
+          }}
+        />
+      )}
+
+      {activeTab === "split" && (
+        <JarSplitSection
+          uid={user.uid}
+          initialSplit={split}
+          spendingGoal={profile.spendingGoal ?? null}
+          onSave={(newSplit) => updateProfile({ jarSplit: newSplit })}
+        />
+      )}
     </div>
   );
 }
 
-/* ── Giving Section ── */
-function GivingSection({
+export default function JarsPage() {
+  return (
+    <Suspense>
+      <JarsPageInner />
+    </Suspense>
+  );
+}
+
+/* ── Cause Tab ── */
+function CauseTab({
   givingBalance,
   totalDonated,
   donations,
-  activeProject,
   projects,
+  activeProject,
   onSelectCause,
   onDonate,
   onEditDonation,
@@ -125,8 +164,8 @@ function GivingSection({
   givingBalance: number;
   totalDonated: number;
   donations: DonationEvent[];
-  activeProject: Project | null;
   projects: Project[];
+  activeProject: Project | null;
   onSelectCause: (p: Project) => void;
   onDonate: (amount: number) => Promise<void>;
   onEditDonation: (donation: DonationEvent, newAmount: number) => Promise<void>;
@@ -167,174 +206,161 @@ function GivingSection({
   }
 
   return (
-    <div className="bg-white rounded-2xl p-6 border border-[#E5E7EB] shadow-sm mb-6">
-      {/* Cause header + picker */}
-      <h2 className="text-base font-bold text-[#111827] mb-1">
-        🌍 Giving{activeProject ? ` — ${activeProject.title}` : ""}
-      </h2>
-      {activeProject && (
-        <p className="text-xs text-[#6B7280] mb-3">
-          {activeProject.description?.slice(0, 100) ||
-            "Every dollar funds a child's education in rural Cambodia."}
-        </p>
-      )}
-
-      {/* Cause selector — only shown when multiple causes exist */}
-      {projects.length > 1 && (
-        <div className="flex gap-2 overflow-x-auto pb-2 mb-4 -mx-1 px-1">
-          {projects.map((p) => (
-            <button
-              key={p.id}
-              onClick={() => onSelectCause(p)}
-              className={`flex-shrink-0 px-3 py-1.5 rounded-full text-xs font-semibold border transition-colors ${
-                activeProject?.id === p.id
-                  ? "bg-[#3D8B68] border-[#3D8B68] text-white"
-                  : "border-[#E5E7EB] text-[#6B7280] hover:border-[#3D8B68]/50 hover:text-[#3D8B68]"
-              }`}
-            >
-              {p.title}
-            </button>
-          ))}
-        </div>
-      )}
-
-      <div className="flex items-center justify-between bg-[#F0FAF5] rounded-xl px-4 py-3 mb-4">
-        <div>
-          <p className="text-2xl font-bold text-[#3D8B68]">{formatCurrency(givingBalance)}</p>
-          <p className="text-xs text-[#6B7280]">{givingImpact(givingBalance)} ready to fund</p>
-        </div>
-        <div className="text-right">
-          <p className="text-sm font-semibold text-[#6B7280]">{formatCurrency(totalDonated)}</p>
-          <p className="text-xs text-[#9CA3AF]">donated total</p>
+    <div className="space-y-5">
+      {/* Cause list */}
+      <div>
+        <p className="text-sm font-semibold text-[#111827] mb-3">Choose your cause</p>
+        <div className="space-y-3">
+          {projects.map((project) => {
+            const isActive = activeProject?.id === project.id;
+            const impact = project.impactPer100 ?? givingImpact(100);
+            return (
+              <div
+                key={project.id}
+                className={`bg-white rounded-2xl p-4 border shadow-sm transition-colors ${
+                  isActive ? "border-[#3D8B68]" : "border-[#E5E7EB]"
+                }`}
+              >
+                <div className="flex items-start justify-between gap-3">
+                  <div className="flex-1 min-w-0">
+                    <p className="font-semibold text-[#111827] text-sm">{project.title}</p>
+                    <p className="text-xs text-[#6B7280] mt-0.5 line-clamp-2">{project.description}</p>
+                    <div className="mt-2 inline-flex items-center gap-1.5 bg-[#E4F0E8] text-[#3D8B68] text-xs font-semibold px-2.5 py-1 rounded-full">
+                      💡 $100 gets you {impact}
+                    </div>
+                  </div>
+                  <div className="flex-shrink-0">
+                    {isActive ? (
+                      <span className="inline-flex items-center gap-1 text-xs font-semibold text-[#3D8B68] bg-[#E4F0E8] px-2.5 py-1 rounded-full">
+                        ✓ Active
+                      </span>
+                    ) : (
+                      <button
+                        onClick={() => onSelectCause(project)}
+                        className="text-xs font-semibold text-[#6B7280] border border-[#E5E7EB] px-3 py-1.5 rounded-full hover:border-[#3D8B68] hover:text-[#3D8B68] transition-colors"
+                      >
+                        Select
+                      </button>
+                    )}
+                  </div>
+                </div>
+              </div>
+            );
+          })}
         </div>
       </div>
 
-      {showInput ? (
-        <div className="flex gap-2 mb-2">
-          <div className="relative flex-1">
-            <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-[#6B7280]">$</span>
-            <input
-              type="number"
-              placeholder="0.00"
-              value={amountStr}
-              onChange={(e) => setAmountStr(e.target.value)}
-              className="w-full pl-7 border border-[#E5E7EB] rounded-xl px-3 py-2.5 text-sm text-[#111827] focus:outline-none focus:ring-2 focus:ring-[#3D8B68]/30"
-              autoFocus
-            />
-          </div>
-          <button
-            onClick={handleDonate}
-            disabled={saving || !amountStr || parseFloat(amountStr) <= 0}
-            className="bg-[#3D8B68] text-white font-semibold px-4 py-2.5 rounded-xl text-sm disabled:opacity-50"
-          >
-            {saving ? "Saving…" : "Confirm"}
-          </button>
-          <button
-            onClick={() => { setShowInput(false); setAmountStr(""); }}
-            className="text-[#9CA3AF] hover:text-[#111827] px-3 py-2.5 rounded-xl border border-[#E5E7EB] text-sm"
-          >
-            Cancel
-          </button>
-        </div>
-      ) : (
-        <button
-          onClick={() => setShowInput(true)}
-          className="w-full py-2.5 border border-[#3D8B68] text-[#3D8B68] font-semibold rounded-xl hover:bg-[#E4F0E8] transition-colors text-sm"
-        >
-          💸 I Donated
-        </button>
-      )}
+      {/* Giving balance + donate */}
+      <div className="bg-white rounded-2xl p-6 border border-[#E5E7EB] shadow-sm">
+        <h2 className="text-base font-bold text-[#111827] mb-3">
+          🌍 {activeProject?.title ?? "Giving Jar"}
+        </h2>
 
-      {donations.length > 0 && (
-        <div className="mt-4">
-          <p className="text-xs font-semibold text-[#6B7280] uppercase tracking-wide mb-2">Donation History</p>
-          <div className="space-y-1">
-            {donations.slice(0, 10).map((d) => (
-              <div key={d.id}>
-                {editingId === d.id ? (
-                  <div className="flex gap-2 py-1.5">
-                    <div className="relative flex-1">
-                      <span className="absolute left-3 top-1/2 -translate-y-1/2 text-xs text-[#6B7280]">$</span>
-                      <input
-                        type="number"
-                        value={editAmountStr}
-                        onChange={(e) => setEditAmountStr(e.target.value)}
-                        className="w-full pl-6 border border-[#3D8B68] rounded-lg px-2 py-1.5 text-sm text-[#111827] focus:outline-none"
-                        autoFocus
-                      />
-                    </div>
-                    <button
-                      onClick={() => handleEditConfirm(d)}
-                      disabled={working}
-                      className="text-xs bg-[#3D8B68] text-white px-3 py-1.5 rounded-lg disabled:opacity-50"
-                    >
-                      {working ? "…" : "Save"}
-                    </button>
-                    <button
-                      onClick={() => setEditingId(null)}
-                      className="text-xs border border-[#E5E7EB] text-[#6B7280] px-3 py-1.5 rounded-lg"
-                    >
-                      Cancel
-                    </button>
-                  </div>
-                ) : deletingId === d.id ? (
-                  <div className="flex items-center justify-between bg-red-50 rounded-lg px-3 py-2">
-                    <p className="text-xs text-red-600">Delete {formatCurrency(d.amount)}?</p>
-                    <div className="flex gap-2">
-                      <button
-                        onClick={() => handleDeleteConfirm(d)}
-                        disabled={working}
-                        className="text-xs bg-red-500 text-white px-3 py-1 rounded-lg disabled:opacity-50"
-                      >
-                        {working ? "…" : "Delete"}
-                      </button>
-                      <button
-                        onClick={() => setDeletingId(null)}
-                        className="text-xs border border-[#E5E7EB] text-[#6B7280] px-3 py-1 rounded-lg"
-                      >
-                        Cancel
-                      </button>
-                    </div>
-                  </div>
-                ) : (
-                  <div className="flex items-center justify-between py-1.5">
-                    <div>
-                      <p className="text-sm text-[#111827]">{d.causeTitle}</p>
-                      <p className="text-xs text-[#9CA3AF]">
-                        {d.donatedAt?.toDate ? formatRelativeTime(d.donatedAt.toDate()) : ""}
-                      </p>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <p className="text-sm font-semibold text-[#3D8B68]">{formatCurrency(d.amount)}</p>
-                      <button
-                        onClick={() => { setEditingId(d.id); setEditAmountStr(String(d.amount)); }}
-                        className="text-[#9CA3AF] hover:text-[#3D8B68] text-base p-1"
-                        title="Edit"
-                      >✏️</button>
-                      <button
-                        onClick={() => setDeletingId(d.id)}
-                        className="text-[#9CA3AF] hover:text-red-500 text-base p-1"
-                        title="Delete"
-                      >🗑️</button>
-                    </div>
-                  </div>
-                )}
-              </div>
-            ))}
+        <div className="flex items-center justify-between bg-[#F0FAF5] rounded-xl px-4 py-3 mb-4">
+          <div>
+            <p className="text-2xl font-bold text-[#3D8B68]">{formatCurrency(givingBalance)}</p>
+            <p className="text-xs text-[#6B7280]">{givingImpact(givingBalance)} ready to fund</p>
+          </div>
+          <div className="text-right">
+            <p className="text-sm font-semibold text-[#6B7280]">{formatCurrency(totalDonated)}</p>
+            <p className="text-xs text-[#9CA3AF]">donated total</p>
           </div>
         </div>
-      )}
+
+        {showInput ? (
+          <div className="flex gap-2 mb-2">
+            <div className="relative flex-1">
+              <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-[#6B7280]">$</span>
+              <input
+                type="number"
+                placeholder="0.00"
+                value={amountStr}
+                onChange={(e) => setAmountStr(e.target.value)}
+                className="w-full pl-7 border border-[#E5E7EB] rounded-xl px-3 py-2.5 text-sm text-[#111827] focus:outline-none focus:ring-2 focus:ring-[#3D8B68]/30"
+                autoFocus
+              />
+            </div>
+            <button
+              onClick={handleDonate}
+              disabled={saving || !amountStr || parseFloat(amountStr) <= 0}
+              className="bg-[#3D8B68] text-white font-semibold px-4 py-2.5 rounded-xl text-sm disabled:opacity-50"
+            >
+              {saving ? "Saving…" : "Confirm"}
+            </button>
+            <button
+              onClick={() => { setShowInput(false); setAmountStr(""); }}
+              className="text-[#9CA3AF] hover:text-[#111827] px-3 py-2.5 rounded-xl border border-[#E5E7EB] text-sm"
+            >
+              Cancel
+            </button>
+          </div>
+        ) : (
+          <button
+            onClick={() => setShowInput(true)}
+            className="w-full py-2.5 border border-[#3D8B68] text-[#3D8B68] font-semibold rounded-xl hover:bg-[#E4F0E8] transition-colors text-sm"
+          >
+            💸 I Donated
+          </button>
+        )}
+
+        {donations.length > 0 && (
+          <div className="mt-4">
+            <p className="text-xs font-semibold text-[#6B7280] uppercase tracking-wide mb-2">Donation History</p>
+            <div className="space-y-1">
+              {donations.slice(0, 10).map((d) => (
+                <div key={d.id}>
+                  {editingId === d.id ? (
+                    <div className="flex gap-2 py-1.5">
+                      <div className="relative flex-1">
+                        <span className="absolute left-3 top-1/2 -translate-y-1/2 text-xs text-[#6B7280]">$</span>
+                        <input
+                          type="number"
+                          value={editAmountStr}
+                          onChange={(e) => setEditAmountStr(e.target.value)}
+                          className="w-full pl-6 border border-[#3D8B68] rounded-lg px-2 py-1.5 text-sm text-[#111827] focus:outline-none"
+                          autoFocus
+                        />
+                      </div>
+                      <button onClick={() => handleEditConfirm(d)} disabled={working} className="text-xs bg-[#3D8B68] text-white px-3 py-1.5 rounded-lg disabled:opacity-50">{working ? "…" : "Save"}</button>
+                      <button onClick={() => setEditingId(null)} className="text-xs border border-[#E5E7EB] text-[#6B7280] px-3 py-1.5 rounded-lg">Cancel</button>
+                    </div>
+                  ) : deletingId === d.id ? (
+                    <div className="flex items-center justify-between bg-red-50 rounded-lg px-3 py-2">
+                      <p className="text-xs text-red-600">Delete {formatCurrency(d.amount)}?</p>
+                      <div className="flex gap-2">
+                        <button onClick={() => handleDeleteConfirm(d)} disabled={working} className="text-xs bg-red-500 text-white px-3 py-1 rounded-lg disabled:opacity-50">{working ? "…" : "Delete"}</button>
+                        <button onClick={() => setDeletingId(null)} className="text-xs border border-[#E5E7EB] text-[#6B7280] px-3 py-1 rounded-lg">Cancel</button>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="flex items-center justify-between py-1.5">
+                      <div>
+                        <p className="text-sm text-[#111827]">{d.causeTitle}</p>
+                        <p className="text-xs text-[#9CA3AF]">{d.donatedAt?.toDate ? formatRelativeTime(d.donatedAt.toDate()) : ""}</p>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <p className="text-sm font-semibold text-[#3D8B68]">{formatCurrency(d.amount)}</p>
+                        <button onClick={() => { setEditingId(d.id); setEditAmountStr(String(d.amount)); }} className="text-[#9CA3AF] hover:text-[#3D8B68] text-base p-1">✏️</button>
+                        <button onClick={() => setDeletingId(d.id)} className="text-[#9CA3AF] hover:text-red-500 text-base p-1">🗑️</button>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+      </div>
     </div>
   );
 }
 
-/* ── Spending Section ── */
-function SpendingSection({
+/* ── Splurge Tab ── */
+function SplurgeTab({
   uid,
   spendingBalance,
   spendingGoal,
   spendingHistory,
-  totalSpent,
   onPurchased,
   onGoalSaved,
   onEditHistory,
@@ -342,11 +368,10 @@ function SpendingSection({
 }: {
   uid: string;
   spendingBalance: number;
-  spendingGoal: { label: string; targetAmount: number } | null;
+  spendingGoal: { label: string; targetAmount: number; shoppingLink?: string } | null;
   spendingHistory: SpendingHistoryEvent[];
-  totalSpent: number;
   onPurchased: (label: string, targetAmount: number, amountSaved: number) => Promise<void>;
-  onGoalSaved: (goal: { label: string; targetAmount: number }) => Promise<void>;
+  onGoalSaved: (goal: { label: string; targetAmount: number; shoppingLink?: string }) => Promise<void>;
   onEditHistory: (event: SpendingHistoryEvent, newAmount: number) => Promise<void>;
   onDeleteHistory: (event: SpendingHistoryEvent) => Promise<void>;
 }) {
@@ -354,6 +379,7 @@ function SpendingSection({
   const [purchasing, setPurchasing] = useState(false);
   const [goalLabel, setGoalLabel] = useState("");
   const [goalAmount, setGoalAmount] = useState("");
+  const [goalLink, setGoalLink] = useState("");
   const [savingGoal, setSavingGoal] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editAmountStr, setEditAmountStr] = useState("");
@@ -376,9 +402,15 @@ function SpendingSection({
     const amount = parseFloat(goalAmount);
     if (!goalLabel || !amount || amount <= 0) return;
     setSavingGoal(true);
-    await onGoalSaved({ label: goalLabel, targetAmount: amount });
+    const goal: { label: string; targetAmount: number; shoppingLink?: string } = {
+      label: goalLabel,
+      targetAmount: amount,
+    };
+    if (goalLink.trim()) goal.shoppingLink = goalLink.trim();
+    await onGoalSaved(goal);
     setGoalLabel("");
     setGoalAmount("");
+    setGoalLink("");
     setSavingGoal(false);
   }
 
@@ -399,12 +431,12 @@ function SpendingSection({
   }
 
   return (
-    <div className="bg-white rounded-2xl p-6 border border-[#E5E7EB] shadow-sm mb-6">
-      <h2 className="text-base font-bold text-[#111827] mb-4">🛍️ Spending Goal</h2>
+    <div className="bg-white rounded-2xl p-6 border border-[#E5E7EB] shadow-sm space-y-4">
+      <h2 className="text-base font-bold text-[#111827]">🛍️ Splurge Goal</h2>
 
       {spendingGoal ? (
         <>
-          <div className="bg-[#F5F3FF] rounded-xl px-4 py-3 mb-4">
+          <div className="bg-[#F5F3FF] rounded-xl px-4 py-3">
             <div className="flex items-center justify-between mb-2">
               <p className="font-semibold text-[#111827]">{spendingGoal.label}</p>
               <p className="text-sm font-bold text-[#8B5CF6]">{Math.round(fillPct)}%</p>
@@ -421,24 +453,29 @@ function SpendingSection({
             </div>
           </div>
 
+          {/* Shopping link */}
+          {spendingGoal.shoppingLink && (
+            <a
+              href={spendingGoal.shoppingLink}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="flex items-center justify-center gap-2 w-full py-2.5 border border-[#8B5CF6] text-[#8B5CF6] font-semibold rounded-xl hover:bg-[#F5F3FF] transition-colors text-sm"
+            >
+              🛒 Shop now →
+            </a>
+          )}
+
           {confirmPurchase ? (
-            <div className="bg-[#FFF7ED] border border-orange-200 rounded-xl p-4 mb-2">
+            <div className="bg-[#FFF7ED] border border-orange-200 rounded-xl p-4">
               <p className="text-sm font-semibold text-[#111827] mb-1">Mark as purchased?</p>
               <p className="text-xs text-[#6B7280] mb-3">
                 This will log {formatCurrency(spendingBalance)} as spent and clear your goal.
               </p>
               <div className="flex gap-2">
-                <button
-                  onClick={handlePurchase}
-                  disabled={purchasing}
-                  className="flex-1 bg-[#8B5CF6] text-white font-semibold py-2 rounded-xl text-sm disabled:opacity-50"
-                >
+                <button onClick={handlePurchase} disabled={purchasing} className="flex-1 bg-[#8B5CF6] text-white font-semibold py-2 rounded-xl text-sm disabled:opacity-50">
                   {purchasing ? "Saving…" : "Yes, I bought it!"}
                 </button>
-                <button
-                  onClick={() => setConfirmPurchase(false)}
-                  className="flex-1 border border-[#E5E7EB] text-[#6B7280] font-semibold py-2 rounded-xl text-sm"
-                >
+                <button onClick={() => setConfirmPurchase(false)} className="flex-1 border border-[#E5E7EB] text-[#6B7280] font-semibold py-2 rounded-xl text-sm">
                   Cancel
                 </button>
               </div>
@@ -454,7 +491,7 @@ function SpendingSection({
         </>
       ) : (
         <>
-          <p className="text-sm text-[#6B7280] mb-4">What are you saving your spending jar toward?</p>
+          <p className="text-sm text-[#6B7280]">What are you saving your splurge jar toward?</p>
           <div className="space-y-3">
             <input
               type="text"
@@ -473,6 +510,16 @@ function SpendingSection({
                 className="w-full pl-8 border border-[#E5E7EB] rounded-xl px-4 py-3 text-sm text-[#111827] placeholder-[#9CA3AF] focus:outline-none focus:ring-2 focus:ring-[#8B5CF6]/30"
               />
             </div>
+            <div className="relative">
+              <span className="absolute left-4 top-1/2 -translate-y-1/2 text-sm text-[#6B7280]">🔗</span>
+              <input
+                type="url"
+                placeholder="Shopping link (optional)"
+                value={goalLink}
+                onChange={(e) => setGoalLink(e.target.value)}
+                className="w-full pl-10 border border-[#E5E7EB] rounded-xl px-4 py-3 text-sm text-[#111827] placeholder-[#9CA3AF] focus:outline-none focus:ring-2 focus:ring-[#8B5CF6]/30"
+              />
+            </div>
             <button
               onClick={handleSaveGoal}
               disabled={savingGoal || !goalLabel || !goalAmount}
@@ -485,7 +532,7 @@ function SpendingSection({
       )}
 
       {spendingHistory.length > 0 && (
-        <div className="mt-5">
+        <div>
           <p className="text-xs font-semibold text-[#6B7280] uppercase tracking-wide mb-2">Purchase History</p>
           <div className="space-y-1">
             {spendingHistory.map((event) => (
@@ -494,45 +541,17 @@ function SpendingSection({
                   <div className="flex gap-2 py-1.5">
                     <div className="relative flex-1">
                       <span className="absolute left-3 top-1/2 -translate-y-1/2 text-xs text-[#6B7280]">$</span>
-                      <input
-                        type="number"
-                        value={editAmountStr}
-                        onChange={(e) => setEditAmountStr(e.target.value)}
-                        className="w-full pl-6 border border-[#8B5CF6] rounded-lg px-2 py-1.5 text-sm text-[#111827] focus:outline-none"
-                        autoFocus
-                      />
+                      <input type="number" value={editAmountStr} onChange={(e) => setEditAmountStr(e.target.value)} className="w-full pl-6 border border-[#8B5CF6] rounded-lg px-2 py-1.5 text-sm text-[#111827] focus:outline-none" autoFocus />
                     </div>
-                    <button
-                      onClick={() => handleEditConfirm(event)}
-                      disabled={working}
-                      className="text-xs bg-[#8B5CF6] text-white px-3 py-1.5 rounded-lg disabled:opacity-50"
-                    >
-                      {working ? "…" : "Save"}
-                    </button>
-                    <button
-                      onClick={() => setEditingId(null)}
-                      className="text-xs border border-[#E5E7EB] text-[#6B7280] px-3 py-1.5 rounded-lg"
-                    >
-                      Cancel
-                    </button>
+                    <button onClick={() => handleEditConfirm(event)} disabled={working} className="text-xs bg-[#8B5CF6] text-white px-3 py-1.5 rounded-lg disabled:opacity-50">{working ? "…" : "Save"}</button>
+                    <button onClick={() => setEditingId(null)} className="text-xs border border-[#E5E7EB] text-[#6B7280] px-3 py-1.5 rounded-lg">Cancel</button>
                   </div>
                 ) : deletingId === event.id ? (
                   <div className="flex items-center justify-between bg-red-50 rounded-lg px-3 py-2">
                     <p className="text-xs text-red-600">Delete {event.label}?</p>
                     <div className="flex gap-2">
-                      <button
-                        onClick={() => handleDeleteConfirm(event)}
-                        disabled={working}
-                        className="text-xs bg-red-500 text-white px-3 py-1 rounded-lg disabled:opacity-50"
-                      >
-                        {working ? "…" : "Delete"}
-                      </button>
-                      <button
-                        onClick={() => setDeletingId(null)}
-                        className="text-xs border border-[#E5E7EB] text-[#6B7280] px-3 py-1 rounded-lg"
-                      >
-                        Cancel
-                      </button>
+                      <button onClick={() => handleDeleteConfirm(event)} disabled={working} className="text-xs bg-red-500 text-white px-3 py-1 rounded-lg disabled:opacity-50">{working ? "…" : "Delete"}</button>
+                      <button onClick={() => setDeletingId(null)} className="text-xs border border-[#E5E7EB] text-[#6B7280] px-3 py-1 rounded-lg">Cancel</button>
                     </div>
                   </div>
                 ) : (
@@ -543,16 +562,8 @@ function SpendingSection({
                     </div>
                     <div className="flex items-center gap-2">
                       <p className="text-sm font-semibold text-[#8B5CF6]">{formatCurrency(event.amountSaved)}</p>
-                      <button
-                        onClick={() => { setEditingId(event.id); setEditAmountStr(String(event.amountSaved)); }}
-                        className="text-[#9CA3AF] hover:text-[#8B5CF6] text-base p-1"
-                        title="Edit"
-                      >✏️</button>
-                      <button
-                        onClick={() => setDeletingId(event.id)}
-                        className="text-[#9CA3AF] hover:text-red-500 text-base p-1"
-                        title="Delete"
-                      >🗑️</button>
+                      <button onClick={() => { setEditingId(event.id); setEditAmountStr(String(event.amountSaved)); }} className="text-[#9CA3AF] hover:text-[#8B5CF6] text-base p-1">✏️</button>
+                      <button onClick={() => setDeletingId(event.id)} className="text-[#9CA3AF] hover:text-red-500 text-base p-1">🗑️</button>
                     </div>
                   </div>
                 )}
@@ -574,7 +585,7 @@ function JarSplitSection({
 }: {
   uid: string;
   initialSplit: { giving: number; spending: number; savings: number };
-  spendingGoal: { label: string; targetAmount: number } | null;
+  spendingGoal: { label: string; targetAmount: number; shoppingLink?: string } | null;
   onSave: (split: { giving: number; spending: number; savings: number }) => void;
 }) {
   const [giving, setGiving] = useState(String(initialSplit.giving));
@@ -604,7 +615,7 @@ function JarSplitSection({
   }
 
   return (
-    <div className="bg-white rounded-2xl p-6 border border-[#E5E7EB] shadow-sm mb-6">
+    <div className="bg-white rounded-2xl p-6 border border-[#E5E7EB] shadow-sm">
       <h2 className="text-base font-bold text-[#111827] mb-4">Jar Split</h2>
 
       <div className="flex gap-2 mb-3">
@@ -622,8 +633,8 @@ function JarSplitSection({
       <div className="grid grid-cols-3 gap-2 mb-3">
         {[
           { label: "🌍 Giving", value: giving, set: setGiving },
-          { label: "🛍️ Spending", value: spending, set: setSpending },
-          { label: "💰 Savings", value: savings, set: setSavings },
+          { label: "🛍️ Splurge", value: spending, set: setSpending },
+          { label: "💰 Saved", value: savings, set: setSavings },
         ].map((row) => (
           <div key={row.label} className="text-center">
             <p className="text-xs text-[#6B7280] mb-1">{row.label}</p>
@@ -642,12 +653,8 @@ function JarSplitSection({
         ))}
       </div>
 
-      {!valid && (
-        <p className="text-xs text-red-500 mb-3 text-center">Total is {total}% — must equal 100%</p>
-      )}
-      {valid && (
-        <p className="text-xs text-[#3D8B68] mb-3 text-center">✓ Looks good</p>
-      )}
+      {!valid && <p className="text-xs text-red-500 mb-3 text-center">Total is {total}% — must equal 100%</p>}
+      {valid && <p className="text-xs text-[#3D8B68] mb-3 text-center">✓ Looks good</p>}
 
       <button
         onClick={handleSave}
