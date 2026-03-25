@@ -137,11 +137,11 @@ export function SkipModal({ onClose }: Props) {
     );
   }
 
-  const pct = (amount / CHILD_YEAR_COST) * 100;
-  const impactMessage =
-    pct < 100
-      ? `Your skip funds ${Math.round(pct)}% of a child's yearly education in Cambodia`
-      : `Your skip could fund ${(amount / CHILD_YEAR_COST).toFixed(1)} years of a child's education in Cambodia`;
+  const jarSplit = profile?.jarSplit ?? { giving: 34, spending: 33, savings: 33 };
+  const skipGivingLive = amount * (jarSplit.giving / 100);
+  const skipSpendingLive = amount * (jarSplit.spending / 100);
+  const skipSavingsLive = amount * (jarSplit.savings / 100);
+  const spendingGoalLabelLive = profile?.spendingGoal?.label ?? "Spending jar";
 
   return (
     <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4" onClick={onClose}>
@@ -194,10 +194,19 @@ export function SkipModal({ onClose }: Props) {
                 className="w-28 text-2xl font-bold text-[#3D8B68] border-b-2 border-[#3D8B68] focus:outline-none bg-transparent"
               />
             </div>
-            <div className="flex justify-center mt-3">
-              <span className="inline-flex items-center gap-1.5 bg-[#E4F0E8] text-[#3D8B68] text-xs font-semibold px-3 py-1.5 rounded-full">
-                🌱 {impactMessage}
-              </span>
+            <div className="mt-3 bg-[#F9FAFB] rounded-xl p-3 space-y-1.5">
+              <div className="flex items-center justify-between text-xs">
+                <span className="text-[#6B7280]">🌍 Giving · {givingImpact(skipGivingLive)}</span>
+                <span className="font-bold text-[#3D8B68]">+{formatCurrency(skipGivingLive)}</span>
+              </div>
+              <div className="flex items-center justify-between text-xs">
+                <span className="text-[#6B7280]">🛍️ {spendingGoalLabelLive}</span>
+                <span className="font-bold text-[#8B5CF6]">+{formatCurrency(skipSpendingLive)}</span>
+              </div>
+              <div className="flex items-center justify-between text-xs">
+                <span className="text-[#6B7280]">💰 Saved</span>
+                <span className="font-bold text-[#F59E0B]">+{formatCurrency(skipSavingsLive)}</span>
+              </div>
             </div>
           </div>
 
