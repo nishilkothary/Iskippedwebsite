@@ -5,6 +5,7 @@ import { useProjects } from "@/hooks/useProjects";
 import { useAuthStore } from "@/store/authStore";
 import { SKIP_CATEGORIES } from "@/lib/constants/skipCategories";
 import { formatCurrency } from "@/lib/utils/currency";
+import { recordDonation } from "@/lib/services/firebase/users";
 
 const CHILD_YEAR_COST = 300;
 
@@ -26,6 +27,7 @@ export function SkipModal({ onClose }: Props) {
   const [whatSkipped, setWhatSkipped] = useState("");
   const [notes, setNotes] = useState("");
   const [shareWithCommunity, setShareWithCommunity] = useState(true);
+  const [donateToo, setDonateToo] = useState(false);
   const [projectId] = useState<string | null>(profile?.activeProjectId ?? null);
   const [success, setSuccess] = useState(false);
   const [copied, setCopied] = useState(false);
@@ -52,6 +54,9 @@ export function SkipModal({ onClose }: Props) {
       notes: notes || undefined,
     });
     if (result) {
+      if (donateToo && projectId && selectedProject && profile?.uid) {
+        await recordDonation(profile.uid, amount, projectId, selectedProject.title);
+      }
       setSuccessProjectTitle(selectedProject?.title ?? null);
       setSuccess(true);
     }
@@ -224,6 +229,22 @@ export function SkipModal({ onClose }: Props) {
             </div>
             <span className="text-sm text-[#111827]">Share with community</span>
           </label>
+
+          {/* Donate too toggle — only shown when user has an active cause */}
+          {projectId && projects.find((p) => p.id === projectId) && (
+            <div
+              onClick={() => setDonateToo((v) => !v)}
+              className={`flex items-center gap-3 cursor-pointer rounded-xl px-4 py-3 border transition-all ${donateToo ? "border-[#3D8B68] bg-[#E4F0E8]" : "border-[#E5E7EB] bg-white"}`}
+            >
+              <div className={`w-11 h-6 rounded-full transition-colors relative flex-shrink-0 ${donateToo ? "bg-[#3D8B68]" : "bg-[#E5E7EB]"}`}>
+                <span className={`absolute top-0.5 left-0.5 w-5 h-5 rounded-full bg-white shadow transition-transform ${donateToo ? "translate-x-5" : ""}`} />
+              </div>
+              <div>
+                <p className="text-sm font-medium text-[#111827]">🌍 Donate this now</p>
+                <p className="text-xs text-[#6B7280]">Also log {formatCurrency(amount)} as a donation to {projects.find((p) => p.id === projectId)?.title}</p>
+              </div>
+            </div>
+          )}
         </div>
 
         {/* Submit */}
