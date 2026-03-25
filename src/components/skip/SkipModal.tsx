@@ -8,6 +8,15 @@ import { formatCurrency } from "@/lib/utils/currency";
 
 const CHILD_YEAR_COST = 300;
 
+function givingImpact(amount: number): string {
+  if (amount <= 0) return "0 days of education";
+  const days = Math.round((amount / CHILD_YEAR_COST) * 365);
+  if (days < 30) return `${days} day${days !== 1 ? "s" : ""} of education`;
+  const months = (amount / CHILD_YEAR_COST) * 12;
+  if (months < 12) return `${months.toFixed(1)} months of education`;
+  const years = amount / CHILD_YEAR_COST;
+  return `${years.toFixed(1)} years of education`;
+}
 
 interface Props {
   onClose: () => void;
@@ -67,6 +76,11 @@ export function SkipModal({ onClose }: Props) {
       "Love to see it. Keep skipping!",
     ];
     const encouragement = encouragements[Math.floor(Math.random() * encouragements.length)];
+    const jarSplit = profile?.jarSplit ?? { giving: 34, spending: 33, savings: 33 };
+    const skipGiving = amount * (jarSplit.giving / 100);
+    const skipSpending = amount * (jarSplit.spending / 100);
+    const skipSavings = amount * (jarSplit.savings / 100);
+    const spendingGoalLabel = profile?.spendingGoal?.label ?? "Spending jar";
 
     const itemLabel = whatSkipped || customLabel || selectedCat.label.toLowerCase();
     const causeLabel = successProjectTitle || "Caring for Cambodia";
@@ -80,6 +94,23 @@ export function SkipModal({ onClose }: Props) {
           <p className="text-2xl font-bold text-[#111827]">Great job!</p>
           <p className="text-[#3D8B68] font-bold text-lg mt-1">{formatCurrency(amount)} saved</p>
           <p className="text-[#6B7280] text-sm mt-2">{encouragement}</p>
+
+          {/* 3-jar impact */}
+          <div className="mt-4 bg-[#F9FAFB] rounded-xl p-4 space-y-2 text-left">
+            <div className="flex items-center justify-between">
+              <span className="text-sm text-[#6B7280]">🌍 Giving · {givingImpact(skipGiving)}</span>
+              <span className="text-sm font-bold text-[#3D8B68]">+{formatCurrency(skipGiving)}</span>
+            </div>
+            <div className="flex items-center justify-between">
+              <span className="text-sm text-[#6B7280]">🛍️ {spendingGoalLabel}</span>
+              <span className="text-sm font-bold text-[#8B5CF6]">+{formatCurrency(skipSpending)}</span>
+            </div>
+            <div className="flex items-center justify-between">
+              <span className="text-sm text-[#6B7280]">💰 Savings</span>
+              <span className="text-sm font-bold text-[#F59E0B]">+{formatCurrency(skipSavings)}</span>
+            </div>
+          </div>
+
           <div className="mt-5 text-left">
             <p className="text-xs text-[#6B7280] mb-1 uppercase tracking-wide">Share</p>
             <textarea

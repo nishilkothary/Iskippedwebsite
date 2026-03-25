@@ -59,10 +59,13 @@ export default function HomePage() {
   const spendingTotal = profile.totalSaved * (split.spending / 100);
   const savingsTotal = profile.totalSaved * (split.savings / 100);
 
-  const givingFillPct = Math.min(100, (givingTotal / CHILD_YEAR_COST) * 100);
+  const givingBalance = Math.max(0, givingTotal - (profile.totalDonated ?? 0));
+  const spendingBalance = Math.max(0, spendingTotal - (profile.totalSpent ?? 0));
+
+  const givingFillPct = Math.min(100, (givingBalance / CHILD_YEAR_COST) * 100);
   const spendingGoal = profile.spendingGoal;
   const spendingFillPct = spendingGoal
-    ? Math.min(100, (spendingTotal / spendingGoal.targetAmount) * 100)
+    ? Math.min(100, (spendingBalance / spendingGoal.targetAmount) * 100)
     : 0;
   const savingsFillPct = Math.min(100, (savingsTotal / 500) * 100); // visual ref: $500
 
@@ -83,21 +86,21 @@ export default function HomePage() {
         <div className="bg-white rounded-2xl p-4 border border-[#E5E7EB] shadow-sm flex flex-col items-center text-center">
           <p className="text-xs font-bold text-[#6B7280] uppercase tracking-wide mb-2">🌍 Giving</p>
           <Jar fillPct={givingFillPct} color="bg-[#3D8B68]" emptyColor="bg-[#F9FAFB]" />
-          <p className="text-[#3D8B68] font-bold text-sm mt-3">{formatCurrency(givingTotal)}</p>
-          <p className="text-[#6B7280] text-xs mt-1 leading-tight">{givingImpact(givingTotal)}<br />funded</p>
+          <p className="text-[#3D8B68] font-bold text-sm mt-3">{formatCurrency(givingBalance)}</p>
+          <p className="text-[#6B7280] text-xs mt-1 leading-tight">{givingImpact(givingBalance)}<br />funded</p>
         </div>
 
         {/* Spending Jar */}
         <div
           className="bg-white rounded-2xl p-4 border border-[#E5E7EB] shadow-sm flex flex-col items-center text-center cursor-pointer hover:border-[#3D8B68]/40 transition-colors"
-          onClick={() => !spendingGoal && router.push("/profile")}
+          onClick={() => !spendingGoal && router.push("/jars")}
         >
           <p className="text-xs font-bold text-[#6B7280] uppercase tracking-wide mb-2">🛍️ Spending</p>
           {spendingGoal ? (
             <>
               <Jar fillPct={spendingFillPct} color="bg-[#8B5CF6]" emptyColor="bg-[#F9FAFB]" />
-              <p className="text-[#8B5CF6] font-bold text-sm mt-3">{Math.round(spendingFillPct)}%</p>
-              <p className="text-[#6B7280] text-xs mt-1 leading-tight">to {spendingGoal.label}</p>
+              <p className="text-[#8B5CF6] font-bold text-sm mt-3">{formatCurrency(spendingBalance)}</p>
+              <p className="text-[#6B7280] text-xs mt-1 leading-tight">{Math.round(spendingFillPct)}% to {spendingGoal.label}</p>
             </>
           ) : (
             <>
@@ -119,16 +122,32 @@ export default function HomePage() {
       </div>
 
       {/* Streak + split info */}
-      <div className="flex items-center justify-between mb-8 px-1">
+      <div className="flex items-center justify-between mb-6 px-1">
         <span className="text-sm text-[#6B7280]">
           🔥 <span className="font-semibold text-[#F59E0B]">{profile.streak}</span> day streak
         </span>
         <button
-          onClick={() => router.push("/profile")}
+          onClick={() => router.push("/jars")}
           className="text-xs text-[#3D8B68] font-medium hover:underline"
         >
           {split.giving}% giving · {split.spending}% spending · {split.savings}% savings
         </button>
+      </div>
+
+      {/* Lifetime stats */}
+      <div className="grid grid-cols-4 gap-2 mb-8">
+        {[
+          { emoji: "✅", label: "skips", value: String(profile.totalSkips) },
+          { emoji: "💰", label: "saved", value: formatCurrency(profile.totalSaved) },
+          { emoji: "💚", label: "donated", value: formatCurrency(profile.totalDonated) },
+          { emoji: "🛍️", label: "spent", value: formatCurrency(profile.totalSpent ?? 0) },
+        ].map((s) => (
+          <div key={s.label} className="bg-white rounded-xl p-3 border border-[#E5E7EB] text-center shadow-sm">
+            <p className="text-base">{s.emoji}</p>
+            <p className="text-sm font-bold text-[#111827] leading-tight">{s.value}</p>
+            <p className="text-xs text-[#6B7280]">{s.label}</p>
+          </div>
+        ))}
       </div>
 
       {/* CTA */}

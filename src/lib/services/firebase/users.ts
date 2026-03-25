@@ -16,7 +16,7 @@ import {
 } from "firebase/firestore";
 import { User } from "firebase/auth";
 import { db } from "./config";
-import { UserProfile, DonationEvent } from "@/lib/types/models";
+import { UserProfile, DonationEvent, SpendingHistoryEvent } from "@/lib/types/models";
 
 export async function createOrUpdateUser(user: User): Promise<void> {
   const ref = doc(db, "users", user.uid);
@@ -36,6 +36,7 @@ export async function createOrUpdateUser(user: User): Promise<void> {
       activeProjectId: null,
       savedTowardActiveCause: 0,
       totalDonated: 0,
+      totalSpent: 0,
       followingCount: 0,
       followersCount: 0,
       lastSkipDate: null,
@@ -130,6 +131,38 @@ export async function deleteDonation(uid: string, donationId: string, amount: nu
   batch.delete(doc(db, "users", uid, "donations", donationId));
   batch.update(doc(db, "users", uid), { totalDonated: increment(-amount) });
   await batch.commit();
+}
+
+export async function completePurchase(
+  uid: string,
+  label: string,
+  targetAmount: number,
+  amountSaved: number
+): Promise<void> {
+  const batch = writeBatch(db);
+  batch.set(doc(collection(db, "users", uid, "spendingHistory")), {
+    label, targetAmount, amountSaved,
+    purchasedAt: serverTimestamp(),
+  });
+  batch.update(doc(db, "users", uid), {
+    totalSpent: increment(amountSaved),
+    spendingGoal: null,
+  });
+  await batch.commit();
+}
+
+export function subscribeToSpendingHistory(
+  uid: string,
+  callback: (events: SpendingHistoryEvent[]) => void
+): Unsubscribe {
+  const q = query(
+    collection(db, "users", uid, "spendingHistory"),
+    orderBy("purchasedAt", "desc"),
+    limit(20)
+  );
+  return onSnapshot(q, (snap) =>
+    callback(snap.docs.map((d) => ({ id: d.id, ...d.data() } as SpendingHistoryEvent)))
+  );
 }
 
 export async function getAllUsers(): Promise<UserProfile[]> {

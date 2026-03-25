@@ -9,7 +9,7 @@ import { SkipModal } from "@/components/skip/SkipModal";
 
 const NAV_ITEMS = [
   { href: "/home",      label: "Home",      emoji: "🏠" },
-  { href: "/causes",    label: "Cause",     emoji: "💚" },
+  { href: "/jars",      label: "My Jars",   emoji: "🫙" },
   { href: "/community", label: "Community", emoji: "🌍" },
   { href: "/profile",   label: "Profile",   emoji: "👤" },
 ];

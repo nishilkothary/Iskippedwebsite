@@ -22,6 +22,7 @@ export interface UserProfile {
   causeStats?: Record<string, { donated: number }>;
   jarSplit?: { giving: number; spending: number; savings: number };
   spendingGoal?: { label: string; targetAmount: number } | null;
+  totalSpent?: number;
 }
 
 export interface SkipCategory {
@@ -94,6 +95,14 @@ export interface DonationEvent {
   amount: number;
   date?: string; // YYYY-MM-DD, user-specified donation date
   donatedAt: Timestamp;
+}
+
+export interface SpendingHistoryEvent {
+  id: string;
+  label: string;
+  targetAmount: number;
+  amountSaved: number;
+  purchasedAt: Timestamp;
 }
 
 export interface GlobalStats {
