@@ -45,6 +45,22 @@ function Jar({ fillPct, color, emptyColor }: JarProps) {
   );
 }
 
+// Drop colors indexed by path id
+const DROP_COLORS: Record<string, string> = {
+  "p-left": "#3D8B68",
+  "p-center": "#8B5CF6",
+  "p-right": "#F59E0B",
+};
+
+const DROP_SEQUENCE = [
+  { id: "p-left",   delay: 0 },
+  { id: "p-left",   delay: 0.9 },
+  { id: "p-center", delay: 0.3 },
+  { id: "p-center", delay: 1.2 },
+  { id: "p-right",  delay: 0.6 },
+  { id: "p-right",  delay: 1.5 },
+];
+
 export default function HomePage() {
   const router = useRouter();
   const { profile } = useAuthStore();
@@ -69,18 +85,56 @@ export default function HomePage() {
     : 0;
   const savingsFillPct = Math.min(100, (savingsTotal / 500) * 100); // visual ref: $500
 
+  const totalDonated = profile.totalDonated ?? 0;
+  const totalSpent = profile.totalSpent ?? 0;
+  const inJars = Math.max(0, profile.totalSaved - totalDonated - totalSpent);
+
   return (
     <div className="p-4 md:p-8 max-w-3xl mx-auto pb-20 md:pb-8">
       {/* Greeting */}
-      <div className="mb-8">
+      <div className="mb-6">
         <h1 className="text-2xl font-bold text-[#111827]">
           Hey, {profile.displayName.split(" ")[0]} 👋
         </h1>
         <p className="text-[#6B7280] mt-1">Skip, save, give.</p>
       </div>
 
+      {/* CTA — top of page, above jars */}
+      <button
+        onClick={() => setShowSkipPicker(true)}
+        className="w-full bg-gradient-to-r from-[#3D8B68] to-[#34A87A] text-white font-bold py-4 rounded-full text-lg shadow-md hover:shadow-xl hover:scale-[1.02] active:scale-[0.97] transition-all duration-200 mb-0"
+      >
+        ✨ Log a Skip
+      </button>
+
+      {/* Waterfall — 3 streams flowing from button into jars */}
+      <svg
+        viewBox="0 0 300 64"
+        className="w-full"
+        style={{ height: 64 }}
+        preserveAspectRatio="none"
+      >
+        <defs>
+          <path id="p-left"   d="M 150,0 Q 48,32 48,64" />
+          <path id="p-center" d="M 150,0 L 150,64" />
+          <path id="p-right"  d="M 150,0 Q 252,32 252,64" />
+        </defs>
+        {/* Faint guide lines */}
+        <use href="#p-left"   fill="none" stroke="#3D8B68" strokeWidth="1.5" strokeOpacity="0.25" />
+        <use href="#p-center" fill="none" stroke="#8B5CF6" strokeWidth="1.5" strokeOpacity="0.25" />
+        <use href="#p-right"  fill="none" stroke="#F59E0B" strokeWidth="1.5" strokeOpacity="0.25" />
+        {/* Animated drops */}
+        {DROP_SEQUENCE.map((drop, i) => (
+          <circle key={i} r="3.5" fill={DROP_COLORS[drop.id]} fillOpacity="0.75">
+            <animateMotion dur="1.8s" begin={`${drop.delay}s`} repeatCount="indefinite">
+              <mpath href={`#${drop.id}`} />
+            </animateMotion>
+          </circle>
+        ))}
+      </svg>
+
       {/* 3 Jars */}
-      <div className="grid grid-cols-3 gap-3 mb-8">
+      <div className="grid grid-cols-3 gap-3 mb-6">
 
         {/* Giving Jar */}
         <div className="bg-white rounded-2xl p-4 border border-[#E5E7EB] shadow-sm flex flex-col items-center text-center">
@@ -92,7 +146,7 @@ export default function HomePage() {
 
         {/* Spending Jar */}
         <div
-          className="bg-white rounded-2xl p-4 border border-[#E5E7EB] shadow-sm flex flex-col items-center text-center cursor-pointer hover:border-[#3D8B68]/40 transition-colors"
+          className="bg-white rounded-2xl p-4 border border-[#E5E7EB] shadow-sm flex flex-col items-center text-center cursor-pointer hover:border-[#8B5CF6]/40 transition-colors"
           onClick={() => !spendingGoal && router.push("/jars")}
         >
           <p className="text-xs font-bold text-[#6B7280] uppercase tracking-wide mb-2">🛍️ Spending</p>
@@ -134,29 +188,34 @@ export default function HomePage() {
         </button>
       </div>
 
-      {/* Lifetime stats */}
-      <div className="grid grid-cols-4 gap-2 mb-8">
-        {[
-          { emoji: "✅", label: "skips", value: String(profile.totalSkips) },
-          { emoji: "💰", label: "saved", value: formatCurrency(profile.totalSaved) },
-          { emoji: "💚", label: "donated", value: formatCurrency(profile.totalDonated) },
-          { emoji: "🛍️", label: "spent", value: formatCurrency(profile.totalSpent ?? 0) },
-        ].map((s) => (
-          <div key={s.label} className="bg-white rounded-xl p-3 border border-[#E5E7EB] text-center shadow-sm">
-            <p className="text-base">{s.emoji}</p>
-            <p className="text-sm font-bold text-[#111827] leading-tight">{s.value}</p>
-            <p className="text-xs text-[#6B7280]">{s.label}</p>
+      {/* Stats — Total Skipped headline + breakdown */}
+      <div className="mb-8">
+        <div className="bg-white rounded-2xl px-5 py-4 border border-[#E5E7EB] shadow-sm mb-3 flex items-center justify-between">
+          <div>
+            <p className="text-xs font-semibold text-[#6B7280] uppercase tracking-wide">Total Skipped</p>
+            <p className="text-2xl font-bold text-[#111827] mt-0.5">{formatCurrency(profile.totalSaved)}</p>
+            <p className="text-xs text-[#9CA3AF] mt-0.5">across {profile.totalSkips} skip{profile.totalSkips !== 1 ? "s" : ""}</p>
           </div>
-        ))}
+          <span className="text-4xl">✂️</span>
+        </div>
+        <div className="grid grid-cols-3 gap-2">
+          <div className="bg-white rounded-xl p-3 border border-[#E5E7EB] shadow-sm text-center">
+            <p className="text-base">💚</p>
+            <p className="text-sm font-bold text-[#3D8B68]">{formatCurrency(totalDonated)}</p>
+            <p className="text-xs text-[#6B7280]">donated</p>
+          </div>
+          <div className="bg-white rounded-xl p-3 border border-[#E5E7EB] shadow-sm text-center">
+            <p className="text-base">🛍️</p>
+            <p className="text-sm font-bold text-[#8B5CF6]">{formatCurrency(totalSpent)}</p>
+            <p className="text-xs text-[#6B7280]">spent</p>
+          </div>
+          <div className="bg-white rounded-xl p-3 border border-[#E5E7EB] shadow-sm text-center">
+            <p className="text-base">🫙</p>
+            <p className="text-sm font-bold text-[#F59E0B]">{formatCurrency(inJars)}</p>
+            <p className="text-xs text-[#6B7280]">in jars</p>
+          </div>
+        </div>
       </div>
-
-      {/* CTA */}
-      <button
-        onClick={() => setShowSkipPicker(true)}
-        className="w-full bg-gradient-to-r from-[#3D8B68] to-[#34A87A] text-white font-bold py-4 rounded-full text-lg mb-8 shadow-md hover:shadow-xl hover:scale-[1.02] active:scale-[0.97] transition-all duration-200"
-      >
-        ✨ Log a Skip
-      </button>
 
       {/* Recent skips */}
       <div>
