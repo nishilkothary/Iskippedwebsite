@@ -14,6 +14,7 @@ import {
   deleteSpendingHistory,
   setActiveProject,
 } from "@/lib/services/firebase/users";
+import { addCustomProject } from "@/lib/services/firebase/projects";
 import { SpendingHistoryEvent, DonationEvent, Project } from "@/lib/types/models";
 
 const CHILD_YEAR_COST = 300;
@@ -37,7 +38,7 @@ function JarsPageInner() {
 
   const { user, profile, updateProfile } = useAuthStore();
   const { donate, donations, editDonation, deleteDonation } = useSkips();
-  const { projects } = useProjects();
+  const { projects, refetch } = useProjects();
   const [spendingHistory, setSpendingHistory] = useState<SpendingHistoryEvent[]>([]);
 
   useEffect(() => {
@@ -59,6 +60,11 @@ function JarsPageInner() {
   async function handleSelectCause(project: Project) {
     await setActiveProject(user!.uid, project.id);
     updateProfile({ activeProjectId: project.id });
+  }
+
+  async function handleAddCause(title: string, donationURL?: string) {
+    await addCustomProject(user!.uid, { title, goalAmount: 0, donationURL });
+    await refetch();
   }
 
   const tabs: { id: Tab; label: string; emoji: string }[] = [
@@ -90,12 +96,14 @@ function JarsPageInner() {
 
       {activeTab === "cause" && (
         <CauseTab
+          uid={user.uid}
           givingBalance={givingBalance}
           totalDonated={profile.totalDonated}
           donations={donations}
           projects={projects}
           activeProject={activeProject}
           onSelectCause={handleSelectCause}
+          onAddCause={handleAddCause}
           onDonate={(amount) =>
             donate(amount, activeProject?.id ?? "giving", activeProject?.title ?? "Giving")
           }
@@ -151,22 +159,26 @@ export default function JarsPage() {
 
 /* ── Cause Tab ── */
 function CauseTab({
+  uid,
   givingBalance,
   totalDonated,
   donations,
   projects,
   activeProject,
   onSelectCause,
+  onAddCause,
   onDonate,
   onEditDonation,
   onDeleteDonation,
 }: {
+  uid: string;
   givingBalance: number;
   totalDonated: number;
   donations: DonationEvent[];
   projects: Project[];
   activeProject: Project | null;
   onSelectCause: (p: Project) => void;
+  onAddCause: (title: string, donationURL?: string) => Promise<void>;
   onDonate: (amount: number) => Promise<void>;
   onEditDonation: (donation: DonationEvent, newAmount: number) => Promise<void>;
   onDeleteDonation: (donation: DonationEvent) => Promise<void>;
@@ -178,6 +190,20 @@ function CauseTab({
   const [editAmountStr, setEditAmountStr] = useState("");
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [working, setWorking] = useState(false);
+  const [showAddForm, setShowAddForm] = useState(false);
+  const [customTitle, setCustomTitle] = useState("");
+  const [customURL, setCustomURL] = useState("");
+  const [addingCause, setAddingCause] = useState(false);
+
+  async function handleAddCause() {
+    if (!customTitle.trim()) return;
+    setAddingCause(true);
+    await onAddCause(customTitle.trim(), customURL.trim() || undefined);
+    setCustomTitle("");
+    setCustomURL("");
+    setShowAddForm(false);
+    setAddingCause(false);
+  }
 
   async function handleDonate() {
     const amount = parseFloat(amountStr);
@@ -244,10 +270,63 @@ function CauseTab({
                     )}
                   </div>
                 </div>
+                {project.donationURL && (
+                  <a
+                    href={project.donationURL}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="mt-3 flex items-center justify-center gap-1.5 w-full py-2 border border-[#3D8B68] text-[#3D8B68] font-semibold rounded-xl hover:bg-[#E4F0E8] transition-colors text-xs"
+                  >
+                    🌍 Donate →
+                  </a>
+                )}
               </div>
             );
           })}
         </div>
+
+        {/* Add your own cause */}
+        {showAddForm ? (
+          <div className="mt-3 bg-white rounded-2xl p-4 border border-[#E5E7EB] shadow-sm space-y-3">
+            <p className="text-sm font-semibold text-[#111827]">Add your own cause</p>
+            <input
+              type="text"
+              placeholder="Cause name"
+              value={customTitle}
+              onChange={(e) => setCustomTitle(e.target.value)}
+              className="w-full border border-[#E5E7EB] rounded-xl px-3 py-2.5 text-sm text-[#111827] focus:outline-none focus:ring-2 focus:ring-[#3D8B68]/30"
+            />
+            <input
+              type="url"
+              placeholder="Donation link (optional)"
+              value={customURL}
+              onChange={(e) => setCustomURL(e.target.value)}
+              className="w-full border border-[#E5E7EB] rounded-xl px-3 py-2.5 text-sm text-[#111827] focus:outline-none focus:ring-2 focus:ring-[#3D8B68]/30"
+            />
+            <div className="flex gap-2">
+              <button
+                onClick={handleAddCause}
+                disabled={addingCause || !customTitle.trim()}
+                className="flex-1 bg-[#3D8B68] text-white font-semibold py-2.5 rounded-xl text-sm disabled:opacity-50"
+              >
+                {addingCause ? "Saving…" : "Save"}
+              </button>
+              <button
+                onClick={() => { setShowAddForm(false); setCustomTitle(""); setCustomURL(""); }}
+                className="px-4 py-2.5 border border-[#E5E7EB] text-[#6B7280] font-semibold rounded-xl text-sm hover:text-[#111827] transition-colors"
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
+        ) : (
+          <button
+            onClick={() => setShowAddForm(true)}
+            className="mt-3 w-full py-2.5 border border-dashed border-[#D1D5DB] text-[#6B7280] font-semibold rounded-xl hover:border-[#3D8B68] hover:text-[#3D8B68] transition-colors text-sm"
+          >
+            ＋ Add your own cause
+          </button>
+        )}
       </div>
 
       {/* Giving balance + donate */}

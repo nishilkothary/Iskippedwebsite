@@ -69,8 +69,6 @@ export default function HomePage() {
   const spendingFillPct = spendingGoal
     ? Math.min(100, (spendingBalance / spendingGoal.targetAmount) * 100)
     : 0;
-  const savingsFillPct = Math.min(100, (savingsTotal / 500) * 100); // visual ref: $500
-
   return (
     <div className="p-4 md:p-8 max-w-3xl mx-auto pb-20 md:pb-8">
       {/* Greeting */}
@@ -151,12 +149,11 @@ export default function HomePage() {
           )}
         </div>
 
-        {/* Savings Jar */}
-        <div className="bg-white rounded-2xl p-4 border border-[#E5E7EB] shadow-sm flex flex-col items-center text-center">
-          <p className="text-xs font-bold text-[#6B7280] uppercase tracking-wide mb-2">💰 Saved</p>
-          <Jar fillPct={savingsFillPct} color="bg-[#F59E0B]" emptyColor="bg-[#F9FAFB]" />
-          <p className="text-[#F59E0B] font-bold text-sm mt-3">{formatCurrency(savingsTotal)}</p>
-          <p className="text-[#6B7280] text-xs mt-1 leading-tight">saved so<br />far</p>
+        {/* Savings Counter */}
+        <div className="bg-white rounded-2xl p-4 border border-[#E5E7EB] shadow-sm flex flex-col items-center justify-center text-center min-h-[160px]">
+          <p className="text-xs font-bold text-[#6B7280] uppercase tracking-wide mb-3">💰 Saved</p>
+          <p className="text-3xl font-bold text-[#F59E0B] leading-none">{formatCurrency(savingsTotal)}</p>
+          <p className="text-xs text-[#6B7280] mt-2">saved so far</p>
         </div>
       </div>
 
