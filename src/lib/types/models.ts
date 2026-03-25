@@ -98,4 +98,5 @@ export interface GlobalStats {
   totalSaved: number;
   totalSkips: number;
   totalUsers: number;
+  totalPledged?: number;
 }
