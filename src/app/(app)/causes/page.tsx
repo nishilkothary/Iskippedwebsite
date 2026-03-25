@@ -19,6 +19,7 @@ export default function CausesPage() {
   const [editingDonation, setEditingDonation] = useState<DonationEvent | null>(null);
 
   const cfcProject = projects.find((p) => p.title === CFC_TITLE || p.title?.includes("Cambodia"));
+  const availableToDonate = (profile?.totalSaved ?? 0) - (profile?.totalDonated ?? 0);
 
   useEffect(() => {
     if (!user || !cfcProject || profile?.activeProjectId === cfcProject.id) return;
@@ -65,23 +66,18 @@ export default function CausesPage() {
         </div>
       </div>
 
-      {/* Pledged vs Donated */}
+      {/* Available to donate */}
       {loading ? (
         <div className="flex justify-center py-8">
           <div className="w-6 h-6 border-4 border-[#3D8B68] border-t-transparent rounded-full animate-spin" />
         </div>
       ) : (
-        <div className="grid grid-cols-2 gap-4 mb-6">
-          <div className="bg-white rounded-2xl p-5 border border-[#E5E7EB] shadow-sm">
-            <p className="text-xs text-[#6B7280] uppercase tracking-wide mb-1">Total Pledged</p>
-            <p className="text-3xl font-bold text-[#3D8B68]">{formatCurrency(profile?.totalDonated ?? 0)}</p>
-            <p className="text-xs text-[#9CA3AF] mt-1">via skip splits</p>
-          </div>
-          <div className="bg-white rounded-2xl p-5 border border-[#E5E7EB] shadow-sm">
-            <p className="text-xs text-[#6B7280] uppercase tracking-wide mb-1">Total Donated</p>
-            <p className="text-3xl font-bold text-[#3D8B68]">{formatCurrency(profile?.totalDonated ?? 0)}</p>
-            <p className="text-xs text-[#9CA3AF] mt-1">to caringforcambodia.org</p>
-          </div>
+        <div className="bg-white rounded-2xl p-5 border border-[#E5E7EB] shadow-sm mb-6">
+          <p className="text-xs text-[#6B7280] uppercase tracking-wide mb-1">Available to Donate</p>
+          <p className="text-3xl font-bold text-[#3D8B68]">{formatCurrency(Math.max(0, availableToDonate))}</p>
+          {profile && profile.totalDonated > 0 && (
+            <p className="text-xs text-[#9CA3AF] mt-1">{formatCurrency(profile.totalDonated)} donated so far</p>
+          )}
         </div>
       )}
 
