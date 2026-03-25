@@ -28,7 +28,7 @@ export function SkipModal({ onClose }: Props) {
   const [notes, setNotes] = useState("");
   const [shareWithCommunity, setShareWithCommunity] = useState(true);
   const [donateToo, setDonateToo] = useState(false);
-  const [projectId] = useState<string | null>(profile?.activeProjectId ?? null);
+  const projectId = profile?.activeProjectId ?? projects[0]?.id ?? null;
   const [success, setSuccess] = useState(false);
   const [copied, setCopied] = useState(false);
   const [successProjectTitle, setSuccessProjectTitle] = useState<string | null>(null);
