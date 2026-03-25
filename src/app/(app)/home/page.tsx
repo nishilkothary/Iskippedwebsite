@@ -96,11 +96,8 @@ export default function HomePage() {
           {spendingGoal ? (
             <>
               <Jar fillPct={spendingFillPct} color="bg-[#8B5CF6]" emptyColor="bg-[#F9FAFB]" />
-              <p className="text-[#8B5CF6] font-bold text-sm mt-3">{formatCurrency(spendingTotal)}</p>
-              <p className="text-[#6B7280] text-xs mt-1 leading-tight">
-                {spendingGoal.label}<br />
-                of {formatCurrency(spendingGoal.targetAmount)}
-              </p>
+              <p className="text-[#8B5CF6] font-bold text-sm mt-3">{Math.round(spendingFillPct)}%</p>
+              <p className="text-[#6B7280] text-xs mt-1 leading-tight">to {spendingGoal.label}</p>
             </>
           ) : (
             <>
