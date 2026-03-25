@@ -165,6 +165,30 @@ export function subscribeToSpendingHistory(
   );
 }
 
+export async function updateSpendingHistory(
+  uid: string,
+  eventId: string,
+  newAmountSaved: number,
+  oldAmountSaved: number
+): Promise<void> {
+  const delta = newAmountSaved - oldAmountSaved;
+  const batch = writeBatch(db);
+  batch.update(doc(db, "users", uid, "spendingHistory", eventId), { amountSaved: newAmountSaved });
+  if (delta !== 0) batch.update(doc(db, "users", uid), { totalSpent: increment(delta) });
+  await batch.commit();
+}
+
+export async function deleteSpendingHistory(
+  uid: string,
+  eventId: string,
+  amountSaved: number
+): Promise<void> {
+  const batch = writeBatch(db);
+  batch.delete(doc(db, "users", uid, "spendingHistory", eventId));
+  batch.update(doc(db, "users", uid), { totalSpent: increment(-amountSaved) });
+  await batch.commit();
+}
+
 export async function getAllUsers(): Promise<UserProfile[]> {
   const q = query(collection(db, "users"), orderBy("createdAt", "desc"));
   const snap = await getDocs(q);

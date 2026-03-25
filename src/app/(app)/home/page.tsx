@@ -45,21 +45,6 @@ function Jar({ fillPct, color, emptyColor }: JarProps) {
   );
 }
 
-// Drop colors indexed by path id
-const DROP_COLORS: Record<string, string> = {
-  "p-left": "#3D8B68",
-  "p-center": "#8B5CF6",
-  "p-right": "#F59E0B",
-};
-
-const DROP_SEQUENCE = [
-  { id: "p-left",   delay: 0 },
-  { id: "p-left",   delay: 0.9 },
-  { id: "p-center", delay: 0.3 },
-  { id: "p-center", delay: 1.2 },
-  { id: "p-right",  delay: 0.6 },
-  { id: "p-right",  delay: 1.5 },
-];
 
 export default function HomePage() {
   const router = useRouter();
@@ -123,14 +108,6 @@ export default function HomePage() {
         <use href="#p-left"   fill="none" stroke="#3D8B68" strokeWidth="1.5" strokeOpacity="0.25" />
         <use href="#p-center" fill="none" stroke="#8B5CF6" strokeWidth="1.5" strokeOpacity="0.25" />
         <use href="#p-right"  fill="none" stroke="#F59E0B" strokeWidth="1.5" strokeOpacity="0.25" />
-        {/* Animated drops */}
-        {DROP_SEQUENCE.map((drop, i) => (
-          <circle key={i} r="3.5" fill={DROP_COLORS[drop.id]} fillOpacity="0.75">
-            <animateMotion dur="1.8s" begin={`${drop.delay}s`} repeatCount="indefinite">
-              <mpath href={`#${drop.id}`} />
-            </animateMotion>
-          </circle>
-        ))}
       </svg>
 
       {/* 3 Jars */}

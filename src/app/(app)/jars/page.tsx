@@ -2,18 +2,20 @@
 import { useEffect, useState } from "react";
 import { useAuthStore } from "@/store/authStore";
 import { useSkips } from "@/hooks/useSkips";
+import { useProjects } from "@/hooks/useProjects";
 import { formatCurrency } from "@/lib/utils/currency";
 import { formatRelativeTime } from "@/lib/utils/dates";
 import {
   updateJarSettings,
   completePurchase,
   subscribeToSpendingHistory,
+  updateSpendingHistory,
+  deleteSpendingHistory,
+  setActiveProject,
 } from "@/lib/services/firebase/users";
-import { SpendingHistoryEvent } from "@/lib/types/models";
+import { SpendingHistoryEvent, DonationEvent, Project } from "@/lib/types/models";
 
 const CHILD_YEAR_COST = 300;
-const CAMBODIA_PROJECT_ID = "caring-for-cambodia";
-const CAMBODIA_PROJECT_TITLE = "Caring for Cambodia";
 
 function givingImpact(amount: number): string {
   if (amount <= 0) return "0 days of education";
@@ -27,7 +29,8 @@ function givingImpact(amount: number): string {
 
 export default function JarsPage() {
   const { user, profile, updateProfile } = useAuthStore();
-  const { donate, donations } = useSkips();
+  const { donate, donations, editDonation, deleteDonation } = useSkips();
+  const { projects } = useProjects();
   const [spendingHistory, setSpendingHistory] = useState<SpendingHistoryEvent[]>([]);
 
   useEffect(() => {
@@ -44,6 +47,14 @@ export default function JarsPage() {
   const givingBalance = Math.max(0, givingTotal - (profile.totalDonated ?? 0));
   const spendingBalance = Math.max(0, spendingTotal - (profile.totalSpent ?? 0));
 
+  // Resolve the active cause from projects (falls back to first project)
+  const activeProject = projects.find((p) => p.id === profile.activeProjectId) ?? projects[0] ?? null;
+
+  async function handleSelectCause(project: Project) {
+    await setActiveProject(user!.uid, project.id);
+    updateProfile({ activeProjectId: project.id });
+  }
+
   return (
     <div className="p-4 md:p-8 max-w-2xl mx-auto pb-20 md:pb-8">
       <h1 className="text-2xl font-bold text-[#111827] mb-8">My Jars</h1>
@@ -52,9 +63,15 @@ export default function JarsPage() {
       <GivingSection
         givingBalance={givingBalance}
         totalDonated={profile.totalDonated}
-        uid={user.uid}
         donations={donations}
-        onDonate={(amount) => donate(amount, CAMBODIA_PROJECT_ID, CAMBODIA_PROJECT_TITLE)}
+        activeProject={activeProject}
+        projects={projects}
+        onSelectCause={handleSelectCause}
+        onDonate={(amount) =>
+          donate(amount, activeProject?.id ?? "giving", activeProject?.title ?? "Giving")
+        }
+        onEditDonation={editDonation}
+        onDeleteDonation={deleteDonation}
       />
 
       {/* Spending Jar */}
@@ -63,6 +80,7 @@ export default function JarsPage() {
         spendingBalance={spendingBalance}
         spendingGoal={profile.spendingGoal ?? null}
         spendingHistory={spendingHistory}
+        totalSpent={profile.totalSpent ?? 0}
         onPurchased={(label, targetAmount, amountSaved) => {
           updateProfile({ spendingGoal: null, totalSpent: (profile.totalSpent ?? 0) + amountSaved });
           return completePurchase(user.uid, label, targetAmount, amountSaved);
@@ -70,6 +88,14 @@ export default function JarsPage() {
         onGoalSaved={(goal) => {
           updateProfile({ spendingGoal: goal });
           return updateJarSettings(user.uid, split, goal);
+        }}
+        onEditHistory={(event, newAmount) => {
+          updateProfile({ totalSpent: (profile.totalSpent ?? 0) + (newAmount - event.amountSaved) });
+          return updateSpendingHistory(user.uid, event.id, newAmount, event.amountSaved);
+        }}
+        onDeleteHistory={(event) => {
+          updateProfile({ totalSpent: (profile.totalSpent ?? 0) - event.amountSaved });
+          return deleteSpendingHistory(user.uid, event.id, event.amountSaved);
         }}
       />
 
@@ -88,19 +114,31 @@ export default function JarsPage() {
 function GivingSection({
   givingBalance,
   totalDonated,
-  uid,
   donations,
+  activeProject,
+  projects,
+  onSelectCause,
   onDonate,
+  onEditDonation,
+  onDeleteDonation,
 }: {
   givingBalance: number;
   totalDonated: number;
-  uid: string;
-  donations: { id: string; causeTitle: string; amount: number; donatedAt: any }[];
+  donations: DonationEvent[];
+  activeProject: Project | null;
+  projects: Project[];
+  onSelectCause: (p: Project) => void;
   onDonate: (amount: number) => Promise<void>;
+  onEditDonation: (donation: DonationEvent, newAmount: number) => Promise<void>;
+  onDeleteDonation: (donation: DonationEvent) => Promise<void>;
 }) {
   const [showInput, setShowInput] = useState(false);
   const [amountStr, setAmountStr] = useState("");
   const [saving, setSaving] = useState(false);
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [editAmountStr, setEditAmountStr] = useState("");
+  const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [working, setWorking] = useState(false);
 
   async function handleDonate() {
     const amount = parseFloat(amountStr);
@@ -112,12 +150,53 @@ function GivingSection({
     setSaving(false);
   }
 
+  async function handleEditConfirm(donation: DonationEvent) {
+    const newAmount = parseFloat(editAmountStr);
+    if (!newAmount || newAmount <= 0) return;
+    setWorking(true);
+    await onEditDonation(donation, newAmount);
+    setEditingId(null);
+    setWorking(false);
+  }
+
+  async function handleDeleteConfirm(donation: DonationEvent) {
+    setWorking(true);
+    await onDeleteDonation(donation);
+    setDeletingId(null);
+    setWorking(false);
+  }
+
   return (
     <div className="bg-white rounded-2xl p-6 border border-[#E5E7EB] shadow-sm mb-6">
-      <h2 className="text-base font-bold text-[#111827] mb-1">🌍 Giving — Caring for Cambodia</h2>
-      <p className="text-xs text-[#6B7280] mb-4">
-        Every dollar funds a child's education in rural Cambodia through Pencils of Promise.
-      </p>
+      {/* Cause header + picker */}
+      <h2 className="text-base font-bold text-[#111827] mb-1">
+        🌍 Giving{activeProject ? ` — ${activeProject.title}` : ""}
+      </h2>
+      {activeProject && (
+        <p className="text-xs text-[#6B7280] mb-3">
+          {activeProject.description?.slice(0, 100) ||
+            "Every dollar funds a child's education in rural Cambodia."}
+        </p>
+      )}
+
+      {/* Cause selector — only shown when multiple causes exist */}
+      {projects.length > 1 && (
+        <div className="flex gap-2 overflow-x-auto pb-2 mb-4 -mx-1 px-1">
+          {projects.map((p) => (
+            <button
+              key={p.id}
+              onClick={() => onSelectCause(p)}
+              className={`flex-shrink-0 px-3 py-1.5 rounded-full text-xs font-semibold border transition-colors ${
+                activeProject?.id === p.id
+                  ? "bg-[#3D8B68] border-[#3D8B68] text-white"
+                  : "border-[#E5E7EB] text-[#6B7280] hover:border-[#3D8B68]/50 hover:text-[#3D8B68]"
+              }`}
+            >
+              {p.title}
+            </button>
+          ))}
+        </div>
+      )}
 
       <div className="flex items-center justify-between bg-[#F0FAF5] rounded-xl px-4 py-3 mb-4">
         <div>
@@ -169,16 +248,77 @@ function GivingSection({
       {donations.length > 0 && (
         <div className="mt-4">
           <p className="text-xs font-semibold text-[#6B7280] uppercase tracking-wide mb-2">Donation History</p>
-          <div className="space-y-2">
-            {donations.slice(0, 5).map((d) => (
-              <div key={d.id} className="flex items-center justify-between py-1.5">
-                <p className="text-sm text-[#111827]">{d.causeTitle}</p>
-                <div className="text-right">
-                  <p className="text-sm font-semibold text-[#3D8B68]">{formatCurrency(d.amount)}</p>
-                  <p className="text-xs text-[#9CA3AF]">
-                    {d.donatedAt?.toDate ? formatRelativeTime(d.donatedAt.toDate()) : ""}
-                  </p>
-                </div>
+          <div className="space-y-1">
+            {donations.slice(0, 10).map((d) => (
+              <div key={d.id}>
+                {editingId === d.id ? (
+                  <div className="flex gap-2 py-1.5">
+                    <div className="relative flex-1">
+                      <span className="absolute left-3 top-1/2 -translate-y-1/2 text-xs text-[#6B7280]">$</span>
+                      <input
+                        type="number"
+                        value={editAmountStr}
+                        onChange={(e) => setEditAmountStr(e.target.value)}
+                        className="w-full pl-6 border border-[#3D8B68] rounded-lg px-2 py-1.5 text-sm text-[#111827] focus:outline-none"
+                        autoFocus
+                      />
+                    </div>
+                    <button
+                      onClick={() => handleEditConfirm(d)}
+                      disabled={working}
+                      className="text-xs bg-[#3D8B68] text-white px-3 py-1.5 rounded-lg disabled:opacity-50"
+                    >
+                      {working ? "…" : "Save"}
+                    </button>
+                    <button
+                      onClick={() => setEditingId(null)}
+                      className="text-xs border border-[#E5E7EB] text-[#6B7280] px-3 py-1.5 rounded-lg"
+                    >
+                      Cancel
+                    </button>
+                  </div>
+                ) : deletingId === d.id ? (
+                  <div className="flex items-center justify-between bg-red-50 rounded-lg px-3 py-2">
+                    <p className="text-xs text-red-600">Delete {formatCurrency(d.amount)}?</p>
+                    <div className="flex gap-2">
+                      <button
+                        onClick={() => handleDeleteConfirm(d)}
+                        disabled={working}
+                        className="text-xs bg-red-500 text-white px-3 py-1 rounded-lg disabled:opacity-50"
+                      >
+                        {working ? "…" : "Delete"}
+                      </button>
+                      <button
+                        onClick={() => setDeletingId(null)}
+                        className="text-xs border border-[#E5E7EB] text-[#6B7280] px-3 py-1 rounded-lg"
+                      >
+                        Cancel
+                      </button>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="flex items-center justify-between py-1.5">
+                    <div>
+                      <p className="text-sm text-[#111827]">{d.causeTitle}</p>
+                      <p className="text-xs text-[#9CA3AF]">
+                        {d.donatedAt?.toDate ? formatRelativeTime(d.donatedAt.toDate()) : ""}
+                      </p>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <p className="text-sm font-semibold text-[#3D8B68]">{formatCurrency(d.amount)}</p>
+                      <button
+                        onClick={() => { setEditingId(d.id); setEditAmountStr(String(d.amount)); }}
+                        className="text-[#9CA3AF] hover:text-[#3D8B68] text-base p-1"
+                        title="Edit"
+                      >✏️</button>
+                      <button
+                        onClick={() => setDeletingId(d.id)}
+                        className="text-[#9CA3AF] hover:text-red-500 text-base p-1"
+                        title="Delete"
+                      >🗑️</button>
+                    </div>
+                  </div>
+                )}
               </div>
             ))}
           </div>
@@ -194,21 +334,31 @@ function SpendingSection({
   spendingBalance,
   spendingGoal,
   spendingHistory,
+  totalSpent,
   onPurchased,
   onGoalSaved,
+  onEditHistory,
+  onDeleteHistory,
 }: {
   uid: string;
   spendingBalance: number;
   spendingGoal: { label: string; targetAmount: number } | null;
   spendingHistory: SpendingHistoryEvent[];
+  totalSpent: number;
   onPurchased: (label: string, targetAmount: number, amountSaved: number) => Promise<void>;
   onGoalSaved: (goal: { label: string; targetAmount: number }) => Promise<void>;
+  onEditHistory: (event: SpendingHistoryEvent, newAmount: number) => Promise<void>;
+  onDeleteHistory: (event: SpendingHistoryEvent) => Promise<void>;
 }) {
   const [confirmPurchase, setConfirmPurchase] = useState(false);
   const [purchasing, setPurchasing] = useState(false);
   const [goalLabel, setGoalLabel] = useState("");
   const [goalAmount, setGoalAmount] = useState("");
   const [savingGoal, setSavingGoal] = useState(false);
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [editAmountStr, setEditAmountStr] = useState("");
+  const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [working, setWorking] = useState(false);
 
   const fillPct = spendingGoal
     ? Math.min(100, (spendingBalance / spendingGoal.targetAmount) * 100)
@@ -230,6 +380,22 @@ function SpendingSection({
     setGoalLabel("");
     setGoalAmount("");
     setSavingGoal(false);
+  }
+
+  async function handleEditConfirm(event: SpendingHistoryEvent) {
+    const newAmount = parseFloat(editAmountStr);
+    if (!newAmount || newAmount <= 0) return;
+    setWorking(true);
+    await onEditHistory(event, newAmount);
+    setEditingId(null);
+    setWorking(false);
+  }
+
+  async function handleDeleteConfirm(event: SpendingHistoryEvent) {
+    setWorking(true);
+    await onDeleteHistory(event);
+    setDeletingId(null);
+    setWorking(false);
   }
 
   return (
@@ -321,16 +487,75 @@ function SpendingSection({
       {spendingHistory.length > 0 && (
         <div className="mt-5">
           <p className="text-xs font-semibold text-[#6B7280] uppercase tracking-wide mb-2">Purchase History</p>
-          <div className="space-y-2">
+          <div className="space-y-1">
             {spendingHistory.map((event) => (
-              <div key={event.id} className="flex items-center justify-between py-1.5">
-                <div>
-                  <p className="text-sm text-[#111827]">{event.label}</p>
-                  <p className="text-xs text-[#9CA3AF]">
-                    goal: {formatCurrency(event.targetAmount)}
-                  </p>
-                </div>
-                <p className="text-sm font-semibold text-[#8B5CF6]">{formatCurrency(event.amountSaved)}</p>
+              <div key={event.id}>
+                {editingId === event.id ? (
+                  <div className="flex gap-2 py-1.5">
+                    <div className="relative flex-1">
+                      <span className="absolute left-3 top-1/2 -translate-y-1/2 text-xs text-[#6B7280]">$</span>
+                      <input
+                        type="number"
+                        value={editAmountStr}
+                        onChange={(e) => setEditAmountStr(e.target.value)}
+                        className="w-full pl-6 border border-[#8B5CF6] rounded-lg px-2 py-1.5 text-sm text-[#111827] focus:outline-none"
+                        autoFocus
+                      />
+                    </div>
+                    <button
+                      onClick={() => handleEditConfirm(event)}
+                      disabled={working}
+                      className="text-xs bg-[#8B5CF6] text-white px-3 py-1.5 rounded-lg disabled:opacity-50"
+                    >
+                      {working ? "…" : "Save"}
+                    </button>
+                    <button
+                      onClick={() => setEditingId(null)}
+                      className="text-xs border border-[#E5E7EB] text-[#6B7280] px-3 py-1.5 rounded-lg"
+                    >
+                      Cancel
+                    </button>
+                  </div>
+                ) : deletingId === event.id ? (
+                  <div className="flex items-center justify-between bg-red-50 rounded-lg px-3 py-2">
+                    <p className="text-xs text-red-600">Delete {event.label}?</p>
+                    <div className="flex gap-2">
+                      <button
+                        onClick={() => handleDeleteConfirm(event)}
+                        disabled={working}
+                        className="text-xs bg-red-500 text-white px-3 py-1 rounded-lg disabled:opacity-50"
+                      >
+                        {working ? "…" : "Delete"}
+                      </button>
+                      <button
+                        onClick={() => setDeletingId(null)}
+                        className="text-xs border border-[#E5E7EB] text-[#6B7280] px-3 py-1 rounded-lg"
+                      >
+                        Cancel
+                      </button>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="flex items-center justify-between py-1.5">
+                    <div>
+                      <p className="text-sm text-[#111827]">{event.label}</p>
+                      <p className="text-xs text-[#9CA3AF]">goal: {formatCurrency(event.targetAmount)}</p>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <p className="text-sm font-semibold text-[#8B5CF6]">{formatCurrency(event.amountSaved)}</p>
+                      <button
+                        onClick={() => { setEditingId(event.id); setEditAmountStr(String(event.amountSaved)); }}
+                        className="text-[#9CA3AF] hover:text-[#8B5CF6] text-base p-1"
+                        title="Edit"
+                      >✏️</button>
+                      <button
+                        onClick={() => setDeletingId(event.id)}
+                        className="text-[#9CA3AF] hover:text-red-500 text-base p-1"
+                        title="Delete"
+                      >🗑️</button>
+                    </div>
+                  </div>
+                )}
               </div>
             ))}
           </div>
