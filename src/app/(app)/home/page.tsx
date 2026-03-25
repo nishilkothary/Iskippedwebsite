@@ -70,10 +70,6 @@ export default function HomePage() {
     : 0;
   const savingsFillPct = Math.min(100, (savingsTotal / 500) * 100); // visual ref: $500
 
-  const totalDonated = profile.totalDonated ?? 0;
-  const totalSpent = profile.totalSpent ?? 0;
-  const inJars = Math.max(0, profile.totalSaved - totalDonated - totalSpent);
-
   return (
     <div className="p-4 md:p-8 max-w-3xl mx-auto pb-20 md:pb-8">
       {/* Greeting */}
@@ -145,10 +141,10 @@ export default function HomePage() {
 
         {/* Savings Jar */}
         <div className="bg-white rounded-2xl p-4 border border-[#E5E7EB] shadow-sm flex flex-col items-center text-center">
-          <p className="text-xs font-bold text-[#6B7280] uppercase tracking-wide mb-2">💰 Savings</p>
+          <p className="text-xs font-bold text-[#6B7280] uppercase tracking-wide mb-2">💰 Saved</p>
           <Jar fillPct={savingsFillPct} color="bg-[#F59E0B]" emptyColor="bg-[#F9FAFB]" />
           <p className="text-[#F59E0B] font-bold text-sm mt-3">{formatCurrency(savingsTotal)}</p>
-          <p className="text-[#6B7280] text-xs mt-1 leading-tight">for the<br />future</p>
+          <p className="text-[#6B7280] text-xs mt-1 leading-tight">saved so<br />far</p>
         </div>
       </div>
 
@@ -163,35 +159,6 @@ export default function HomePage() {
         >
           {split.giving}% giving · {split.spending}% spending · {split.savings}% savings
         </button>
-      </div>
-
-      {/* Stats — Total Skipped headline + breakdown */}
-      <div className="mb-8">
-        <div className="bg-white rounded-2xl px-5 py-4 border border-[#E5E7EB] shadow-sm mb-3 flex items-center justify-between">
-          <div>
-            <p className="text-xs font-semibold text-[#6B7280] uppercase tracking-wide">Total Skipped</p>
-            <p className="text-2xl font-bold text-[#111827] mt-0.5">{formatCurrency(profile.totalSaved)}</p>
-            <p className="text-xs text-[#9CA3AF] mt-0.5">across {profile.totalSkips} skip{profile.totalSkips !== 1 ? "s" : ""}</p>
-          </div>
-          <span className="text-4xl">✂️</span>
-        </div>
-        <div className="grid grid-cols-3 gap-2">
-          <div className="bg-white rounded-xl p-3 border border-[#E5E7EB] shadow-sm text-center">
-            <p className="text-base">💚</p>
-            <p className="text-sm font-bold text-[#3D8B68]">{formatCurrency(totalDonated)}</p>
-            <p className="text-xs text-[#6B7280]">donated</p>
-          </div>
-          <div className="bg-white rounded-xl p-3 border border-[#E5E7EB] shadow-sm text-center">
-            <p className="text-base">🛍️</p>
-            <p className="text-sm font-bold text-[#8B5CF6]">{formatCurrency(totalSpent)}</p>
-            <p className="text-xs text-[#6B7280]">spent</p>
-          </div>
-          <div className="bg-white rounded-xl p-3 border border-[#E5E7EB] shadow-sm text-center">
-            <p className="text-base">🫙</p>
-            <p className="text-sm font-bold text-[#F59E0B]">{formatCurrency(inJars)}</p>
-            <p className="text-xs text-[#6B7280]">in jars</p>
-          </div>
-        </div>
       </div>
 
       {/* Recent skips */}

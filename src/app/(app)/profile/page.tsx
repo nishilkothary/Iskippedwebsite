@@ -39,20 +39,41 @@ export default function ProfilePage() {
         </div>
       </div>
 
-      {/* Stats */}
-      <div className="grid grid-cols-2 gap-4 mb-6">
-        {[
-          { label: "Total Skipped", value: formatCurrency(profile.totalSaved), emoji: "💰" },
-          { label: "Total Skips", value: String(profile.totalSkips), emoji: "✅" },
-          { label: "Total Donated", value: formatCurrency(profile.totalDonated), emoji: "💚" },
-          { label: "Longest Streak", value: `${profile.longestStreak} days`, emoji: "🏆" },
-        ].map((s) => (
-          <div key={s.label} className="bg-white rounded-xl p-5 border border-[#E5E7EB] shadow-sm">
-            <p className="text-lg mb-1">{s.emoji}</p>
-            <p className="text-lg font-bold text-[#111827]">{s.value}</p>
-            <p className="text-xs text-[#6B7280]">{s.label}</p>
+      {/* Lifetime stats */}
+      <div className="mb-6">
+        <div className="bg-white rounded-2xl px-5 py-4 border border-[#E5E7EB] shadow-sm mb-3 flex items-center justify-between">
+          <div>
+            <p className="text-xs font-semibold text-[#6B7280] uppercase tracking-wide">Total Skipped</p>
+            <p className="text-2xl font-bold text-[#111827] mt-0.5">{formatCurrency(profile.totalSaved)}</p>
+            <p className="text-xs text-[#9CA3AF] mt-0.5">across {profile.totalSkips} skip{profile.totalSkips !== 1 ? "s" : ""}</p>
           </div>
-        ))}
+          <span className="text-4xl">✂️</span>
+        </div>
+        <div className="grid grid-cols-3 gap-2 mb-3">
+          {[
+            { emoji: "💚", label: "donated", value: formatCurrency(profile.totalDonated), color: "text-[#3D8B68]" },
+            { emoji: "🛍️", label: "spent", value: formatCurrency(profile.totalSpent ?? 0), color: "text-[#8B5CF6]" },
+            { emoji: "🫙", label: "in jars", value: formatCurrency(Math.max(0, profile.totalSaved - profile.totalDonated - (profile.totalSpent ?? 0))), color: "text-[#F59E0B]" },
+          ].map((s) => (
+            <div key={s.label} className="bg-white rounded-xl p-3 border border-[#E5E7EB] shadow-sm text-center">
+              <p className="text-base">{s.emoji}</p>
+              <p className={`text-sm font-bold ${s.color}`}>{s.value}</p>
+              <p className="text-xs text-[#6B7280]">{s.label}</p>
+            </div>
+          ))}
+        </div>
+        <div className="grid grid-cols-2 gap-3">
+          {[
+            { label: "Longest Streak", value: `${profile.longestStreak} days`, emoji: "🏆" },
+            { label: "Current Streak", value: `${profile.streak} days`, emoji: "🔥" },
+          ].map((s) => (
+            <div key={s.label} className="bg-white rounded-xl p-4 border border-[#E5E7EB] shadow-sm">
+              <p className="text-lg mb-1">{s.emoji}</p>
+              <p className="text-lg font-bold text-[#111827]">{s.value}</p>
+              <p className="text-xs text-[#6B7280]">{s.label}</p>
+            </div>
+          ))}
+        </div>
       </div>
 
       {/* XP progress */}
