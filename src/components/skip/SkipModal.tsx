@@ -5,18 +5,7 @@ import { useProjects } from "@/hooks/useProjects";
 import { useAuthStore } from "@/store/authStore";
 import { SKIP_CATEGORIES } from "@/lib/constants/skipCategories";
 import { formatCurrency } from "@/lib/utils/currency";
-
-const CHILD_YEAR_COST = 300;
-
-function givingImpact(amount: number): string {
-  if (amount <= 0) return "0 days of education";
-  const days = Math.round((amount / CHILD_YEAR_COST) * 365);
-  if (days < 30) return `${days} day${days !== 1 ? "s" : ""} of education`;
-  const months = (amount / CHILD_YEAR_COST) * 12;
-  if (months < 12) return `${months.toFixed(1)} months of education`;
-  const years = amount / CHILD_YEAR_COST;
-  return `${years.toFixed(1)} years of education`;
-}
+import { normalizeJarSplit } from "@/lib/services/firebase/users";
 
 interface Props {
   onClose: () => void;
@@ -76,11 +65,10 @@ export function SkipModal({ onClose }: Props) {
       "Love to see it. Keep skipping!",
     ];
     const encouragement = encouragements[Math.floor(Math.random() * encouragements.length)];
-    const jarSplit = profile?.jarSplit ?? { giving: 34, spending: 33, savings: 33 };
-    const skipGiving = amount * (jarSplit.giving / 100);
-    const skipSpending = amount * (jarSplit.spending / 100);
-    const skipSavings = amount * (jarSplit.savings / 100);
-    const spendingGoalLabel = profile?.spendingGoal?.label ?? "Spending jar";
+    const jarSplit = normalizeJarSplit(profile?.jarSplit as any);
+    const skipGive = amount * (jarSplit.give / 100);
+    const skipLive = amount * (jarSplit.live / 100);
+    const spendingGoalLabel = profile?.spendingGoal?.label ?? "Live a little";
 
     const itemLabel = whatSkipped || customLabel || selectedCat.label.toLowerCase();
     const causeLabel = successProjectTitle || "Caring for Cambodia";
@@ -95,19 +83,15 @@ export function SkipModal({ onClose }: Props) {
           <p className="text-[#3D8B68] font-bold text-lg mt-1">{formatCurrency(amount)} saved</p>
           <p className="text-[#6B7280] text-sm mt-2">{encouragement}</p>
 
-          {/* 3-jar impact */}
+          {/* 2-jar impact */}
           <div className="mt-4 bg-[#F9FAFB] rounded-xl p-4 space-y-2 text-left">
             <div className="flex items-center justify-between">
-              <span className="text-sm text-[#6B7280]">🌍 Giving · {givingImpact(skipGiving)}</span>
-              <span className="text-sm font-bold text-[#3D8B68]">+{formatCurrency(skipGiving)}</span>
+              <span className="text-sm text-[#6B7280]">💚 Give a little</span>
+              <span className="text-sm font-bold text-[#3D8B68]">+{formatCurrency(skipGive)}</span>
             </div>
             <div className="flex items-center justify-between">
-              <span className="text-sm text-[#6B7280]">🛍️ {spendingGoalLabel}</span>
-              <span className="text-sm font-bold text-[#8B5CF6]">+{formatCurrency(skipSpending)}</span>
-            </div>
-            <div className="flex items-center justify-between">
-              <span className="text-sm text-[#6B7280]">💰 Savings</span>
-              <span className="text-sm font-bold text-[#F59E0B]">+{formatCurrency(skipSavings)}</span>
+              <span className="text-sm text-[#6B7280]">✨ {spendingGoalLabel}</span>
+              <span className="text-sm font-bold text-[#8B5CF6]">+{formatCurrency(skipLive)}</span>
             </div>
           </div>
 
@@ -137,11 +121,10 @@ export function SkipModal({ onClose }: Props) {
     );
   }
 
-  const jarSplit = profile?.jarSplit ?? { giving: 34, spending: 33, savings: 33 };
-  const skipGivingLive = amount * (jarSplit.giving / 100);
-  const skipSpendingLive = amount * (jarSplit.spending / 100);
-  const skipSavingsLive = amount * (jarSplit.savings / 100);
-  const spendingGoalLabelLive = profile?.spendingGoal?.label ?? "Spending jar";
+  const jarSplitLive = normalizeJarSplit(profile?.jarSplit as any);
+  const skipGiveLive = amount * (jarSplitLive.give / 100);
+  const skipLiveLive = amount * (jarSplitLive.live / 100);
+  const spendingGoalLabelLive = profile?.spendingGoal?.label ?? "Live a little";
 
   return (
     <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4" onClick={onClose}>
@@ -196,16 +179,12 @@ export function SkipModal({ onClose }: Props) {
             </div>
             <div className="mt-3 bg-[#F9FAFB] rounded-xl p-3 space-y-1.5">
               <div className="flex items-center justify-between text-xs">
-                <span className="text-[#6B7280]">🌍 Giving · {givingImpact(skipGivingLive)}</span>
-                <span className="font-bold text-[#3D8B68]">+{formatCurrency(skipGivingLive)}</span>
+                <span className="text-[#6B7280]">💚 Give a little</span>
+                <span className="font-bold text-[#3D8B68]">+{formatCurrency(skipGiveLive)}</span>
               </div>
               <div className="flex items-center justify-between text-xs">
-                <span className="text-[#6B7280]">🛍️ {spendingGoalLabelLive}</span>
-                <span className="font-bold text-[#8B5CF6]">+{formatCurrency(skipSpendingLive)}</span>
-              </div>
-              <div className="flex items-center justify-between text-xs">
-                <span className="text-[#6B7280]">💰 Saved</span>
-                <span className="font-bold text-[#F59E0B]">+{formatCurrency(skipSavingsLive)}</span>
+                <span className="text-[#6B7280]">✨ {spendingGoalLabelLive}</span>
+                <span className="font-bold text-[#8B5CF6]">+{formatCurrency(skipLiveLive)}</span>
               </div>
             </div>
           </div>

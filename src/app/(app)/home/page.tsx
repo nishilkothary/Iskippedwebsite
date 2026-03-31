@@ -4,23 +4,13 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { useAuthStore } from "@/store/authStore";
 import { useSkips } from "@/hooks/useSkips";
+import { useProjects } from "@/hooks/useProjects";
 import { useUIStore } from "@/store/uiStore";
 import { formatCurrency } from "@/lib/utils/currency";
 import { formatRelativeTime } from "@/lib/utils/dates";
+import { normalizeJarSplit } from "@/lib/services/firebase/users";
 import { EditSkipModal } from "@/components/skip/EditSkipModal";
 import { Skip } from "@/lib/types/models";
-
-const CHILD_YEAR_COST = 300;
-
-function givingImpact(amount: number): string {
-  if (amount <= 0) return "0 days of education";
-  const days = Math.round((amount / CHILD_YEAR_COST) * 365);
-  if (days < 30) return `${days} day${days !== 1 ? "s" : ""} of education`;
-  const months = (amount / CHILD_YEAR_COST) * 12;
-  if (months < 12) return `${months.toFixed(1)} months of education`;
-  const years = amount / CHILD_YEAR_COST;
-  return `${years.toFixed(1)} years of education`;
-}
 
 interface JarProps {
   fillPct: number; // 0-100
@@ -51,20 +41,22 @@ export default function HomePage() {
   const router = useRouter();
   const { profile } = useAuthStore();
   const { recentSkips } = useSkips();
+  const { projects } = useProjects();
   const { setShowSkipPicker } = useUIStore();
   const [editingSkip, setEditingSkip] = useState<Skip | null>(null);
 
   if (!profile) return null;
 
-  const split = profile.jarSplit ?? { giving: 34, spending: 33, savings: 33 };
-  const givingTotal = profile.totalSaved * (split.giving / 100);
-  const spendingTotal = profile.totalSaved * (split.spending / 100);
-  const savingsTotal = profile.totalSaved * (split.savings / 100);
+  const split = normalizeJarSplit(profile.jarSplit as any);
+  const giveTotal = profile.totalSaved * (split.give / 100);
+  const liveTotal = profile.totalSaved * (split.live / 100);
 
-  const givingBalance = Math.max(0, givingTotal - (profile.totalDonated ?? 0));
-  const spendingBalance = Math.max(0, spendingTotal - (profile.totalSpent ?? 0));
+  const givingBalance = Math.max(0, giveTotal - (profile.totalDonated ?? 0));
+  const spendingBalance = Math.max(0, liveTotal - (profile.totalSpent ?? 0));
 
-  const givingFillPct = Math.min(100, (givingBalance / CHILD_YEAR_COST) * 100);
+  const activeProject = projects.find((p) => p.id === profile.activeProjectId) ?? null;
+  const goalAmount = activeProject?.goalAmount ?? 0;
+  const givingFillPct = goalAmount > 0 ? Math.min(100, (givingBalance / goalAmount) * 100) : 0;
   const spendingGoal = profile.spendingGoal;
   const spendingFillPct = spendingGoal
     ? Math.min(100, (spendingBalance / spendingGoal.targetAmount) * 100)
@@ -87,7 +79,7 @@ export default function HomePage() {
         ✨ Log a Skip
       </button>
 
-      {/* Waterfall — 3 streams flowing from button into jars */}
+      {/* Waterfall — 2 streams flowing from button into jars */}
       <svg
         viewBox="0 0 300 64"
         className="w-full"
@@ -95,44 +87,43 @@ export default function HomePage() {
         preserveAspectRatio="none"
       >
         <defs>
-          <path id="p-left"   d="M 150,0 Q 48,32 48,64" />
-          <path id="p-center" d="M 150,0 L 150,64" />
-          <path id="p-right"  d="M 150,0 Q 252,32 252,64" />
+          <path id="p-give" d="M 150,0 Q 75,32 75,64" />
+          <path id="p-live" d="M 150,0 Q 225,32 225,64" />
         </defs>
-        {/* Faint guide lines */}
-        <use href="#p-left"   fill="none" stroke="#3D8B68" strokeWidth="1.5" strokeOpacity="0.25" />
-        <use href="#p-center" fill="none" stroke="#8B5CF6" strokeWidth="1.5" strokeOpacity="0.25" />
-        <use href="#p-right"  fill="none" stroke="#F59E0B" strokeWidth="1.5" strokeOpacity="0.25" />
+        <use href="#p-give" fill="none" stroke="#3D8B68" strokeWidth="1.5" strokeOpacity="0.25" />
+        <use href="#p-live" fill="none" stroke="#8B5CF6" strokeWidth="1.5" strokeOpacity="0.25" />
       </svg>
 
-      {/* 3 Jars */}
-      <div className="grid grid-cols-3 gap-3 mb-6">
+      {/* 2 Jars */}
+      <div className="grid grid-cols-2 gap-3 mb-6">
 
-        {/* Giving Jar */}
+        {/* Give a little Jar */}
         <Link href="/jars?tab=cause" className="bg-white rounded-2xl p-4 border border-[#E5E7EB] shadow-sm flex flex-col items-center text-center hover:border-[#3D8B68]/40 transition-colors">
-          <p className="text-xs font-bold text-[#6B7280] uppercase tracking-wide mb-2">🌍 Giving</p>
+          <p className="text-xs font-bold text-[#6B7280] uppercase tracking-wide mb-2">💚 Give a little</p>
           {profile.activeProjectId ? (
             <>
               <Jar fillPct={givingFillPct} color="bg-[#3D8B68]" emptyColor="bg-[#F9FAFB]" />
               <p className="text-[#3D8B68] font-bold text-sm mt-3">{formatCurrency(givingBalance)}</p>
-              <p className="text-[#6B7280] text-xs mt-1 leading-tight">{givingImpact(givingBalance)}<br />funded</p>
+              {goalAmount > 0 && (
+                <p className="text-[#6B7280] text-xs mt-1 leading-tight">of {formatCurrency(goalAmount)} goal</p>
+              )}
             </>
           ) : (
             <>
               <div className="w-16 h-24 mx-auto flex items-center justify-center">
-                <span className="text-3xl opacity-30">🌍</span>
+                <span className="text-3xl opacity-30">💚</span>
               </div>
               <p className="text-[#3D8B68] text-xs font-semibold mt-3">Pick a cause →</p>
             </>
           )}
         </Link>
 
-        {/* Spending Jar */}
+        {/* Live a little Jar */}
         <div
           className="bg-white rounded-2xl p-4 border border-[#E5E7EB] shadow-sm flex flex-col items-center text-center cursor-pointer hover:border-[#8B5CF6]/40 transition-colors"
           onClick={() => !spendingGoal && router.push("/jars?tab=splurge")}
         >
-          <p className="text-xs font-bold text-[#6B7280] uppercase tracking-wide mb-2">🛍️ Spending</p>
+          <p className="text-xs font-bold text-[#6B7280] uppercase tracking-wide mb-2">✨ Live a little</p>
           {spendingGoal ? (
             <>
               <Jar fillPct={spendingFillPct} color="bg-[#8B5CF6]" emptyColor="bg-[#F9FAFB]" />
@@ -142,18 +133,11 @@ export default function HomePage() {
           ) : (
             <>
               <div className="w-16 h-24 mx-auto flex items-center justify-center">
-                <span className="text-3xl opacity-30">🛍️</span>
+                <span className="text-3xl opacity-30">✨</span>
               </div>
               <p className="text-[#3D8B68] text-xs font-semibold mt-3">Pick your splurge →</p>
             </>
           )}
-        </div>
-
-        {/* Savings Counter */}
-        <div className="bg-white rounded-2xl p-4 border border-[#E5E7EB] shadow-sm flex flex-col items-center justify-center text-center min-h-[160px]">
-          <p className="text-xs font-bold text-[#6B7280] uppercase tracking-wide mb-3">💰 Saved</p>
-          <p className="text-3xl font-bold text-[#F59E0B] leading-none">{formatCurrency(savingsTotal)}</p>
-          <p className="text-xs text-[#6B7280] mt-2">saved so far</p>
         </div>
       </div>
 
@@ -166,7 +150,7 @@ export default function HomePage() {
           onClick={() => router.push("/jars")}
           className="text-xs text-[#3D8B68] font-medium hover:underline"
         >
-          {split.giving}% giving · {split.spending}% spending · {split.savings}% savings
+          {split.give}% give · {split.live}% live
         </button>
       </div>
 

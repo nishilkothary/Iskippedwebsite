@@ -1,19 +1,23 @@
 "use client";
 import { useAuthStore } from "@/store/authStore";
 import { useStreak } from "@/hooks/useStreak";
+import { useProjects } from "@/hooks/useProjects";
 import { formatCurrency } from "@/lib/utils/currency";
 import { xpProgress } from "@/lib/utils/xp";
 
 export default function DashboardPage() {
   const { profile } = useAuthStore();
   const { streak, isActive, longestStreak } = useStreak();
+  const { projects } = useProjects();
 
   if (!profile) return null;
 
   const xp = xpProgress(profile.xp);
   const progressPct = Math.round(xp.progress * 100);
-  const causeProgress = profile.activeProjectId
-    ? Math.min((profile.savedTowardActiveCause / 300) * 100, 100)
+  const activeProject = projects.find((p) => p.id === profile.activeProjectId) ?? null;
+  const goalAmount = activeProject?.goalAmount ?? 0;
+  const causeProgress = goalAmount > 0
+    ? Math.min((profile.savedTowardActiveCause / goalAmount) * 100, 100)
     : 0;
 
   const stats = [

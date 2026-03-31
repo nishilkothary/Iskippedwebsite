@@ -5,7 +5,7 @@ import { useAuthStore } from "@/store/authStore";
 import { signOut } from "@/lib/services/firebase/auth";
 import { formatCurrency } from "@/lib/utils/currency";
 import { xpProgress } from "@/lib/utils/xp";
-import { updateJarSettings } from "@/lib/services/firebase/users";
+import { updateJarSettings, normalizeJarSplit } from "@/lib/services/firebase/users";
 
 export default function ProfilePage() {
   const router = useRouter();
@@ -14,7 +14,7 @@ export default function ProfilePage() {
   if (!profile || !user) return null;
 
   const xp = xpProgress(profile.xp);
-  const currentSplit = profile.jarSplit ?? { giving: 34, spending: 33, savings: 33 };
+  const currentSplit = normalizeJarSplit(profile.jarSplit as any);
   const currentGoal = profile.spendingGoal ?? null;
 
   return (
@@ -123,31 +123,30 @@ function JarSettings({
   onSave,
 }: {
   uid: string;
-  initialSplit: { giving: number; spending: number; savings: number };
+  initialSplit: { give: number; live: number };
   initialGoal: { label: string; targetAmount: number } | null;
-  onSave: (split: { giving: number; spending: number; savings: number }, goal: { label: string; targetAmount: number } | null) => void;
+  onSave: (split: { give: number; live: number }, goal: { label: string; targetAmount: number } | null) => void;
 }) {
-  const [giving, setGiving] = useState(String(initialSplit.giving));
-  const [spending, setSpending] = useState(String(initialSplit.spending));
-  const [savings, setSavings] = useState(String(initialSplit.savings));
+  const [give, setGive] = useState(String(initialSplit.give));
+  const [live, setLive] = useState(String(initialSplit.live));
   const [goalLabel, setGoalLabel] = useState(initialGoal?.label ?? "");
   const [goalAmount, setGoalAmount] = useState(initialGoal ? String(initialGoal.targetAmount) : "");
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
 
-  const total = (parseInt(giving) || 0) + (parseInt(spending) || 0) + (parseInt(savings) || 0);
+  const total = (parseInt(give) || 0) + (parseInt(live) || 0);
   const valid = total === 100;
 
   const presets = [
-    { label: "Equal", g: 34, sp: 33, sa: 33 },
-    { label: "50/25/25", g: 50, sp: 25, sa: 25 },
-    { label: "All Giving", g: 100, sp: 0, sa: 0 },
+    { label: "50 / 50",    g: 50, l: 50 },
+    { label: "60/40 Give", g: 60, l: 40 },
+    { label: "40/60 Live", g: 40, l: 60 },
   ];
 
   async function handleSave() {
     if (!valid) return;
     setSaving(true);
-    const split = { giving: parseInt(giving), spending: parseInt(spending), savings: parseInt(savings) };
+    const split = { give: parseInt(give), live: parseInt(live) };
     const goal = goalLabel && goalAmount
       ? { label: goalLabel, targetAmount: parseFloat(goalAmount) }
       : null;
@@ -164,7 +163,7 @@ function JarSettings({
 
       {/* Spending goal */}
       <div className="mb-5">
-        <p className="text-sm font-semibold text-[#111827] mb-2">🛍️ Spending Goal</p>
+        <p className="text-sm font-semibold text-[#111827] mb-2">✨ Live a little — Goal</p>
         <div className="flex gap-2">
           <input
             type="text"
@@ -195,7 +194,7 @@ function JarSettings({
           {presets.map((p) => (
             <button
               key={p.label}
-              onClick={() => { setGiving(String(p.g)); setSpending(String(p.sp)); setSavings(String(p.sa)); }}
+              onClick={() => { setGive(String(p.g)); setLive(String(p.l)); }}
               className="flex-1 py-1.5 text-xs font-semibold rounded-lg border border-[#E5E7EB] text-[#6B7280] hover:border-[#3D8B68]/50 hover:text-[#3D8B68] transition-colors"
             >
               {p.label}
@@ -204,11 +203,10 @@ function JarSettings({
         </div>
 
         {/* Inputs */}
-        <div className="grid grid-cols-3 gap-2">
+        <div className="grid grid-cols-2 gap-2">
           {[
-            { label: "🌍 Giving", value: giving, set: setGiving },
-            { label: "🛍️ Spending", value: spending, set: setSpending },
-            { label: "💰 Savings", value: savings, set: setSavings },
+            { label: "💚 Give a little", value: give, set: setGive },
+            { label: "✨ Live a little", value: live, set: setLive },
           ].map((row) => (
             <div key={row.label} className="text-center">
               <p className="text-xs text-[#6B7280] mb-1">{row.label}</p>

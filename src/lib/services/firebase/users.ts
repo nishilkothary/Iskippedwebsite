@@ -18,6 +18,14 @@ import { User } from "firebase/auth";
 import { db } from "./config";
 import { UserProfile, DonationEvent, SpendingHistoryEvent } from "@/lib/types/models";
 
+export function normalizeJarSplit(
+  raw: { give?: number; live?: number; giving?: number; spending?: number } | undefined
+): { give: number; live: number } {
+  if (!raw) return { give: 50, live: 50 };
+  if (raw.give !== undefined && raw.live !== undefined) return { give: raw.give, live: raw.live };
+  return { give: raw.giving ?? 50, live: raw.spending ?? 50 };
+}
+
 export async function createOrUpdateUser(user: User): Promise<void> {
   const ref = doc(db, "users", user.uid);
   const snap = await getDoc(ref);
@@ -41,7 +49,7 @@ export async function createOrUpdateUser(user: User): Promise<void> {
       followersCount: 0,
       lastSkipDate: null,
       favoriteCauseIds: [],
-      jarSplit: { giving: 34, spending: 33, savings: 33 },
+      jarSplit: { give: 50, live: 50 },
       spendingGoal: null,
       createdAt: serverTimestamp(),
     };
@@ -63,7 +71,7 @@ export async function updateUserStats(
 
 export async function updateJarSettings(
   uid: string,
-  jarSplit: { giving: number; spending: number; savings: number },
+  jarSplit: { give: number; live: number },
   spendingGoal: { label: string; targetAmount: number } | null
 ): Promise<void> {
   await updateDoc(doc(db, "users", uid), { jarSplit, spendingGoal });

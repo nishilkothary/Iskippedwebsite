@@ -13,21 +13,10 @@ import {
   updateSpendingHistory,
   deleteSpendingHistory,
   setActiveProject,
+  normalizeJarSplit,
 } from "@/lib/services/firebase/users";
 import { addCustomProject } from "@/lib/services/firebase/projects";
 import { SpendingHistoryEvent, DonationEvent, Project } from "@/lib/types/models";
-
-const CHILD_YEAR_COST = 300;
-
-function givingImpact(amount: number): string {
-  if (amount <= 0) return "0 days of education";
-  const days = Math.round((amount / CHILD_YEAR_COST) * 365);
-  if (days < 30) return `${days} day${days !== 1 ? "s" : ""} of education`;
-  const months = (amount / CHILD_YEAR_COST) * 12;
-  if (months < 12) return `${months.toFixed(1)} months of education`;
-  const years = amount / CHILD_YEAR_COST;
-  return `${years.toFixed(1)} years of education`;
-}
 
 type Tab = "cause" | "splurge" | "split";
 
@@ -49,11 +38,11 @@ function JarsPageInner() {
 
   if (!profile || !user) return null;
 
-  const split = profile.jarSplit ?? { giving: 34, spending: 33, savings: 33 };
-  const givingTotal = profile.totalSaved * (split.giving / 100);
-  const spendingTotal = profile.totalSaved * (split.spending / 100);
-  const givingBalance = Math.max(0, givingTotal - (profile.totalDonated ?? 0));
-  const spendingBalance = Math.max(0, spendingTotal - (profile.totalSpent ?? 0));
+  const split = normalizeJarSplit(profile.jarSplit as any);
+  const giveTotal = profile.totalSaved * (split.give / 100);
+  const liveTotal = profile.totalSaved * (split.live / 100);
+  const givingBalance = Math.max(0, giveTotal - (profile.totalDonated ?? 0));
+  const spendingBalance = Math.max(0, liveTotal - (profile.totalSpent ?? 0));
 
   const activeProject = projects.find((p) => p.id === profile.activeProjectId) ?? projects[0] ?? null;
 
@@ -239,7 +228,6 @@ function CauseTab({
         <div className="space-y-3">
           {projects.map((project) => {
             const isActive = activeProject?.id === project.id;
-            const impact = project.impactPer100 ?? givingImpact(100);
             return (
               <div
                 key={project.id}
@@ -249,11 +237,13 @@ function CauseTab({
               >
                 <div className="flex items-start justify-between gap-3">
                   <div className="flex-1 min-w-0">
-                    <p className="font-semibold text-[#111827] text-sm">{project.title}</p>
+                    <p className="font-bold text-[#111827] text-sm">{project.sponsor}</p>
                     <p className="text-xs text-[#6B7280] mt-0.5 line-clamp-2">{project.description}</p>
-                    <div className="mt-2 inline-flex items-center gap-1.5 bg-[#E4F0E8] text-[#3D8B68] text-xs font-semibold px-2.5 py-1 rounded-full">
-                      💡 $100 gets you {impact}
-                    </div>
+                    {project.goalAmount > 0 && (
+                      <p className="text-xs text-[#3D8B68] font-semibold mt-1.5">
+                        To fund: {project.title} · {formatCurrency(project.goalAmount)}
+                      </p>
+                    )}
                   </div>
                   <div className="flex-shrink-0">
                     {isActive ? (
@@ -338,7 +328,11 @@ function CauseTab({
         <div className="flex items-center justify-between bg-[#F0FAF5] rounded-xl px-4 py-3 mb-4">
           <div>
             <p className="text-2xl font-bold text-[#3D8B68]">{formatCurrency(givingBalance)}</p>
-            <p className="text-xs text-[#6B7280]">{givingImpact(givingBalance)} ready to fund</p>
+            <p className="text-xs text-[#6B7280]">
+            {activeProject?.goalAmount
+              ? `${formatCurrency(givingBalance)} of ${formatCurrency(activeProject.goalAmount)} goal`
+              : formatCurrency(givingBalance)}
+          </p>
           </div>
           <div className="text-right">
             <p className="text-sm font-semibold text-[#6B7280]">{formatCurrency(totalDonated)}</p>
@@ -663,29 +657,28 @@ function JarSplitSection({
   onSave,
 }: {
   uid: string;
-  initialSplit: { giving: number; spending: number; savings: number };
+  initialSplit: { give: number; live: number };
   spendingGoal: { label: string; targetAmount: number; shoppingLink?: string } | null;
-  onSave: (split: { giving: number; spending: number; savings: number }) => void;
+  onSave: (split: { give: number; live: number }) => void;
 }) {
-  const [giving, setGiving] = useState(String(initialSplit.giving));
-  const [spending, setSpending] = useState(String(initialSplit.spending));
-  const [savings, setSavings] = useState(String(initialSplit.savings));
+  const [give, setGive] = useState(String(initialSplit.give));
+  const [live, setLive] = useState(String(initialSplit.live));
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
 
-  const total = (parseInt(giving) || 0) + (parseInt(spending) || 0) + (parseInt(savings) || 0);
+  const total = (parseInt(give) || 0) + (parseInt(live) || 0);
   const valid = total === 100;
 
   const presets = [
-    { label: "Equal", g: 34, sp: 33, sa: 33 },
-    { label: "50/25/25", g: 50, sp: 25, sa: 25 },
-    { label: "All Giving", g: 100, sp: 0, sa: 0 },
+    { label: "50 / 50",    g: 50, l: 50 },
+    { label: "60/40 Give", g: 60, l: 40 },
+    { label: "40/60 Live", g: 40, l: 60 },
   ];
 
   async function handleSave() {
     if (!valid) return;
     setSaving(true);
-    const split = { giving: parseInt(giving), spending: parseInt(spending), savings: parseInt(savings) };
+    const split = { give: parseInt(give), live: parseInt(live) };
     await updateJarSettings(uid, split, spendingGoal);
     onSave(split);
     setSaving(false);
@@ -701,7 +694,7 @@ function JarSplitSection({
         {presets.map((p) => (
           <button
             key={p.label}
-            onClick={() => { setGiving(String(p.g)); setSpending(String(p.sp)); setSavings(String(p.sa)); }}
+            onClick={() => { setGive(String(p.g)); setLive(String(p.l)); }}
             className="flex-1 py-1.5 text-xs font-semibold rounded-lg border border-[#E5E7EB] text-[#6B7280] hover:border-[#3D8B68]/50 hover:text-[#3D8B68] transition-colors"
           >
             {p.label}
@@ -709,11 +702,10 @@ function JarSplitSection({
         ))}
       </div>
 
-      <div className="grid grid-cols-3 gap-2 mb-3">
+      <div className="grid grid-cols-2 gap-2 mb-3">
         {[
-          { label: "🌍 Giving", value: giving, set: setGiving },
-          { label: "🛍️ Splurge", value: spending, set: setSpending },
-          { label: "💰 Saved", value: savings, set: setSavings },
+          { label: "💚 Give a little", value: give, set: setGive },
+          { label: "✨ Live a little", value: live, set: setLive },
         ].map((row) => (
           <div key={row.label} className="text-center">
             <p className="text-xs text-[#6B7280] mb-1">{row.label}</p>

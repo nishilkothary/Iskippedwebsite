@@ -20,7 +20,7 @@ export interface UserProfile {
   lastSkipDate: string | null; // YYYY-MM-DD
   favoriteCauseIds: string[];
   causeStats?: Record<string, { donated: number }>;
-  jarSplit?: { giving: number; spending: number; savings: number };
+  jarSplit?: { give: number; live: number };
   spendingGoal?: { label: string; targetAmount: number; shoppingLink?: string } | null;
   totalSpent?: number;
 }

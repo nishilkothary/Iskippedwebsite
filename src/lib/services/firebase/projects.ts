@@ -36,18 +36,6 @@ export const SEED_PROJECTS: Omit<Project, "id">[] = [
     createdBy: null,
     tags: ["education", "library", "kenya"],
   },
-  {
-    title: "Educate a girl on women's health",
-    sponsor: "She's the First",
-    description: "Empower girls with life-changing women's health education, breaking cycles of poverty and inequality.",
-    goalAmount: 150,
-    totalRaised: 0,
-    imageURL: null,
-    donationURL: "https://shesthefirst.org/donate",
-    isCustom: false,
-    createdBy: null,
-    tags: ["women", "health", "education"],
-  },
 ];
 
 export async function getAllProjects(): Promise<Project[]> {
