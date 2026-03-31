@@ -5,7 +5,6 @@ import { useAuthStore } from "@/store/authStore";
 import { useSkips } from "@/hooks/useSkips";
 import { useProjects } from "@/hooks/useProjects";
 import { formatCurrency } from "@/lib/utils/currency";
-import { formatRelativeTime } from "@/lib/utils/dates";
 import {
   updateJarSettings,
   completePurchase,
@@ -16,7 +15,7 @@ import {
   normalizeJarSplit,
 } from "@/lib/services/firebase/users";
 import { addCustomProject } from "@/lib/services/firebase/projects";
-import { SpendingHistoryEvent, DonationEvent, Project } from "@/lib/types/models";
+import { SpendingHistoryEvent, Project } from "@/lib/types/models";
 
 type Tab = "cause" | "splurge" | "split";
 
@@ -26,7 +25,7 @@ function JarsPageInner() {
   const [activeTab, setActiveTab] = useState<Tab>(initialTab);
 
   const { user, profile, updateProfile } = useAuthStore();
-  const { donate, donations, editDonation, deleteDonation } = useSkips();
+  const { donate } = useSkips();
   const { projects, refetch } = useProjects();
   const [spendingHistory, setSpendingHistory] = useState<SpendingHistoryEvent[]>([]);
 
@@ -86,9 +85,6 @@ function JarsPageInner() {
       {activeTab === "cause" && (
         <CauseTab
           uid={user.uid}
-          givingBalance={givingBalance}
-          totalDonated={profile.totalDonated}
-          donations={donations}
           projects={projects}
           activeProject={activeProject}
           onSelectCause={handleSelectCause}
@@ -96,8 +92,6 @@ function JarsPageInner() {
           onDonate={(amount) =>
             donate(amount, activeProject?.id ?? "giving", activeProject?.title ?? "Giving")
           }
-          onEditDonation={editDonation}
-          onDeleteDonation={deleteDonation}
         />
       )}
 
@@ -149,36 +143,22 @@ export default function JarsPage() {
 /* ── Cause Tab ── */
 function CauseTab({
   uid,
-  givingBalance,
-  totalDonated,
-  donations,
   projects,
   activeProject,
   onSelectCause,
   onAddCause,
   onDonate,
-  onEditDonation,
-  onDeleteDonation,
 }: {
   uid: string;
-  givingBalance: number;
-  totalDonated: number;
-  donations: DonationEvent[];
   projects: Project[];
   activeProject: Project | null;
   onSelectCause: (p: Project) => void;
   onAddCause: (title: string, goalAmount: number, donationURL?: string) => Promise<void>;
   onDonate: (amount: number) => Promise<void>;
-  onEditDonation: (donation: DonationEvent, newAmount: number) => Promise<void>;
-  onDeleteDonation: (donation: DonationEvent) => Promise<void>;
 }) {
-  const [showInput, setShowInput] = useState(false);
-  const [amountStr, setAmountStr] = useState("");
-  const [saving, setSaving] = useState(false);
-  const [editingId, setEditingId] = useState<string | null>(null);
-  const [editAmountStr, setEditAmountStr] = useState("");
-  const [deletingId, setDeletingId] = useState<string | null>(null);
-  const [working, setWorking] = useState(false);
+  const [donatingId, setDonatingId] = useState<string | null>(null);
+  const [donateAmountStr, setDonateAmountStr] = useState("");
+  const [donating, setDonating] = useState(false);
   const [showAddForm, setShowAddForm] = useState(false);
   const [customTitle, setCustomTitle] = useState("");
   const [customGoalStr, setCustomGoalStr] = useState("");
@@ -195,32 +175,6 @@ function CauseTab({
     setCustomURL("");
     setShowAddForm(false);
     setAddingCause(false);
-  }
-
-  async function handleDonate() {
-    const amount = parseFloat(amountStr);
-    if (!amount || amount <= 0) return;
-    setSaving(true);
-    await onDonate(amount);
-    setAmountStr("");
-    setShowInput(false);
-    setSaving(false);
-  }
-
-  async function handleEditConfirm(donation: DonationEvent) {
-    const newAmount = parseFloat(editAmountStr);
-    if (!newAmount || newAmount <= 0) return;
-    setWorking(true);
-    await onEditDonation(donation, newAmount);
-    setEditingId(null);
-    setWorking(false);
-  }
-
-  async function handleDeleteConfirm(donation: DonationEvent) {
-    setWorking(true);
-    await onDeleteDonation(donation);
-    setDeletingId(null);
-    setWorking(false);
   }
 
   return (
@@ -266,16 +220,65 @@ function CauseTab({
                     )}
                   </div>
                 </div>
-                {project.donationURL && (
-                  <a
-                    href={project.donationURL}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="mt-3 flex items-center justify-center gap-1.5 w-full py-2 border border-[#3D8B68] text-[#3D8B68] font-semibold rounded-xl hover:bg-[#E4F0E8] transition-colors text-xs"
-                  >
-                    🌍 Donate →
-                  </a>
-                )}
+
+                {/* Donate actions — always show external link, show I Donated only on active */}
+                <div className="mt-3 space-y-2">
+                  {project.donationURL && (
+                    <a
+                      href={project.donationURL}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="flex items-center justify-center gap-1.5 w-full py-2 border border-[#3D8B68] text-[#3D8B68] font-semibold rounded-xl hover:bg-[#E4F0E8] transition-colors text-xs"
+                    >
+                      🌍 Donate →
+                    </a>
+                  )}
+                  {isActive && (
+                    donatingId === project.id ? (
+                      <div className="flex gap-2">
+                        <div className="relative flex-1">
+                          <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-[#6B7280]">$</span>
+                          <input
+                            type="number"
+                            placeholder="0.00"
+                            value={donateAmountStr}
+                            onChange={(e) => setDonateAmountStr(e.target.value)}
+                            className="w-full pl-7 border border-[#E5E7EB] rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#3D8B68]/30"
+                            autoFocus
+                          />
+                        </div>
+                        <button
+                          onClick={async () => {
+                            const amt = parseFloat(donateAmountStr);
+                            if (!amt || amt <= 0) return;
+                            setDonating(true);
+                            await onDonate(amt);
+                            setDonateAmountStr("");
+                            setDonatingId(null);
+                            setDonating(false);
+                          }}
+                          disabled={donating || !donateAmountStr || parseFloat(donateAmountStr) <= 0}
+                          className="bg-[#3D8B68] text-white font-semibold px-4 py-2 rounded-xl text-sm disabled:opacity-50"
+                        >
+                          {donating ? "…" : "Confirm"}
+                        </button>
+                        <button
+                          onClick={() => { setDonatingId(null); setDonateAmountStr(""); }}
+                          className="border border-[#E5E7EB] text-[#6B7280] px-3 py-2 rounded-xl text-sm"
+                        >
+                          Cancel
+                        </button>
+                      </div>
+                    ) : (
+                      <button
+                        onClick={() => setDonatingId(project.id)}
+                        className="w-full py-2 border border-[#3D8B68] text-[#3D8B68] font-semibold rounded-xl hover:bg-[#E4F0E8] transition-colors text-xs"
+                      >
+                        💸 I Donated
+                      </button>
+                    )
+                  )}
+                </div>
               </div>
             );
           })}
@@ -333,112 +336,6 @@ function CauseTab({
           >
             ＋ Add your own cause
           </button>
-        )}
-      </div>
-
-      {/* Giving balance + donate */}
-      <div className="bg-white rounded-2xl p-6 border border-[#E5E7EB] shadow-sm">
-        <h2 className="text-base font-bold text-[#111827] mb-3">
-          🌍 {activeProject?.title ?? "Giving Jar"}
-        </h2>
-
-        <div className="flex items-center justify-between bg-[#F0FAF5] rounded-xl px-4 py-3 mb-4">
-          <div>
-            <p className="text-2xl font-bold text-[#3D8B68]">{formatCurrency(givingBalance)}</p>
-            <p className="text-xs text-[#6B7280]">
-            {activeProject?.goalAmount
-              ? `${formatCurrency(givingBalance)} of ${formatCurrency(activeProject.goalAmount)} goal`
-              : formatCurrency(givingBalance)}
-          </p>
-          </div>
-          <div className="text-right">
-            <p className="text-sm font-semibold text-[#6B7280]">{formatCurrency(totalDonated)}</p>
-            <p className="text-xs text-[#9CA3AF]">donated total</p>
-          </div>
-        </div>
-
-        {showInput ? (
-          <div className="flex gap-2 mb-2">
-            <div className="relative flex-1">
-              <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-[#6B7280]">$</span>
-              <input
-                type="number"
-                placeholder="0.00"
-                value={amountStr}
-                onChange={(e) => setAmountStr(e.target.value)}
-                className="w-full pl-7 border border-[#E5E7EB] rounded-xl px-3 py-2.5 text-sm text-[#111827] focus:outline-none focus:ring-2 focus:ring-[#3D8B68]/30"
-                autoFocus
-              />
-            </div>
-            <button
-              onClick={handleDonate}
-              disabled={saving || !amountStr || parseFloat(amountStr) <= 0}
-              className="bg-[#3D8B68] text-white font-semibold px-4 py-2.5 rounded-xl text-sm disabled:opacity-50"
-            >
-              {saving ? "Saving…" : "Confirm"}
-            </button>
-            <button
-              onClick={() => { setShowInput(false); setAmountStr(""); }}
-              className="text-[#9CA3AF] hover:text-[#111827] px-3 py-2.5 rounded-xl border border-[#E5E7EB] text-sm"
-            >
-              Cancel
-            </button>
-          </div>
-        ) : (
-          <button
-            onClick={() => setShowInput(true)}
-            className="w-full py-2.5 border border-[#3D8B68] text-[#3D8B68] font-semibold rounded-xl hover:bg-[#E4F0E8] transition-colors text-sm"
-          >
-            💸 I Donated
-          </button>
-        )}
-
-        {donations.length > 0 && (
-          <div className="mt-4">
-            <p className="text-xs font-semibold text-[#6B7280] uppercase tracking-wide mb-2">Donation History</p>
-            <div className="space-y-1">
-              {donations.slice(0, 10).map((d) => (
-                <div key={d.id}>
-                  {editingId === d.id ? (
-                    <div className="flex gap-2 py-1.5">
-                      <div className="relative flex-1">
-                        <span className="absolute left-3 top-1/2 -translate-y-1/2 text-xs text-[#6B7280]">$</span>
-                        <input
-                          type="number"
-                          value={editAmountStr}
-                          onChange={(e) => setEditAmountStr(e.target.value)}
-                          className="w-full pl-6 border border-[#3D8B68] rounded-lg px-2 py-1.5 text-sm text-[#111827] focus:outline-none"
-                          autoFocus
-                        />
-                      </div>
-                      <button onClick={() => handleEditConfirm(d)} disabled={working} className="text-xs bg-[#3D8B68] text-white px-3 py-1.5 rounded-lg disabled:opacity-50">{working ? "…" : "Save"}</button>
-                      <button onClick={() => setEditingId(null)} className="text-xs border border-[#E5E7EB] text-[#6B7280] px-3 py-1.5 rounded-lg">Cancel</button>
-                    </div>
-                  ) : deletingId === d.id ? (
-                    <div className="flex items-center justify-between bg-red-50 rounded-lg px-3 py-2">
-                      <p className="text-xs text-red-600">Delete {formatCurrency(d.amount)}?</p>
-                      <div className="flex gap-2">
-                        <button onClick={() => handleDeleteConfirm(d)} disabled={working} className="text-xs bg-red-500 text-white px-3 py-1 rounded-lg disabled:opacity-50">{working ? "…" : "Delete"}</button>
-                        <button onClick={() => setDeletingId(null)} className="text-xs border border-[#E5E7EB] text-[#6B7280] px-3 py-1 rounded-lg">Cancel</button>
-                      </div>
-                    </div>
-                  ) : (
-                    <div className="flex items-center justify-between py-1.5">
-                      <div>
-                        <p className="text-sm text-[#111827]">{d.causeTitle}</p>
-                        <p className="text-xs text-[#9CA3AF]">{d.donatedAt?.toDate ? formatRelativeTime(d.donatedAt.toDate()) : ""}</p>
-                      </div>
-                      <div className="flex items-center gap-2">
-                        <p className="text-sm font-semibold text-[#3D8B68]">{formatCurrency(d.amount)}</p>
-                        <button onClick={() => { setEditingId(d.id); setEditAmountStr(String(d.amount)); }} className="text-[#9CA3AF] hover:text-[#3D8B68] text-base p-1">✏️</button>
-                        <button onClick={() => setDeletingId(d.id)} className="text-[#9CA3AF] hover:text-red-500 text-base p-1">🗑️</button>
-                      </div>
-                    </div>
-                  )}
-                </div>
-              ))}
-            </div>
-          </div>
         )}
       </div>
     </div>

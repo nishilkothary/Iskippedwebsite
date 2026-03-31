@@ -1,18 +1,14 @@
 "use client";
 import { useEffect, useState } from "react";
-import { getAllProjects, seedProjectsIfEmpty } from "@/lib/services/firebase/projects";
+import { getAllProjects, OFFICIAL_PROJECTS } from "@/lib/services/firebase/projects";
 import { Project } from "@/lib/types/models";
 
 export function useProjects() {
-  const [projects, setProjects] = useState<Project[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [projects, setProjects] = useState<Project[]>(OFFICIAL_PROJECTS);
 
   useEffect(() => {
-    seedProjectsIfEmpty()
-      .then(() => getAllProjects())
-      .then(setProjects)
-      .finally(() => setLoading(false));
+    getAllProjects().then(setProjects);
   }, []);
 
-  return { projects, loading, refetch: () => getAllProjects().then(setProjects) };
+  return { projects, loading: false, refetch: () => getAllProjects().then(setProjects) };
 }

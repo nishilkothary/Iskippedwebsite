@@ -4,7 +4,6 @@ import {
   getDocs,
   getDoc,
   addDoc,
-  updateDoc,
   serverTimestamp,
   onSnapshot,
   Unsubscribe,
@@ -12,8 +11,9 @@ import {
 import { db } from "./config";
 import { Project } from "@/lib/types/models";
 
-export const SEED_PROJECTS: Omit<Project, "id">[] = [
+export const OFFICIAL_PROJECTS: Project[] = [
   {
+    id: "cfc",
     title: "Educate a child for a year",
     sponsor: "Caring for Cambodia",
     description: "Your savings fund a full year of quality education for a child in Cambodia, including tuition, uniforms, and school supplies.",
@@ -26,6 +26,7 @@ export const SEED_PROJECTS: Omit<Project, "id">[] = [
     tags: ["education", "children", "cambodia"],
   },
   {
+    id: "kc",
     title: "Fund a Chromebook for students",
     sponsor: "Kenya Connect",
     description: "Help equip students in remote Kenyan villages with a Chromebook, unlocking digital learning and new opportunities.",
@@ -39,33 +40,22 @@ export const SEED_PROJECTS: Omit<Project, "id">[] = [
   },
 ];
 
-export async function seedProjectsIfEmpty(): Promise<void> {
-  const snap = await getDocs(collection(db, "projects"));
-  const official = snap.docs.filter((d) => !d.data().isCustom);
-
-  for (const seed of SEED_PROJECTS) {
-    const existing = official.find((d) => d.data().sponsor === seed.sponsor);
-    if (!existing) {
-      await addDoc(collection(db, "projects"), seed);
-    } else {
-      const data = existing.data();
-      if (data.goalAmount !== seed.goalAmount || data.title !== seed.title || data.description !== seed.description) {
-        await updateDoc(doc(db, "projects", existing.id), {
-          goalAmount: seed.goalAmount,
-          title: seed.title,
-          description: seed.description,
-        });
-      }
-    }
+export async function getAllProjects(): Promise<Project[]> {
+  try {
+    const snap = await getDocs(collection(db, "projects"));
+    const custom = snap.docs
+      .map((d) => ({ id: d.id, ...d.data() } as Project))
+      .filter((p) => p.isCustom);
+    return [...OFFICIAL_PROJECTS, ...custom];
+  } catch {
+    return OFFICIAL_PROJECTS;
   }
 }
 
-export async function getAllProjects(): Promise<Project[]> {
-  const snap = await getDocs(collection(db, "projects"));
-  return snap.docs.map((d) => ({ id: d.id, ...d.data() } as Project));
-}
-
 export async function getProject(id: string): Promise<Project | null> {
+  // Check official projects first
+  const official = OFFICIAL_PROJECTS.find((p) => p.id === id);
+  if (official) return official;
   const snap = await getDoc(doc(db, "projects", id));
   return snap.exists() ? ({ id: snap.id, ...snap.data() } as Project) : null;
 }
@@ -76,7 +66,7 @@ export async function addCustomProject(
 ): Promise<string> {
   const ref = await addDoc(collection(db, "projects"), {
     ...data,
-    sponsor: "Custom",
+    sponsor: data.title,
     description: data.description || "",
     totalRaised: 0,
     imageURL: null,
@@ -91,7 +81,9 @@ export async function addCustomProject(
 
 export function subscribeToProjects(callback: (projects: Project[]) => void): Unsubscribe {
   return onSnapshot(collection(db, "projects"), (snap) => {
-    const projects = snap.docs.map((d) => ({ id: d.id, ...d.data() } as Project));
-    callback(projects);
+    const custom = snap.docs
+      .map((d) => ({ id: d.id, ...d.data() } as Project))
+      .filter((p) => p.isCustom);
+    callback([...OFFICIAL_PROJECTS, ...custom]);
   });
 }

@@ -20,6 +20,7 @@ interface JarProps {
 
 function Jar({ fillPct, color, emptyColor }: JarProps) {
   const clamped = Math.min(100, Math.max(0, fillPct));
+  const pct = Math.round(clamped);
   return (
     <div className="relative mx-auto w-16 h-24 flex flex-col justify-end">
       {/* Jar body */}
@@ -29,6 +30,15 @@ function Jar({ fillPct, color, emptyColor }: JarProps) {
           className={`absolute bottom-0 left-0 right-0 ${color} transition-all duration-700`}
           style={{ height: `${clamped}%` }}
         />
+        {/* Percent overlay */}
+        <div className="absolute inset-0 flex items-center justify-center">
+          <span
+            className="text-xs font-bold leading-none"
+            style={{ color: pct > 45 ? "white" : "#374151" }}
+          >
+            {pct}%
+          </span>
+        </div>
       </div>
       {/* Jar lip */}
       <div className="absolute top-0 left-1/2 -translate-x-1/2 w-14 h-2 rounded-t-sm border-t-2 border-x-2 border-[#E5E7EB] bg-white" />
@@ -100,12 +110,13 @@ export default function HomePage() {
         {/* Give a little Jar */}
         <Link href="/jars?tab=cause" className="bg-white rounded-2xl p-4 border border-[#E5E7EB] shadow-sm flex flex-col items-center text-center hover:border-[#3D8B68]/40 transition-colors">
           <p className="text-xs font-bold text-[#6B7280] uppercase tracking-wide mb-2">💚 Give a little</p>
-          {profile.activeProjectId ? (
+          {activeProject ? (
             <>
               <Jar fillPct={givingFillPct} color="bg-[#3D8B68]" emptyColor="bg-[#F9FAFB]" />
               <p className="text-[#3D8B68] font-bold text-sm mt-3">{formatCurrency(givingBalance)}</p>
+              <p className="text-[#6B7280] text-xs mt-0.5 leading-tight font-medium">{activeProject.sponsor}</p>
               {goalAmount > 0 && (
-                <p className="text-[#6B7280] text-xs mt-1 leading-tight">of {formatCurrency(goalAmount)} goal</p>
+                <p className="text-[#6B7280] text-xs mt-0.5 leading-tight">of {formatCurrency(goalAmount)}</p>
               )}
             </>
           ) : (
