@@ -4,6 +4,7 @@ import {
   getDocs,
   getDoc,
   addDoc,
+  updateDoc,
   serverTimestamp,
   onSnapshot,
   Unsubscribe,
@@ -16,7 +17,7 @@ export const SEED_PROJECTS: Omit<Project, "id">[] = [
     title: "Educate a child for a year",
     sponsor: "Caring for Cambodia",
     description: "Your savings fund a full year of quality education for a child in Cambodia, including tuition, uniforms, and school supplies.",
-    goalAmount: 180,
+    goalAmount: 300,
     totalRaised: 0,
     imageURL: null,
     donationURL: "https://www.caringforcambodia.org/donate",
@@ -25,26 +26,37 @@ export const SEED_PROJECTS: Omit<Project, "id">[] = [
     tags: ["education", "children", "cambodia"],
   },
   {
-    title: "Fund a mobile library",
+    title: "Fund a Chromebook for students",
     sponsor: "Kenya Connect",
-    description: "Help bring books and learning resources to remote villages in Kenya through a mobile library program.",
-    goalAmount: 150,
+    description: "Help equip students in remote Kenyan villages with a Chromebook, unlocking digital learning and new opportunities.",
+    goalAmount: 250,
     totalRaised: 0,
     imageURL: null,
     donationURL: "https://www.kenyaconnect.org/donate",
     isCustom: false,
     createdBy: null,
-    tags: ["education", "library", "kenya"],
+    tags: ["education", "technology", "kenya"],
   },
 ];
 
 export async function seedProjectsIfEmpty(): Promise<void> {
   const snap = await getDocs(collection(db, "projects"));
   const official = snap.docs.filter((d) => !d.data().isCustom);
-  if (official.length === 0) {
-    await Promise.all(
-      SEED_PROJECTS.map((p) => addDoc(collection(db, "projects"), p))
-    );
+
+  for (const seed of SEED_PROJECTS) {
+    const existing = official.find((d) => d.data().sponsor === seed.sponsor);
+    if (!existing) {
+      await addDoc(collection(db, "projects"), seed);
+    } else {
+      const data = existing.data();
+      if (data.goalAmount !== seed.goalAmount || data.title !== seed.title || data.description !== seed.description) {
+        await updateDoc(doc(db, "projects", existing.id), {
+          goalAmount: seed.goalAmount,
+          title: seed.title,
+          description: seed.description,
+        });
+      }
+    }
   }
 }
 

@@ -51,8 +51,8 @@ function JarsPageInner() {
     updateProfile({ activeProjectId: project.id });
   }
 
-  async function handleAddCause(title: string, donationURL?: string) {
-    await addCustomProject(user!.uid, { title, goalAmount: 0, donationURL });
+  async function handleAddCause(title: string, goalAmount: number, donationURL?: string) {
+    await addCustomProject(user!.uid, { title, goalAmount, donationURL });
     await refetch();
   }
 
@@ -167,7 +167,7 @@ function CauseTab({
   projects: Project[];
   activeProject: Project | null;
   onSelectCause: (p: Project) => void;
-  onAddCause: (title: string, donationURL?: string) => Promise<void>;
+  onAddCause: (title: string, goalAmount: number, donationURL?: string) => Promise<void>;
   onDonate: (amount: number) => Promise<void>;
   onEditDonation: (donation: DonationEvent, newAmount: number) => Promise<void>;
   onDeleteDonation: (donation: DonationEvent) => Promise<void>;
@@ -181,14 +181,17 @@ function CauseTab({
   const [working, setWorking] = useState(false);
   const [showAddForm, setShowAddForm] = useState(false);
   const [customTitle, setCustomTitle] = useState("");
+  const [customGoalStr, setCustomGoalStr] = useState("");
   const [customURL, setCustomURL] = useState("");
   const [addingCause, setAddingCause] = useState(false);
 
   async function handleAddCause() {
     if (!customTitle.trim()) return;
+    const goalAmount = parseFloat(customGoalStr) || 0;
     setAddingCause(true);
-    await onAddCause(customTitle.trim(), customURL.trim() || undefined);
+    await onAddCause(customTitle.trim(), goalAmount, customURL.trim() || undefined);
     setCustomTitle("");
+    setCustomGoalStr("");
     setCustomURL("");
     setShowAddForm(false);
     setAddingCause(false);
@@ -226,7 +229,7 @@ function CauseTab({
       <div>
         <p className="text-sm font-semibold text-[#111827] mb-3">Choose your cause</p>
         <div className="space-y-3">
-          {projects.map((project) => {
+          {projects.filter((p) => !p.isCustom).map((project) => {
             const isActive = activeProject?.id === project.id;
             return (
               <div
@@ -241,7 +244,7 @@ function CauseTab({
                     <p className="text-xs text-[#6B7280] mt-0.5 line-clamp-2">{project.description}</p>
                     {project.goalAmount > 0 && (
                       <p className="text-xs text-[#3D8B68] font-semibold mt-1.5">
-                        To fund: {project.title} · {formatCurrency(project.goalAmount)}
+                        Skipped Expense Needed: {formatCurrency(project.goalAmount)}
                       </p>
                     )}
                   </div>
@@ -281,11 +284,22 @@ function CauseTab({
             <p className="text-sm font-semibold text-[#111827]">Add your own cause</p>
             <input
               type="text"
-              placeholder="Cause name"
+              placeholder="Organisation name"
               value={customTitle}
               onChange={(e) => setCustomTitle(e.target.value)}
               className="w-full border border-[#E5E7EB] rounded-xl px-3 py-2.5 text-sm text-[#111827] focus:outline-none focus:ring-2 focus:ring-[#3D8B68]/30"
             />
+            <div className="relative">
+              <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-[#6B7280]">$</span>
+              <input
+                type="number"
+                placeholder="0"
+                value={customGoalStr}
+                onChange={(e) => setCustomGoalStr(e.target.value)}
+                className="w-full pl-7 border border-[#E5E7EB] rounded-xl px-3 py-2.5 text-sm text-[#111827] focus:outline-none focus:ring-2 focus:ring-[#3D8B68]/30"
+              />
+              <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-[#9CA3AF]">Skipped Expense Needed</span>
+            </div>
             <input
               type="url"
               placeholder="Donation link (optional)"
@@ -302,7 +316,7 @@ function CauseTab({
                 {addingCause ? "Saving…" : "Save"}
               </button>
               <button
-                onClick={() => { setShowAddForm(false); setCustomTitle(""); setCustomURL(""); }}
+                onClick={() => { setShowAddForm(false); setCustomTitle(""); setCustomGoalStr(""); setCustomURL(""); }}
                 className="px-4 py-2.5 border border-[#E5E7EB] text-[#6B7280] font-semibold rounded-xl text-sm hover:text-[#111827] transition-colors"
               >
                 Cancel
