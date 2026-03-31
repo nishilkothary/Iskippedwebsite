@@ -38,6 +38,16 @@ export const SEED_PROJECTS: Omit<Project, "id">[] = [
   },
 ];
 
+export async function seedProjectsIfEmpty(): Promise<void> {
+  const snap = await getDocs(collection(db, "projects"));
+  const official = snap.docs.filter((d) => !d.data().isCustom);
+  if (official.length === 0) {
+    await Promise.all(
+      SEED_PROJECTS.map((p) => addDoc(collection(db, "projects"), p))
+    );
+  }
+}
+
 export async function getAllProjects(): Promise<Project[]> {
   const snap = await getDocs(collection(db, "projects"));
   return snap.docs.map((d) => ({ id: d.id, ...d.data() } as Project));
