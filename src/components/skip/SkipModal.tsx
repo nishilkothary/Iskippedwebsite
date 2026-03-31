@@ -71,8 +71,9 @@ export function SkipModal({ onClose }: Props) {
     const spendingGoalLabel = profile?.spendingGoal?.label ?? "Live a little";
 
     const itemLabel = whatSkipped || customLabel || selectedCat.label.toLowerCase();
-    const causeLabel = successProjectTitle || "Caring for Cambodia";
-    const shareText = `I skipped ${itemLabel} and saved ${formatCurrency(amount)} toward a child's education! Every skip makes a difference. Join the movement on Iskipped.com`;
+    const causeTitle = successProjectTitle ?? "a good cause";
+    const causeSentence = causeTitle.charAt(0).toLowerCase() + causeTitle.slice(1);
+    const shareText = `I skipped ${itemLabel} and saved ${formatCurrency(amount)} to ${causeSentence}! Every skip makes a difference. Join the movement on Iskipped.com`;
 
     return (
       <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4" onClick={onClose}>

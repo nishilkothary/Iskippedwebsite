@@ -242,8 +242,11 @@ function CauseTab({
                   <div className="flex-1 min-w-0">
                     <p className="font-bold text-[#111827] text-sm">{project.sponsor}</p>
                     <p className="text-xs text-[#6B7280] mt-0.5 line-clamp-2">{project.description}</p>
+                    <p className="text-xs text-[#6B7280] mt-1.5">
+                      <span className="font-semibold text-[#111827]">Cause: </span>{project.title}
+                    </p>
                     {project.goalAmount > 0 && (
-                      <p className="text-xs text-[#3D8B68] font-semibold mt-1.5">
+                      <p className="text-xs text-[#3D8B68] font-semibold mt-1">
                         Skipped Expense Needed: {formatCurrency(project.goalAmount)}
                       </p>
                     )}
