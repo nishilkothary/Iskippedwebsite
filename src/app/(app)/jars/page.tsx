@@ -103,7 +103,7 @@ function JarsPageInner() {
     const newActiveId =
       activeSpendingGoalId === goalId ? (newGoals[0]?.id ?? null) : activeSpendingGoalId;
     updateProfile({
-      totalSpent: (profile.totalSpent ?? 0) + spendingBalance,
+      totalSpent: (profile!.totalSpent ?? 0) + spendingBalance,
       spendingGoals: newGoals,
       activeSpendingGoalId: newActiveId,
     });
