@@ -146,14 +146,15 @@ export async function logSkip(params: LogSkipParams): Promise<{ skipId: string; 
   // 5. Community share (opt-in)
   if (shareWithCommunity) {
     try {
-      // Write to community feed
-      const communityFeedRef = doc(collection(db, "communityFeed"));
+      // Write to community feed — use skip ID as doc ID so edits/deletes can find it
+      const communityFeedRef = doc(db, "communityFeed", skipRef.id);
       const communityBatch = writeBatch(db);
       communityBatch.set(communityFeedRef, {
         uid,
         displayName: displayName || "Skipper",
         ...(photoURL ? { photoURL } : {}),
         type: "skip",
+        skipId: skipRef.id,
         skipAmount: amount,
         skipCategory: category,
         skipEmoji: categoryEmoji,

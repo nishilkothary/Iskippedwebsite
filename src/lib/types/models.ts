@@ -1,5 +1,14 @@
 import { Timestamp } from "firebase/firestore";
 
+export interface SpendingGoal {
+  id: string;
+  label: string;
+  targetAmount: number;
+  type: "splurge" | "donation";
+  shoppingLink?: string;
+  donationURL?: string;
+}
+
 export interface UserProfile {
   uid: string;
   displayName: string;
@@ -21,7 +30,10 @@ export interface UserProfile {
   favoriteCauseIds: string[];
   causeStats?: Record<string, { donated: number }>;
   jarSplit?: { give: number; live: number };
+  /** @deprecated use spendingGoals + activeSpendingGoalId */
   spendingGoal?: { label: string; targetAmount: number; shoppingLink?: string } | null;
+  spendingGoals?: SpendingGoal[];
+  activeSpendingGoalId?: string | null;
   totalSpent?: number;
 }
 
@@ -78,6 +90,7 @@ export interface FeedItem {
   displayName: string;
   photoURL: string | null;
   type: "skip" | "badge" | "milestone" | "donation";
+  skipId?: string;
   skipAmount?: number;
   skipCategory?: string;
   skipEmoji?: string;

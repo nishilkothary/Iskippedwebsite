@@ -9,6 +9,9 @@ import {
   where,
   getAggregateFromServer,
   sum,
+  doc,
+  deleteDoc,
+  updateDoc,
 } from "firebase/firestore";
 import { ref, onValue } from "firebase/database";
 import { db, rtdb } from "./config";
@@ -74,6 +77,25 @@ export async function getLeaderboard(limitCount = 20): Promise<Array<{ uid: stri
     photoURL: d.data().photoURL || null,
     totalSaved: d.data().totalSaved || 0,
   }));
+}
+
+export async function deleteCommunityFeedItem(skipId: string): Promise<void> {
+  try {
+    await deleteDoc(doc(db, "communityFeed", skipId));
+  } catch {
+    // Doc may not exist (old skips or not shared)
+  }
+}
+
+export async function updateCommunityFeedItem(
+  skipId: string,
+  updates: Partial<Pick<FeedItem, "skipAmount" | "message">>
+): Promise<void> {
+  try {
+    await updateDoc(doc(db, "communityFeed", skipId), updates);
+  } catch {
+    // Doc may not exist
+  }
 }
 
 export async function searchUsers(displayName: string): Promise<Array<{ uid: string; displayName: string; photoURL: string | null }>> {

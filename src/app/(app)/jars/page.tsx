@@ -7,15 +7,17 @@ import { useProjects } from "@/hooks/useProjects";
 import { formatCurrency } from "@/lib/utils/currency";
 import {
   updateJarSettings,
-  completePurchase,
+  completeGoal,
   subscribeToSpendingHistory,
   updateSpendingHistory,
   deleteSpendingHistory,
   setActiveProject,
   normalizeJarSplit,
+  normalizeSpendingGoals,
+  updateSpendingGoals,
 } from "@/lib/services/firebase/users";
 import { addCustomProject } from "@/lib/services/firebase/projects";
-import { SpendingHistoryEvent, Project } from "@/lib/types/models";
+import { SpendingHistoryEvent, Project, SpendingGoal } from "@/lib/types/models";
 
 type Tab = "cause" | "splurge" | "split";
 
@@ -45,6 +47,9 @@ function JarsPageInner() {
 
   const activeProject = projects.find((p) => p.id === profile.activeProjectId) ?? projects[0] ?? null;
 
+  const { goals: spendingGoals, activeId: activeSpendingGoalId } = normalizeSpendingGoals(profile);
+  const activeGoal = spendingGoals.find((g) => g.id === activeSpendingGoalId) ?? null;
+
   async function handleSelectCause(project: Project) {
     await setActiveProject(user!.uid, project.id);
     updateProfile({ activeProjectId: project.id });
@@ -53,6 +58,55 @@ function JarsPageInner() {
   async function handleAddCause(title: string, goalAmount: number, donationURL?: string) {
     await addCustomProject(user!.uid, { title, goalAmount, donationURL });
     await refetch();
+  }
+
+  async function handleAddGoal(goalData: Omit<SpendingGoal, "id">) {
+    const newGoal: SpendingGoal = { ...goalData, id: Date.now().toString() };
+    const newGoals = [...spendingGoals, newGoal];
+    const newActiveId = activeSpendingGoalId ?? newGoal.id;
+    await updateSpendingGoals(user!.uid, newGoals, newActiveId);
+    updateProfile({ spendingGoals: newGoals, activeSpendingGoalId: newActiveId });
+  }
+
+  async function handleEditGoal(goalId: string, updates: Partial<SpendingGoal>) {
+    const newGoals = spendingGoals.map((g) => (g.id === goalId ? { ...g, ...updates } : g));
+    await updateSpendingGoals(user!.uid, newGoals, activeSpendingGoalId);
+    updateProfile({ spendingGoals: newGoals });
+  }
+
+  async function handleDeleteGoal(goalId: string) {
+    const newGoals = spendingGoals.filter((g) => g.id !== goalId);
+    const newActiveId =
+      activeSpendingGoalId === goalId ? (newGoals[0]?.id ?? null) : activeSpendingGoalId;
+    await updateSpendingGoals(user!.uid, newGoals, newActiveId);
+    updateProfile({ spendingGoals: newGoals, activeSpendingGoalId: newActiveId });
+  }
+
+  async function handleSetActiveGoal(goalId: string) {
+    await updateSpendingGoals(user!.uid, spendingGoals, goalId);
+    updateProfile({ activeSpendingGoalId: goalId });
+  }
+
+  async function handleCompleteGoal(goalId: string) {
+    const goal = spendingGoals.find((g) => g.id === goalId);
+    if (!goal) return;
+    await completeGoal(
+      user!.uid,
+      goalId,
+      goal.label,
+      goal.targetAmount,
+      spendingBalance,
+      spendingGoals,
+      activeSpendingGoalId
+    );
+    const newGoals = spendingGoals.filter((g) => g.id !== goalId);
+    const newActiveId =
+      activeSpendingGoalId === goalId ? (newGoals[0]?.id ?? null) : activeSpendingGoalId;
+    updateProfile({
+      totalSpent: (profile.totalSpent ?? 0) + spendingBalance,
+      spendingGoals: newGoals,
+      activeSpendingGoalId: newActiveId,
+    });
   }
 
   const tabs: { id: Tab; label: string; emoji: string }[] = [
@@ -97,18 +151,15 @@ function JarsPageInner() {
 
       {activeTab === "splurge" && (
         <SplurgeTab
-          uid={user.uid}
           spendingBalance={spendingBalance}
-          spendingGoal={profile.spendingGoal ?? null}
+          goals={spendingGoals}
+          activeGoalId={activeSpendingGoalId}
           spendingHistory={spendingHistory}
-          onPurchased={(label, targetAmount, amountSaved) => {
-            updateProfile({ spendingGoal: null, totalSpent: (profile.totalSpent ?? 0) + amountSaved });
-            return completePurchase(user.uid, label, targetAmount, amountSaved);
-          }}
-          onGoalSaved={(goal) => {
-            updateProfile({ spendingGoal: goal });
-            return updateJarSettings(user.uid, split, goal);
-          }}
+          onAddGoal={handleAddGoal}
+          onEditGoal={handleEditGoal}
+          onDeleteGoal={handleDeleteGoal}
+          onSetActiveGoal={handleSetActiveGoal}
+          onCompleteGoal={handleCompleteGoal}
           onEditHistory={(event, newAmount) => {
             updateProfile({ totalSpent: (profile.totalSpent ?? 0) + (newAmount - event.amountSaved) });
             return updateSpendingHistory(user.uid, event.id, newAmount, event.amountSaved);
@@ -179,7 +230,6 @@ function CauseTab({
 
   return (
     <div className="space-y-5">
-      {/* Cause list */}
       <div>
         <p className="text-sm font-semibold text-[#111827] mb-3">Choose your cause</p>
         <div className="space-y-3">
@@ -221,7 +271,6 @@ function CauseTab({
                   </div>
                 </div>
 
-                {/* Donate actions — always show external link, show I Donated only on active */}
                 <div className="mt-3 space-y-2">
                   {project.donationURL && (
                     <a
@@ -284,7 +333,6 @@ function CauseTab({
           })}
         </div>
 
-        {/* Add your own cause */}
         {showAddForm ? (
           <div className="mt-3 bg-white rounded-2xl p-4 border border-[#E5E7EB] shadow-sm space-y-3">
             <p className="text-sm font-semibold text-[#111827]">Add your own cause</p>
@@ -344,201 +392,445 @@ function CauseTab({
 
 /* ── Splurge Tab ── */
 function SplurgeTab({
-  uid,
   spendingBalance,
-  spendingGoal,
+  goals,
+  activeGoalId,
   spendingHistory,
-  onPurchased,
-  onGoalSaved,
+  onAddGoal,
+  onEditGoal,
+  onDeleteGoal,
+  onSetActiveGoal,
+  onCompleteGoal,
   onEditHistory,
   onDeleteHistory,
 }: {
-  uid: string;
   spendingBalance: number;
-  spendingGoal: { label: string; targetAmount: number; shoppingLink?: string } | null;
+  goals: SpendingGoal[];
+  activeGoalId: string | null;
   spendingHistory: SpendingHistoryEvent[];
-  onPurchased: (label: string, targetAmount: number, amountSaved: number) => Promise<void>;
-  onGoalSaved: (goal: { label: string; targetAmount: number; shoppingLink?: string }) => Promise<void>;
+  onAddGoal: (goal: Omit<SpendingGoal, "id">) => Promise<void>;
+  onEditGoal: (goalId: string, updates: Partial<SpendingGoal>) => Promise<void>;
+  onDeleteGoal: (goalId: string) => Promise<void>;
+  onSetActiveGoal: (goalId: string) => Promise<void>;
+  onCompleteGoal: (goalId: string) => Promise<void>;
   onEditHistory: (event: SpendingHistoryEvent, newAmount: number) => Promise<void>;
   onDeleteHistory: (event: SpendingHistoryEvent) => Promise<void>;
 }) {
-  const [confirmPurchase, setConfirmPurchase] = useState(false);
-  const [purchasing, setPurchasing] = useState(false);
-  const [goalLabel, setGoalLabel] = useState("");
-  const [goalAmount, setGoalAmount] = useState("");
-  const [goalLink, setGoalLink] = useState("");
-  const [savingGoal, setSavingGoal] = useState(false);
-  const [editingId, setEditingId] = useState<string | null>(null);
-  const [editAmountStr, setEditAmountStr] = useState("");
-  const [deletingId, setDeletingId] = useState<string | null>(null);
-  const [working, setWorking] = useState(false);
+  const [showAddForm, setShowAddForm] = useState(false);
+  const [addLabel, setAddLabel] = useState("");
+  const [addAmount, setAddAmount] = useState("");
+  const [addType, setAddType] = useState<"splurge" | "donation">("splurge");
+  const [addLink, setAddLink] = useState("");
+  const [saving, setSaving] = useState(false);
 
-  const fillPct = spendingGoal
-    ? Math.min(100, (spendingBalance / spendingGoal.targetAmount) * 100)
-    : 0;
+  const [editingGoalId, setEditingGoalId] = useState<string | null>(null);
+  const [editLabel, setEditLabel] = useState("");
+  const [editAmount, setEditAmount] = useState("");
+  const [editLink, setEditLink] = useState("");
+  const [editWorking, setEditWorking] = useState(false);
 
-  async function handlePurchase() {
-    if (!spendingGoal) return;
-    setPurchasing(true);
-    await onPurchased(spendingGoal.label, spendingGoal.targetAmount, spendingBalance);
-    setConfirmPurchase(false);
-    setPurchasing(false);
-  }
+  const [confirmCompleteId, setConfirmCompleteId] = useState<string | null>(null);
+  const [completing, setCompleting] = useState(false);
+  const [deletingGoalId, setDeletingGoalId] = useState<string | null>(null);
 
-  async function handleSaveGoal() {
-    const amount = parseFloat(goalAmount);
-    if (!goalLabel || !amount || amount <= 0) return;
-    setSavingGoal(true);
-    const goal: { label: string; targetAmount: number; shoppingLink?: string } = {
-      label: goalLabel,
+  const [editingHistoryId, setEditingHistoryId] = useState<string | null>(null);
+  const [editHistoryAmountStr, setEditHistoryAmountStr] = useState("");
+  const [deletingHistoryId, setDeletingHistoryId] = useState<string | null>(null);
+  const [historyWorking, setHistoryWorking] = useState(false);
+
+  async function handleAddGoal() {
+    const amount = parseFloat(addAmount);
+    if (!addLabel.trim() || !amount || amount <= 0) return;
+    setSaving(true);
+    const goal: Omit<SpendingGoal, "id"> = {
+      label: addLabel.trim(),
       targetAmount: amount,
+      type: addType,
     };
-    if (goalLink.trim()) goal.shoppingLink = goalLink.trim();
-    await onGoalSaved(goal);
-    setGoalLabel("");
-    setGoalAmount("");
-    setGoalLink("");
-    setSavingGoal(false);
+    if (addLink.trim()) goal.shoppingLink = addLink.trim();
+    await onAddGoal(goal);
+    setAddLabel("");
+    setAddAmount("");
+    setAddLink("");
+    setAddType("splurge");
+    setShowAddForm(false);
+    setSaving(false);
   }
 
-  async function handleEditConfirm(event: SpendingHistoryEvent) {
-    const newAmount = parseFloat(editAmountStr);
-    if (!newAmount || newAmount <= 0) return;
-    setWorking(true);
-    await onEditHistory(event, newAmount);
-    setEditingId(null);
-    setWorking(false);
+  function startEditGoal(goal: SpendingGoal) {
+    setEditingGoalId(goal.id);
+    setEditLabel(goal.label);
+    setEditAmount(String(goal.targetAmount));
+    setEditLink(goal.shoppingLink ?? goal.donationURL ?? "");
   }
 
-  async function handleDeleteConfirm(event: SpendingHistoryEvent) {
-    setWorking(true);
-    await onDeleteHistory(event);
-    setDeletingId(null);
-    setWorking(false);
+  async function handleEditGoalSave(goalId: string, goalType: "splurge" | "donation") {
+    const amount = parseFloat(editAmount);
+    if (!editLabel.trim() || !amount || amount <= 0) return;
+    setEditWorking(true);
+    const updates: Partial<SpendingGoal> = { label: editLabel.trim(), targetAmount: amount };
+    if (editLink.trim()) {
+      if (goalType === "splurge") updates.shoppingLink = editLink.trim();
+      else updates.donationURL = editLink.trim();
+    } else {
+      updates.shoppingLink = undefined;
+      updates.donationURL = undefined;
+    }
+    await onEditGoal(goalId, updates);
+    setEditingGoalId(null);
+    setEditWorking(false);
+  }
+
+  async function handleComplete(goalId: string) {
+    setCompleting(true);
+    await onCompleteGoal(goalId);
+    setConfirmCompleteId(null);
+    setCompleting(false);
+  }
+
+  async function handleDeleteGoal(goalId: string) {
+    await onDeleteGoal(goalId);
+    setDeletingGoalId(null);
   }
 
   return (
-    <div className="bg-white rounded-2xl p-6 border border-[#E5E7EB] shadow-sm space-y-4">
-      <h2 className="text-base font-bold text-[#111827]">🛍️ Splurge Goal</h2>
+    <div className="space-y-4">
+      <div className="flex items-center justify-between mb-1">
+        <h2 className="text-base font-bold text-[#111827]">✨ Live a little — Goals</h2>
+        <span className="text-sm font-bold text-[#8B5CF6]">{formatCurrency(spendingBalance)} available</span>
+      </div>
 
-      {spendingGoal ? (
-        <>
-          <div className="bg-[#F5F3FF] rounded-xl px-4 py-3">
-            <div className="flex items-center justify-between mb-2">
-              <p className="font-semibold text-[#111827]">{spendingGoal.label}</p>
-              <p className="text-sm font-bold text-[#8B5CF6]">{Math.round(fillPct)}%</p>
-            </div>
-            <div className="h-2 bg-[#E5E7EB] rounded-full overflow-hidden">
+      {/* Goal list */}
+      {goals.length > 0 && (
+        <div className="space-y-3">
+          {goals.map((goal) => {
+            const isActive = goal.id === activeGoalId;
+            const fillPct = isActive ? Math.min(100, (spendingBalance / goal.targetAmount) * 100) : 0;
+            const isEditing = editingGoalId === goal.id;
+            const isConfirmComplete = confirmCompleteId === goal.id;
+            const isConfirmDelete = deletingGoalId === goal.id;
+
+            return (
               <div
-                className="h-full bg-[#8B5CF6] rounded-full transition-all duration-700"
-                style={{ width: `${fillPct}%` }}
-              />
-            </div>
-            <div className="flex justify-between mt-2 text-xs text-[#6B7280]">
-              <span>{formatCurrency(spendingBalance)} saved</span>
-              <span>goal: {formatCurrency(spendingGoal.targetAmount)}</span>
-            </div>
-          </div>
+                key={goal.id}
+                className={`bg-white rounded-2xl p-4 border shadow-sm transition-all ${
+                  isActive ? "border-[#8B5CF6]" : "border-[#E5E7EB]"
+                }`}
+              >
+                {isEditing ? (
+                  <div className="space-y-2">
+                    <input
+                      type="text"
+                      value={editLabel}
+                      onChange={(e) => setEditLabel(e.target.value)}
+                      className="w-full border border-[#E5E7EB] rounded-xl px-3 py-2 text-sm text-[#111827] focus:outline-none focus:ring-2 focus:ring-[#8B5CF6]/30"
+                      placeholder="Goal name"
+                      autoFocus
+                    />
+                    <div className="relative">
+                      <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-[#6B7280]">$</span>
+                      <input
+                        type="number"
+                        value={editAmount}
+                        onChange={(e) => setEditAmount(e.target.value)}
+                        className="w-full pl-7 border border-[#E5E7EB] rounded-xl px-3 py-2 text-sm text-[#111827] focus:outline-none focus:ring-2 focus:ring-[#8B5CF6]/30"
+                        placeholder="Target amount"
+                      />
+                    </div>
+                    <input
+                      type="url"
+                      value={editLink}
+                      onChange={(e) => setEditLink(e.target.value)}
+                      className="w-full border border-[#E5E7EB] rounded-xl px-3 py-2 text-sm text-[#111827] focus:outline-none focus:ring-2 focus:ring-[#8B5CF6]/30"
+                      placeholder={goal.type === "splurge" ? "Shopping link (optional)" : "Donation link (optional)"}
+                    />
+                    <div className="flex gap-2">
+                      <button
+                        onClick={() => handleEditGoalSave(goal.id, goal.type)}
+                        disabled={editWorking}
+                        className="flex-1 bg-[#8B5CF6] text-white font-semibold py-2 rounded-xl text-sm disabled:opacity-50"
+                      >
+                        {editWorking ? "Saving…" : "Save"}
+                      </button>
+                      <button
+                        onClick={() => setEditingGoalId(null)}
+                        className="px-4 py-2 border border-[#E5E7EB] text-[#6B7280] font-semibold rounded-xl text-sm"
+                      >
+                        Cancel
+                      </button>
+                    </div>
+                  </div>
+                ) : (
+                  <>
+                    <div className="flex items-start justify-between gap-2 mb-2">
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <p className="font-bold text-[#111827] text-sm">{goal.label}</p>
+                          <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
+                            goal.type === "donation"
+                              ? "bg-amber-100 text-amber-700"
+                              : "bg-[#F5F3FF] text-[#8B5CF6]"
+                          }`}>
+                            {goal.type === "donation" ? "💛 Donation" : "🛍️ Splurge"}
+                          </span>
+                          {isActive && (
+                            <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-[#E4F0E8] text-[#3D8B68]">
+                              ★ Main
+                            </span>
+                          )}
+                        </div>
+                        <p className="text-xs text-[#6B7280] mt-0.5">Goal: {formatCurrency(goal.targetAmount)}</p>
+                      </div>
+                      <div className="flex gap-1 flex-shrink-0">
+                        <button
+                          onClick={() => startEditGoal(goal)}
+                          className="text-[#9CA3AF] hover:text-[#8B5CF6] p-1 text-base"
+                          title="Edit"
+                        >
+                          ✏️
+                        </button>
+                        <button
+                          onClick={() => setDeletingGoalId(goal.id)}
+                          className="text-[#9CA3AF] hover:text-red-500 p-1 text-base"
+                          title="Delete"
+                        >
+                          🗑️
+                        </button>
+                      </div>
+                    </div>
 
-          {/* Shopping link */}
-          {spendingGoal.shoppingLink && (
-            <a
-              href={spendingGoal.shoppingLink}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="flex items-center justify-center gap-2 w-full py-2.5 border border-[#8B5CF6] text-[#8B5CF6] font-semibold rounded-xl hover:bg-[#F5F3FF] transition-colors text-sm"
-            >
-              🛒 Shop now →
-            </a>
-          )}
+                    {/* Progress bar — only for active goal */}
+                    {isActive && (
+                      <div className="mb-3">
+                        <div className="h-2 bg-[#E5E7EB] rounded-full overflow-hidden">
+                          <div
+                            className="h-full bg-[#8B5CF6] rounded-full transition-all duration-700"
+                            style={{ width: `${fillPct}%` }}
+                          />
+                        </div>
+                        <div className="flex justify-between mt-1 text-xs text-[#6B7280]">
+                          <span>{formatCurrency(spendingBalance)} saved</span>
+                          <span>{Math.round(fillPct)}% of goal</span>
+                        </div>
+                      </div>
+                    )}
 
-          {confirmPurchase ? (
-            <div className="bg-[#FFF7ED] border border-orange-200 rounded-xl p-4">
-              <p className="text-sm font-semibold text-[#111827] mb-1">Mark as purchased?</p>
-              <p className="text-xs text-[#6B7280] mb-3">
-                This will log {formatCurrency(spendingBalance)} as spent and clear your goal.
-              </p>
-              <div className="flex gap-2">
-                <button onClick={handlePurchase} disabled={purchasing} className="flex-1 bg-[#8B5CF6] text-white font-semibold py-2 rounded-xl text-sm disabled:opacity-50">
-                  {purchasing ? "Saving…" : "Yes, I bought it!"}
-                </button>
-                <button onClick={() => setConfirmPurchase(false)} className="flex-1 border border-[#E5E7EB] text-[#6B7280] font-semibold py-2 rounded-xl text-sm">
-                  Cancel
-                </button>
+                    {/* Shopping/donation link */}
+                    {(goal.shoppingLink || goal.donationURL) && (
+                      <a
+                        href={goal.shoppingLink ?? goal.donationURL}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="flex items-center justify-center gap-1.5 w-full py-2 border border-[#8B5CF6] text-[#8B5CF6] font-semibold rounded-xl hover:bg-[#F5F3FF] transition-colors text-xs mb-2"
+                      >
+                        {goal.type === "donation" ? "💛 Donate →" : "🛒 Shop now →"}
+                      </a>
+                    )}
+
+                    {/* Set as main / Complete */}
+                    <div className="flex gap-2">
+                      {!isActive && (
+                        <button
+                          onClick={() => onSetActiveGoal(goal.id)}
+                          className="flex-1 py-2 border border-[#E5E7EB] text-[#6B7280] font-semibold rounded-xl hover:border-[#8B5CF6] hover:text-[#8B5CF6] transition-colors text-xs"
+                        >
+                          Set as main
+                        </button>
+                      )}
+                      {isActive && !isConfirmComplete && (
+                        <button
+                          onClick={() => setConfirmCompleteId(goal.id)}
+                          className="flex-1 py-2 border border-[#8B5CF6] text-[#8B5CF6] font-semibold rounded-xl hover:bg-[#F5F3FF] transition-colors text-xs"
+                        >
+                          {goal.type === "donation" ? "✓ I Donated!" : "✓ I Bought It!"}
+                        </button>
+                      )}
+                    </div>
+
+                    {/* Confirm complete */}
+                    {isConfirmComplete && (
+                      <div className="mt-2 bg-[#FFF7ED] border border-orange-200 rounded-xl p-3">
+                        <p className="text-xs font-semibold text-[#111827] mb-1">
+                          {goal.type === "donation" ? "Mark as donated?" : "Mark as purchased?"}
+                        </p>
+                        <p className="text-xs text-[#6B7280] mb-2">
+                          This will log {formatCurrency(spendingBalance)} as spent and remove this goal.
+                        </p>
+                        <div className="flex gap-2">
+                          <button
+                            onClick={() => handleComplete(goal.id)}
+                            disabled={completing}
+                            className="flex-1 bg-[#8B5CF6] text-white font-semibold py-1.5 rounded-xl text-xs disabled:opacity-50"
+                          >
+                            {completing ? "…" : "Yes, confirm"}
+                          </button>
+                          <button
+                            onClick={() => setConfirmCompleteId(null)}
+                            className="flex-1 border border-[#E5E7EB] text-[#6B7280] font-semibold py-1.5 rounded-xl text-xs"
+                          >
+                            Cancel
+                          </button>
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Confirm delete */}
+                    {isConfirmDelete && (
+                      <div className="mt-2 bg-red-50 border border-red-200 rounded-xl p-3 flex items-center justify-between">
+                        <p className="text-xs text-red-600">Delete "{goal.label}"?</p>
+                        <div className="flex gap-2">
+                          <button
+                            onClick={() => handleDeleteGoal(goal.id)}
+                            className="text-xs bg-red-500 text-white px-3 py-1 rounded-lg"
+                          >
+                            Delete
+                          </button>
+                          <button
+                            onClick={() => setDeletingGoalId(null)}
+                            className="text-xs border border-[#E5E7EB] text-[#6B7280] px-3 py-1 rounded-lg"
+                          >
+                            Cancel
+                          </button>
+                        </div>
+                      </div>
+                    )}
+                  </>
+                )}
               </div>
-            </div>
-          ) : (
-            <button
-              onClick={() => setConfirmPurchase(true)}
-              className="w-full py-2.5 border border-[#8B5CF6] text-[#8B5CF6] font-semibold rounded-xl hover:bg-[#F5F3FF] transition-colors text-sm"
-            >
-              ✓ Mark as Purchased
-            </button>
-          )}
-        </>
-      ) : (
-        <>
-          <p className="text-sm text-[#6B7280]">What are you saving your splurge jar toward?</p>
-          <div className="space-y-3">
-            <input
-              type="text"
-              placeholder="e.g. AirPods, Vacation, New shoes"
-              value={goalLabel}
-              onChange={(e) => setGoalLabel(e.target.value)}
-              className="w-full border border-[#E5E7EB] rounded-xl px-4 py-3 text-sm text-[#111827] placeholder-[#9CA3AF] focus:outline-none focus:ring-2 focus:ring-[#8B5CF6]/30"
-            />
-            <div className="relative">
-              <span className="absolute left-4 top-1/2 -translate-y-1/2 text-sm text-[#6B7280]">$</span>
-              <input
-                type="number"
-                placeholder="Target amount"
-                value={goalAmount}
-                onChange={(e) => setGoalAmount(e.target.value)}
-                className="w-full pl-8 border border-[#E5E7EB] rounded-xl px-4 py-3 text-sm text-[#111827] placeholder-[#9CA3AF] focus:outline-none focus:ring-2 focus:ring-[#8B5CF6]/30"
-              />
-            </div>
-            <div className="relative">
-              <span className="absolute left-4 top-1/2 -translate-y-1/2 text-sm text-[#6B7280]">🔗</span>
-              <input
-                type="url"
-                placeholder="Shopping link (optional)"
-                value={goalLink}
-                onChange={(e) => setGoalLink(e.target.value)}
-                className="w-full pl-10 border border-[#E5E7EB] rounded-xl px-4 py-3 text-sm text-[#111827] placeholder-[#9CA3AF] focus:outline-none focus:ring-2 focus:ring-[#8B5CF6]/30"
-              />
-            </div>
-            <button
-              onClick={handleSaveGoal}
-              disabled={savingGoal || !goalLabel || !goalAmount}
-              className="w-full py-3 bg-[#8B5CF6] text-white font-semibold rounded-xl text-sm disabled:opacity-50"
-            >
-              {savingGoal ? "Saving…" : "Set Goal"}
-            </button>
-          </div>
-        </>
+            );
+          })}
+        </div>
       )}
 
+      {/* Add goal */}
+      {showAddForm ? (
+        <div className="bg-white rounded-2xl p-4 border border-[#E5E7EB] shadow-sm space-y-3">
+          <p className="text-sm font-semibold text-[#111827]">New goal</p>
+
+          {/* Type toggle */}
+          <div className="flex bg-[#F3F4F6] rounded-xl p-1">
+            <button
+              onClick={() => setAddType("splurge")}
+              className={`flex-1 py-2 rounded-lg text-sm font-semibold transition ${
+                addType === "splurge" ? "bg-white text-[#8B5CF6] shadow-sm" : "text-[#6B7280]"
+              }`}
+            >
+              🛍️ Splurge
+            </button>
+            <button
+              onClick={() => setAddType("donation")}
+              className={`flex-1 py-2 rounded-lg text-sm font-semibold transition ${
+                addType === "donation" ? "bg-white text-amber-600 shadow-sm" : "text-[#6B7280]"
+              }`}
+            >
+              💛 Donation
+            </button>
+          </div>
+
+          <input
+            type="text"
+            placeholder={addType === "splurge" ? "e.g. AirPods, Vacation, Shoes" : "e.g. Red Cross, Local shelter"}
+            value={addLabel}
+            onChange={(e) => setAddLabel(e.target.value)}
+            className="w-full border border-[#E5E7EB] rounded-xl px-4 py-3 text-sm text-[#111827] placeholder-[#9CA3AF] focus:outline-none focus:ring-2 focus:ring-[#8B5CF6]/30"
+          />
+          <div className="relative">
+            <span className="absolute left-4 top-1/2 -translate-y-1/2 text-sm text-[#6B7280]">$</span>
+            <input
+              type="number"
+              placeholder="Target amount"
+              value={addAmount}
+              onChange={(e) => setAddAmount(e.target.value)}
+              className="w-full pl-8 border border-[#E5E7EB] rounded-xl px-4 py-3 text-sm text-[#111827] placeholder-[#9CA3AF] focus:outline-none focus:ring-2 focus:ring-[#8B5CF6]/30"
+            />
+          </div>
+          <div className="relative">
+            <span className="absolute left-4 top-1/2 -translate-y-1/2 text-sm text-[#6B7280]">🔗</span>
+            <input
+              type="url"
+              placeholder={addType === "splurge" ? "Shopping link (optional)" : "Donation link (optional)"}
+              value={addLink}
+              onChange={(e) => setAddLink(e.target.value)}
+              className="w-full pl-10 border border-[#E5E7EB] rounded-xl px-4 py-3 text-sm text-[#111827] placeholder-[#9CA3AF] focus:outline-none focus:ring-2 focus:ring-[#8B5CF6]/30"
+            />
+          </div>
+          <div className="flex gap-2">
+            <button
+              onClick={handleAddGoal}
+              disabled={saving || !addLabel.trim() || !addAmount}
+              className="flex-1 py-3 bg-[#8B5CF6] text-white font-semibold rounded-xl text-sm disabled:opacity-50"
+            >
+              {saving ? "Saving…" : "Add Goal"}
+            </button>
+            <button
+              onClick={() => { setShowAddForm(false); setAddLabel(""); setAddAmount(""); setAddLink(""); setAddType("splurge"); }}
+              className="px-5 py-3 border border-[#E5E7EB] text-[#6B7280] font-semibold rounded-xl text-sm hover:text-[#111827] transition-colors"
+            >
+              Cancel
+            </button>
+          </div>
+        </div>
+      ) : (
+        <button
+          onClick={() => setShowAddForm(true)}
+          className="w-full py-2.5 border border-dashed border-[#D1D5DB] text-[#6B7280] font-semibold rounded-xl hover:border-[#8B5CF6] hover:text-[#8B5CF6] transition-colors text-sm"
+        >
+          ＋ Add goal
+        </button>
+      )}
+
+      {/* Spending history */}
       {spendingHistory.length > 0 && (
         <div>
-          <p className="text-xs font-semibold text-[#6B7280] uppercase tracking-wide mb-2">Purchase History</p>
+          <p className="text-xs font-semibold text-[#6B7280] uppercase tracking-wide mb-2 mt-2">History</p>
           <div className="space-y-1">
             {spendingHistory.map((event) => (
               <div key={event.id}>
-                {editingId === event.id ? (
+                {editingHistoryId === event.id ? (
                   <div className="flex gap-2 py-1.5">
                     <div className="relative flex-1">
                       <span className="absolute left-3 top-1/2 -translate-y-1/2 text-xs text-[#6B7280]">$</span>
-                      <input type="number" value={editAmountStr} onChange={(e) => setEditAmountStr(e.target.value)} className="w-full pl-6 border border-[#8B5CF6] rounded-lg px-2 py-1.5 text-sm text-[#111827] focus:outline-none" autoFocus />
+                      <input
+                        type="number"
+                        value={editHistoryAmountStr}
+                        onChange={(e) => setEditHistoryAmountStr(e.target.value)}
+                        className="w-full pl-6 border border-[#8B5CF6] rounded-lg px-2 py-1.5 text-sm text-[#111827] focus:outline-none"
+                        autoFocus
+                      />
                     </div>
-                    <button onClick={() => handleEditConfirm(event)} disabled={working} className="text-xs bg-[#8B5CF6] text-white px-3 py-1.5 rounded-lg disabled:opacity-50">{working ? "…" : "Save"}</button>
-                    <button onClick={() => setEditingId(null)} className="text-xs border border-[#E5E7EB] text-[#6B7280] px-3 py-1.5 rounded-lg">Cancel</button>
+                    <button
+                      onClick={async () => {
+                        const newAmount = parseFloat(editHistoryAmountStr);
+                        if (!newAmount || newAmount <= 0) return;
+                        setHistoryWorking(true);
+                        await onEditHistory(event, newAmount);
+                        setEditingHistoryId(null);
+                        setHistoryWorking(false);
+                      }}
+                      disabled={historyWorking}
+                      className="text-xs bg-[#8B5CF6] text-white px-3 py-1.5 rounded-lg disabled:opacity-50"
+                    >
+                      {historyWorking ? "…" : "Save"}
+                    </button>
+                    <button onClick={() => setEditingHistoryId(null)} className="text-xs border border-[#E5E7EB] text-[#6B7280] px-3 py-1.5 rounded-lg">Cancel</button>
                   </div>
-                ) : deletingId === event.id ? (
+                ) : deletingHistoryId === event.id ? (
                   <div className="flex items-center justify-between bg-red-50 rounded-lg px-3 py-2">
                     <p className="text-xs text-red-600">Delete {event.label}?</p>
                     <div className="flex gap-2">
-                      <button onClick={() => handleDeleteConfirm(event)} disabled={working} className="text-xs bg-red-500 text-white px-3 py-1 rounded-lg disabled:opacity-50">{working ? "…" : "Delete"}</button>
-                      <button onClick={() => setDeletingId(null)} className="text-xs border border-[#E5E7EB] text-[#6B7280] px-3 py-1 rounded-lg">Cancel</button>
+                      <button
+                        onClick={async () => {
+                          setHistoryWorking(true);
+                          await onDeleteHistory(event);
+                          setDeletingHistoryId(null);
+                          setHistoryWorking(false);
+                        }}
+                        disabled={historyWorking}
+                        className="text-xs bg-red-500 text-white px-3 py-1 rounded-lg disabled:opacity-50"
+                      >
+                        {historyWorking ? "…" : "Delete"}
+                      </button>
+                      <button onClick={() => setDeletingHistoryId(null)} className="text-xs border border-[#E5E7EB] text-[#6B7280] px-3 py-1 rounded-lg">Cancel</button>
                     </div>
                   </div>
                 ) : (
@@ -549,8 +841,8 @@ function SplurgeTab({
                     </div>
                     <div className="flex items-center gap-2">
                       <p className="text-sm font-semibold text-[#8B5CF6]">{formatCurrency(event.amountSaved)}</p>
-                      <button onClick={() => { setEditingId(event.id); setEditAmountStr(String(event.amountSaved)); }} className="text-[#9CA3AF] hover:text-[#8B5CF6] text-base p-1">✏️</button>
-                      <button onClick={() => setDeletingId(event.id)} className="text-[#9CA3AF] hover:text-red-500 text-base p-1">🗑️</button>
+                      <button onClick={() => { setEditingHistoryId(event.id); setEditHistoryAmountStr(String(event.amountSaved)); }} className="text-[#9CA3AF] hover:text-[#8B5CF6] text-base p-1">✏️</button>
+                      <button onClick={() => setDeletingHistoryId(event.id)} className="text-[#9CA3AF] hover:text-red-500 text-base p-1">🗑️</button>
                     </div>
                   </div>
                 )}
@@ -584,9 +876,10 @@ function JarSplitSection({
   const valid = total === 100;
 
   const presets = [
-    { label: "50 / 50",    g: 50, l: 50 },
-    { label: "60/40 Give", g: 60, l: 40 },
-    { label: "40/60 Live", g: 40, l: 60 },
+    { label: "50 / 50",    g: 50,  l: 50 },
+    { label: "60/40 Give", g: 60,  l: 40 },
+    { label: "40/60 Live", g: 40,  l: 60 },
+    { label: "100 Give",   g: 100, l: 0  },
   ];
 
   async function handleSave() {
@@ -604,12 +897,12 @@ function JarSplitSection({
     <div className="bg-white rounded-2xl p-6 border border-[#E5E7EB] shadow-sm">
       <h2 className="text-base font-bold text-[#111827] mb-4">Jar Split</h2>
 
-      <div className="flex gap-2 mb-3">
+      <div className="grid grid-cols-2 gap-2 mb-3">
         {presets.map((p) => (
           <button
             key={p.label}
             onClick={() => { setGive(String(p.g)); setLive(String(p.l)); }}
-            className="flex-1 py-1.5 text-xs font-semibold rounded-lg border border-[#E5E7EB] text-[#6B7280] hover:border-[#3D8B68]/50 hover:text-[#3D8B68] transition-colors"
+            className="py-1.5 text-xs font-semibold rounded-lg border border-[#E5E7EB] text-[#6B7280] hover:border-[#3D8B68]/50 hover:text-[#3D8B68] transition-colors"
           >
             {p.label}
           </button>

@@ -16,7 +16,73 @@ import {
 } from "firebase/firestore";
 import { User } from "firebase/auth";
 import { db } from "./config";
-import { UserProfile, DonationEvent, SpendingHistoryEvent } from "@/lib/types/models";
+import { UserProfile, DonationEvent, SpendingHistoryEvent, SpendingGoal } from "@/lib/types/models";
+
+export function normalizeSpendingGoals(profile: UserProfile): {
+  goals: SpendingGoal[];
+  activeId: string | null;
+} {
+  if (profile.spendingGoals && profile.spendingGoals.length > 0) {
+    return {
+      goals: profile.spendingGoals,
+      activeId: profile.activeSpendingGoalId ?? profile.spendingGoals[0]?.id ?? null,
+    };
+  }
+  // Backward compat: migrate legacy spendingGoal
+  if (profile.spendingGoal) {
+    const goal: SpendingGoal = {
+      id: "legacy",
+      label: profile.spendingGoal.label,
+      targetAmount: profile.spendingGoal.targetAmount,
+      type: "splurge",
+      shoppingLink: profile.spendingGoal.shoppingLink,
+    };
+    return { goals: [goal], activeId: "legacy" };
+  }
+  return { goals: [], activeId: null };
+}
+
+export async function updateSpendingGoals(
+  uid: string,
+  goals: SpendingGoal[],
+  activeGoalId: string | null
+): Promise<void> {
+  await updateDoc(doc(db, "users", uid), {
+    spendingGoals: goals,
+    activeSpendingGoalId: activeGoalId,
+    spendingGoal: null, // clear legacy field
+  });
+}
+
+export async function completeGoal(
+  uid: string,
+  goalId: string,
+  label: string,
+  targetAmount: number,
+  amountSaved: number,
+  currentGoals: SpendingGoal[],
+  currentActiveGoalId: string | null
+): Promise<void> {
+  const newGoals = currentGoals.filter((g) => g.id !== goalId);
+  const newActiveId =
+    currentActiveGoalId === goalId
+      ? (newGoals[0]?.id ?? null)
+      : currentActiveGoalId;
+  const batch = writeBatch(db);
+  batch.set(doc(collection(db, "users", uid, "spendingHistory")), {
+    label,
+    targetAmount,
+    amountSaved,
+    purchasedAt: serverTimestamp(),
+  });
+  batch.update(doc(db, "users", uid), {
+    totalSpent: increment(amountSaved),
+    spendingGoals: newGoals,
+    activeSpendingGoalId: newActiveId,
+    spendingGoal: null,
+  });
+  await batch.commit();
+}
 
 export function normalizeJarSplit(
   raw: { give?: number; live?: number; giving?: number; spending?: number } | undefined

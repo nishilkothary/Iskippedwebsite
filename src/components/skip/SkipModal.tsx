@@ -18,8 +18,8 @@ export function SkipModal({ onClose }: Props) {
 
   const defaultCat = SKIP_CATEGORIES[0];
   const [selectedCat, setSelectedCat] = useState(defaultCat);
-  const [amount, setAmount] = useState(defaultCat.defaultAmount);
-  const [amountStr, setAmountStr] = useState(String(defaultCat.defaultAmount));
+  const [amount, setAmount] = useState(0);
+  const [amountStr, setAmountStr] = useState("");
   const [customLabel, setCustomLabel] = useState("");
   const [whatSkipped, setWhatSkipped] = useState("");
   const [notes, setNotes] = useState("");
@@ -31,8 +31,6 @@ export function SkipModal({ onClose }: Props) {
 
   function handleCatSelect(cat: typeof defaultCat) {
     setSelectedCat(cat);
-    setAmount(cat.defaultAmount);
-    setAmountStr(String(cat.defaultAmount));
     setCustomLabel("");
   }
 
@@ -69,6 +67,9 @@ export function SkipModal({ onClose }: Props) {
     const skipGive = amount * (jarSplit.give / 100);
     const skipLive = amount * (jarSplit.live / 100);
     const spendingGoalLabel = profile?.spendingGoal?.label ?? "Live a little";
+    const successActiveProject = projects.find((p) => p.id === profile?.activeProjectId) ?? null;
+    const successGoalAmount = successActiveProject?.goalAmount ?? 0;
+    const giveContribPct = successGoalAmount > 0 ? (skipGive / successGoalAmount) * 100 : 0;
 
     const itemLabel = whatSkipped || customLabel || selectedCat.label.toLowerCase();
     const causeTitle = successProjectTitle ?? "a good cause";
@@ -88,7 +89,9 @@ export function SkipModal({ onClose }: Props) {
           <div className="mt-4 bg-[#F9FAFB] rounded-xl p-4 space-y-2 text-left">
             <div className="flex items-center justify-between">
               <span className="text-sm text-[#6B7280]">💚 Give a little</span>
-              <span className="text-sm font-bold text-[#3D8B68]">+{formatCurrency(skipGive)}</span>
+              <span className="text-sm font-bold text-[#3D8B68]">
+                {successGoalAmount > 0 ? `+${giveContribPct.toFixed(1)}% to goal` : `+${formatCurrency(skipGive)}`}
+              </span>
             </div>
             <div className="flex items-center justify-between">
               <span className="text-sm text-[#6B7280]">✨ {spendingGoalLabel}</span>
@@ -126,6 +129,11 @@ export function SkipModal({ onClose }: Props) {
   const skipGiveLive = amount * (jarSplitLive.give / 100);
   const skipLiveLive = amount * (jarSplitLive.live / 100);
   const spendingGoalLabelLive = profile?.spendingGoal?.label ?? "Live a little";
+  const activeProjectLive = projects.find((p) => p.id === profile?.activeProjectId) ?? null;
+  const giveGoalAmount = activeProjectLive?.goalAmount ?? 0;
+  const giveContribPctLive = giveGoalAmount > 0 ? (skipGiveLive / giveGoalAmount) * 100 : 0;
+  const liveGoalAmount = profile?.spendingGoal?.targetAmount ?? 0;
+  const liveContribPctLive = liveGoalAmount > 0 ? (skipLiveLive / liveGoalAmount) * 100 : 0;
 
   return (
     <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4" onClick={onClose}>
@@ -178,16 +186,26 @@ export function SkipModal({ onClose }: Props) {
                 className="w-28 text-2xl font-bold text-[#3D8B68] border-b-2 border-[#3D8B68] focus:outline-none bg-transparent"
               />
             </div>
-            <div className="mt-3 bg-[#F9FAFB] rounded-xl p-3 space-y-1.5">
-              <div className="flex items-center justify-between text-xs">
-                <span className="text-[#6B7280]">💚 Give a little</span>
-                <span className="font-bold text-[#3D8B68]">+{formatCurrency(skipGiveLive)}</span>
+            {amount > 0 && (
+              <div className="mt-3 bg-[#F9FAFB] rounded-xl p-3 space-y-1.5">
+                <div className="flex items-center justify-between text-xs">
+                  <span className="text-[#6B7280]">💚 Give a little</span>
+                  <span className="font-bold text-[#3D8B68]">
+                    {giveGoalAmount > 0
+                      ? `+${giveContribPctLive.toFixed(1)}% to goal`
+                      : `+${formatCurrency(skipGiveLive)}`}
+                  </span>
+                </div>
+                <div className="flex items-center justify-between text-xs">
+                  <span className="text-[#6B7280]">✨ {spendingGoalLabelLive}</span>
+                  <span className="font-bold text-[#8B5CF6]">
+                    {liveGoalAmount > 0
+                      ? `+${liveContribPctLive.toFixed(1)}% to goal`
+                      : `+${formatCurrency(skipLiveLive)}`}
+                  </span>
+                </div>
               </div>
-              <div className="flex items-center justify-between text-xs">
-                <span className="text-[#6B7280]">✨ {spendingGoalLabelLive}</span>
-                <span className="font-bold text-[#8B5CF6]">+{formatCurrency(skipLiveLive)}</span>
-              </div>
-            </div>
+            )}
           </div>
 
           {/* Categories */}
@@ -250,10 +268,10 @@ export function SkipModal({ onClose }: Props) {
         <div className="px-6 pb-6">
           <button
             onClick={handleSubmit}
-            disabled={isLogging}
+            disabled={isLogging || amount <= 0}
             className="w-full bg-[#3D8B68] hover:bg-[#2D6A4F] text-white font-bold py-4 rounded-xl text-base transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
           >
-            {isLogging ? "Saving…" : `Skip ${formatCurrency(amount)}`}
+            {isLogging ? "Saving…" : amount > 0 ? `Skip ${formatCurrency(amount)}` : "Enter an amount"}
           </button>
         </div>
       </div>

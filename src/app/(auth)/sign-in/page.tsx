@@ -188,16 +188,11 @@ export default function SignInPage() {
         <div className="absolute -top-24 -right-24 w-72 h-72 rounded-full bg-emerald-400/10 blur-3xl" />
         <div className="absolute -bottom-16 -left-16 w-56 h-56 rounded-full bg-emerald-300/10 blur-2xl" />
 
-        {/* Logo */}
+        {/* Brand */}
         <div>
-          <Image
-            src="/logo.png"
-            alt="i skipped"
-            width={130}
-            height={52}
-            className="brightness-0 invert opacity-90"
-            priority
-          />
+          <p className="text-2xl font-black text-white tracking-tight">
+            i<span className="text-emerald-300">skipped</span>
+          </p>
         </div>
 
         {/* Hero copy */}

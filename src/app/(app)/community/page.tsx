@@ -69,14 +69,13 @@ export default function CommunityPage() {
                 <div className="flex-1 min-w-0">
                   {item.type === "skip" ? (
                     <p className="text-sm text-[#111827]">
-                      <span className="font-semibold">{item.skipCategory || "Something"}</span> was just skipped
-                      {item.skipAmount ? <span>, saving <span className="font-semibold text-[#3D8B68]">{formatCurrency(item.skipAmount)}</span></span> : null}
+                      {item.message}
+                      {item.projectTitle && (
+                        <span className="text-[#3D8B68] font-semibold"> for {item.projectTitle}</span>
+                      )}
                     </p>
                   ) : (
                     <p className="text-sm text-[#111827]">{item.message}</p>
-                  )}
-                  {item.projectTitle && (
-                    <p className="text-xs text-[#6B7280] mt-0.5">for {item.projectTitle}</p>
                   )}
                   <p className="text-xs text-[#9CA3AF] mt-1">
                     {item.createdAt?.toDate ? formatRelativeTime(item.createdAt.toDate()) : "recently"}
