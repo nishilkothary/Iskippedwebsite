@@ -36,11 +36,33 @@ function MiniJar({ fillPct }: { fillPct: number }) {
   );
 }
 
+function friendlyAuthError(e: any): string {
+  const code = e?.code ?? "";
+  if (code === "auth/popup-closed-by-user" || code === "auth/cancelled-popup-request")
+    return "Google sign-in was cancelled. Try again or use email below.";
+  if (code === "auth/account-exists-with-different-credential")
+    return "An account already exists with that email. Try signing in with email and password instead.";
+  if (code === "auth/email-already-in-use")
+    return "That email is already registered. Try signing in instead.";
+  if (code === "auth/wrong-password" || code === "auth/invalid-credential")
+    return "Incorrect email or password. Please try again.";
+  if (code === "auth/user-not-found")
+    return "No account found with that email. Try signing up.";
+  if (code === "auth/weak-password")
+    return "Password should be at least 6 characters.";
+  if (code === "auth/invalid-email")
+    return "Please enter a valid email address.";
+  if (code === "auth/popup-blocked")
+    return "Popup was blocked by your browser. Please allow popups and try again.";
+  return e?.message || "Something went wrong. Please try again.";
+}
+
 export default function SignInPage() {
   const router = useRouter();
   const { user, isLoading } = useAuthStore();
   const [error, setError] = useState<string | null>(null);
-  const [signingIn, setSigningIn] = useState(false);
+  const [googleLoading, setGoogleLoading] = useState(false);
+  const [emailLoading, setEmailLoading] = useState(false);
   const [mode, setMode] = useState<"signup" | "signin">("signup");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -58,20 +80,20 @@ export default function SignInPage() {
 
   async function handleGoogleSignIn() {
     setError(null);
-    setSigningIn(true);
+    setGoogleLoading(true);
     try {
       await signInWithGoogle();
       router.replace("/home");
     } catch (e: any) {
-      setError(e.message || "Sign in failed. Please try again.");
+      setError(friendlyAuthError(e));
     } finally {
-      setSigningIn(false);
+      setGoogleLoading(false);
     }
   }
 
   async function handleEmailSubmit() {
     setError(null);
-    setSigningIn(true);
+    setEmailLoading(true);
     try {
       if (mode === "signup") {
         await signUpWithEmail(email, password, name);
@@ -80,9 +102,9 @@ export default function SignInPage() {
       }
       router.replace("/home");
     } catch (e: any) {
-      setError(e.message || (mode === "signup" ? "Sign up failed." : "Sign in failed.") + " Please try again.");
+      setError(friendlyAuthError(e));
     } finally {
-      setSigningIn(false);
+      setEmailLoading(false);
     }
   }
 
@@ -123,7 +145,7 @@ export default function SignInPage() {
       {/* Google button */}
       <button
         onClick={handleGoogleSignIn}
-        disabled={signingIn}
+        disabled={googleLoading}
         className="w-full flex items-center justify-center gap-3 px-6 py-3 border border-[#E5E7EB] rounded-xl bg-white hover:bg-gray-50 transition font-medium text-[#111827] disabled:opacity-60 disabled:cursor-not-allowed shadow-sm"
       >
         <svg width="20" height="20" viewBox="0 0 24 24">
@@ -132,7 +154,7 @@ export default function SignInPage() {
           <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"/>
           <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/>
         </svg>
-        {signingIn ? "Signing in…" : mode === "signup" ? "Continue with Google" : "Sign in with Google"}
+        {googleLoading ? "Signing in…" : mode === "signup" ? "Continue with Google" : "Sign in with Google"}
       </button>
 
       <div className="flex items-center gap-3 my-4">
@@ -167,10 +189,10 @@ export default function SignInPage() {
         />
         <button
           onClick={handleEmailSubmit}
-          disabled={signingIn}
+          disabled={emailLoading}
           className="w-full px-4 py-3 bg-gradient-to-r from-[#3D8B68] to-[#34A87A] text-white rounded-xl font-semibold text-sm hover:opacity-90 transition disabled:opacity-60 disabled:cursor-not-allowed shadow-md"
         >
-          {signingIn ? "Please wait…" : mode === "signup" ? "Create Account" : "Sign In"}
+          {emailLoading ? "Please wait…" : mode === "signup" ? "Create Account" : "Sign In"}
         </button>
       </div>
 
