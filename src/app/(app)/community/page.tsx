@@ -11,10 +11,7 @@ export default function CommunityPage() {
   const [communityTotalSaved, setCommunityTotalSaved] = useState<number>(0);
 
   useEffect(() => {
-    const unsubFeed = subscribeToCommunityFeed((items) => {
-      const shuffled = [...items].sort(() => Math.random() - 0.5);
-      setFeed(shuffled);
-    });
+    const unsubFeed = subscribeToCommunityFeed(setFeed);
     const unsubStats = subscribeToGlobalStats(setStats);
     getCommunityTotalSaved().then(setCommunityTotalSaved);
     return () => {

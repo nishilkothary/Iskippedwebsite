@@ -879,7 +879,7 @@ function JarSplitSection({
     { label: "50 / 50",    g: 50,  l: 50 },
     { label: "60/40 Give", g: 60,  l: 40 },
     { label: "40/60 Live", g: 40,  l: 60 },
-    { label: "100 Give",   g: 100, l: 0  },
+    { label: "Give all",   g: 100, l: 0  },
   ];
 
   async function handleSave() {

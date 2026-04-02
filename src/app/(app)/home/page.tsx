@@ -236,7 +236,7 @@ export default function HomePage() {
           amount={formatCurrency(givingBalance)}
           subLabel={
             activeProject
-              ? `${Math.round(givingFillPct)}% to ${activeProject.sponsor}`
+              ? `${Math.round(givingFillPct)}% towards ${activeProject.title}`
               : "Pick a cause →"
           }
           emptyNode={
