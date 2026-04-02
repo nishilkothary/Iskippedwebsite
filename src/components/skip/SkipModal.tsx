@@ -88,7 +88,7 @@ export function SkipModal({ onClose }: Props) {
           {/* 2-jar impact */}
           <div className="mt-4 bg-[#F9FAFB] rounded-xl p-4 space-y-2 text-left">
             <div className="flex items-center justify-between">
-              <span className="text-sm text-[#6B7280]">💚 Give a little</span>
+              <span className="text-sm text-[#6B7280]">💚 {successActiveProject?.title ?? "Give a little"}</span>
               <span className="text-sm font-bold text-[#3D8B68]">
                 {successGoalAmount > 0 ? `+${giveContribPct.toFixed(1)}% to goal` : `+${formatCurrency(skipGive)}`}
               </span>
@@ -189,7 +189,7 @@ export function SkipModal({ onClose }: Props) {
             {amount > 0 && (
               <div className="mt-3 bg-[#F9FAFB] rounded-xl p-3 space-y-1.5">
                 <div className="flex items-center justify-between text-xs">
-                  <span className="text-[#6B7280]">💚 Give a little</span>
+                  <span className="text-[#6B7280]">💚 {activeProjectLive?.title ?? "Give a little"}</span>
                   <span className="font-bold text-[#3D8B68]">
                     {giveGoalAmount > 0
                       ? `+${giveContribPctLive.toFixed(1)}% to goal`
