@@ -1,7 +1,7 @@
 "use client";
-import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
+import { useState } from "react";
 import { useAuthStore } from "@/store/authStore";
 import { useSkips } from "@/hooks/useSkips";
 import { useProjects } from "@/hooks/useProjects";
@@ -12,160 +12,162 @@ import { normalizeJarSplit, normalizeSpendingGoals } from "@/lib/services/fireba
 import { EditSkipModal } from "@/components/skip/EditSkipModal";
 import { Skip } from "@/lib/types/models";
 
-function levelLabel(pct: number): string {
-  if (pct >= 100) return "Goal reached! 🎉";
-  if (pct >= 75) return "Almost there! 🔥";
-  if (pct >= 50) return "Over halfway!";
-  if (pct >= 25) return "Getting there";
-  return "Just started";
-}
-
+// ─── SVG Jar ───────────────────────────────────────────────────────────────
 interface JarProps {
-  fillPct: number;
+  fillPercent: number;
   color: string;
-  glowColor: string;
+  gradEnd: string;
   label: string;
-  emoji: string;
   amount: string;
-  subLabel: string;
-  emptyNode: React.ReactNode;
+  icon: string;
   href?: string;
   onClick?: () => void;
 }
 
-function JarCard({ fillPct, color, glowColor, label, emoji, amount, subLabel, emptyNode, href, onClick }: JarProps) {
-  const [displayFill, setDisplayFill] = useState(0);
+function Jar({ fillPercent, color, gradEnd, label, amount, icon, href, onClick }: JarProps) {
+  const clamp = Math.min(Math.max(fillPercent, 0), 100);
+  const w = 160;
+  const h = 240;
+  const scale = w / 120;
+  const fillH = (clamp / 100) * 120 * scale;
+  const jarH = 170 * scale;
+  const yStart = jarH - fillH;
+  const uid = label.replace(/\s/g, "");
 
-  useEffect(() => {
-    const t = setTimeout(() => setDisplayFill(Math.min(100, Math.max(0, fillPct))), 120);
-    return () => clearTimeout(t);
-  }, [fillPct]);
-
-  const pct = Math.round(Math.min(100, Math.max(0, fillPct)));
-  const isNearGoal = pct >= 75;
-  const isComplete = pct >= 100;
-  const isEmpty = fillPct <= 0;
+  // Jar outline path (scaled)
+  const jarPath = [
+    `M${20*scale},${40*scale}`,
+    `Q${20*scale},${40*scale} ${25*scale},${35*scale}`,
+    `L${35*scale},${30*scale}`,
+    `Q${40*scale},${28*scale} ${42*scale},${25*scale}`,
+    `L${42*scale},${15*scale}`,
+    `Q${42*scale},${10*scale} ${48*scale},${10*scale}`,
+    `L${72*scale},${10*scale}`,
+    `Q${78*scale},${10*scale} ${78*scale},${15*scale}`,
+    `L${78*scale},${25*scale}`,
+    `Q${80*scale},${28*scale} ${85*scale},${30*scale}`,
+    `L${95*scale},${35*scale}`,
+    `Q${100*scale},${40*scale} ${100*scale},${45*scale}`,
+    `L${100*scale},${155*scale}`,
+    `Q${100*scale},${170*scale} ${85*scale},${170*scale}`,
+    `L${35*scale},${170*scale}`,
+    `Q${20*scale},${170*scale} ${20*scale},${155*scale}`,
+    `Z`,
+  ].join(" ");
 
   const inner = (
     <div
-      className={`relative bg-[#161616] rounded-3xl border-2 flex flex-col items-center text-center cursor-pointer transition-all duration-300 p-4`}
-      style={{
-        borderColor: isNearGoal ? glowColor : "#2A2A2A",
-        boxShadow: isComplete
-          ? `0 0 40px ${glowColor}55, 0 0 80px ${glowColor}22`
-          : isNearGoal
-          ? `0 0 24px ${glowColor}44`
-          : "none",
-      }}
+      style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 10, cursor: "pointer" }}
+      onClick={onClick}
     >
-      {/* Label */}
-      <p className="text-[10px] sm:text-[11px] font-bold text-[#6B7280] uppercase tracking-widest mb-3">{label}</p>
+      <svg width={w} height={h} viewBox={`0 0 ${w} ${h}`}>
+        <defs>
+          <linearGradient id={`gf-${uid}`} x1="0" y1="1" x2="0" y2="0">
+            <stop offset="0%" stopColor={gradEnd} />
+            <stop offset="100%" stopColor={color} />
+          </linearGradient>
+          <clipPath id={`jc-${uid}`}>
+            <path d={jarPath} />
+          </clipPath>
+        </defs>
 
-      {isEmpty ? (
-        emptyNode
-      ) : (
-        <>
-          {/* Battery jar */}
-          <div className="relative mb-4" style={{ width: 90, height: 130 }}>
-            {/* Glow halo */}
-            {isNearGoal && (
-              <div
-                className="absolute inset-0 rounded-2xl blur-2xl animate-pulse"
-                style={{ background: glowColor, opacity: 0.5, transform: "scale(1.2)" }}
-              />
-            )}
-
-            {/* Battery cap (nub at top) */}
-            <div
-              className="absolute top-0 left-1/2 -translate-x-1/2 rounded-t-md"
-              style={{
-                width: 32,
-                height: 10,
-                background: "#2A2A2A",
-                zIndex: 4,
-              }}
-            />
-
-            {/* Battery body */}
-            <div
-              className="absolute bottom-0 left-0 right-0 rounded-2xl border-2 overflow-hidden"
-              style={{
-                top: 8,
-                background: "#0D0D0D",
-                borderColor: "#2A2A2A",
-                zIndex: 1,
-              }}
-            >
-              {/* Fill */}
-              <div
-                className="absolute bottom-0 left-0 right-0"
-                style={{
-                  height: `${displayFill}%`,
-                  background: `linear-gradient(180deg, ${color}CC 0%, ${color} 100%)`,
-                  transition: "height 1.6s cubic-bezier(0.34,1.25,0.64,1)",
-                }}
-              >
-                {/* Shimmer line at fill top */}
-                <div className="absolute top-0 left-0 right-0 h-1 opacity-50 bg-white rounded-full" />
-              </div>
-
-              {/* Milestone dashes */}
-              {[25, 50, 75].map((m) => (
-                <div
-                  key={m}
-                  className="absolute left-2 right-2"
-                  style={{
-                    bottom: `${m}%`,
-                    borderTop: "1px dashed rgba(255,255,255,0.12)",
-                    zIndex: 2,
-                  }}
-                />
-              ))}
-
-              {/* Center content */}
-              <div className="absolute inset-0 flex flex-col items-center justify-center gap-1" style={{ zIndex: 3 }}>
-                {isComplete ? (
-                  <span className="text-2xl drop-shadow">🎉</span>
-                ) : (
-                  <>
-                    <span className="text-2xl drop-shadow">{emoji}</span>
-                    <span
-                      className="text-xs font-black leading-none"
-                      style={{ color: pct > 45 ? "rgba(255,255,255,0.9)" : "rgba(255,255,255,0.5)" }}
-                    >
-                      {pct}%
-                    </span>
-                  </>
-                )}
-              </div>
-            </div>
-          </div>
-
-          {/* Amount */}
-          <p className="font-black text-lg leading-none mb-1" style={{ color }}>
-            {amount}
-          </p>
-
-          {/* Sub label */}
-          <p className="text-[#6B7280] text-[10px] sm:text-xs leading-tight px-1 mb-2">{subLabel}</p>
-
-          {/* Level badge */}
-          <div
-            className="px-2.5 py-0.5 rounded-full text-[9px] sm:text-[10px] font-bold"
-            style={{ background: `${glowColor}22`, color, border: `1px solid ${glowColor}33` }}
+        {/* Fill (clipped to jar shape) */}
+        <g clipPath={`url(#jc-${uid})`}>
+          <rect
+            x={15*scale} y={yStart}
+            width={90*scale} height={fillH + 15*scale}
+            fill={`url(#gf-${uid})`}
+            rx={4*scale}
           >
-            {levelLabel(pct)}
-          </div>
-        </>
-      )}
+            <animate
+              attributeName="y"
+              from={jarH} to={yStart}
+              dur="1.4s" fill="freeze"
+              calcMode="spline" keySplines="0.25 0.1 0.25 1"
+            />
+          </rect>
+
+          {/* Bubbles */}
+          {clamp > 10 && (
+            <>
+              <circle cx={40*scale} cy={yStart + fillH*0.3} r={3*scale} fill="rgba(255,255,255,0.25)">
+                <animate attributeName="cy"
+                  values={`${yStart+fillH*0.7};${yStart+fillH*0.1}`}
+                  dur="3s" repeatCount="indefinite" />
+              </circle>
+              <circle cx={72*scale} cy={yStart + fillH*0.5} r={2*scale} fill="rgba(255,255,255,0.2)">
+                <animate attributeName="cy"
+                  values={`${yStart+fillH*0.8};${yStart+fillH*0.2}`}
+                  dur="4s" repeatCount="indefinite" />
+              </circle>
+            </>
+          )}
+
+          {/* Wave at fill surface */}
+          {clamp > 5 && (
+            <path
+              d={`M${15*scale},${yStart} Q${35*scale},${yStart-4*scale} ${60*scale},${yStart} T${105*scale},${yStart}`}
+              fill="rgba(255,255,255,0.12)"
+              stroke="none"
+            >
+              <animate
+                attributeName="d"
+                values={[
+                  `M${15*scale},${yStart} Q${35*scale},${yStart-4*scale} ${60*scale},${yStart} T${105*scale},${yStart}`,
+                  `M${15*scale},${yStart} Q${35*scale},${yStart+4*scale} ${60*scale},${yStart} T${105*scale},${yStart}`,
+                  `M${15*scale},${yStart} Q${35*scale},${yStart-4*scale} ${60*scale},${yStart} T${105*scale},${yStart}`,
+                ].join(";")}
+                dur="3s" repeatCount="indefinite"
+              />
+            </path>
+          )}
+        </g>
+
+        {/* Jar outline */}
+        <path
+          d={jarPath}
+          fill="none"
+          stroke="rgba(255,255,255,0.3)"
+          strokeWidth={2.5*scale}
+          strokeLinejoin="round"
+        />
+
+        {/* Emoji centered in jar body */}
+        <text
+          x={60*scale} y={95*scale}
+          textAnchor="middle"
+          dominantBaseline="middle"
+          fontSize={28*scale}
+        >
+          {icon}
+        </text>
+      </svg>
+
+      <div style={{ textAlign: "center" }}>
+        <div style={{
+          fontSize: 12, fontWeight: 600,
+          color: "rgba(255,255,255,0.5)",
+          letterSpacing: 1.5, textTransform: "uppercase",
+        }}>
+          {label}
+        </div>
+        <div style={{
+          fontSize: 28, fontWeight: 800,
+          color: "#fff",
+          marginTop: 2,
+        }}>
+          {amount}
+        </div>
+      </div>
     </div>
   );
 
-  if (href) return <Link href={href}>{inner}</Link>;
-  return <div onClick={onClick}>{inner}</div>;
+  if (href) return <Link href={href} style={{ textDecoration: "none" }}>{inner}</Link>;
+  return inner;
 }
 
 
+// ─── Home Page ──────────────────────────────────────────────────────────────
 export default function HomePage() {
   const router = useRouter();
   const { profile } = useAuthStore();
@@ -193,7 +195,37 @@ export default function HomePage() {
     ? Math.min(100, (spendingBalance / activeGoal.targetAmount) * 100)
     : 0;
 
+  // This week stats
+  const weekStart = new Date();
+  weekStart.setDate(weekStart.getDate() - 7);
+  weekStart.setHours(0, 0, 0, 0);
+  const weekSkips = recentSkips.filter((s) => {
+    const d = s.createdAt?.toDate ? s.createdAt.toDate() : new Date(s.date);
+    return d >= weekStart;
+  });
+  const weekTotal = weekSkips.reduce((sum, s) => sum + s.amount, 0);
+  const weekLive = weekTotal * (split.live / 100);
+  const weekGive = weekTotal * (split.give / 100);
+  const topCat = weekSkips.length > 0
+    ? (() => {
+        const freq: Record<string, { count: number; emoji: string; label: string }> = {};
+        for (const s of weekSkips) {
+          const key = s.categoryLabel ?? "Other";
+          if (!freq[key]) freq[key] = { count: 0, emoji: s.categoryEmoji ?? "", label: key };
+          freq[key].count++;
+        }
+        return Object.values(freq).sort((a, b) => b.count - a.count)[0];
+      })()
+    : null;
+
   const firstName = profile.displayName.split(" ")[0];
+
+  const cardStyle: React.CSSProperties = {
+    background: "rgba(255,255,255,0.035)",
+    border: "1px solid rgba(255,255,255,0.07)",
+    borderRadius: 20,
+    padding: 24,
+  };
 
   return (
     <div className="p-4 md:p-8 max-w-3xl mx-auto pb-24 md:pb-8">
@@ -205,158 +237,204 @@ export default function HomePage() {
           <p className="text-[#6B7280] mt-0.5 text-sm">Skip, save, give.</p>
         </div>
         {profile.streak > 0 && (
-          <div className="flex items-center gap-1.5 bg-amber-950/50 border border-amber-800/50 rounded-full px-3 py-1.5 mt-1 flex-shrink-0">
-            <span className="text-base">🔥</span>
-            <span className="text-sm font-black text-amber-400">{profile.streak}</span>
-            <span className="text-xs text-amber-600 font-medium">day streak</span>
+          <div style={{
+            background: "linear-gradient(135deg, rgba(232,146,74,0.15), rgba(229,92,92,0.1))",
+            border: "1px solid rgba(232,146,74,0.2)",
+            borderRadius: 14,
+            padding: "8px 14px",
+            display: "flex", alignItems: "center", gap: 8,
+            flexShrink: 0, marginTop: 4,
+          }}>
+            <span style={{ fontSize: 20 }}>🔥</span>
+            <span style={{ fontSize: 14, fontWeight: 700, color: "#E8924A" }}>{profile.streak}-day streak</span>
           </div>
         )}
       </div>
-
-      {/* Total saved hero */}
-      {profile.totalSaved > 0 && (
-        <div className="bg-[#161616] border border-[#2A2A2A] rounded-2xl p-5 mb-4 text-center"
-          style={{ boxShadow: "0 0 40px rgba(61,139,104,0.08)" }}
-        >
-          <p className="text-[#6B7280] text-[10px] font-bold uppercase tracking-widest mb-1">Total Skipped &amp; Saved</p>
-          <p className="text-white text-5xl font-black tracking-tight"
-            style={{ textShadow: "0 0 40px rgba(61,139,104,0.4)" }}
-          >
-            {formatCurrency(profile.totalSaved)}
-          </p>
-        </div>
-      )}
 
       {/* CTA */}
       <button
         onClick={() => setShowSkipPicker(true)}
-        className="w-full bg-gradient-to-r from-[#3D8B68] to-[#34A87A] text-white font-black py-4 rounded-full text-lg shadow-md hover:shadow-xl hover:scale-[1.02] active:scale-[0.97] transition-all duration-200 mb-0"
+        className="w-full text-white font-black py-4 rounded-full text-lg hover:scale-[1.02] active:scale-[0.97] transition-all duration-200 mb-5"
+        style={{
+          background: "linear-gradient(135deg, #2BBAA4, #1E9485)",
+          boxShadow: "0 4px 20px rgba(43,186,164,0.35)",
+        }}
       >
         ✨ Log a Skip
       </button>
 
-      {/* Waterfall */}
-      <svg viewBox="0 0 300 48" className="w-full" style={{ height: 48 }} preserveAspectRatio="none">
-        <defs>
-          <path id="p-give" d="M 150,0 Q 75,24 75,48" />
-          <path id="p-live" d="M 150,0 Q 225,24 225,48" />
-        </defs>
-        <use href="#p-give" fill="none" stroke="#3D8B68" strokeWidth="2" strokeOpacity="0.3" />
-        <use href="#p-live" fill="none" stroke="#8B5CF6" strokeWidth="2" strokeOpacity="0.3" />
-      </svg>
-
-      {/* 2 Jars */}
-      <div className="grid grid-cols-2 gap-3 mb-4">
-        <JarCard
-          fillPct={givingFillPct}
-          color="#3D8B68"
-          glowColor="#3D8B68"
-          label="Give a little"
-          emoji="💚"
-          amount={formatCurrency(givingBalance)}
-          subLabel={
-            activeProject
-              ? `${Math.round(givingFillPct)}% towards ${activeProject.title}`
-              : "Pick a cause →"
-          }
-          emptyNode={
-            <div className="flex flex-col items-center gap-2 py-4">
-              <div className="w-16 h-24 rounded-2xl border-2 border-dashed border-[#3D8B68]/30 flex items-center justify-center text-2xl opacity-40">💚</div>
-              <p className="text-[#3D8B68] text-[10px] font-bold">Pick a cause →</p>
-            </div>
-          }
-          href="/jars?tab=cause"
-        />
-
-        <JarCard
-          fillPct={spendingFillPct}
-          color="#8B5CF6"
-          glowColor="#8B5CF6"
-          label="Live a little"
-          emoji="✨"
-          amount={formatCurrency(spendingBalance)}
-          subLabel={
-            activeGoal
-              ? `${Math.round(spendingFillPct)}% to ${activeGoal.label}`
-              : "Pick your goal →"
-          }
-          emptyNode={
-            <div className="flex flex-col items-center gap-2 py-4">
-              <div className="w-16 h-24 rounded-2xl border-2 border-dashed border-[#8B5CF6]/30 flex items-center justify-center text-2xl opacity-40">✨</div>
-              <p className="text-[#8B5CF6] text-[10px] font-bold">Pick your goal →</p>
-            </div>
-          }
-          onClick={() => router.push("/jars?tab=splurge")}
-        />
-      </div>
-
-      {/* Give/Live split bar */}
-      {profile.totalSaved > 0 && (
-        <div className="mb-2">
-          <div className="flex rounded-full overflow-hidden h-2 mb-1.5">
-            <div
-              className="transition-all duration-700"
-              style={{ width: `${split.give}%`, background: "#3D8B68" }}
-            />
-            <div
-              className="transition-all duration-700"
-              style={{ width: `${split.live}%`, background: "#8B5CF6" }}
-            />
+      {/* ── Jars card (full width) ── */}
+      <div style={{ ...cardStyle, marginBottom: 20 }}>
+        {/* Total */}
+        <div style={{ textAlign: "center", marginBottom: 8 }}>
+          <div style={{
+            fontSize: 11, color: "rgba(255,255,255,0.4)",
+            fontWeight: 600, letterSpacing: 1.5, textTransform: "uppercase",
+          }}>
+            Total Skipped &amp; Saved
           </div>
-          <div className="flex justify-between text-[10px] text-[#6B7280] font-semibold uppercase tracking-wide">
-            <span>{split.give}% give</span>
-            <span>{split.live}% live</span>
+          <div style={{
+            fontSize: 44, fontWeight: 800, margin: "4px 0",
+            background: "linear-gradient(135deg, #fff 40%, #6F5CE5)",
+            WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent",
+          }}>
+            {formatCurrency(profile.totalSaved)}
           </div>
         </div>
-      )}
 
-      {/* Manage link */}
-      <div className="flex justify-center mb-5 mt-3">
+        {/* Jars */}
+        <div style={{ display: "flex", justifyContent: "center", gap: 48, margin: "20px 0", flexWrap: "wrap" }}>
+          <Jar
+            fillPercent={spendingFillPct}
+            color="#2BBAA4"
+            gradEnd="#1E9485"
+            label="Live a Little"
+            amount={formatCurrency(spendingBalance)}
+            icon="✨"
+            onClick={() => router.push("/jars?tab=splurge")}
+          />
+          <Jar
+            fillPercent={givingFillPct}
+            color="#E8637A"
+            gradEnd="#C44D62"
+            label="Give a Little"
+            amount={formatCurrency(givingBalance)}
+            icon="💝"
+            href="/jars?tab=cause"
+          />
+        </div>
+
+        {/* Split bar */}
+        <div style={{ display: "flex", justifyContent: "center", alignItems: "center", gap: 10 }}>
+          <span style={{ fontSize: 13, color: "#2BBAA4", fontWeight: 700 }}>{split.live}% save</span>
+          <div style={{
+            width: 140, height: 6, borderRadius: 3,
+            background: "rgba(255,255,255,0.06)",
+            position: "relative", overflow: "hidden",
+          }}>
+            <div style={{
+              position: "absolute", left: 0, top: 0, bottom: 0,
+              width: `${split.live}%`,
+              background: "#2BBAA4",
+              borderRadius: 3,
+              transition: "width 0.7s ease",
+            }} />
+          </div>
+          <span style={{ fontSize: 13, color: "#E8637A", fontWeight: 700 }}>{split.give}% give</span>
+        </div>
+      </div>
+
+      {/* ── Two-column grid: This Week + Recent Skips ── */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+
+        {/* This Week */}
+        <div style={cardStyle}>
+          <div style={{
+            fontSize: 13, fontWeight: 600,
+            color: "rgba(255,255,255,0.5)",
+            marginBottom: 20, letterSpacing: 0.5,
+          }}>
+            This Week
+          </div>
+          {[
+            { label: "Skips logged", value: String(weekSkips.length), color: "#6F5CE5" },
+            { label: "Money saved", value: formatCurrency(weekLive), color: "#2BBAA4" },
+            { label: "Money given", value: formatCurrency(weekGive), color: "#E8637A" },
+            { label: "Top category", value: topCat ? `${topCat.emoji} ${topCat.label}` : "—", color: "#E8924A" },
+          ].map((row, i) => (
+            <div key={i} style={{
+              display: "flex", justifyContent: "space-between", alignItems: "center",
+              padding: "10px 0",
+              borderBottom: i < 3 ? "1px solid rgba(255,255,255,0.07)" : "none",
+            }}>
+              <span style={{ fontSize: 13, color: "rgba(255,255,255,0.35)" }}>{row.label}</span>
+              <span style={{ fontSize: 15, fontWeight: 700, color: row.color }}>{row.value}</span>
+            </div>
+          ))}
+        </div>
+
+        {/* Recent Skips */}
+        <div style={cardStyle}>
+          <div style={{
+            display: "flex", justifyContent: "space-between", alignItems: "center",
+            marginBottom: 16,
+          }}>
+            <span style={{ fontSize: 13, fontWeight: 600, color: "rgba(255,255,255,0.5)", letterSpacing: 0.5 }}>
+              Recent Skips
+            </span>
+            <button
+              onClick={() => router.push("/dashboard")}
+              style={{
+                background: "none", border: "none", color: "#6F5CE5",
+                fontSize: 12, fontWeight: 600, cursor: "pointer",
+              }}
+            >
+              View all →
+            </button>
+          </div>
+
+          {recentSkips.length === 0 ? (
+            <div style={{ textAlign: "center", padding: "24px 0" }}>
+              <p style={{ fontSize: 32, marginBottom: 8 }}>☕</p>
+              <p style={{ fontSize: 13, color: "rgba(255,255,255,0.35)" }}>No skips yet!</p>
+            </div>
+          ) : (
+            recentSkips.slice(0, 4).map((skip, i) => (
+              <div
+                key={skip.id}
+                style={{
+                  display: "flex", alignItems: "center", gap: 12,
+                  padding: "10px 0",
+                  borderBottom: i < Math.min(recentSkips.length, 4) - 1 ? "1px solid rgba(255,255,255,0.07)" : "none",
+                }}
+              >
+                <div style={{
+                  width: 36, height: 36, borderRadius: 10,
+                  background: "rgba(255,255,255,0.06)",
+                  display: "flex", alignItems: "center", justifyContent: "center",
+                  fontSize: 18, flexShrink: 0,
+                }}>
+                  {skip.categoryEmoji}
+                </div>
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div style={{
+                    fontSize: 13, fontWeight: 600, color: "#F9FAFB",
+                    whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis",
+                  }}>
+                    {skip.whatSkipped || skip.categoryLabel}
+                  </div>
+                  <div style={{ fontSize: 11, color: "rgba(255,255,255,0.3)" }}>
+                    {skip.createdAt?.toDate ? formatRelativeTime(skip.createdAt.toDate()) : skip.date}
+                  </div>
+                </div>
+                <div style={{ display: "flex", alignItems: "center", gap: 6, flexShrink: 0 }}>
+                  <span style={{ fontSize: 14, fontWeight: 700, color: "#F9FAFB" }}>
+                    {formatCurrency(skip.amount)}
+                  </span>
+                  <button
+                    onClick={() => setEditingSkip(skip)}
+                    style={{
+                      background: "none", border: "none", cursor: "pointer",
+                      color: "rgba(255,255,255,0.3)", fontSize: 14, padding: 4,
+                    }}
+                  >
+                    ✏️
+                  </button>
+                </div>
+              </div>
+            ))
+          )}
+        </div>
+      </div>
+
+      {/* Manage jars link */}
+      <div className="flex justify-center mt-4">
         <button
           onClick={() => router.push("/jars")}
-          className="text-xs text-[#3D8B68] font-semibold hover:underline"
+          style={{ background: "none", border: "none", color: "#2BBAA4", fontSize: 12, fontWeight: 600, cursor: "pointer" }}
         >
           Manage jars →
         </button>
-      </div>
-
-      {/* Recent skips */}
-      <div>
-        <h2 className="text-lg font-bold text-[#F9FAFB] mb-3">Recent Skips</h2>
-        {recentSkips.length === 0 ? (
-          <div className="bg-[#161616] rounded-2xl p-8 text-center border border-[#2A2A2A]">
-            <p className="text-4xl mb-3">☕</p>
-            <p className="text-[#6B7280]">No skips yet. Log your first skip above!</p>
-          </div>
-        ) : (
-          <div className="space-y-2">
-            {recentSkips.slice(0, 10).map((skip) => (
-              <div
-                key={skip.id}
-                className="bg-[#161616] rounded-xl px-4 py-3 border border-[#2A2A2A] flex items-center gap-3 hover:border-[#3D8B68]/40 transition-colors"
-              >
-                <span className="text-xl flex-shrink-0">{skip.categoryEmoji}</span>
-                <div className="flex-1 min-w-0">
-                  <p className="font-medium text-[#F9FAFB] text-sm truncate">
-                    {skip.whatSkipped || skip.categoryLabel}
-                  </p>
-                  <p className="text-xs text-[#6B7280]">
-                    {skip.createdAt?.toDate ? formatRelativeTime(skip.createdAt.toDate()) : skip.date}
-                  </p>
-                </div>
-                <span className="text-[#4ADE80] font-black text-sm flex-shrink-0">
-                  {formatCurrency(skip.amount)}
-                </span>
-                <button
-                  onClick={() => setEditingSkip(skip)}
-                  className="text-[#6B7280] hover:text-[#3D8B68] transition-colors flex-shrink-0 p-1"
-                >
-                  ✏️
-                </button>
-              </div>
-            ))}
-          </div>
-        )}
       </div>
 
       {editingSkip && (
