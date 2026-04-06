@@ -28,7 +28,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
 
   if (isLoading && !profile) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-[#F9FAFB]">
+      <div className="min-h-screen flex items-center justify-center bg-[#0D0D0D]">
         <div className="w-8 h-8 border-4 border-[#3D8B68] border-t-transparent rounded-full animate-spin" />
       </div>
     );
@@ -37,16 +37,16 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
   if (!user) return null;
 
   return (
-    <div className="flex h-screen bg-[#F9FAFB]">
+    <div className="flex h-screen bg-[#0D0D0D]">
       {/* Sidebar */}
-      <aside className="w-60 flex-shrink-0 bg-white border-r border-[#E5E7EB] hidden md:flex flex-col">
-        <div className="px-6 py-5 border-b border-[#E5E7EB]">
+      <aside className="w-60 flex-shrink-0 bg-[#111111] border-r border-[#2A2A2A] hidden md:flex flex-col">
+        <div className="px-6 py-5 border-b border-[#2A2A2A]">
           <Image
             src="/logo.png"
             alt="i skipped"
             width={120}
             height={48}
-            style={{ mixBlendMode: "multiply" }}
+            style={{ filter: "invert(1) brightness(0.9)" }}
             priority
           />
         </div>
@@ -60,8 +60,8 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
                 href={item.href}
                 className={`flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors ${
                   active
-                    ? "bg-[#E4F0E8] text-[#3D8B68]"
-                    : "text-[#6B7280] hover:bg-gray-50 hover:text-[#111827]"
+                    ? "bg-[#1A2F25] text-[#4ADE80]"
+                    : "text-[#9CA3AF] hover:bg-[#1A1A1A] hover:text-white"
                 }`}
               >
                 <span className="text-base">{item.emoji}</span>
@@ -89,7 +89,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
       {showSkipPicker && <SkipModal onClose={() => setShowSkipPicker(false)} />}
 
       {/* Mobile bottom nav */}
-      <nav className="flex md:hidden fixed bottom-0 left-0 right-0 bg-white border-t border-[#E5E7EB] z-10">
+      <nav className="flex md:hidden fixed bottom-0 left-0 right-0 bg-[#111111] border-t border-[#2A2A2A] z-10">
         {NAV_ITEMS.map((item) => {
           const active = pathname === item.href;
           return (
@@ -97,7 +97,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
               key={item.href}
               href={item.href}
               className={`flex-1 flex flex-col items-center py-2 text-xs font-medium transition-colors ${
-                active ? "text-[#3D8B68]" : "text-[#6B7280]"
+                active ? "text-[#4ADE80]" : "text-[#6B7280]"
               }`}
             >
               <span className="text-xl">{item.emoji}</span>
@@ -107,7 +107,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
         })}
         <button
           onClick={() => setShowSkipPicker(true)}
-          className="flex-1 flex flex-col items-center py-2 text-xs font-medium text-[#3D8B68]"
+          className="flex-1 flex flex-col items-center py-2 text-xs font-medium text-[#4ADE80]"
         >
           <span className="text-xl">✨</span>
           Log Skip
