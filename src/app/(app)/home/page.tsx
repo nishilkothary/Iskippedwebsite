@@ -19,12 +19,12 @@ interface JarProps {
   gradEnd: string;
   label: string;
   amount: string;
-  icon: string;
+  causeLabel?: string;
   href?: string;
   onClick?: () => void;
 }
 
-function Jar({ fillPercent, color, gradEnd, label, amount, icon, href, onClick }: JarProps) {
+function Jar({ fillPercent, color, gradEnd, label, amount, causeLabel, href, onClick }: JarProps) {
   const clamp = Math.min(Math.max(fillPercent, 0), 100);
   const w = 160;
   const h = 240;
@@ -60,6 +60,22 @@ function Jar({ fillPercent, color, gradEnd, label, amount, icon, href, onClick }
       style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 10, cursor: "pointer" }}
       onClick={onClick}
     >
+      {causeLabel && (
+        <div style={{
+          fontSize: 12, fontWeight: 700,
+          color: color,
+          textAlign: "center",
+          maxWidth: w,
+          lineHeight: 1.3,
+          letterSpacing: 0.2,
+          padding: "0 4px",
+          whiteSpace: "nowrap",
+          overflow: "hidden",
+          textOverflow: "ellipsis",
+        }}>
+          {causeLabel}
+        </div>
+      )}
       <svg width={w} height={h} viewBox={`0 0 ${w} ${h}`}>
         <defs>
           <linearGradient id={`gf-${uid}`} x1="0" y1="1" x2="0" y2="0">
@@ -132,14 +148,17 @@ function Jar({ fillPercent, color, gradEnd, label, amount, icon, href, onClick }
           strokeLinejoin="round"
         />
 
-        {/* Emoji centered in jar body */}
+        {/* Percentage centered in jar body */}
         <text
-          x={60*scale} y={95*scale}
+          x={60*scale} y={90*scale}
           textAnchor="middle"
           dominantBaseline="middle"
-          fontSize={28*scale}
+          fontSize={22*scale}
+          fontWeight="800"
+          fill="rgba(255,255,255,0.9)"
+          style={{ fontFamily: "inherit" }}
         >
-          {icon}
+          {Math.round(clamp)}%
         </text>
       </svg>
 
@@ -290,7 +309,7 @@ export default function HomePage() {
             gradEnd="#1E9485"
             label="Live a Little"
             amount={formatCurrency(spendingBalance)}
-            icon="✨"
+            causeLabel={activeGoal?.label}
             onClick={() => router.push("/jars?tab=splurge")}
           />
           <Jar
@@ -299,7 +318,7 @@ export default function HomePage() {
             gradEnd="#C44D62"
             label="Give a Little"
             amount={formatCurrency(givingBalance)}
-            icon="💝"
+            causeLabel={activeProject?.title}
             href="/jars?tab=cause"
           />
         </div>
