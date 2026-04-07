@@ -130,7 +130,7 @@ function JarSettings({
   return (
     <div className="bg-white rounded-2xl p-6 border border-[#E5E7EB] shadow-sm mb-6">
       <h2 className="text-base font-bold text-[#111827] mb-1">Preferred Jar Split</h2>
-      <p className="text-xs text-[#6B7280] mb-4">🤲 Give a Little · 😊 Live a Little</p>
+      <p className="text-xs text-[#6B7280] mb-4">🤲 Give a Little / 😊 Live a Little</p>
 
       <div className="grid grid-cols-2 gap-2 mb-5">
         {presets.map((p) => (

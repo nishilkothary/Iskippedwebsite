@@ -67,18 +67,15 @@ export function SkipModal({ onClose }: Props) {
       "Love to see it. Keep skipping!",
     ];
     const encouragement = encouragements[Math.floor(Math.random() * encouragements.length)];
-    const jarSplit = normalizeJarSplit(profile?.jarSplit as any);
-    const skipGive = amount * (jarSplit.give / 100);
-    const skipLive = amount * (jarSplit.live / 100);
+    const skipGive = amount * (skipGivePct / 100);
+    const skipLive = amount * ((100 - skipGivePct) / 100);
     const spendingGoalLabel = profile?.spendingGoal?.label ?? "Live a little";
     const successActiveProject = projects.find((p) => p.id === profile?.activeProjectId) ?? null;
-    const successGoalAmount = successActiveProject?.goalAmount ?? 0;
-    const giveContribPct = successGoalAmount > 0 ? (skipGive / successGoalAmount) * 100 : 0;
 
     const itemLabel = whatSkipped || customLabel || selectedCat.label.toLowerCase();
     const causeTitle = successProjectTitle ?? "a good cause";
     const causeSentence = causeTitle.charAt(0).toLowerCase() + causeTitle.slice(1);
-    const shareText = `I skipped ${itemLabel} and saved ${formatCurrency(amount)} to ${causeSentence}! Every skip makes a difference. Join the movement on Iskipped.com`;
+    const shareText = `I skipped ${itemLabel} and saved ${formatCurrency(skipGive)} for ${causeSentence}! Every skip makes a difference. Join the movement on Iskipped.com`;
 
     return (
       <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4" onClick={onClose}>
@@ -92,14 +89,12 @@ export function SkipModal({ onClose }: Props) {
           {/* 2-jar impact */}
           <div className="mt-4 bg-[#F9FAFB] rounded-xl p-4 space-y-2 text-left">
             <div className="flex items-center justify-between">
-              <span className="text-sm text-[#6B7280]">💚 {successActiveProject?.title ?? "Give a little"}</span>
-              <span className="text-sm font-bold text-[#3D8B68]">
-                {successGoalAmount > 0 ? `+${giveContribPct.toFixed(1)}% to goal` : `+${formatCurrency(skipGive)}`}
-              </span>
+              <span className="text-sm text-[#6B7280]">🤲 {successActiveProject?.title ?? "Give a little"}</span>
+              <span className="text-sm font-bold text-[#E8637A]">+{formatCurrency(skipGive)}</span>
             </div>
             <div className="flex items-center justify-between">
-              <span className="text-sm text-[#6B7280]">✨ {spendingGoalLabel}</span>
-              <span className="text-sm font-bold text-[#8B5CF6]">+{formatCurrency(skipLive)}</span>
+              <span className="text-sm text-[#6B7280]">😊 {spendingGoalLabel}</span>
+              <span className="text-sm font-bold text-[#2BBAA4]">+{formatCurrency(skipLive)}</span>
             </div>
           </div>
 
