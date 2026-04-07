@@ -41,14 +41,15 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
       {/* Sidebar */}
       <aside className="w-60 flex-shrink-0 bg-[#111111] border-r border-[#2A2A2A] hidden md:flex flex-col">
         <div className="px-6 py-5 border-b border-[#2A2A2A]">
-          <Image
-            src="/logo.png"
-            alt="i skipped"
-            width={120}
-            height={48}
-            style={{ filter: "invert(1) brightness(0.9)" }}
-            priority
-          />
+          <div className="bg-white rounded-xl px-3 py-1.5 inline-block">
+            <Image
+              src="/logo.png"
+              alt="i skipped"
+              width={110}
+              height={44}
+              priority
+            />
+          </div>
         </div>
 
         <nav className="flex-1 px-3 py-4 space-y-1">

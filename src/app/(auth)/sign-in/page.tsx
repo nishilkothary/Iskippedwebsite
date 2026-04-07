@@ -212,16 +212,15 @@ export default function SignInPage() {
 
         {/* Brand */}
         <div>
-          <p className="text-2xl font-black text-white tracking-tight">
-            i<span className="text-emerald-300">skipped</span>
-          </p>
+          <div className="bg-white rounded-xl px-4 py-2 inline-block">
+            <Image src="/logo.png" alt="i skipped" width={120} height={48} priority />
+          </div>
         </div>
 
         {/* Hero copy */}
         <div>
           <h2 className="text-5xl font-black text-white leading-tight mb-4">
-            Skip a little.<br />
-            <span className="text-emerald-300">Give a lot.</span>
+            Skip, Give, <span className="text-emerald-300">Live.</span>
           </h2>
           <p className="text-emerald-100 text-lg leading-relaxed max-w-sm">
             Every purchase you skip becomes savings you can direct to causes that change lives.
@@ -238,7 +237,7 @@ export default function SignInPage() {
               key={i}
               className="bg-white/95 backdrop-blur rounded-2xl px-5 py-4 flex items-center gap-4 shadow-xl"
               style={{
-                transform: cardsVisible ? `translateX(0) rotate(${i === 1 ? -0.5 : i === 2 ? 0.8 : 0}deg)` : "translateX(-40px)",
+                transform: cardsVisible ? "translateX(0)" : "translateX(-40px)",
                 opacity: cardsVisible ? 1 : 0,
                 transition: `transform 0.6s cubic-bezier(0.34,1.3,0.64,1) ${skip.delay}, opacity 0.5s ease ${skip.delay}`,
               }}
@@ -268,17 +267,18 @@ export default function SignInPage() {
         {/* Mobile hero (hidden on desktop) */}
         <div className="lg:hidden bg-gradient-to-br from-[#1a5c42] to-[#2d8b6a] px-6 pt-10 pb-8">
           <div className="flex justify-center mb-5">
-            <Image
-              src="/logo.png"
-              alt="i skipped"
-              width={130}
-              height={52}
-              className="brightness-0 invert opacity-90"
-              priority
-            />
+            <div className="bg-white rounded-2xl px-5 py-2 shadow-lg">
+              <Image
+                src="/logo.png"
+                alt="i skipped"
+                width={120}
+                height={48}
+                priority
+              />
+            </div>
           </div>
           <h1 className="text-3xl font-black text-white text-center leading-tight mb-2">
-            Skip a little.<br /><span className="text-emerald-300">Give a lot.</span>
+            Skip, Give, <span className="text-emerald-300">Live.</span>
           </h1>
           <p className="text-emerald-100 text-sm text-center">
             Turn everyday skips into real impact.

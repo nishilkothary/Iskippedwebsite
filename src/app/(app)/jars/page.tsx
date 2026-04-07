@@ -16,7 +16,7 @@ import {
   updateSpendingGoals,
   subscribeToDonations,
 } from "@/lib/services/firebase/users";
-import { addCustomProject, updateCustomProject } from "@/lib/services/firebase/projects";
+import { addCustomProject, updateCustomProject, deleteCustomProject } from "@/lib/services/firebase/projects";
 import { SpendingHistoryEvent, Project, SpendingGoal, DonationEvent } from "@/lib/types/models";
 
 type Tab = "cause" | "live";
@@ -65,6 +65,17 @@ function JarsPageInner() {
 
   async function handleAddCause(title: string, sponsor: string, location: string | undefined, goalAmount: number, donationURL?: string) {
     await addCustomProject(user!.uid, { title, sponsor, location, goalAmount, donationURL });
+    await refetch();
+  }
+
+  async function handleDeleteCause(projectId: string) {
+    await deleteCustomProject(projectId);
+    if (profile.activeProjectId === projectId) {
+      const remaining = projects.filter((p) => p.id !== projectId);
+      const nextId = remaining[0]?.id ?? null;
+      await setActiveProject(user!.uid, nextId ?? "");
+      updateProfile({ activeProjectId: nextId });
+    }
     await refetch();
   }
 
@@ -156,6 +167,7 @@ function JarsPageInner() {
             await updateCustomProject(projectId, { ...data });
             await refetch();
           }}
+          onDeleteCause={handleDeleteCause}
           onDonate={(amount) =>
             donate(amount, activeProject?.id ?? "giving", activeProject?.title ?? "Giving")
           }
@@ -205,6 +217,7 @@ function CauseTab({
   onSelectCause,
   onAddCause,
   onEditCause,
+  onDeleteCause,
   onDonate,
 }: {
   uid: string;
@@ -215,6 +228,7 @@ function CauseTab({
   onSelectCause: (p: Project) => void;
   onAddCause: (title: string, sponsor: string, location: string | undefined, goalAmount: number, donationURL?: string) => Promise<void>;
   onEditCause: (projectId: string, data: { title: string; sponsor: string; location?: string; goalAmount: number; donationURL?: string }) => Promise<void>;
+  onDeleteCause: (projectId: string) => Promise<void>;
   onDonate: (amount: number) => Promise<void>;
 }) {
   const [donatingId, setDonatingId] = useState<string | null>(null);
@@ -235,6 +249,15 @@ function CauseTab({
   const [editGoalStr, setEditGoalStr] = useState("");
   const [editURL, setEditURL] = useState("");
   const [editWorking, setEditWorking] = useState(false);
+  const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
+  const [deleting, setDeleting] = useState(false);
+
+  async function handleDelete(projectId: string) {
+    setDeleting(true);
+    await onDeleteCause(projectId);
+    setConfirmDeleteId(null);
+    setDeleting(false);
+  }
 
   function startEdit(project: Project) {
     setEditingProjectId(project.id);
@@ -390,17 +413,64 @@ function CauseTab({
         </div>
       )}
 
+      {/* Delete confirm modal */}
+      {confirmDeleteId && (
+        <div className="fixed inset-0 bg-black/50 z-50 flex items-end sm:items-center justify-center p-4" onClick={() => setConfirmDeleteId(null)}>
+          <div className="bg-white rounded-2xl w-full max-w-sm shadow-2xl" onClick={(e) => e.stopPropagation()}>
+            <div className="px-5 pt-5 pb-3 border-b border-[#E5E7EB]">
+              <p className="font-bold text-[#111827]">Delete this cause?</p>
+              <p className="text-xs text-[#6B7280] mt-1">This can&apos;t be undone.</p>
+            </div>
+            <div className="px-5 py-4 flex gap-2">
+              <button
+                onClick={() => handleDelete(confirmDeleteId)}
+                disabled={deleting}
+                className="flex-1 bg-red-500 text-white font-semibold py-2.5 rounded-xl text-sm disabled:opacity-50"
+              >
+                {deleting ? "Deleting…" : "Delete"}
+              </button>
+              <button
+                onClick={() => setConfirmDeleteId(null)}
+                className="flex-1 border border-[#E5E7EB] text-[#6B7280] font-semibold py-2.5 rounded-xl text-sm"
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Active cause highlight */}
       {activeProject && (
         <div className="bg-[#E4F0E8] border border-[#3D8B68] rounded-2xl p-4">
           <p className="text-[10px] font-bold text-[#3D8B68] uppercase tracking-wider mb-1">Your active cause</p>
           <div className="flex items-start justify-between gap-2">
             <p className="font-extrabold text-[#111827] text-base">{activeProject.title}</p>
-            {activeProject.donationURL && (
-              <a href={activeProject.donationURL} target="_blank" rel="noopener noreferrer" className="text-xs text-[#3D8B68] underline flex-shrink-0 mt-0.5">
-                ↗ Learn more
-              </a>
-            )}
+            <div className="flex items-center gap-1.5 flex-shrink-0">
+              {activeProject.isCustom && (
+                <>
+                  <button
+                    onClick={() => startEdit(activeProject)}
+                    className="text-[#3D8B68]/60 hover:text-[#3D8B68] p-1 text-base"
+                    title="Edit"
+                  >
+                    ✏️
+                  </button>
+                  <button
+                    onClick={() => setConfirmDeleteId(activeProject.id)}
+                    className="text-[#3D8B68]/60 hover:text-red-500 p-1 text-base"
+                    title="Delete"
+                  >
+                    🗑️
+                  </button>
+                </>
+              )}
+              {activeProject.donationURL && (
+                <a href={activeProject.donationURL} target="_blank" rel="noopener noreferrer" className="text-xs text-[#3D8B68] underline mt-0.5">
+                  ↗ Learn more
+                </a>
+              )}
+            </div>
           </div>
           <p className="text-sm text-[#6B7280] mt-0.5">{activeProject.sponsor}</p>
           {activeProject.location && (
@@ -434,7 +504,7 @@ function CauseTab({
                       type="text"
                       value={editTitle}
                       onChange={(e) => setEditTitle(e.target.value)}
-                      placeholder="Cause (e.g. A year of Education)"
+                      placeholder="Cause (e.g. A Student's Yearly Education)"
                       className="w-full border border-[#E5E7EB] rounded-xl px-3 py-2 text-sm text-[#111827] focus:outline-none focus:ring-2 focus:ring-[#3D8B68]/30"
                       autoFocus
                     />
@@ -509,13 +579,22 @@ function CauseTab({
                       </div>
                       <div className="flex items-center gap-1.5 flex-shrink-0">
                         {project.isCustom && (
-                          <button
-                            onClick={() => startEdit(project)}
-                            className="text-[#9CA3AF] hover:text-[#3D8B68] p-1 text-base"
-                            title="Edit"
-                          >
-                            ✏️
-                          </button>
+                          <>
+                            <button
+                              onClick={() => startEdit(project)}
+                              className="text-[#9CA3AF] hover:text-[#3D8B68] p-1 text-base"
+                              title="Edit"
+                            >
+                              ✏️
+                            </button>
+                            <button
+                              onClick={() => setConfirmDeleteId(project.id)}
+                              className="text-[#9CA3AF] hover:text-red-500 p-1 text-base"
+                              title="Delete"
+                            >
+                              🗑️
+                            </button>
+                          </>
                         )}
                         <button
                           onClick={() => handleSetActive(project)}
@@ -567,7 +646,7 @@ function CauseTab({
             <p className="text-sm font-semibold text-[#111827]">Add your own cause</p>
             <input
               type="text"
-              placeholder="Cause (e.g. A year of Education)"
+              placeholder="Cause (e.g. A Student's Yearly Education)"
               value={customTitle}
               onChange={(e) => setCustomTitle(e.target.value)}
               className="w-full border border-[#E5E7EB] rounded-xl px-3 py-2.5 text-sm text-[#111827] focus:outline-none focus:ring-2 focus:ring-[#3D8B68]/30"

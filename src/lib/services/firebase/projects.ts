@@ -5,6 +5,7 @@ import {
   getDoc,
   addDoc,
   updateDoc,
+  deleteDoc,
   serverTimestamp,
   onSnapshot,
   Unsubscribe,
@@ -15,7 +16,7 @@ import { Project } from "@/lib/types/models";
 export const OFFICIAL_PROJECTS: Project[] = [
   {
     id: "cfc",
-    title: "A year of Education",
+    title: "A Student's Yearly Education",
     sponsor: "Caring for Cambodia",
     description: "Your savings fund a full year of quality education for a child in Cambodia, including tuition, uniforms, and school supplies.",
     goalAmount: 300,
@@ -29,7 +30,7 @@ export const OFFICIAL_PROJECTS: Project[] = [
   },
   {
     id: "kc",
-    title: "A student's Chromebook",
+    title: "A Student's Chromebook",
     sponsor: "Kenya Connect",
     description: "Help equip students in remote Kenyan villages with a Chromebook, unlocking digital learning and new opportunities.",
     goalAmount: 250,
@@ -95,6 +96,10 @@ export async function updateCustomProject(
     goalAmount: data.goalAmount,
     donationURL: data.donationURL || null,
   });
+}
+
+export async function deleteCustomProject(projectId: string): Promise<void> {
+  await deleteDoc(doc(db, "projects", projectId));
 }
 
 export function subscribeToProjects(callback: (projects: Project[]) => void): Unsubscribe {
