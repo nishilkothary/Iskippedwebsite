@@ -2,7 +2,6 @@
 import { useEffect } from "react";
 import { useRouter, usePathname } from "next/navigation";
 import Link from "next/link";
-import Image from "next/image";
 import { useAuthStore } from "@/store/authStore";
 import { useUIStore } from "@/store/uiStore";
 import { SkipModal } from "@/components/skip/SkipModal";
@@ -41,15 +40,9 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
       {/* Sidebar */}
       <aside className="w-60 flex-shrink-0 bg-[#111111] border-r border-[#2A2A2A] hidden md:flex flex-col">
         <div className="px-6 py-5 border-b border-[#2A2A2A]">
-          <div className="bg-white rounded-xl px-3 py-1.5 inline-block">
-            <Image
-              src="/logo.png"
-              alt="i skipped"
-              width={110}
-              height={44}
-              priority
-            />
-          </div>
+          <p className="text-2xl font-black text-white tracking-tight">
+            i<span className="text-emerald-400">skipped</span>
+          </p>
         </div>
 
         <nav className="flex-1 px-3 py-4 space-y-1">

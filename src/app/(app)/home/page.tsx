@@ -1,7 +1,6 @@
 "use client";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import Image from "next/image";
 import { useState } from "react";
 import { useAuthStore } from "@/store/authStore";
 import { useSkips } from "@/hooks/useSkips";
@@ -263,9 +262,9 @@ export default function HomePage() {
 
       {/* Mobile logo — hidden on desktop (sidebar has it) */}
       <div className="flex md:hidden justify-center mb-5">
-        <div className="bg-white rounded-xl px-4 py-2 shadow-md">
-          <Image src="/logo.png" alt="i skipped" width={110} height={44} priority />
-        </div>
+        <p className="text-3xl font-black text-white tracking-tight">
+          i<span className="text-emerald-400">skipped</span>
+        </p>
       </div>
 
       {/* Greeting + streak */}
