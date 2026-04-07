@@ -335,24 +335,31 @@ export default function HomePage() {
           />
         </div>
 
-        {/* Split bar */}
-        <div style={{ display: "flex", justifyContent: "center", alignItems: "center", gap: 10 }}>
-          <span style={{ fontSize: 13, color: "#2BBAA4", fontWeight: 700 }}>{split.live}% save</span>
-          <div style={{
-            width: 140, height: 6, borderRadius: 3,
-            background: "rgba(255,255,255,0.06)",
-            position: "relative", overflow: "hidden",
-          }}>
-            <div style={{
-              position: "absolute", left: 0, top: 0, bottom: 0,
-              width: `${split.live}%`,
-              background: "#2BBAA4",
-              borderRadius: 3,
-              transition: "width 0.7s ease",
-            }} />
-          </div>
-          <span style={{ fontSize: 13, color: "#E8637A", fontWeight: 700 }}>{split.give}% give</span>
-        </div>
+        {/* Split bar — reflects actual allocation across all skips */}
+        {(() => {
+          const totalAllocated = giveTotal + liveTotal;
+          const actualGivePct = totalAllocated > 0 ? Math.round((giveTotal / totalAllocated) * 100) : split.give;
+          const actualLivePct = 100 - actualGivePct;
+          return (
+            <div style={{ display: "flex", justifyContent: "center", alignItems: "center", gap: 10 }}>
+              <span style={{ fontSize: 13, color: "#2BBAA4", fontWeight: 700 }}>{actualLivePct}% live</span>
+              <div style={{
+                width: 140, height: 6, borderRadius: 3,
+                background: "rgba(255,255,255,0.06)",
+                position: "relative", overflow: "hidden",
+              }}>
+                <div style={{
+                  position: "absolute", left: 0, top: 0, bottom: 0,
+                  width: `${actualLivePct}%`,
+                  background: "#2BBAA4",
+                  borderRadius: 3,
+                  transition: "width 0.7s ease",
+                }} />
+              </div>
+              <span style={{ fontSize: 13, color: "#E8637A", fontWeight: 700 }}>{actualGivePct}% give</span>
+            </div>
+          );
+        })()}
       </div>
 
       {/* ── Two-column grid: This Week + Recent Skips ── */}

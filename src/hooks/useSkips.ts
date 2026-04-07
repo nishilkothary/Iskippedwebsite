@@ -79,10 +79,17 @@ export function useSkips() {
   ): Promise<void> {
     if (!user || !profile) return;
     const amountDelta = updates.amount !== undefined ? updates.amount - skip.amount : 0;
-    await firebaseUpdateSkip(user.uid, skip.id, updates, amountDelta);
+    const skipSplit = skip.jarSplit ?? normalizeJarSplit(profile.jarSplit as any);
+    const giveAllocDelta = amountDelta * (skipSplit.give / 100);
+    const liveAllocDelta = amountDelta * (skipSplit.live / 100);
+    await firebaseUpdateSkip(user.uid, skip.id, updates, amountDelta, giveAllocDelta, liveAllocDelta);
     storeUpdateSkip(skip.id, updates);
     if (amountDelta !== 0) {
-      updateProfile({ totalSaved: profile.totalSaved + amountDelta });
+      updateProfile({
+        totalSaved: profile.totalSaved + amountDelta,
+        totalGiveAllocated: (profile.totalGiveAllocated ?? 0) + giveAllocDelta,
+        totalLiveAllocated: (profile.totalLiveAllocated ?? 0) + liveAllocDelta,
+      });
       // Sync community feed (fire-and-forget; may not exist for old/unshared skips)
       updateCommunityFeedItem(skip.id, {
         skipAmount: updates.amount,
@@ -93,11 +100,16 @@ export function useSkips() {
 
   async function deleteSkip(skip: Skip): Promise<void> {
     if (!user || !profile) return;
-    await firebaseDeleteSkip(user.uid, skip.id, skip.amount);
+    const skipSplit = skip.jarSplit ?? normalizeJarSplit(profile.jarSplit as any);
+    const giveAllocAmount = skip.amount * (skipSplit.give / 100);
+    const liveAllocAmount = skip.amount * (skipSplit.live / 100);
+    await firebaseDeleteSkip(user.uid, skip.id, skip.amount, giveAllocAmount, liveAllocAmount);
     removeSkip(skip.id);
     updateProfile({
       totalSaved: profile.totalSaved - skip.amount,
       totalSkips: profile.totalSkips - 1,
+      totalGiveAllocated: Math.max(0, (profile.totalGiveAllocated ?? 0) - giveAllocAmount),
+      totalLiveAllocated: Math.max(0, (profile.totalLiveAllocated ?? 0) - liveAllocAmount),
     });
     // Sync community feed (fire-and-forget; may not exist for old/unshared skips)
     deleteCommunityFeedItem(skip.id);

@@ -211,23 +211,37 @@ export function subscribeToSkips(uid: string, callback: (skips: Skip[]) => void)
 export async function updateSkip(
   uid: string,
   skipId: string,
-  updates: Partial<Pick<Skip, "category" | "categoryLabel" | "categoryEmoji" | "amount" | "projectId" | "projectTitle" | "whatSkipped" | "notes">>,
-  amountDelta: number
+  updates: Partial<Pick<Skip, "category" | "categoryLabel" | "categoryEmoji" | "amount" | "projectId" | "projectTitle" | "whatSkipped" | "notes" | "jarSplit">>,
+  amountDelta: number,
+  giveAllocDelta = 0,
+  liveAllocDelta = 0
 ): Promise<void> {
   const batch = writeBatch(db);
   batch.update(doc(db, "users", uid, "skips", skipId), updates);
   if (amountDelta !== 0) {
-    batch.update(doc(db, "users", uid), { totalSaved: increment(amountDelta) });
+    batch.update(doc(db, "users", uid), {
+      totalSaved: increment(amountDelta),
+      totalGiveAllocated: increment(giveAllocDelta),
+      totalLiveAllocated: increment(liveAllocDelta),
+    });
   }
   await batch.commit();
 }
 
-export async function deleteSkip(uid: string, skipId: string, amount: number): Promise<void> {
+export async function deleteSkip(
+  uid: string,
+  skipId: string,
+  amount: number,
+  giveAllocAmount = 0,
+  liveAllocAmount = 0
+): Promise<void> {
   const batch = writeBatch(db);
   batch.delete(doc(db, "users", uid, "skips", skipId));
   batch.update(doc(db, "users", uid), {
     totalSaved: increment(-amount),
     totalSkips: increment(-1),
+    totalGiveAllocated: increment(-giveAllocAmount),
+    totalLiveAllocated: increment(-liveAllocAmount),
   });
   await batch.commit();
 }
