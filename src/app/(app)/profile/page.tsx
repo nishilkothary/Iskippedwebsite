@@ -4,15 +4,30 @@ import { useState } from "react";
 import { useAuthStore } from "@/store/authStore";
 import { signOut } from "@/lib/services/firebase/auth";
 import { formatCurrency } from "@/lib/utils/currency";
-import { updateJarSettings, normalizeJarSplit } from "@/lib/services/firebase/users";
+import { updateJarSettings, normalizeJarSplit, recalculateTotals } from "@/lib/services/firebase/users";
 
 export default function ProfilePage() {
   const router = useRouter();
   const { user, profile, setUser, setProfile, updateProfile } = useAuthStore();
+  const [recalcState, setRecalcState] = useState<"idle" | "loading" | "done" | "error">("idle");
+  const [recalcResult, setRecalcResult] = useState<{ totalSkips: number; totalSaved: number } | null>(null);
 
   if (!profile || !user) return null;
 
   const currentSplit = normalizeJarSplit(profile.jarSplit as any);
+
+  async function handleRecalculate() {
+    setRecalcState("loading");
+    setRecalcResult(null);
+    try {
+      const result = await recalculateTotals(user!.uid, currentSplit);
+      updateProfile(result);
+      setRecalcResult({ totalSkips: result.totalSkips, totalSaved: result.totalSaved });
+      setRecalcState("done");
+    } catch {
+      setRecalcState("error");
+    }
+  }
 
   return (
     <div className="p-4 md:p-8 max-w-2xl mx-auto pb-20 md:pb-8">
@@ -71,6 +86,35 @@ export default function ProfilePage() {
             </div>
           ))}
         </div>
+      </div>
+
+      {/* Recalculate totals */}
+      <div className="bg-white rounded-2xl p-5 border border-[#E5E7EB] shadow-sm mb-6">
+        <p className="text-sm font-bold text-[#111827] mb-1">🔄 Recalculate totals from skip history</p>
+        <p className="text-xs text-[#6B7280] mb-4">
+          If your jar balances look wrong, this recomputes your totals from your actual logged skips.
+          Donations and purchases are not affected.
+        </p>
+        {recalcState === "done" && recalcResult && (
+          <div className="bg-[#E4F0E8] border border-[#3D8B68] rounded-xl px-4 py-3 mb-3">
+            <p className="text-sm font-semibold text-[#3D8B68]">
+              Done — {recalcResult.totalSkips} skip{recalcResult.totalSkips !== 1 ? "s" : ""} found,{" "}
+              {formatCurrency(recalcResult.totalSaved)} total saved
+            </p>
+          </div>
+        )}
+        {recalcState === "error" && (
+          <div className="bg-red-50 border border-red-200 rounded-xl px-4 py-3 mb-3">
+            <p className="text-sm text-red-600">Something went wrong. Please try again.</p>
+          </div>
+        )}
+        <button
+          onClick={handleRecalculate}
+          disabled={recalcState === "loading"}
+          className="w-full py-2.5 border border-[#D1D5DB] text-[#6B7280] font-semibold rounded-xl text-sm hover:border-[#3D8B68] hover:text-[#3D8B68] transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+        >
+          {recalcState === "loading" ? "Recalculating…" : "Recalculate"}
+        </button>
       </div>
 
       {/* Jar Settings */}

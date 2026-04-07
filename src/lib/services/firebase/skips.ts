@@ -255,3 +255,8 @@ export async function getRecentSkips(uid: string, count = 10): Promise<Skip[]> {
   const snap = await getDocs(q);
   return snap.docs.map((d) => ({ id: d.id, ...d.data() } as Skip));
 }
+
+export async function getAllSkips(uid: string): Promise<Skip[]> {
+  const snap = await getDocs(collection(db, "users", uid, "skips"));
+  return snap.docs.map((d) => ({ id: d.id, ...d.data() } as Skip));
+}

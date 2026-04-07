@@ -268,3 +268,25 @@ export async function getAllUsers(): Promise<UserProfile[]> {
   const snap = await getDocs(q);
   return snap.docs.map((d) => d.data() as UserProfile);
 }
+
+export async function recalculateTotals(
+  uid: string,
+  defaultSplit: { give: number; live: number }
+): Promise<{ totalSaved: number; totalSkips: number; totalGiveAllocated: number; totalLiveAllocated: number }> {
+  const { getAllSkips } = await import("./skips");
+  const skips = await getAllSkips(uid);
+  const totals = skips.reduce(
+    (acc, skip) => {
+      const split = skip.jarSplit ?? defaultSplit;
+      return {
+        totalSaved: acc.totalSaved + skip.amount,
+        totalSkips: acc.totalSkips + 1,
+        totalGiveAllocated: acc.totalGiveAllocated + skip.amount * (split.give / 100),
+        totalLiveAllocated: acc.totalLiveAllocated + skip.amount * (split.live / 100),
+      };
+    },
+    { totalSaved: 0, totalSkips: 0, totalGiveAllocated: 0, totalLiveAllocated: 0 }
+  );
+  await updateDoc(doc(db, "users", uid), totals);
+  return totals;
+}
