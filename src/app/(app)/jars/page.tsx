@@ -7,6 +7,7 @@ import { useProjects } from "@/hooks/useProjects";
 import { formatCurrency } from "@/lib/utils/currency";
 import {
   completeGoal,
+  transferLiveToGive,
   subscribeToSpendingHistory,
   updateSpendingHistory,
   deleteSpendingHistory,
@@ -48,8 +49,8 @@ function JarsPageInner() {
   if (!profile || !user) return null;
 
   const split = normalizeJarSplit(profile.jarSplit as any);
-  const giveTotal = profile.totalSaved * (split.give / 100);
-  const liveTotal = profile.totalSaved * (split.live / 100);
+  const giveTotal = profile.totalGiveAllocated ?? profile.totalSaved * (split.give / 100);
+  const liveTotal = profile.totalLiveAllocated ?? profile.totalSaved * (split.live / 100);
   const givingBalance = Math.max(0, giveTotal - (profile.totalDonated ?? 0));
   const spendingBalance = Math.max(0, liveTotal - (profile.totalSpent ?? 0));
 
@@ -128,6 +129,19 @@ function JarsPageInner() {
     });
   }
 
+  async function handleMoveToGive(goalId: string) {
+    await transferLiveToGive(user!.uid, spendingBalance, spendingGoals, goalId, activeSpendingGoalId);
+    const newGoals = spendingGoals.filter((g) => g.id !== goalId);
+    const newActiveId =
+      activeSpendingGoalId === goalId ? (newGoals[0]?.id ?? null) : activeSpendingGoalId;
+    updateProfile({
+      totalLiveAllocated: (profile!.totalLiveAllocated ?? 0) - spendingBalance,
+      totalGiveAllocated: (profile!.totalGiveAllocated ?? 0) + spendingBalance,
+      spendingGoals: newGoals,
+      activeSpendingGoalId: newActiveId,
+    });
+  }
+
   const tabs: { id: Tab; label: string; emoji: string }[] = [
     { id: "cause", label: "Give a Little", emoji: "🤲" },
     { id: "live",  label: "Live a Little", emoji: "😊" },
@@ -185,6 +199,7 @@ function JarsPageInner() {
           onDeleteGoal={handleDeleteGoal}
           onSetActiveGoal={handleSetActiveGoal}
           onCompleteGoal={handleCompleteGoal}
+          onMoveToGive={handleMoveToGive}
           onEditHistory={(event, newAmount) => {
             updateProfile({ totalSpent: (profile.totalSpent ?? 0) + (newAmount - event.amountSaved) });
             return updateSpendingHistory(user.uid, event.id, newAmount, event.amountSaved);
@@ -392,13 +407,6 @@ function CauseTab({
               >
                 <p className="text-sm font-semibold text-[#111827]">→ Move funds to {switchTarget.title}</p>
                 <p className="text-xs text-[#6B7280] mt-0.5">Your balance will count toward the new cause</p>
-              </button>
-              <button
-                className="w-full text-left px-5 py-4 hover:bg-[#F9FAFB] transition-colors"
-                onClick={() => { onSelectCause(switchTarget); setSwitchTarget(null); }}
-              >
-                <p className="text-sm font-semibold text-[#111827]">+ Keep both, start fresh</p>
-                <p className="text-xs text-[#6B7280] mt-0.5">Both causes stay visible in your jar tab</p>
               </button>
             </div>
             <div className="px-5 pb-5 pt-2">
@@ -722,6 +730,7 @@ function SplurgeTab({
   onDeleteGoal,
   onSetActiveGoal,
   onCompleteGoal,
+  onMoveToGive,
   onEditHistory,
   onDeleteHistory,
 }: {
@@ -734,6 +743,7 @@ function SplurgeTab({
   onDeleteGoal: (goalId: string) => Promise<void>;
   onSetActiveGoal: (goalId: string) => Promise<void>;
   onCompleteGoal: (goalId: string) => Promise<void>;
+  onMoveToGive: (goalId: string) => Promise<void>;
   onEditHistory: (event: SpendingHistoryEvent, newAmount: number) => Promise<void>;
   onDeleteHistory: (event: SpendingHistoryEvent) => Promise<void>;
 }) {
@@ -753,6 +763,8 @@ function SplurgeTab({
   const [confirmCompleteId, setConfirmCompleteId] = useState<string | null>(null);
   const [completing, setCompleting] = useState(false);
   const [deletingGoalId, setDeletingGoalId] = useState<string | null>(null);
+  const [deletingActiveGoal, setDeletingActiveGoal] = useState(false);
+  const [movingToGive, setMovingToGive] = useState(false);
 
   const [editingHistoryId, setEditingHistoryId] = useState<string | null>(null);
   const [editHistoryAmountStr, setEditHistoryAmountStr] = useState("");
@@ -854,13 +866,6 @@ function SplurgeTab({
                 <p className="text-sm font-semibold text-[#111827]">→ Move funds to {switchTarget.label}</p>
                 <p className="text-xs text-[#6B7280] mt-0.5">Your balance will count toward the new goal</p>
               </button>
-              <button
-                className="w-full text-left px-5 py-4 hover:bg-[#F9FAFB] transition-colors"
-                onClick={() => { onSetActiveGoal(switchTarget.id); setSwitchTarget(null); }}
-              >
-                <p className="text-sm font-semibold text-[#111827]">+ Keep both, start fresh</p>
-                <p className="text-xs text-[#6B7280] mt-0.5">Both goals stay visible in your jar tab</p>
-              </button>
             </div>
             <div className="px-5 pb-5 pt-2">
               <button
@@ -878,7 +883,18 @@ function SplurgeTab({
       {activeGoal && (
         <div className="bg-[#F5F3FF] border border-[#8B5CF6] rounded-2xl p-4">
           <p className="text-[10px] font-bold text-[#8B5CF6] uppercase tracking-wider mb-1">Your active goal</p>
-          <p className="font-bold text-[#111827] text-sm">{activeGoal.label}</p>
+          <div className="flex items-start justify-between gap-2">
+            <p className="font-bold text-[#111827] text-sm">{activeGoal.label}</p>
+            {!deletingActiveGoal && (
+              <button
+                onClick={() => { setDeletingActiveGoal(true); setConfirmCompleteId(null); }}
+                className="text-[#8B5CF6]/50 hover:text-red-500 p-1 text-base flex-shrink-0"
+                title="Delete"
+              >
+                🗑️
+              </button>
+            )}
+          </div>
           <div className="mt-2">
             <div className="h-2 bg-[#E5E7EB] rounded-full overflow-hidden">
               <div
@@ -929,6 +945,53 @@ function SplurgeTab({
                   Cancel
                 </button>
               </div>
+            </div>
+          )}
+          {deletingActiveGoal && (
+            <div className="mt-2 bg-red-50 border border-red-200 rounded-xl p-3 space-y-2">
+              <p className="text-xs font-semibold text-[#111827]">Delete "{activeGoal.label}"?</p>
+              {spendingBalance > 0 && (
+                <p className="text-xs text-[#6B7280]">You have {formatCurrency(spendingBalance)} in this jar.</p>
+              )}
+              {spendingBalance > 0 ? (
+                <div className="space-y-1.5">
+                  <button
+                    onClick={() => { setCompleting(true); onCompleteGoal(activeGoal.id).then(() => { setDeletingActiveGoal(false); setCompleting(false); }); }}
+                    disabled={completing || movingToGive}
+                    className="w-full bg-[#8B5CF6] text-white font-semibold py-2 rounded-xl text-xs disabled:opacity-50"
+                  >
+                    {completing ? "…" : activeGoal.type === "donation" ? "💛 Mark as Donated" : "🛒 Mark as Purchased"}
+                  </button>
+                  <button
+                    onClick={() => { setMovingToGive(true); onMoveToGive(activeGoal.id).then(() => { setDeletingActiveGoal(false); setMovingToGive(false); }); }}
+                    disabled={completing || movingToGive}
+                    className="w-full bg-[#3D8B68] text-white font-semibold py-2 rounded-xl text-xs disabled:opacity-50"
+                  >
+                    {movingToGive ? "…" : "🤲 Move All to Donation Jar"}
+                  </button>
+                  <button
+                    onClick={() => setDeletingActiveGoal(false)}
+                    className="w-full border border-[#E5E7EB] text-[#6B7280] font-semibold py-2 rounded-xl text-xs"
+                  >
+                    Cancel
+                  </button>
+                </div>
+              ) : (
+                <div className="flex gap-2">
+                  <button
+                    onClick={() => { onDeleteGoal(activeGoal.id).then(() => setDeletingActiveGoal(false)); }}
+                    className="flex-1 bg-red-500 text-white font-semibold py-1.5 rounded-xl text-xs"
+                  >
+                    Delete
+                  </button>
+                  <button
+                    onClick={() => setDeletingActiveGoal(false)}
+                    className="flex-1 border border-[#E5E7EB] text-[#6B7280] font-semibold py-1.5 rounded-xl text-xs"
+                  >
+                    Cancel
+                  </button>
+                </div>
+              )}
             </div>
           )}
         </div>

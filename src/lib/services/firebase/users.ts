@@ -84,6 +84,25 @@ export async function completeGoal(
   await batch.commit();
 }
 
+export async function transferLiveToGive(
+  uid: string,
+  amount: number,
+  goals: SpendingGoal[],
+  goalId: string,
+  currentActiveGoalId: string | null
+): Promise<void> {
+  if (amount <= 0) return;
+  const newGoals = goals.filter((g) => g.id !== goalId);
+  const newActiveId =
+    currentActiveGoalId === goalId ? (newGoals[0]?.id ?? null) : currentActiveGoalId;
+  await updateDoc(doc(db, "users", uid), {
+    totalLiveAllocated: increment(-amount),
+    totalGiveAllocated: increment(amount),
+    spendingGoals: newGoals,
+    activeSpendingGoalId: newActiveId,
+  });
+}
+
 export function normalizeJarSplit(
   raw: { give?: number; live?: number; giving?: number; spending?: number } | undefined
 ): { give: number; live: number } {
