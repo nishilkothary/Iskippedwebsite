@@ -4,9 +4,6 @@ import { Skip } from "@/lib/types/models";
 import { useSkips } from "@/hooks/useSkips";
 import { useAuthStore } from "@/store/authStore";
 import { SKIP_CATEGORIES } from "@/lib/constants/skipCategories";
-import { formatCurrency } from "@/lib/utils/currency";
-import { normalizeJarSplit } from "@/lib/services/firebase/users";
-
 interface Props {
   skip: Skip;
   onClose: () => void;
@@ -15,7 +12,6 @@ interface Props {
 export function EditSkipModal({ skip, onClose }: Props) {
   const { edit, deleteSkip } = useSkips();
   const { profile } = useAuthStore();
-  const profileSplit = normalizeJarSplit(profile?.jarSplit as any);
 
   const initialCat =
     SKIP_CATEGORIES.find((c) => c.id === skip.category) ?? SKIP_CATEGORIES[0];
@@ -28,11 +24,9 @@ export function EditSkipModal({ skip, onClose }: Props) {
   const [amount, setAmount] = useState(skip.amount.toString());
   const [whatSkipped, setWhatSkipped] = useState(skip.whatSkipped ?? "");
   const [notes, setNotes] = useState(skip.notes ?? "");
-  const [givePct, setGivePct] = useState(skip.jarSplit?.give ?? profileSplit.give);
   const [loading, setLoading] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
 
-  const livePct = 100 - givePct;
   const num = parseFloat(amount) || 0;
 
   function handleCatSelect(cat: typeof initialCat) {
@@ -51,7 +45,6 @@ export function EditSkipModal({ skip, onClose }: Props) {
         categoryEmoji: selectedCat.emoji,
         whatSkipped: whatSkipped || undefined,
         notes: notes || undefined,
-        jarSplit: { give: givePct, live: livePct },
       });
       onClose();
     } finally {
@@ -109,40 +102,6 @@ export function EditSkipModal({ skip, onClose }: Props) {
                 }}
                 className="w-28 text-2xl font-bold text-[#3D8B68] border-b-2 border-[#3D8B68] focus:outline-none bg-transparent"
               />
-            </div>
-            {num > 0 && (
-              <div className="mt-3 bg-[#F9FAFB] rounded-xl p-3 space-y-1.5">
-                <div className="flex items-center justify-between text-xs">
-                  <span className="text-[#6B7280]">💚 Give a little</span>
-                  <span className="font-bold text-[#E8637A]">{givePct}% · +{formatCurrency(num * givePct / 100)}</span>
-                </div>
-                <div className="flex items-center justify-between text-xs">
-                  <span className="text-[#6B7280]">✨ Live a little</span>
-                  <span className="font-bold text-[#2BBAA4]">{livePct}% · +{formatCurrency(num * livePct / 100)}</span>
-                </div>
-              </div>
-            )}
-          </div>
-
-          {/* Split slider */}
-          <div>
-            <label className="block text-sm font-medium text-[#111827] mb-2">This skip&apos;s split</label>
-            <div className="flex items-center justify-between text-xs text-[#6B7280] mb-1">
-              <span>🤲 Give <span className="font-bold text-[#E8637A]">{givePct}%</span></span>
-              <span>😊 Live <span className="font-bold text-[#2BBAA4]">{livePct}%</span></span>
-            </div>
-            <input
-              type="range"
-              min={0}
-              max={100}
-              value={givePct}
-              onChange={(e) => setGivePct(Number(e.target.value))}
-              className="w-full h-2 rounded-full appearance-none cursor-pointer"
-              style={{ background: `linear-gradient(to right, #E8637A ${givePct}%, #2BBAA4 ${givePct}%)` }}
-            />
-            <div className="flex justify-between text-[10px] text-[#9CA3AF] mt-0.5">
-              <span>All Give</span>
-              <span>All Live</span>
             </div>
           </div>
 
