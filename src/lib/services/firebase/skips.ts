@@ -37,6 +37,7 @@ export interface LogSkipParams {
   shareWithCommunity?: boolean;
   whatSkipped?: string;
   notes?: string;
+  jarSplit?: { give: number; live: number };
   displayName?: string;
   photoURL?: string | null;
 }
@@ -47,7 +48,7 @@ export async function logSkip(params: LogSkipParams): Promise<{ skipId: string; 
     projectId, projectTitle, currentTotalSaved, currentTotalSkips,
     currentXp, currentStreak, currentLongestStreak, lastSkipDate,
     savedTowardActiveCause, shareWithCommunity, whatSkipped, notes,
-    displayName, photoURL,
+    jarSplit, displayName, photoURL,
   } = params;
 
   const todayStr = today();
@@ -95,6 +96,7 @@ export async function logSkip(params: LogSkipParams): Promise<{ skipId: string; 
     createdAt: serverTimestamp(),
     ...(whatSkipped ? { whatSkipped } : {}),
     ...(notes ? { notes } : {}),
+    ...(jarSplit ? { jarSplit } : {}),
   });
 
   // 2. Update user stats

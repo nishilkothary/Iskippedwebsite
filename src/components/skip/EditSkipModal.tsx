@@ -2,6 +2,8 @@
 import { useState } from "react";
 import { Skip } from "@/lib/types/models";
 import { useSkips } from "@/hooks/useSkips";
+import { useAuthStore } from "@/store/authStore";
+import { normalizeJarSplit } from "@/lib/services/firebase/users";
 
 interface Props {
   skip: Skip;
@@ -10,8 +12,13 @@ interface Props {
 
 export function EditSkipModal({ skip, onClose }: Props) {
   const { edit, deleteSkip } = useSkips();
+  const { profile } = useAuthStore();
+  const profileSplit = normalizeJarSplit(profile?.jarSplit as any);
+  const initialGivePct = skip.jarSplit?.give ?? profileSplit.give;
+
   const [amount, setAmount] = useState(skip.amount.toString());
   const [whatSkipped, setWhatSkipped] = useState(skip.whatSkipped ?? "");
+  const [givePct, setGivePct] = useState(initialGivePct);
   const [loading, setLoading] = useState(false);
 
   async function handleSave() {
@@ -19,7 +26,11 @@ export function EditSkipModal({ skip, onClose }: Props) {
     if (!num || num <= 0) return;
     setLoading(true);
     try {
-      await edit(skip, { amount: num, whatSkipped: whatSkipped || undefined });
+      await edit(skip, {
+        amount: num,
+        whatSkipped: whatSkipped || undefined,
+        jarSplit: { give: givePct, live: 100 - givePct },
+      });
       onClose();
     } finally {
       setLoading(false);
@@ -67,6 +78,24 @@ export function EditSkipModal({ skip, onClose }: Props) {
               onChange={(e) => setWhatSkipped(e.target.value)}
               placeholder={skip.categoryLabel}
               className="w-full border border-[#E5E7EB] rounded-xl px-4 py-3 text-[#111827] focus:outline-none focus:ring-2 focus:ring-[#3D8B68]/30 focus:border-[#3D8B68]"
+            />
+          </div>
+          <div>
+            <label className="text-xs text-[#6B7280] uppercase tracking-wide mb-1 block">Split for this skip</label>
+            <div className="flex items-center justify-between text-xs text-[#6B7280] mb-1">
+              <span>🤲 Give <span className="font-bold text-[#E8637A]">{givePct}%</span></span>
+              <span>😊 Live <span className="font-bold text-[#2BBAA4]">{100 - givePct}%</span></span>
+            </div>
+            <input
+              type="range"
+              min={0}
+              max={100}
+              value={givePct}
+              onChange={(e) => setGivePct(Number(e.target.value))}
+              className="w-full h-2 rounded-full appearance-none cursor-pointer"
+              style={{
+                background: `linear-gradient(to right, #E8637A ${givePct}%, #2BBAA4 ${givePct}%)`,
+              }}
             />
           </div>
           <div className="flex gap-3 pt-1">

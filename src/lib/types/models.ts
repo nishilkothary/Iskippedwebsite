@@ -59,6 +59,7 @@ export interface Skip {
   createdAt: Timestamp;
   whatSkipped?: string;
   notes?: string;
+  jarSplit?: { give: number; live: number };
 }
 
 export interface Project {

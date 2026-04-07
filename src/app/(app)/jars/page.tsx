@@ -6,7 +6,6 @@ import { useSkips } from "@/hooks/useSkips";
 import { useProjects } from "@/hooks/useProjects";
 import { formatCurrency } from "@/lib/utils/currency";
 import {
-  updateJarSettings,
   completeGoal,
   subscribeToSpendingHistory,
   updateSpendingHistory,
@@ -19,11 +18,12 @@ import {
 import { addCustomProject } from "@/lib/services/firebase/projects";
 import { SpendingHistoryEvent, Project, SpendingGoal } from "@/lib/types/models";
 
-type Tab = "cause" | "splurge" | "split";
+type Tab = "cause" | "live";
 
 function JarsPageInner() {
   const searchParams = useSearchParams();
-  const initialTab = (searchParams.get("tab") as Tab) ?? "cause";
+  const rawTab = searchParams.get("tab");
+  const initialTab: Tab = rawTab === "live" || rawTab === "cause" ? rawTab : "cause";
   const [activeTab, setActiveTab] = useState<Tab>(initialTab);
 
   const { user, profile, updateProfile } = useAuthStore();
@@ -110,9 +110,8 @@ function JarsPageInner() {
   }
 
   const tabs: { id: Tab; label: string; emoji: string }[] = [
-    { id: "cause",   label: "Cause",   emoji: "🌍" },
-    { id: "splurge", label: "Splurge", emoji: "🛍️" },
-    { id: "split",   label: "Split",   emoji: "⚙️" },
+    { id: "cause", label: "Give a Little", emoji: "🤲" },
+    { id: "live",  label: "Live a Little", emoji: "😊" },
   ];
 
   return (
@@ -141,6 +140,7 @@ function JarsPageInner() {
           uid={user.uid}
           projects={projects}
           activeProject={activeProject}
+          givingBalance={givingBalance}
           onSelectCause={handleSelectCause}
           onAddCause={handleAddCause}
           onDonate={(amount) =>
@@ -149,7 +149,7 @@ function JarsPageInner() {
         />
       )}
 
-      {activeTab === "splurge" && (
+      {activeTab === "live" && (
         <SplurgeTab
           spendingBalance={spendingBalance}
           goals={spendingGoals}
@@ -170,15 +170,6 @@ function JarsPageInner() {
           }}
         />
       )}
-
-      {activeTab === "split" && (
-        <JarSplitSection
-          uid={user.uid}
-          initialSplit={split}
-          spendingGoal={profile.spendingGoal ?? null}
-          onSave={(newSplit) => updateProfile({ jarSplit: newSplit })}
-        />
-      )}
     </div>
   );
 }
@@ -196,6 +187,7 @@ function CauseTab({
   uid,
   projects,
   activeProject,
+  givingBalance,
   onSelectCause,
   onAddCause,
   onDonate,
@@ -203,6 +195,7 @@ function CauseTab({
   uid: string;
   projects: Project[];
   activeProject: Project | null;
+  givingBalance: number;
   onSelectCause: (p: Project) => void;
   onAddCause: (title: string, goalAmount: number, donationURL?: string) => Promise<void>;
   onDonate: (amount: number) => Promise<void>;
@@ -215,6 +208,7 @@ function CauseTab({
   const [customGoalStr, setCustomGoalStr] = useState("");
   const [customURL, setCustomURL] = useState("");
   const [addingCause, setAddingCause] = useState(false);
+  const [switchTarget, setSwitchTarget] = useState<Project | null>(null);
 
   async function handleAddCause() {
     if (!customTitle.trim()) return;
@@ -228,19 +222,149 @@ function CauseTab({
     setAddingCause(false);
   }
 
+  function handleSetActive(project: Project) {
+    if (givingBalance > 0 && activeProject && activeProject.id !== project.id) {
+      setSwitchTarget(project);
+    } else {
+      onSelectCause(project);
+    }
+  }
+
+  function CauseDonateRow({ project }: { project: Project }) {
+    return (
+      <div className="mt-3 space-y-2">
+        {project.donationURL && (
+          <a
+            href={project.donationURL}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="flex items-center justify-center gap-1.5 w-full py-2 border border-[#3D8B68] text-[#3D8B68] font-semibold rounded-xl hover:bg-[#E4F0E8] transition-colors text-xs"
+          >
+            🌍 Donate →
+          </a>
+        )}
+        {activeProject?.id === project.id && (
+          donatingId === project.id ? (
+            <div className="flex gap-2">
+              <div className="relative flex-1">
+                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-[#6B7280]">$</span>
+                <input
+                  type="number"
+                  placeholder="0.00"
+                  value={donateAmountStr}
+                  onChange={(e) => setDonateAmountStr(e.target.value)}
+                  className="w-full pl-7 border border-[#E5E7EB] rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#3D8B68]/30"
+                  autoFocus
+                />
+              </div>
+              <button
+                onClick={async () => {
+                  const amt = parseFloat(donateAmountStr);
+                  if (!amt || amt <= 0) return;
+                  setDonating(true);
+                  await onDonate(amt);
+                  setDonateAmountStr("");
+                  setDonatingId(null);
+                  setDonating(false);
+                }}
+                disabled={donating || !donateAmountStr || parseFloat(donateAmountStr) <= 0}
+                className="bg-[#3D8B68] text-white font-semibold px-4 py-2 rounded-xl text-sm disabled:opacity-50"
+              >
+                {donating ? "…" : "Confirm"}
+              </button>
+              <button
+                onClick={() => { setDonatingId(null); setDonateAmountStr(""); }}
+                className="border border-[#E5E7EB] text-[#6B7280] px-3 py-2 rounded-xl text-sm"
+              >
+                Cancel
+              </button>
+            </div>
+          ) : (
+            <button
+              onClick={() => setDonatingId(project.id)}
+              className="w-full py-2 border border-[#3D8B68] text-[#3D8B68] font-semibold rounded-xl hover:bg-[#E4F0E8] transition-colors text-xs"
+            >
+              💸 I Donated
+            </button>
+          )
+        )}
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-5">
+      {/* Switch modal */}
+      {switchTarget && (
+        <div className="fixed inset-0 bg-black/50 z-50 flex items-end sm:items-center justify-center p-4" onClick={() => setSwitchTarget(null)}>
+          <div className="bg-white rounded-2xl w-full max-w-sm shadow-2xl" onClick={(e) => e.stopPropagation()}>
+            <div className="px-5 pt-5 pb-3 border-b border-[#E5E7EB]">
+              <p className="font-bold text-[#111827]">Switch active cause?</p>
+              <p className="text-xs text-[#6B7280] mt-1">
+                Your Give a Little jar has {formatCurrency(givingBalance)} saved toward <span className="font-semibold">{activeProject?.title}</span>.
+              </p>
+            </div>
+            <div className="divide-y divide-[#F3F4F6]">
+              <button
+                className="w-full text-left px-5 py-4 hover:bg-[#F9FAFB] transition-colors"
+                onClick={() => { setSwitchTarget(null); setDonatingId(activeProject?.id ?? null); }}
+              >
+                <p className="text-sm font-semibold text-[#111827]">💸 Donate first</p>
+                <p className="text-xs text-[#6B7280] mt-0.5">Empty your current jar before switching</p>
+              </button>
+              <button
+                className="w-full text-left px-5 py-4 hover:bg-[#F9FAFB] transition-colors"
+                onClick={() => { onSelectCause(switchTarget); setSwitchTarget(null); }}
+              >
+                <p className="text-sm font-semibold text-[#111827]">→ Move funds to {switchTarget.title}</p>
+                <p className="text-xs text-[#6B7280] mt-0.5">Your balance will count toward the new cause</p>
+              </button>
+              <button
+                className="w-full text-left px-5 py-4 hover:bg-[#F9FAFB] transition-colors"
+                onClick={() => { onSelectCause(switchTarget); setSwitchTarget(null); }}
+              >
+                <p className="text-sm font-semibold text-[#111827]">+ Keep both, start fresh</p>
+                <p className="text-xs text-[#6B7280] mt-0.5">Both causes stay visible in your jar tab</p>
+              </button>
+            </div>
+            <div className="px-5 pb-5 pt-2">
+              <button
+                onClick={() => setSwitchTarget(null)}
+                className="w-full py-2.5 border border-[#E5E7EB] text-[#6B7280] font-semibold rounded-xl text-sm"
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Active cause highlight */}
+      {activeProject && (
+        <div className="bg-[#E4F0E8] border border-[#3D8B68] rounded-2xl p-4">
+          <p className="text-[10px] font-bold text-[#3D8B68] uppercase tracking-wider mb-1">Your active cause</p>
+          <p className="font-bold text-[#111827] text-sm">{activeProject.title}</p>
+          <p className="text-xs text-[#6B7280] mt-0.5">{activeProject.sponsor}</p>
+          {activeProject.goalAmount > 0 && (
+            <p className="text-xs text-[#3D8B68] font-semibold mt-1">
+              {formatCurrency(givingBalance)} saved · Goal: {formatCurrency(activeProject.goalAmount)}
+            </p>
+          )}
+          <CauseDonateRow project={activeProject} />
+        </div>
+      )}
+
+      {/* All causes */}
       <div>
-        <p className="text-sm font-semibold text-[#111827] mb-3">Choose your cause</p>
+        <p className="text-sm font-semibold text-[#111827] mb-3">All causes</p>
         <div className="space-y-3">
-          {projects.filter((p) => !p.isCustom).map((project) => {
+          {projects.map((project) => {
             const isActive = activeProject?.id === project.id;
+            if (isActive) return null; // already shown at top
             return (
               <div
                 key={project.id}
-                className={`bg-white rounded-2xl p-4 border shadow-sm transition-colors ${
-                  isActive ? "border-[#3D8B68]" : "border-[#E5E7EB]"
-                }`}
+                className="bg-white rounded-2xl p-4 border border-[#E5E7EB] shadow-sm"
               >
                 <div className="flex items-start justify-between gap-3">
                   <div className="flex-1 min-w-0">
@@ -251,83 +375,29 @@ function CauseTab({
                     </p>
                     {project.goalAmount > 0 && (
                       <p className="text-xs text-[#3D8B68] font-semibold mt-1">
-                        Skipped Expense Needed: {formatCurrency(project.goalAmount)}
+                        Goal: {formatCurrency(project.goalAmount)}
                       </p>
                     )}
                   </div>
                   <div className="flex-shrink-0">
-                    {isActive ? (
-                      <span className="inline-flex items-center gap-1 text-xs font-semibold text-[#3D8B68] bg-[#E4F0E8] px-2.5 py-1 rounded-full">
-                        ✓ Active
-                      </span>
-                    ) : (
-                      <button
-                        onClick={() => onSelectCause(project)}
-                        className="text-xs font-semibold text-[#6B7280] border border-[#E5E7EB] px-3 py-1.5 rounded-full hover:border-[#3D8B68] hover:text-[#3D8B68] transition-colors"
-                      >
-                        Select
-                      </button>
-                    )}
+                    <button
+                      onClick={() => handleSetActive(project)}
+                      className="text-xs font-semibold text-[#3D8B68] border border-[#3D8B68] px-3 py-1.5 rounded-full hover:bg-[#E4F0E8] transition-colors"
+                    >
+                      Set as Active
+                    </button>
                   </div>
                 </div>
-
-                <div className="mt-3 space-y-2">
-                  {project.donationURL && (
-                    <a
-                      href={project.donationURL}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="flex items-center justify-center gap-1.5 w-full py-2 border border-[#3D8B68] text-[#3D8B68] font-semibold rounded-xl hover:bg-[#E4F0E8] transition-colors text-xs"
-                    >
-                      🌍 Donate →
-                    </a>
-                  )}
-                  {isActive && (
-                    donatingId === project.id ? (
-                      <div className="flex gap-2">
-                        <div className="relative flex-1">
-                          <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-[#6B7280]">$</span>
-                          <input
-                            type="number"
-                            placeholder="0.00"
-                            value={donateAmountStr}
-                            onChange={(e) => setDonateAmountStr(e.target.value)}
-                            className="w-full pl-7 border border-[#E5E7EB] rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#3D8B68]/30"
-                            autoFocus
-                          />
-                        </div>
-                        <button
-                          onClick={async () => {
-                            const amt = parseFloat(donateAmountStr);
-                            if (!amt || amt <= 0) return;
-                            setDonating(true);
-                            await onDonate(amt);
-                            setDonateAmountStr("");
-                            setDonatingId(null);
-                            setDonating(false);
-                          }}
-                          disabled={donating || !donateAmountStr || parseFloat(donateAmountStr) <= 0}
-                          className="bg-[#3D8B68] text-white font-semibold px-4 py-2 rounded-xl text-sm disabled:opacity-50"
-                        >
-                          {donating ? "…" : "Confirm"}
-                        </button>
-                        <button
-                          onClick={() => { setDonatingId(null); setDonateAmountStr(""); }}
-                          className="border border-[#E5E7EB] text-[#6B7280] px-3 py-2 rounded-xl text-sm"
-                        >
-                          Cancel
-                        </button>
-                      </div>
-                    ) : (
-                      <button
-                        onClick={() => setDonatingId(project.id)}
-                        className="w-full py-2 border border-[#3D8B68] text-[#3D8B68] font-semibold rounded-xl hover:bg-[#E4F0E8] transition-colors text-xs"
-                      >
-                        💸 I Donated
-                      </button>
-                    )
-                  )}
-                </div>
+                {project.donationURL && (
+                  <a
+                    href={project.donationURL}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="mt-3 flex items-center justify-center gap-1.5 w-full py-2 border border-[#3D8B68] text-[#3D8B68] font-semibold rounded-xl hover:bg-[#E4F0E8] transition-colors text-xs"
+                  >
+                    🌍 Donate →
+                  </a>
+                )}
               </div>
             );
           })}
@@ -437,6 +507,17 @@ function SplurgeTab({
   const [editHistoryAmountStr, setEditHistoryAmountStr] = useState("");
   const [deletingHistoryId, setDeletingHistoryId] = useState<string | null>(null);
   const [historyWorking, setHistoryWorking] = useState(false);
+  const [switchTarget, setSwitchTarget] = useState<SpendingGoal | null>(null);
+
+  const activeGoal = goals.find((g) => g.id === activeGoalId) ?? null;
+
+  function handleSetActiveGoalWithCheck(goal: SpendingGoal) {
+    if (spendingBalance > 0 && activeGoalId && activeGoalId !== goal.id) {
+      setSwitchTarget(goal);
+    } else {
+      onSetActiveGoal(goal.id);
+    }
+  }
 
   async function handleAddGoal() {
     const amount = parseFloat(addAmount);
@@ -495,17 +576,124 @@ function SplurgeTab({
 
   return (
     <div className="space-y-4">
+      {/* Switch modal */}
+      {switchTarget && (
+        <div className="fixed inset-0 bg-black/50 z-50 flex items-end sm:items-center justify-center p-4" onClick={() => setSwitchTarget(null)}>
+          <div className="bg-white rounded-2xl w-full max-w-sm shadow-2xl" onClick={(e) => e.stopPropagation()}>
+            <div className="px-5 pt-5 pb-3 border-b border-[#E5E7EB]">
+              <p className="font-bold text-[#111827]">Switch active goal?</p>
+              <p className="text-xs text-[#6B7280] mt-1">
+                Your Live a Little jar has {formatCurrency(spendingBalance)} saved toward <span className="font-semibold">{activeGoal?.label}</span>.
+              </p>
+            </div>
+            <div className="divide-y divide-[#F3F4F6]">
+              <button
+                className="w-full text-left px-5 py-4 hover:bg-[#F9FAFB] transition-colors"
+                onClick={() => { setSwitchTarget(null); setConfirmCompleteId(activeGoalId); }}
+              >
+                <p className="text-sm font-semibold text-[#111827]">
+                  {activeGoal?.type === "donation" ? "💛 Donate first" : "🛒 Shop first"}
+                </p>
+                <p className="text-xs text-[#6B7280] mt-0.5">Empty your current jar before switching</p>
+              </button>
+              <button
+                className="w-full text-left px-5 py-4 hover:bg-[#F9FAFB] transition-colors"
+                onClick={() => { onSetActiveGoal(switchTarget.id); setSwitchTarget(null); }}
+              >
+                <p className="text-sm font-semibold text-[#111827]">→ Move funds to {switchTarget.label}</p>
+                <p className="text-xs text-[#6B7280] mt-0.5">Your balance will count toward the new goal</p>
+              </button>
+              <button
+                className="w-full text-left px-5 py-4 hover:bg-[#F9FAFB] transition-colors"
+                onClick={() => { onSetActiveGoal(switchTarget.id); setSwitchTarget(null); }}
+              >
+                <p className="text-sm font-semibold text-[#111827]">+ Keep both, start fresh</p>
+                <p className="text-xs text-[#6B7280] mt-0.5">Both goals stay visible in your jar tab</p>
+              </button>
+            </div>
+            <div className="px-5 pb-5 pt-2">
+              <button
+                onClick={() => setSwitchTarget(null)}
+                className="w-full py-2.5 border border-[#E5E7EB] text-[#6B7280] font-semibold rounded-xl text-sm"
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Active goal highlight */}
+      {activeGoal && (
+        <div className="bg-[#F5F3FF] border border-[#8B5CF6] rounded-2xl p-4">
+          <p className="text-[10px] font-bold text-[#8B5CF6] uppercase tracking-wider mb-1">Your active goal</p>
+          <p className="font-bold text-[#111827] text-sm">{activeGoal.label}</p>
+          <div className="mt-2">
+            <div className="h-2 bg-[#E5E7EB] rounded-full overflow-hidden">
+              <div
+                className="h-full bg-[#8B5CF6] rounded-full transition-all duration-700"
+                style={{ width: `${Math.min(100, (spendingBalance / activeGoal.targetAmount) * 100)}%` }}
+              />
+            </div>
+            <div className="flex justify-between mt-1 text-xs text-[#6B7280]">
+              <span>{formatCurrency(spendingBalance)} saved</span>
+              <span>Goal: {formatCurrency(activeGoal.targetAmount)}</span>
+            </div>
+          </div>
+          {(activeGoal.shoppingLink || activeGoal.donationURL) && (
+            <a
+              href={activeGoal.shoppingLink ?? activeGoal.donationURL}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="mt-3 flex items-center justify-center gap-1.5 w-full py-2 border border-[#8B5CF6] text-[#8B5CF6] font-semibold rounded-xl hover:bg-[#F5F3FF] transition-colors text-xs"
+            >
+              {activeGoal.type === "donation" ? "💛 Donate →" : "🛒 Shop now →"}
+            </a>
+          )}
+          {!confirmCompleteId && (
+            <button
+              onClick={() => setConfirmCompleteId(activeGoal.id)}
+              className="mt-2 w-full py-2 border border-[#8B5CF6] text-[#8B5CF6] font-semibold rounded-xl hover:bg-[#F5F3FF] transition-colors text-xs"
+            >
+              {activeGoal.type === "donation" ? "✓ I Donated!" : "✓ I Bought It!"}
+            </button>
+          )}
+          {confirmCompleteId === activeGoal.id && (
+            <div className="mt-2 bg-[#FFF7ED] border border-orange-200 rounded-xl p-3">
+              <p className="text-xs font-semibold text-[#111827] mb-1">
+                {activeGoal.type === "donation" ? "Mark as donated?" : "Mark as purchased?"}
+              </p>
+              <p className="text-xs text-[#6B7280] mb-2">
+                This will log {formatCurrency(spendingBalance)} as spent and remove this goal.
+              </p>
+              <div className="flex gap-2">
+                <button
+                  onClick={() => { setCompleting(true); onCompleteGoal(activeGoal.id).then(() => { setConfirmCompleteId(null); setCompleting(false); }); }}
+                  disabled={completing}
+                  className="flex-1 bg-[#8B5CF6] text-white font-semibold py-1.5 rounded-xl text-xs disabled:opacity-50"
+                >
+                  {completing ? "…" : "Yes, confirm"}
+                </button>
+                <button onClick={() => setConfirmCompleteId(null)} className="flex-1 border border-[#E5E7EB] text-[#6B7280] font-semibold py-1.5 rounded-xl text-xs">
+                  Cancel
+                </button>
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+
       <div className="flex items-center justify-between mb-1">
-        <h2 className="text-base font-bold text-[#111827]">✨ Live a little — Goals</h2>
+        <h2 className="text-base font-bold text-[#111827]">😊 Live a little — Goals</h2>
         <span className="text-sm font-bold text-[#8B5CF6]">{formatCurrency(spendingBalance)} available</span>
       </div>
 
-      {/* Goal list */}
-      {goals.length > 0 && (
+      {/* Goal list — all goals except active (shown at top) */}
+      {goals.filter((g) => g.id !== activeGoalId).length > 0 && (
         <div className="space-y-3">
-          {goals.map((goal) => {
-            const isActive = goal.id === activeGoalId;
-            const fillPct = isActive ? Math.min(100, (spendingBalance / goal.targetAmount) * 100) : 0;
+          {goals.filter((g) => g.id !== activeGoalId).map((goal) => {
+            const isActive = false;
+            const fillPct = 0;
             const isEditing = editingGoalId === goal.id;
             const isConfirmComplete = confirmCompleteId === goal.id;
             const isConfirmDelete = deletingGoalId === goal.id;
@@ -599,22 +787,6 @@ function SplurgeTab({
                       </div>
                     </div>
 
-                    {/* Progress bar — only for active goal */}
-                    {isActive && (
-                      <div className="mb-3">
-                        <div className="h-2 bg-[#E5E7EB] rounded-full overflow-hidden">
-                          <div
-                            className="h-full bg-[#8B5CF6] rounded-full transition-all duration-700"
-                            style={{ width: `${fillPct}%` }}
-                          />
-                        </div>
-                        <div className="flex justify-between mt-1 text-xs text-[#6B7280]">
-                          <span>{formatCurrency(spendingBalance)} saved</span>
-                          <span>{Math.round(fillPct)}% of goal</span>
-                        </div>
-                      </div>
-                    )}
-
                     {/* Shopping/donation link */}
                     {(goal.shoppingLink || goal.donationURL) && (
                       <a
@@ -627,51 +799,14 @@ function SplurgeTab({
                       </a>
                     )}
 
-                    {/* Set as main / Complete */}
-                    <div className="flex gap-2">
-                      {!isActive && (
-                        <button
-                          onClick={() => onSetActiveGoal(goal.id)}
-                          className="flex-1 py-2 border border-[#E5E7EB] text-[#6B7280] font-semibold rounded-xl hover:border-[#8B5CF6] hover:text-[#8B5CF6] transition-colors text-xs"
-                        >
-                          Set as main
-                        </button>
-                      )}
-                      {isActive && !isConfirmComplete && (
-                        <button
-                          onClick={() => setConfirmCompleteId(goal.id)}
-                          className="flex-1 py-2 border border-[#8B5CF6] text-[#8B5CF6] font-semibold rounded-xl hover:bg-[#F5F3FF] transition-colors text-xs"
-                        >
-                          {goal.type === "donation" ? "✓ I Donated!" : "✓ I Bought It!"}
-                        </button>
-                      )}
-                    </div>
-
-                    {/* Confirm complete */}
-                    {isConfirmComplete && (
-                      <div className="mt-2 bg-[#FFF7ED] border border-orange-200 rounded-xl p-3">
-                        <p className="text-xs font-semibold text-[#111827] mb-1">
-                          {goal.type === "donation" ? "Mark as donated?" : "Mark as purchased?"}
-                        </p>
-                        <p className="text-xs text-[#6B7280] mb-2">
-                          This will log {formatCurrency(spendingBalance)} as spent and remove this goal.
-                        </p>
-                        <div className="flex gap-2">
-                          <button
-                            onClick={() => handleComplete(goal.id)}
-                            disabled={completing}
-                            className="flex-1 bg-[#8B5CF6] text-white font-semibold py-1.5 rounded-xl text-xs disabled:opacity-50"
-                          >
-                            {completing ? "…" : "Yes, confirm"}
-                          </button>
-                          <button
-                            onClick={() => setConfirmCompleteId(null)}
-                            className="flex-1 border border-[#E5E7EB] text-[#6B7280] font-semibold py-1.5 rounded-xl text-xs"
-                          >
-                            Cancel
-                          </button>
-                        </div>
-                      </div>
+                    {/* Set as active */}
+                    {!isActive && (
+                      <button
+                        onClick={() => handleSetActiveGoalWithCheck(goal)}
+                        className="w-full py-2 mt-1 border border-[#8B5CF6] text-[#8B5CF6] font-semibold rounded-xl hover:bg-[#F5F3FF] transition-colors text-xs"
+                      >
+                        Set as Active
+                      </button>
                     )}
 
                     {/* Confirm delete */}
@@ -855,92 +990,3 @@ function SplurgeTab({
   );
 }
 
-/* ── Jar Split Section ── */
-function JarSplitSection({
-  uid,
-  initialSplit,
-  spendingGoal,
-  onSave,
-}: {
-  uid: string;
-  initialSplit: { give: number; live: number };
-  spendingGoal: { label: string; targetAmount: number; shoppingLink?: string } | null;
-  onSave: (split: { give: number; live: number }) => void;
-}) {
-  const [give, setGive] = useState(String(initialSplit.give));
-  const [live, setLive] = useState(String(initialSplit.live));
-  const [saving, setSaving] = useState(false);
-  const [saved, setSaved] = useState(false);
-
-  const total = (parseInt(give) || 0) + (parseInt(live) || 0);
-  const valid = total === 100;
-
-  const presets = [
-    { label: "50 / 50",    g: 50,  l: 50 },
-    { label: "60/40 Give", g: 60,  l: 40 },
-    { label: "40/60 Live", g: 40,  l: 60 },
-    { label: "Give all",   g: 100, l: 0  },
-  ];
-
-  async function handleSave() {
-    if (!valid) return;
-    setSaving(true);
-    const split = { give: parseInt(give), live: parseInt(live) };
-    await updateJarSettings(uid, split, spendingGoal);
-    onSave(split);
-    setSaving(false);
-    setSaved(true);
-    setTimeout(() => setSaved(false), 2000);
-  }
-
-  return (
-    <div className="bg-white rounded-2xl p-6 border border-[#E5E7EB] shadow-sm">
-      <h2 className="text-base font-bold text-[#111827] mb-4">Jar Split</h2>
-
-      <div className="grid grid-cols-2 gap-2 mb-3">
-        {presets.map((p) => (
-          <button
-            key={p.label}
-            onClick={() => { setGive(String(p.g)); setLive(String(p.l)); }}
-            className="py-1.5 text-xs font-semibold rounded-lg border border-[#E5E7EB] text-[#6B7280] hover:border-[#3D8B68]/50 hover:text-[#3D8B68] transition-colors"
-          >
-            {p.label}
-          </button>
-        ))}
-      </div>
-
-      <div className="grid grid-cols-2 gap-2 mb-3">
-        {[
-          { label: "💚 Give a little", value: give, set: setGive },
-          { label: "✨ Live a little", value: live, set: setLive },
-        ].map((row) => (
-          <div key={row.label} className="text-center">
-            <p className="text-xs text-[#6B7280] mb-1">{row.label}</p>
-            <div className="relative">
-              <input
-                type="number"
-                min="0"
-                max="100"
-                value={row.value}
-                onChange={(e) => row.set(e.target.value)}
-                className="w-full border border-[#E5E7EB] rounded-xl px-2 py-2 text-sm text-center font-bold text-[#111827] focus:outline-none focus:ring-2 focus:ring-[#3D8B68]/30"
-              />
-              <span className="absolute right-2 top-1/2 -translate-y-1/2 text-xs text-[#9CA3AF]">%</span>
-            </div>
-          </div>
-        ))}
-      </div>
-
-      {!valid && <p className="text-xs text-red-500 mb-3 text-center">Total is {total}% — must equal 100%</p>}
-      {valid && <p className="text-xs text-[#3D8B68] mb-3 text-center">✓ Looks good</p>}
-
-      <button
-        onClick={handleSave}
-        disabled={!valid || saving}
-        className="w-full py-3 bg-[#3D8B68] text-white font-semibold rounded-xl text-sm hover:bg-[#2D6A4F] transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-      >
-        {saved ? "✓ Saved!" : saving ? "Saving…" : "Save Split"}
-      </button>
-    </div>
-  );
-}

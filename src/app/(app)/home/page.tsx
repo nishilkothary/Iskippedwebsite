@@ -19,12 +19,13 @@ interface JarProps {
   gradEnd: string;
   label: string;
   amount: string;
+  emoji: string;
   causeLabel?: string;
   href?: string;
   onClick?: () => void;
 }
 
-function Jar({ fillPercent, color, gradEnd, label, amount, causeLabel, href, onClick }: JarProps) {
+function Jar({ fillPercent, color, gradEnd, label, amount, emoji, causeLabel, href, onClick }: JarProps) {
   const clamp = Math.min(Math.max(fillPercent, 0), 100);
   const w = 160;
   const h = 240;
@@ -148,12 +149,20 @@ function Jar({ fillPercent, color, gradEnd, label, amount, causeLabel, href, onC
           strokeLinejoin="round"
         />
 
-        {/* Percentage centered in jar body */}
+        {/* Emoji + percentage centered in jar body */}
         <text
-          x={60*scale} y={90*scale}
+          x={60*scale} y={78*scale}
           textAnchor="middle"
           dominantBaseline="middle"
-          fontSize={22*scale}
+          fontSize={20*scale}
+        >
+          {emoji}
+        </text>
+        <text
+          x={60*scale} y={105*scale}
+          textAnchor="middle"
+          dominantBaseline="middle"
+          fontSize={15*scale}
           fontWeight="800"
           fill="rgba(255,255,255,0.9)"
           style={{ fontFamily: "inherit" }}
@@ -309,8 +318,9 @@ export default function HomePage() {
             gradEnd="#1E9485"
             label="Live a Little"
             amount={formatCurrency(spendingBalance)}
+            emoji="😊"
             causeLabel={activeGoal?.label}
-            onClick={() => router.push("/jars?tab=splurge")}
+            onClick={() => router.push("/jars?tab=live")}
           />
           <Jar
             fillPercent={givingFillPct}
@@ -318,6 +328,7 @@ export default function HomePage() {
             gradEnd="#C44D62"
             label="Give a Little"
             amount={formatCurrency(givingBalance)}
+            emoji="🤲"
             causeLabel={activeProject?.title}
             href="/jars?tab=cause"
           />

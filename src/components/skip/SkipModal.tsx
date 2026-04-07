@@ -16,6 +16,8 @@ export function SkipModal({ onClose }: Props) {
   const { projects } = useProjects();
   const { profile } = useAuthStore();
 
+  const profileSplit = normalizeJarSplit(profile?.jarSplit as any);
+
   const defaultCat = SKIP_CATEGORIES[0];
   const [selectedCat, setSelectedCat] = useState(defaultCat);
   const [amount, setAmount] = useState(0);
@@ -28,6 +30,7 @@ export function SkipModal({ onClose }: Props) {
   const [success, setSuccess] = useState(false);
   const [copied, setCopied] = useState(false);
   const [successProjectTitle, setSuccessProjectTitle] = useState<string | null>(null);
+  const [skipGivePct, setSkipGivePct] = useState(profileSplit.give);
 
   function handleCatSelect(cat: typeof defaultCat) {
     setSelectedCat(cat);
@@ -46,6 +49,7 @@ export function SkipModal({ onClose }: Props) {
       shareWithCommunity,
       whatSkipped: whatSkipped || undefined,
       notes: notes || undefined,
+      jarSplit: { give: skipGivePct, live: 100 - skipGivePct },
     });
     if (result) {
       setSuccessProjectTitle(selectedProject?.title ?? null);
@@ -125,9 +129,8 @@ export function SkipModal({ onClose }: Props) {
     );
   }
 
-  const jarSplitLive = normalizeJarSplit(profile?.jarSplit as any);
-  const skipGiveLive = amount * (jarSplitLive.give / 100);
-  const skipLiveLive = amount * (jarSplitLive.live / 100);
+  const skipGiveLive = amount * (skipGivePct / 100);
+  const skipLiveLive = amount * ((100 - skipGivePct) / 100);
   const spendingGoalLabelLive = profile?.spendingGoal?.label ?? "Live a little";
   const activeProjectLive = projects.find((p) => p.id === profile?.activeProjectId) ?? null;
   const giveGoalAmount = activeProjectLive?.goalAmount ?? 0;
@@ -206,6 +209,30 @@ export function SkipModal({ onClose }: Props) {
                 </div>
               </div>
             )}
+          </div>
+
+          {/* Per-skip split slider */}
+          <div>
+            <label className="block text-sm font-medium text-[#111827] mb-2">This skip's split</label>
+            <div className="flex items-center justify-between text-xs text-[#6B7280] mb-1">
+              <span>🤲 Give <span className="font-bold text-[#E8637A]">{skipGivePct}%</span></span>
+              <span>😊 Live <span className="font-bold text-[#2BBAA4]">{100 - skipGivePct}%</span></span>
+            </div>
+            <input
+              type="range"
+              min={0}
+              max={100}
+              value={skipGivePct}
+              onChange={(e) => setSkipGivePct(Number(e.target.value))}
+              className="w-full h-2 rounded-full appearance-none cursor-pointer"
+              style={{
+                background: `linear-gradient(to right, #E8637A ${skipGivePct}%, #2BBAA4 ${skipGivePct}%)`,
+              }}
+            />
+            <div className="flex justify-between text-[10px] text-[#9CA3AF] mt-0.5">
+              <span>All Give</span>
+              <span>All Live</span>
+            </div>
           </div>
 
           {/* Categories */}

@@ -63,7 +63,7 @@ export function useSkips() {
 
   async function edit(
     skip: Skip,
-    updates: Partial<Pick<Skip, "category" | "categoryLabel" | "categoryEmoji" | "amount" | "projectId" | "projectTitle" | "whatSkipped" | "notes">>
+    updates: Partial<Pick<Skip, "category" | "categoryLabel" | "categoryEmoji" | "amount" | "projectId" | "projectTitle" | "whatSkipped" | "notes" | "jarSplit">>
   ): Promise<void> {
     if (!user || !profile) return;
     const amountDelta = updates.amount !== undefined ? updates.amount - skip.amount : 0;
