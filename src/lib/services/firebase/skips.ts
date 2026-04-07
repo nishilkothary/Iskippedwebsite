@@ -218,12 +218,12 @@ export async function updateSkip(
 ): Promise<void> {
   const batch = writeBatch(db);
   batch.update(doc(db, "users", uid, "skips", skipId), updates);
-  if (amountDelta !== 0) {
-    batch.update(doc(db, "users", uid), {
-      totalSaved: increment(amountDelta),
-      totalGiveAllocated: increment(giveAllocDelta),
-      totalLiveAllocated: increment(liveAllocDelta),
-    });
+  const userUpdate: Record<string, unknown> = {};
+  if (amountDelta !== 0) userUpdate.totalSaved = increment(amountDelta);
+  if (giveAllocDelta !== 0) userUpdate.totalGiveAllocated = increment(giveAllocDelta);
+  if (liveAllocDelta !== 0) userUpdate.totalLiveAllocated = increment(liveAllocDelta);
+  if (Object.keys(userUpdate).length > 0) {
+    batch.update(doc(db, "users", uid), userUpdate);
   }
   await batch.commit();
 }

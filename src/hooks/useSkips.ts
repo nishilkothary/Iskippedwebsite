@@ -78,20 +78,28 @@ export function useSkips() {
     updates: Partial<Pick<Skip, "category" | "categoryLabel" | "categoryEmoji" | "amount" | "projectId" | "projectTitle" | "whatSkipped" | "notes" | "jarSplit">>
   ): Promise<void> {
     if (!user || !profile) return;
-    const amountDelta = updates.amount !== undefined ? updates.amount - skip.amount : 0;
-    const skipSplit = skip.jarSplit ?? normalizeJarSplit(profile.jarSplit as any);
-    const giveAllocDelta = amountDelta * (skipSplit.give / 100);
-    const liveAllocDelta = amountDelta * (skipSplit.live / 100);
+    const oldAmount = skip.amount;
+    const newAmount = updates.amount ?? oldAmount;
+    const amountDelta = newAmount - oldAmount;
+    const oldSplit = skip.jarSplit ?? normalizeJarSplit(profile.jarSplit as any);
+    const newSplit = updates.jarSplit ?? oldSplit;
+    // Full reallocation: compare old (amount × old split) vs new (amount × new split)
+    const oldGiveAlloc = oldAmount * (oldSplit.give / 100);
+    const newGiveAlloc = newAmount * (newSplit.give / 100);
+    const oldLiveAlloc = oldAmount * (oldSplit.live / 100);
+    const newLiveAlloc = newAmount * (newSplit.live / 100);
+    const giveAllocDelta = newGiveAlloc - oldGiveAlloc;
+    const liveAllocDelta = newLiveAlloc - oldLiveAlloc;
     await firebaseUpdateSkip(user.uid, skip.id, updates, amountDelta, giveAllocDelta, liveAllocDelta);
     storeUpdateSkip(skip.id, updates);
-    if (amountDelta !== 0) {
+    if (amountDelta !== 0 || giveAllocDelta !== 0 || liveAllocDelta !== 0) {
       updateProfile({
         totalSaved: profile.totalSaved + amountDelta,
-        totalGiveAllocated: (profile.totalGiveAllocated ?? 0) + giveAllocDelta,
-        totalLiveAllocated: (profile.totalLiveAllocated ?? 0) + liveAllocDelta,
+        totalGiveAllocated: Math.max(0, (profile.totalGiveAllocated ?? 0) + giveAllocDelta),
+        totalLiveAllocated: Math.max(0, (profile.totalLiveAllocated ?? 0) + liveAllocDelta),
       });
-      // Sync community feed (fire-and-forget; may not exist for old/unshared skips)
-      updateCommunityFeedItem(skip.id, {
+      // Sync community feed only if amount changed (fire-and-forget)
+      if (amountDelta !== 0) updateCommunityFeedItem(skip.id, {
         skipAmount: updates.amount,
         message: `skipped ${updates.categoryLabel ?? skip.categoryLabel} and saved $${(updates.amount ?? skip.amount).toFixed(2)}`,
       });
