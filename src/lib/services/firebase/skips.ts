@@ -217,7 +217,10 @@ export async function updateSkip(
   liveAllocDelta = 0
 ): Promise<void> {
   const batch = writeBatch(db);
-  batch.update(doc(db, "users", uid, "skips", skipId), updates);
+  const cleanUpdates = Object.fromEntries(
+    Object.entries(updates).filter(([, v]) => v !== undefined)
+  ) as typeof updates;
+  batch.update(doc(db, "users", uid, "skips", skipId), cleanUpdates);
   const userUpdate: Record<string, unknown> = {};
   if (amountDelta !== 0) userUpdate.totalSaved = increment(amountDelta);
   if (giveAllocDelta !== 0) userUpdate.totalGiveAllocated = increment(giveAllocDelta);

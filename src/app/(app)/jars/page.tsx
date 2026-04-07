@@ -71,7 +71,7 @@ function JarsPageInner() {
 
   async function handleDeleteCause(projectId: string) {
     await deleteCustomProject(projectId);
-    if (profile.activeProjectId === projectId) {
+    if (profile!.activeProjectId === projectId) {
       const remaining = projects.filter((p) => p.id !== projectId);
       const nextId = remaining[0]?.id ?? null;
       await setActiveProject(user!.uid, nextId ?? "");
