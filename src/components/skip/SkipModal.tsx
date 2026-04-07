@@ -191,14 +191,44 @@ export function SkipModal({ onClose }: Props) {
               />
             </div>
             {amount > 0 && (
-              <div className="mt-3 bg-[#F9FAFB] rounded-xl p-3 space-y-1.5">
-                <div className="flex items-center justify-between text-xs">
-                  <span className="text-[#6B7280]">💚 {activeProjectLive?.title ?? "Give a little"}</span>
-                  <span className="font-bold text-[#E8637A]">{skipGivePct}% · +{formatCurrency(skipGiveLive)}</span>
+              <div className="mt-3 space-y-2">
+                {/* Give jar — highlighted cause progress */}
+                <div className="bg-[#FFF0F2] border border-[#E8637A]/30 rounded-xl p-3">
+                  <div className="flex items-center justify-between mb-1">
+                    <span className="text-xs text-[#6B7280]">💚 {activeProjectLive?.title ?? "Give a little"}</span>
+                    <span className="text-xs text-[#6B7280]">+{formatCurrency(skipGiveLive)}</span>
+                  </div>
+                  {giveGoalAmount > 0 ? (
+                    <>
+                      <p className="text-lg font-extrabold text-[#E8637A] leading-tight">
+                        +{giveContribPctLive.toFixed(1)}% towards {activeProjectLive?.title ?? "your cause"}
+                      </p>
+                      <div className="mt-1.5 h-1.5 bg-[#E8637A]/20 rounded-full overflow-hidden">
+                        <div className="h-full bg-[#E8637A] rounded-full" style={{ width: `${Math.min(100, giveContribPctLive)}%` }} />
+                      </div>
+                    </>
+                  ) : (
+                    <p className="text-sm font-bold text-[#E8637A]">+{formatCurrency(skipGiveLive)} to give jar</p>
+                  )}
                 </div>
-                <div className="flex items-center justify-between text-xs">
-                  <span className="text-[#6B7280]">✨ {spendingGoalLabelLive}</span>
-                  <span className="font-bold text-[#2BBAA4]">{100 - skipGivePct}% · +{formatCurrency(skipLiveLive)}</span>
+                {/* Live jar */}
+                <div className="bg-[#F0FDFB] border border-[#2BBAA4]/30 rounded-xl p-3">
+                  <div className="flex items-center justify-between mb-1">
+                    <span className="text-xs text-[#6B7280]">✨ {spendingGoalLabelLive}</span>
+                    <span className="text-xs text-[#6B7280]">+{formatCurrency(skipLiveLive)}</span>
+                  </div>
+                  {liveGoalAmount > 0 ? (
+                    <>
+                      <p className="text-lg font-extrabold text-[#2BBAA4] leading-tight">
+                        +{liveContribPctLive.toFixed(1)}% towards {spendingGoalLabelLive}
+                      </p>
+                      <div className="mt-1.5 h-1.5 bg-[#2BBAA4]/20 rounded-full overflow-hidden">
+                        <div className="h-full bg-[#2BBAA4] rounded-full" style={{ width: `${Math.min(100, liveContribPctLive)}%` }} />
+                      </div>
+                    </>
+                  ) : (
+                    <p className="text-sm font-bold text-[#2BBAA4]">+{formatCurrency(skipLiveLive)} to live jar</p>
+                  )}
                 </div>
               </div>
             )}

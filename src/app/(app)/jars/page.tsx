@@ -856,7 +856,7 @@ function SplurgeTab({
       )}
 
       <div className="flex items-center justify-between mb-1">
-        <h2 className="text-base font-bold text-[#111827]">😊 Live a little — Goals</h2>
+        <h2 className="text-base font-bold text-white">😊 Live a little — Goals</h2>
         <span className="text-sm font-bold text-[#8B5CF6]">{formatCurrency(spendingBalance)} available</span>
       </div>
 
