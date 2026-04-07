@@ -371,7 +371,7 @@ function CauseTab({
           ) : (
             <button
               onClick={() => setDonatingId(project.id)}
-              className="w-full py-2 border border-[#3D8B68] text-[#3D8B68] font-semibold rounded-xl hover:bg-[#E4F0E8] transition-colors text-xs"
+              className="w-full py-2 bg-[#3D8B68] text-white font-semibold rounded-xl hover:bg-[#2D6A4F] transition-colors text-xs"
             >
               💸 I Donated
             </button>
