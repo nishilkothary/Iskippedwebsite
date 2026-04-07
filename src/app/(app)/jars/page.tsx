@@ -29,7 +29,7 @@ function JarsPageInner() {
   const [activeTab, setActiveTab] = useState<Tab>(initialTab);
 
   const { user, profile, updateProfile } = useAuthStore();
-  const { donate } = useSkips();
+  const { donate, editDonation, deleteDonation } = useSkips();
   const { projects, refetch } = useProjects();
   const [spendingHistory, setSpendingHistory] = useState<SpendingHistoryEvent[]>([]);
   const [donations, setDonations] = useState<DonationEvent[]>([]);
@@ -185,6 +185,8 @@ function JarsPageInner() {
           onDonate={(amount) =>
             donate(amount, activeProject?.id ?? "giving", activeProject?.title ?? "Giving")
           }
+          onEditDonation={editDonation}
+          onDeleteDonation={deleteDonation}
         />
       )}
 
@@ -234,6 +236,8 @@ function CauseTab({
   onEditCause,
   onDeleteCause,
   onDonate,
+  onEditDonation,
+  onDeleteDonation,
 }: {
   uid: string;
   projects: Project[];
@@ -245,6 +249,8 @@ function CauseTab({
   onEditCause: (projectId: string, data: { title: string; sponsor: string; location?: string; goalAmount: number; donationURL?: string }) => Promise<void>;
   onDeleteCause: (projectId: string) => Promise<void>;
   onDonate: (amount: number) => Promise<void>;
+  onEditDonation: (donation: DonationEvent, newAmount: number) => Promise<void>;
+  onDeleteDonation: (donation: DonationEvent) => Promise<void>;
 }) {
   const [donatingId, setDonatingId] = useState<string | null>(null);
   const [donateAmountStr, setDonateAmountStr] = useState("");
@@ -266,6 +272,10 @@ function CauseTab({
   const [editWorking, setEditWorking] = useState(false);
   const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
   const [deleting, setDeleting] = useState(false);
+  const [editingDonationId, setEditingDonationId] = useState<string | null>(null);
+  const [editDonationAmountStr, setEditDonationAmountStr] = useState("");
+  const [deletingDonationId, setDeletingDonationId] = useState<string | null>(null);
+  const [donationWorking, setDonationWorking] = useState(false);
 
   async function handleDelete(projectId: string) {
     setDeleting(true);
@@ -637,12 +647,67 @@ function CauseTab({
           ) : (
             <div className="space-y-1">
               {donations.map((d) => (
-                <div key={d.id} className="flex items-center justify-between bg-white/5 rounded-xl px-3 py-2">
-                  <div>
-                    <p className="text-sm text-white/90">{d.causeTitle}</p>
-                    <p className="text-xs text-white/40">{d.date ?? (d.donatedAt?.toDate ? d.donatedAt.toDate().toLocaleDateString() : "")}</p>
-                  </div>
-                  <span className="text-sm font-bold text-[#3D8B68]">{formatCurrency(d.amount)}</span>
+                <div key={d.id}>
+                  {editingDonationId === d.id ? (
+                    <div className="flex gap-2 py-1.5">
+                      <div className="relative flex-1">
+                        <span className="absolute left-3 top-1/2 -translate-y-1/2 text-xs text-[#6B7280]">$</span>
+                        <input
+                          type="number"
+                          value={editDonationAmountStr}
+                          onChange={(e) => setEditDonationAmountStr(e.target.value)}
+                          className="w-full pl-6 border border-[#3D8B68] rounded-lg px-2 py-1.5 text-sm text-[#111827] focus:outline-none"
+                          autoFocus
+                        />
+                      </div>
+                      <button
+                        onClick={async () => {
+                          const newAmount = parseFloat(editDonationAmountStr);
+                          if (!newAmount || newAmount <= 0) return;
+                          setDonationWorking(true);
+                          await onEditDonation(d, newAmount);
+                          setEditingDonationId(null);
+                          setDonationWorking(false);
+                        }}
+                        disabled={donationWorking}
+                        className="text-xs bg-[#3D8B68] text-white px-3 py-1.5 rounded-lg disabled:opacity-50"
+                      >
+                        {donationWorking ? "…" : "Save"}
+                      </button>
+                      <button onClick={() => setEditingDonationId(null)} className="text-xs border border-[#E5E7EB] text-[#6B7280] px-3 py-1.5 rounded-lg">Cancel</button>
+                    </div>
+                  ) : deletingDonationId === d.id ? (
+                    <div className="flex items-center justify-between bg-red-50 rounded-lg px-3 py-2">
+                      <p className="text-xs text-red-600">Delete {formatCurrency(d.amount)} to {d.causeTitle}?</p>
+                      <div className="flex gap-2">
+                        <button
+                          onClick={async () => {
+                            setDonationWorking(true);
+                            await onDeleteDonation(d);
+                            setDeletingDonationId(null);
+                            setDonationWorking(false);
+                          }}
+                          disabled={donationWorking}
+                          className="text-xs bg-red-500 text-white px-3 py-1 rounded-lg disabled:opacity-50"
+                        >
+                          {donationWorking ? "…" : "Delete"}
+                        </button>
+                        <button onClick={() => setDeletingDonationId(null)} className="text-xs border border-[#E5E7EB] text-[#6B7280] px-3 py-1 rounded-lg">Cancel</button>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="flex items-center justify-between bg-white/5 rounded-xl px-3 py-2">
+                      <div>
+                        <p className="text-sm text-white/90">{d.causeTitle}</p>
+                        <p className="text-xs text-white/40">{d.date ?? (d.donatedAt?.toDate ? d.donatedAt.toDate().toLocaleDateString() : "")}</p>
+                      </div>
+                      <div className="flex items-center gap-1">
+                        <span className="text-sm font-bold text-[#3D8B68]">{formatCurrency(d.amount)}</span>
+                        <button onClick={() => { setEditingDonationId(d.id); setEditDonationAmountStr(String(d.amount)); }} className="text-white/30 hover:text-[#3D8B68] text-base p-1">✏️</button>
+                        <button onClick={() => setDeletingDonationId(d.id)} className="text-white/30 hover:text-red-400 text-base p-1">🗑️</button>
+                      </div>
+                    </div>
+                  )}
                 </div>
               ))}
             </div>
