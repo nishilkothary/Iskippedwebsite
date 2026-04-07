@@ -16,7 +16,7 @@ export default function ProfilePage() {
 
   return (
     <div className="p-4 md:p-8 max-w-2xl mx-auto pb-20 md:pb-8">
-      <h1 className="text-2xl font-bold text-[#111827] mb-8">Profile</h1>
+      <h1 className="text-2xl font-bold text-white mb-8">Profile</h1>
 
       {/* Avatar & name */}
       <div className="bg-white rounded-2xl p-8 border border-[#E5E7EB] shadow-sm mb-6 flex items-center gap-6">
