@@ -1,7 +1,6 @@
 "use client";
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import Image from "next/image";
 import { signInWithGoogle, signUpWithEmail, signInWithEmail } from "@/lib/services/firebase/auth";
 import { useAuthStore } from "@/store/authStore";
 
@@ -212,9 +211,9 @@ export default function SignInPage() {
 
         {/* Brand */}
         <div>
-          <div className="bg-white rounded-xl px-4 py-2 inline-block">
-            <Image src="/logo.png" alt="i skipped" width={120} height={48} priority />
-          </div>
+          <p className="text-2xl font-black text-white tracking-tight">
+            i<span className="text-emerald-400">skipped</span>
+          </p>
         </div>
 
         {/* Hero copy */}
@@ -267,15 +266,9 @@ export default function SignInPage() {
         {/* Mobile hero (hidden on desktop) */}
         <div className="lg:hidden bg-gradient-to-br from-[#1a5c42] to-[#2d8b6a] px-6 pt-10 pb-8">
           <div className="flex justify-center mb-5">
-            <div className="bg-white rounded-2xl px-5 py-2 shadow-lg">
-              <Image
-                src="/logo.png"
-                alt="i skipped"
-                width={120}
-                height={48}
-                priority
-              />
-            </div>
+            <p className="text-3xl font-black text-white tracking-tight">
+              i<span className="text-emerald-400">skipped</span>
+            </p>
           </div>
           <h1 className="text-3xl font-black text-white text-center leading-tight mb-2">
             Skip, Give, <span className="text-emerald-300">Live.</span>
@@ -310,15 +303,9 @@ export default function SignInPage() {
         <div className="flex-1 flex flex-col justify-center px-6 py-8 sm:px-10">
           {/* Desktop logo + heading */}
           <div className="hidden lg:block text-center mb-8">
-            <Image
-              src="/logo.png"
-              alt="i skipped"
-              width={140}
-              height={56}
-              style={{ mixBlendMode: "multiply" }}
-              priority
-              className="mx-auto mb-5"
-            />
+            <p className="text-3xl font-black tracking-tight mb-5">
+              i<span className="text-emerald-500">skipped</span>
+            </p>
             <h1 className="text-2xl font-bold text-[#111827]">Welcome — let's get started</h1>
             <p className="text-sm text-[#6B7280] mt-2">Your first skip is waiting.</p>
           </div>
