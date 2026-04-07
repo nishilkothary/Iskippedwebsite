@@ -74,6 +74,7 @@ export interface Project {
   imageURL: string | null;
   donationURL: string | null;
   isCustom: boolean;
+  location?: string;
   impactPer100?: string; // e.g. "121 days of a child's education"
   createdBy: string | null; // uid for custom causes
   tags: string[];

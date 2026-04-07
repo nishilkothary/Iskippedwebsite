@@ -14,9 +14,10 @@ import {
   normalizeJarSplit,
   normalizeSpendingGoals,
   updateSpendingGoals,
+  subscribeToDonations,
 } from "@/lib/services/firebase/users";
 import { addCustomProject, updateCustomProject } from "@/lib/services/firebase/projects";
-import { SpendingHistoryEvent, Project, SpendingGoal } from "@/lib/types/models";
+import { SpendingHistoryEvent, Project, SpendingGoal, DonationEvent } from "@/lib/types/models";
 
 type Tab = "cause" | "live";
 
@@ -30,10 +31,17 @@ function JarsPageInner() {
   const { donate } = useSkips();
   const { projects, refetch } = useProjects();
   const [spendingHistory, setSpendingHistory] = useState<SpendingHistoryEvent[]>([]);
+  const [donations, setDonations] = useState<DonationEvent[]>([]);
 
   useEffect(() => {
     if (!user) return;
     const unsub = subscribeToSpendingHistory(user.uid, setSpendingHistory);
+    return unsub;
+  }, [user?.uid]);
+
+  useEffect(() => {
+    if (!user) return;
+    const unsub = subscribeToDonations(user.uid, setDonations);
     return unsub;
   }, [user?.uid]);
 
@@ -141,6 +149,7 @@ function JarsPageInner() {
           projects={projects}
           activeProject={activeProject}
           givingBalance={givingBalance}
+          donations={donations}
           onSelectCause={handleSelectCause}
           onAddCause={handleAddCause}
           onEditCause={async (projectId, data) => {
@@ -192,6 +201,7 @@ function CauseTab({
   projects,
   activeProject,
   givingBalance,
+  donations,
   onSelectCause,
   onAddCause,
   onEditCause,
@@ -201,6 +211,7 @@ function CauseTab({
   projects: Project[];
   activeProject: Project | null;
   givingBalance: number;
+  donations: DonationEvent[];
   onSelectCause: (p: Project) => void;
   onAddCause: (title: string, goalAmount: number, donationURL?: string) => Promise<void>;
   onEditCause: (projectId: string, data: { title: string; goalAmount: number; donationURL?: string }) => Promise<void>;
@@ -373,11 +384,14 @@ function CauseTab({
       {activeProject && (
         <div className="bg-[#E4F0E8] border border-[#3D8B68] rounded-2xl p-4">
           <p className="text-[10px] font-bold text-[#3D8B68] uppercase tracking-wider mb-1">Your active cause</p>
-          <p className="font-bold text-[#111827] text-sm">{activeProject.title}</p>
-          <p className="text-xs text-[#6B7280] mt-0.5">{activeProject.sponsor}</p>
+          <p className="font-extrabold text-[#111827] text-base">{activeProject.title}</p>
+          <p className="text-sm text-[#6B7280] mt-0.5">{activeProject.sponsor}</p>
+          {activeProject.location && (
+            <p className="text-xs text-[#6B7280] mt-0.5">Location: {activeProject.location}</p>
+          )}
           {activeProject.goalAmount > 0 && (
             <p className="text-xs text-[#3D8B68] font-semibold mt-1">
-              {formatCurrency(givingBalance)} saved · Goal: {formatCurrency(activeProject.goalAmount)}
+              {formatCurrency(givingBalance)} saved · Skipped Amount Needed: {formatCurrency(activeProject.goalAmount)}
             </p>
           )}
           <CauseDonateRow project={activeProject} />
@@ -444,16 +458,14 @@ function CauseTab({
                   <>
                     <div className="flex items-start justify-between gap-3">
                       <div className="flex-1 min-w-0">
-                        <p className="font-bold text-[#111827] text-sm">{project.sponsor}</p>
-                        {!project.isCustom && (
-                          <p className="text-xs text-[#6B7280] mt-0.5 line-clamp-2">{project.description}</p>
+                        <p className="font-extrabold text-[#111827] text-base">{project.title}</p>
+                        <p className="text-sm text-[#6B7280] mt-0.5">{project.sponsor}</p>
+                        {project.location && (
+                          <p className="text-xs text-[#6B7280] mt-0.5">Location: {project.location}</p>
                         )}
-                        <p className="text-xs text-[#6B7280] mt-1.5">
-                          <span className="font-semibold text-[#111827]">Cause: </span>{project.title}
-                        </p>
                         {project.goalAmount > 0 && (
                           <p className="text-xs text-[#3D8B68] font-semibold mt-1">
-                            Goal: {formatCurrency(project.goalAmount)}
+                            Skipped Amount Needed: {formatCurrency(project.goalAmount)}
                           </p>
                         )}
                       </div>
@@ -471,7 +483,7 @@ function CauseTab({
                           onClick={() => handleSetActive(project)}
                           className="text-xs font-semibold text-[#3D8B68] border border-[#3D8B68] px-3 py-1.5 rounded-full hover:bg-[#E4F0E8] transition-colors"
                         >
-                          Set as Active
+                          Set as My Jar
                         </button>
                       </div>
                     </div>
@@ -490,6 +502,26 @@ function CauseTab({
               </div>
             );
           })}
+        </div>
+
+        {/* Donation history */}
+        <div className="mt-4">
+          <p className="text-xs font-semibold text-white/70 uppercase tracking-wide mb-2">Donations</p>
+          {donations.length === 0 ? (
+            <p className="text-xs text-white/40 py-2">No donations yet — your jar doesn&apos;t need to be full to give!</p>
+          ) : (
+            <div className="space-y-1">
+              {donations.map((d) => (
+                <div key={d.id} className="flex items-center justify-between bg-white/5 rounded-xl px-3 py-2">
+                  <div>
+                    <p className="text-sm text-white/90">{d.causeTitle}</p>
+                    <p className="text-xs text-white/40">{d.date ?? (d.donatedAt?.toDate ? d.donatedAt.toDate().toLocaleDateString() : "")}</p>
+                  </div>
+                  <span className="text-sm font-bold text-[#3D8B68]">{formatCurrency(d.amount)}</span>
+                </div>
+              ))}
+            </div>
+          )}
         </div>
 
         {showAddForm ? (
@@ -894,7 +926,7 @@ function SplurgeTab({
                         onClick={() => handleSetActiveGoalWithCheck(goal)}
                         className="w-full py-2 mt-1 border border-[#8B5CF6] text-[#8B5CF6] font-semibold rounded-xl hover:bg-[#F5F3FF] transition-colors text-xs"
                       >
-                        Set as Active
+                        Set as My Jar
                       </button>
                     )}
 
@@ -1004,9 +1036,11 @@ function SplurgeTab({
       )}
 
       {/* Spending history */}
-      {spendingHistory.length > 0 && (
-        <div>
-          <p className="text-xs font-semibold text-[#6B7280] uppercase tracking-wide mb-2 mt-2">History</p>
+      <div>
+        <p className="text-xs font-semibold text-white/70 uppercase tracking-wide mb-2 mt-2">History</p>
+        {spendingHistory.length === 0 ? (
+          <p className="text-xs text-white/40 py-2">No purchases yet — complete a goal to log it here.</p>
+        ) : (
           <div className="space-y-1">
             {spendingHistory.map((event) => (
               <div key={event.id}>
@@ -1073,8 +1107,8 @@ function SplurgeTab({
               </div>
             ))}
           </div>
-        </div>
-      )}
+        )}
+      </div>
     </div>
   );
 }

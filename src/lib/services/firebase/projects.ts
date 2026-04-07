@@ -15,7 +15,7 @@ import { Project } from "@/lib/types/models";
 export const OFFICIAL_PROJECTS: Project[] = [
   {
     id: "cfc",
-    title: "Educate a child for a year",
+    title: "A year of Education",
     sponsor: "Caring for Cambodia",
     description: "Your savings fund a full year of quality education for a child in Cambodia, including tuition, uniforms, and school supplies.",
     goalAmount: 300,
@@ -23,6 +23,7 @@ export const OFFICIAL_PROJECTS: Project[] = [
     imageURL: null,
     donationURL: "https://www.caringforcambodia.org/donate",
     isCustom: false,
+    location: "Cambodia",
     createdBy: null,
     tags: ["education", "children", "cambodia"],
   },
@@ -36,6 +37,7 @@ export const OFFICIAL_PROJECTS: Project[] = [
     imageURL: null,
     donationURL: "https://www.kenyaconnect.org/donate",
     isCustom: false,
+    location: "Kenya",
     createdBy: null,
     tags: ["education", "technology", "kenya"],
   },

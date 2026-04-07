@@ -144,30 +144,33 @@ function Jar({ fillPercent, color, gradEnd, label, amount, emoji, causeLabel, hr
         <path
           d={jarPath}
           fill="none"
-          stroke="rgba(255,255,255,0.3)"
+          stroke="rgba(0,0,0,0.12)"
           strokeWidth={2.5*scale}
           strokeLinejoin="round"
         />
 
-        {/* Emoji + percentage centered in jar body */}
+        {/* Percentage centered in jar body */}
         <text
-          x={60*scale} y={78*scale}
+          x={60*scale} y={92*scale}
           textAnchor="middle"
           dominantBaseline="middle"
-          fontSize={20*scale}
-        >
-          {emoji}
-        </text>
-        <text
-          x={60*scale} y={105*scale}
-          textAnchor="middle"
-          dominantBaseline="middle"
-          fontSize={15*scale}
+          fontSize={17*scale}
           fontWeight="800"
           fill="rgba(255,255,255,0.9)"
           style={{ fontFamily: "inherit" }}
         >
           {Math.round(clamp)}%
+        </text>
+        <text
+          x={60*scale} y={112*scale}
+          textAnchor="middle"
+          dominantBaseline="middle"
+          fontSize={7*scale}
+          fontWeight="600"
+          fill="rgba(255,255,255,0.55)"
+          style={{ fontFamily: "inherit" }}
+        >
+          to goal
         </text>
       </svg>
 
@@ -312,7 +315,7 @@ export default function HomePage() {
         </div>
 
         {/* Jars */}
-        <div style={{ display: "flex", justifyContent: "center", gap: 48, margin: "20px 0", flexWrap: "wrap" }}>
+        <div style={{ display: "flex", justifyContent: "center", gap: 16, margin: "20px 0", flexWrap: "nowrap" }}>
           <Jar
             fillPercent={spendingFillPct}
             color="#2BBAA4"
@@ -361,6 +364,44 @@ export default function HomePage() {
           );
         })()}
       </div>
+
+      {/* ── Jar prompt ── */}
+      {givingBalance > 0 && (
+        <div style={{
+          ...cardStyle,
+          marginBottom: 20,
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "space-between",
+          gap: 12,
+        }}>
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <div style={{ fontSize: 14, fontWeight: 700, color: "#F9FAFB" }}>
+              Ready to use what&apos;s in your jar?
+            </div>
+            <div style={{ fontSize: 12, color: "rgba(255,255,255,0.45)", marginTop: 3 }}>
+              Your jar doesn&apos;t need to be full to make a difference.
+            </div>
+          </div>
+          <button
+            onClick={() => router.push("/jars?tab=cause")}
+            style={{
+              background: "linear-gradient(135deg, #E8637A, #C44D62)",
+              color: "#fff",
+              fontWeight: 700,
+              fontSize: 13,
+              border: "none",
+              borderRadius: 12,
+              padding: "10px 16px",
+              cursor: "pointer",
+              flexShrink: 0,
+              whiteSpace: "nowrap",
+            }}
+          >
+            Donate from jar →
+          </button>
+        </div>
+      )}
 
       {/* ── Two-column grid: This Week + Recent Skips ── */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
