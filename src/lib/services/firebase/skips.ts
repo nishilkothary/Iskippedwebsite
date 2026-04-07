@@ -38,6 +38,7 @@ export interface LogSkipParams {
   whatSkipped?: string;
   notes?: string;
   jarSplit?: { give: number; live: number };
+  defaultJarSplit?: { give: number; live: number };
   displayName?: string;
   photoURL?: string | null;
 }
@@ -48,8 +49,12 @@ export async function logSkip(params: LogSkipParams): Promise<{ skipId: string; 
     projectId, projectTitle, currentTotalSaved, currentTotalSkips,
     currentXp, currentStreak, currentLongestStreak, lastSkipDate,
     savedTowardActiveCause, shareWithCommunity, whatSkipped, notes,
-    jarSplit, displayName, photoURL,
+    jarSplit, defaultJarSplit, displayName, photoURL,
   } = params;
+
+  const effectiveSplit = jarSplit ?? defaultJarSplit ?? { give: 50, live: 50 };
+  const giveAmount = amount * (effectiveSplit.give / 100);
+  const liveAmount = amount * (effectiveSplit.live / 100);
 
   const todayStr = today();
   const impactMessage = getImpactMessage(amount);
@@ -109,6 +114,8 @@ export async function logSkip(params: LogSkipParams): Promise<{ skipId: string; 
     longestStreak: newLongestStreak,
     lastSkipDate: todayStr,
     savedTowardActiveCause: newSavedToward,
+    totalGiveAllocated: increment(giveAmount),
+    totalLiveAllocated: increment(liveAmount),
   });
 
   // 3. Fan-out to feed

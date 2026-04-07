@@ -3,6 +3,7 @@ import { useEffect, useState } from "react";
 import { useAuthStore } from "@/store/authStore";
 import { useSkipStore } from "@/store/skipStore";
 import { subscribeToSkips, logSkip, LogSkipParams, updateSkip as firebaseUpdateSkip, deleteSkip as firebaseDeleteSkip } from "@/lib/services/firebase/skips";
+import { normalizeJarSplit } from "@/lib/services/firebase/users";
 import { recordDonation, subscribeToDonations, updateDonation as firebaseUpdateDonation, deleteDonation as firebaseDeleteDonation } from "@/lib/services/firebase/users";
 import { deleteCommunityFeedItem, updateCommunityFeedItem } from "@/lib/services/firebase/social";
 import { DEMO_MODE } from "@/lib/constants/demo";
@@ -28,9 +29,11 @@ export function useSkips() {
     return unsub;
   }, [user?.uid]);
 
-  async function log(params: Omit<LogSkipParams, "uid" | "currentTotalSaved" | "currentTotalSkips" | "currentXp" | "currentStreak" | "currentLongestStreak" | "lastSkipDate" | "savedTowardActiveCause">) {
+  async function log(params: Omit<LogSkipParams, "uid" | "currentTotalSaved" | "currentTotalSkips" | "currentXp" | "currentStreak" | "currentLongestStreak" | "lastSkipDate" | "savedTowardActiveCause" | "defaultJarSplit">) {
     if (!user || !profile) return null;
     setLogging(true);
+    const defaultJarSplit = normalizeJarSplit(profile.jarSplit as any);
+    const effectiveSplit = params.jarSplit ?? defaultJarSplit;
     try {
       const result = await logSkip({
         ...params,
@@ -42,9 +45,18 @@ export function useSkips() {
         currentLongestStreak: profile.longestStreak,
         lastSkipDate: profile.lastSkipDate,
         savedTowardActiveCause: profile.savedTowardActiveCause,
+        defaultJarSplit,
         displayName: user.displayName || profile.displayName,
         photoURL: user.photoURL || profile.photoURL || undefined,
       });
+      if (result) {
+        updateProfile({
+          totalSaved: profile.totalSaved + params.amount,
+          totalSkips: profile.totalSkips + 1,
+          totalGiveAllocated: (profile.totalGiveAllocated ?? 0) + params.amount * (effectiveSplit.give / 100),
+          totalLiveAllocated: (profile.totalLiveAllocated ?? 0) + params.amount * (effectiveSplit.live / 100),
+        });
+      }
       return result;
     } finally {
       setLogging(false);

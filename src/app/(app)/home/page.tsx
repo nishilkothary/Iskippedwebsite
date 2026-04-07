@@ -207,8 +207,9 @@ export default function HomePage() {
   if (!profile) return null;
 
   const split = normalizeJarSplit(profile.jarSplit as any);
-  const giveTotal = profile.totalSaved * (split.give / 100);
-  const liveTotal = profile.totalSaved * (split.live / 100);
+  // Use per-skip allocated totals if available, fall back to profile-split calculation
+  const giveTotal = profile.totalGiveAllocated ?? profile.totalSaved * (split.give / 100);
+  const liveTotal = profile.totalLiveAllocated ?? profile.totalSaved * (split.live / 100);
 
   const givingBalance = Math.max(0, giveTotal - (profile.totalDonated ?? 0));
   const spendingBalance = Math.max(0, liveTotal - (profile.totalSpent ?? 0));

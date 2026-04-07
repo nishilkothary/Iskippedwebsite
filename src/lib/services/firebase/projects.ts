@@ -4,6 +4,7 @@ import {
   getDocs,
   getDoc,
   addDoc,
+  updateDoc,
   serverTimestamp,
   onSnapshot,
   Unsubscribe,
@@ -77,6 +78,18 @@ export async function addCustomProject(
     createdAt: serverTimestamp(),
   });
   return ref.id;
+}
+
+export async function updateCustomProject(
+  projectId: string,
+  data: { title: string; goalAmount: number; donationURL?: string }
+): Promise<void> {
+  await updateDoc(doc(db, "projects", projectId), {
+    title: data.title,
+    sponsor: data.title,
+    goalAmount: data.goalAmount,
+    donationURL: data.donationURL || null,
+  });
 }
 
 export function subscribeToProjects(callback: (projects: Project[]) => void): Unsubscribe {

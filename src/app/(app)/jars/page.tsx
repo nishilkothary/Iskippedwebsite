@@ -15,7 +15,7 @@ import {
   normalizeSpendingGoals,
   updateSpendingGoals,
 } from "@/lib/services/firebase/users";
-import { addCustomProject } from "@/lib/services/firebase/projects";
+import { addCustomProject, updateCustomProject } from "@/lib/services/firebase/projects";
 import { SpendingHistoryEvent, Project, SpendingGoal } from "@/lib/types/models";
 
 type Tab = "cause" | "live";
@@ -116,10 +116,10 @@ function JarsPageInner() {
 
   return (
     <div className="p-4 md:p-8 max-w-2xl mx-auto pb-20 md:pb-8">
-      <h1 className="text-2xl font-bold text-[#111827] mb-5">My Jars</h1>
+      <h1 className="text-2xl font-bold text-white mb-5">My Jars</h1>
 
       {/* Tab row */}
-      <div className="flex gap-2 mb-6 bg-[#F3F4F6] p-1 rounded-xl">
+      <div className="flex gap-2 mb-6 bg-white/10 p-1 rounded-xl">
         {tabs.map((t) => (
           <button
             key={t.id}
@@ -127,7 +127,7 @@ function JarsPageInner() {
             className={`flex-1 py-2 text-sm font-semibold rounded-lg transition-colors ${
               activeTab === t.id
                 ? "bg-white text-[#111827] shadow-sm"
-                : "text-[#6B7280] hover:text-[#111827]"
+                : "text-white/60 hover:text-white"
             }`}
           >
             {t.emoji} {t.label}
@@ -143,6 +143,10 @@ function JarsPageInner() {
           givingBalance={givingBalance}
           onSelectCause={handleSelectCause}
           onAddCause={handleAddCause}
+          onEditCause={async (projectId, data) => {
+            await updateCustomProject(projectId, data);
+            await refetch();
+          }}
           onDonate={(amount) =>
             donate(amount, activeProject?.id ?? "giving", activeProject?.title ?? "Giving")
           }
@@ -190,6 +194,7 @@ function CauseTab({
   givingBalance,
   onSelectCause,
   onAddCause,
+  onEditCause,
   onDonate,
 }: {
   uid: string;
@@ -198,6 +203,7 @@ function CauseTab({
   givingBalance: number;
   onSelectCause: (p: Project) => void;
   onAddCause: (title: string, goalAmount: number, donationURL?: string) => Promise<void>;
+  onEditCause: (projectId: string, data: { title: string; goalAmount: number; donationURL?: string }) => Promise<void>;
   onDonate: (amount: number) => Promise<void>;
 }) {
   const [donatingId, setDonatingId] = useState<string | null>(null);
@@ -209,6 +215,30 @@ function CauseTab({
   const [customURL, setCustomURL] = useState("");
   const [addingCause, setAddingCause] = useState(false);
   const [switchTarget, setSwitchTarget] = useState<Project | null>(null);
+  const [editingProjectId, setEditingProjectId] = useState<string | null>(null);
+  const [editTitle, setEditTitle] = useState("");
+  const [editGoalStr, setEditGoalStr] = useState("");
+  const [editURL, setEditURL] = useState("");
+  const [editWorking, setEditWorking] = useState(false);
+
+  function startEdit(project: Project) {
+    setEditingProjectId(project.id);
+    setEditTitle(project.title);
+    setEditGoalStr(project.goalAmount > 0 ? String(project.goalAmount) : "");
+    setEditURL(project.donationURL ?? "");
+  }
+
+  async function handleEditSave(projectId: string) {
+    if (!editTitle.trim()) return;
+    setEditWorking(true);
+    await onEditCause(projectId, {
+      title: editTitle.trim(),
+      goalAmount: parseFloat(editGoalStr) || 0,
+      donationURL: editURL.trim() || undefined,
+    });
+    setEditingProjectId(null);
+    setEditWorking(false);
+  }
 
   async function handleAddCause() {
     if (!customTitle.trim()) return;
@@ -356,47 +386,106 @@ function CauseTab({
 
       {/* All causes */}
       <div>
-        <p className="text-sm font-semibold text-[#111827] mb-3">All causes</p>
+        <p className="text-sm font-semibold text-white/70 mb-3">All causes</p>
         <div className="space-y-3">
           {projects.map((project) => {
             const isActive = activeProject?.id === project.id;
-            if (isActive) return null; // already shown at top
+            if (isActive) return null;
+            const isEditing = editingProjectId === project.id;
             return (
               <div
                 key={project.id}
                 className="bg-white rounded-2xl p-4 border border-[#E5E7EB] shadow-sm"
               >
-                <div className="flex items-start justify-between gap-3">
-                  <div className="flex-1 min-w-0">
-                    <p className="font-bold text-[#111827] text-sm">{project.sponsor}</p>
-                    <p className="text-xs text-[#6B7280] mt-0.5 line-clamp-2">{project.description}</p>
-                    <p className="text-xs text-[#6B7280] mt-1.5">
-                      <span className="font-semibold text-[#111827]">Cause: </span>{project.title}
-                    </p>
-                    {project.goalAmount > 0 && (
-                      <p className="text-xs text-[#3D8B68] font-semibold mt-1">
-                        Goal: {formatCurrency(project.goalAmount)}
-                      </p>
+                {isEditing ? (
+                  <div className="space-y-2">
+                    <input
+                      type="text"
+                      value={editTitle}
+                      onChange={(e) => setEditTitle(e.target.value)}
+                      placeholder="Cause name"
+                      className="w-full border border-[#E5E7EB] rounded-xl px-3 py-2 text-sm text-[#111827] focus:outline-none focus:ring-2 focus:ring-[#3D8B68]/30"
+                      autoFocus
+                    />
+                    <div className="relative">
+                      <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-[#6B7280]">$</span>
+                      <input
+                        type="number"
+                        value={editGoalStr}
+                        onChange={(e) => setEditGoalStr(e.target.value)}
+                        placeholder="Goal amount"
+                        className="w-full pl-7 border border-[#E5E7EB] rounded-xl px-3 py-2 text-sm text-[#111827] focus:outline-none focus:ring-2 focus:ring-[#3D8B68]/30"
+                      />
+                    </div>
+                    <input
+                      type="url"
+                      value={editURL}
+                      onChange={(e) => setEditURL(e.target.value)}
+                      placeholder="Donation link (optional)"
+                      className="w-full border border-[#E5E7EB] rounded-xl px-3 py-2 text-sm text-[#111827] focus:outline-none focus:ring-2 focus:ring-[#3D8B68]/30"
+                    />
+                    <div className="flex gap-2">
+                      <button
+                        onClick={() => handleEditSave(project.id)}
+                        disabled={editWorking || !editTitle.trim()}
+                        className="flex-1 bg-[#3D8B68] text-white font-semibold py-2 rounded-xl text-sm disabled:opacity-50"
+                      >
+                        {editWorking ? "Saving…" : "Save"}
+                      </button>
+                      <button
+                        onClick={() => setEditingProjectId(null)}
+                        className="px-4 py-2 border border-[#E5E7EB] text-[#6B7280] font-semibold rounded-xl text-sm"
+                      >
+                        Cancel
+                      </button>
+                    </div>
+                  </div>
+                ) : (
+                  <>
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="flex-1 min-w-0">
+                        <p className="font-bold text-[#111827] text-sm">{project.sponsor}</p>
+                        {!project.isCustom && (
+                          <p className="text-xs text-[#6B7280] mt-0.5 line-clamp-2">{project.description}</p>
+                        )}
+                        <p className="text-xs text-[#6B7280] mt-1.5">
+                          <span className="font-semibold text-[#111827]">Cause: </span>{project.title}
+                        </p>
+                        {project.goalAmount > 0 && (
+                          <p className="text-xs text-[#3D8B68] font-semibold mt-1">
+                            Goal: {formatCurrency(project.goalAmount)}
+                          </p>
+                        )}
+                      </div>
+                      <div className="flex items-center gap-1.5 flex-shrink-0">
+                        {project.isCustom && (
+                          <button
+                            onClick={() => startEdit(project)}
+                            className="text-[#9CA3AF] hover:text-[#3D8B68] p-1 text-base"
+                            title="Edit"
+                          >
+                            ✏️
+                          </button>
+                        )}
+                        <button
+                          onClick={() => handleSetActive(project)}
+                          className="text-xs font-semibold text-[#3D8B68] border border-[#3D8B68] px-3 py-1.5 rounded-full hover:bg-[#E4F0E8] transition-colors"
+                        >
+                          Set as Active
+                        </button>
+                      </div>
+                    </div>
+                    {project.donationURL && (
+                      <a
+                        href={project.donationURL}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="mt-3 flex items-center justify-center gap-1.5 w-full py-2 border border-[#3D8B68] text-[#3D8B68] font-semibold rounded-xl hover:bg-[#E4F0E8] transition-colors text-xs"
+                      >
+                        🌍 Donate →
+                      </a>
                     )}
-                  </div>
-                  <div className="flex-shrink-0">
-                    <button
-                      onClick={() => handleSetActive(project)}
-                      className="text-xs font-semibold text-[#3D8B68] border border-[#3D8B68] px-3 py-1.5 rounded-full hover:bg-[#E4F0E8] transition-colors"
-                    >
-                      Set as Active
-                    </button>
-                  </div>
-                </div>
-                {project.donationURL && (
-                  <a
-                    href={project.donationURL}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="mt-3 flex items-center justify-center gap-1.5 w-full py-2 border border-[#3D8B68] text-[#3D8B68] font-semibold rounded-xl hover:bg-[#E4F0E8] transition-colors text-xs"
-                  >
-                    🌍 Donate →
-                  </a>
+                  </>
                 )}
               </div>
             );

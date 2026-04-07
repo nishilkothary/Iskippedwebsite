@@ -4,7 +4,6 @@ import { useState } from "react";
 import { useAuthStore } from "@/store/authStore";
 import { signOut } from "@/lib/services/firebase/auth";
 import { formatCurrency } from "@/lib/utils/currency";
-import { xpProgress } from "@/lib/utils/xp";
 import { updateJarSettings, normalizeJarSplit } from "@/lib/services/firebase/users";
 
 export default function ProfilePage() {
@@ -13,9 +12,7 @@ export default function ProfilePage() {
 
   if (!profile || !user) return null;
 
-  const xp = xpProgress(profile.xp);
   const currentSplit = normalizeJarSplit(profile.jarSplit as any);
-  const currentGoal = profile.spendingGoal ?? null;
 
   return (
     <div className="p-4 md:p-8 max-w-2xl mx-auto pb-20 md:pb-8">
@@ -76,29 +73,11 @@ export default function ProfilePage() {
         </div>
       </div>
 
-      {/* XP progress */}
-      <div className="bg-white rounded-2xl p-6 border border-[#E5E7EB] shadow-sm mb-6">
-        <div className="flex justify-between mb-2">
-          <span className="text-sm font-medium text-[#111827]">XP Progress</span>
-          <span className="text-sm text-[#6B7280]">{xp.current} / {xp.needed}</span>
-        </div>
-        <div className="h-2 bg-[#E5E7EB] rounded-full overflow-hidden">
-          <div
-            className="h-full bg-[#3D8B68] rounded-full"
-            style={{ width: `${Math.round(xp.progress * 100)}%` }}
-          />
-        </div>
-        <p className="text-xs text-[#6B7280] mt-2">
-          {xp.needed - xp.current} XP until Level {profile.level + 1}
-        </p>
-      </div>
-
       {/* Jar Settings */}
       <JarSettings
         uid={user.uid}
         initialSplit={currentSplit}
-        initialGoal={currentGoal}
-        onSave={(split, goal) => updateProfile({ jarSplit: split, spendingGoal: goal })}
+        onSave={(split) => updateProfile({ jarSplit: split })}
       />
 
       <button
@@ -119,39 +98,30 @@ export default function ProfilePage() {
 function JarSettings({
   uid,
   initialSplit,
-  initialGoal,
   onSave,
 }: {
   uid: string;
   initialSplit: { give: number; live: number };
-  initialGoal: { label: string; targetAmount: number } | null;
-  onSave: (split: { give: number; live: number }, goal: { label: string; targetAmount: number } | null) => void;
+  onSave: (split: { give: number; live: number }) => void;
 }) {
-  const [give, setGive] = useState(String(initialSplit.give));
-  const [live, setLive] = useState(String(initialSplit.live));
-  const [goalLabel, setGoalLabel] = useState(initialGoal?.label ?? "");
-  const [goalAmount, setGoalAmount] = useState(initialGoal ? String(initialGoal.targetAmount) : "");
+  const [selected, setSelected] = useState(`${initialSplit.give}:${initialSplit.live}`);
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
 
-  const total = (parseInt(give) || 0) + (parseInt(live) || 0);
-  const valid = total === 100;
-
   const presets = [
-    { label: "50 / 50",    g: 50, l: 50 },
-    { label: "60/40 Give", g: 60, l: 40 },
-    { label: "40/60 Live", g: 40, l: 60 },
+    { label: "50 / 50",  key: "50:50",  g: 50,  l: 50  },
+    { label: "75 / 25",  key: "75:25",  g: 75,  l: 25  },
+    { label: "25 / 75",  key: "25:75",  g: 25,  l: 75  },
+    { label: "100 / 0",  key: "100:0",  g: 100, l: 0   },
   ];
 
   async function handleSave() {
-    if (!valid) return;
+    const preset = presets.find((p) => p.key === selected);
+    if (!preset) return;
     setSaving(true);
-    const split = { give: parseInt(give), live: parseInt(live) };
-    const goal = goalLabel && goalAmount
-      ? { label: goalLabel, targetAmount: parseFloat(goalAmount) }
-      : null;
-    await updateJarSettings(uid, split, goal);
-    onSave(split, goal);
+    const split = { give: preset.g, live: preset.l };
+    await updateJarSettings(uid, split, null);
+    onSave(split);
     setSaving(false);
     setSaved(true);
     setTimeout(() => setSaved(false), 2000);
@@ -159,86 +129,31 @@ function JarSettings({
 
   return (
     <div className="bg-white rounded-2xl p-6 border border-[#E5E7EB] shadow-sm mb-6">
-      <h2 className="text-base font-bold text-[#111827] mb-5">Your Jars</h2>
+      <h2 className="text-base font-bold text-[#111827] mb-1">Preferred Jar Split</h2>
+      <p className="text-xs text-[#6B7280] mb-4">🤲 Give a Little · 😊 Live a Little</p>
 
-      {/* Spending goal */}
-      <div className="mb-5">
-        <p className="text-sm font-semibold text-[#111827] mb-2">✨ Live a little — Goal</p>
-        <div className="flex gap-2">
-          <input
-            type="text"
-            placeholder="What are you saving for? (e.g. AirPods)"
-            value={goalLabel}
-            onChange={(e) => setGoalLabel(e.target.value)}
-            className="flex-1 border border-[#E5E7EB] rounded-xl px-3 py-2.5 text-sm text-[#111827] focus:outline-none focus:ring-2 focus:ring-[#3D8B68]/30"
-          />
-          <div className="relative">
-            <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-[#6B7280]">$</span>
-            <input
-              type="number"
-              placeholder="0"
-              value={goalAmount}
-              onChange={(e) => setGoalAmount(e.target.value)}
-              className="w-24 pl-6 border border-[#E5E7EB] rounded-xl px-3 py-2.5 text-sm text-[#111827] focus:outline-none focus:ring-2 focus:ring-[#3D8B68]/30"
-            />
-          </div>
-        </div>
-      </div>
-
-      {/* Split */}
-      <div className="mb-4">
-        <p className="text-sm font-semibold text-[#111827] mb-2">Jar Split <span className="font-normal text-[#6B7280]">(must total 100%)</span></p>
-
-        {/* Presets */}
-        <div className="flex gap-2 mb-3">
-          {presets.map((p) => (
-            <button
-              key={p.label}
-              onClick={() => { setGive(String(p.g)); setLive(String(p.l)); }}
-              className="flex-1 py-1.5 text-xs font-semibold rounded-lg border border-[#E5E7EB] text-[#6B7280] hover:border-[#3D8B68]/50 hover:text-[#3D8B68] transition-colors"
-            >
-              {p.label}
-            </button>
-          ))}
-        </div>
-
-        {/* Inputs */}
-        <div className="grid grid-cols-2 gap-2">
-          {[
-            { label: "💚 Give a little", value: give, set: setGive },
-            { label: "✨ Live a little", value: live, set: setLive },
-          ].map((row) => (
-            <div key={row.label} className="text-center">
-              <p className="text-xs text-[#6B7280] mb-1">{row.label}</p>
-              <div className="relative">
-                <input
-                  type="number"
-                  min="0"
-                  max="100"
-                  value={row.value}
-                  onChange={(e) => row.set(e.target.value)}
-                  className="w-full border border-[#E5E7EB] rounded-xl px-2 py-2 text-sm text-center font-bold text-[#111827] focus:outline-none focus:ring-2 focus:ring-[#3D8B68]/30"
-                />
-                <span className="absolute right-2 top-1/2 -translate-y-1/2 text-xs text-[#9CA3AF]">%</span>
-              </div>
-            </div>
-          ))}
-        </div>
-
-        {!valid && (
-          <p className="text-xs text-red-500 mt-2 text-center">Total is {total}% — must equal 100%</p>
-        )}
-        {valid && (
-          <p className="text-xs text-[#3D8B68] mt-2 text-center">✓ Looks good</p>
-        )}
+      <div className="grid grid-cols-2 gap-2 mb-5">
+        {presets.map((p) => (
+          <button
+            key={p.key}
+            onClick={() => setSelected(p.key)}
+            className={`py-3 rounded-xl text-sm font-bold border-2 transition-all ${
+              selected === p.key
+                ? "border-[#3D8B68] bg-[#E4F0E8] text-[#3D8B68]"
+                : "border-[#E5E7EB] text-[#6B7280] hover:border-[#3D8B68]/40"
+            }`}
+          >
+            {p.label}
+          </button>
+        ))}
       </div>
 
       <button
         onClick={handleSave}
-        disabled={!valid || saving}
-        className="w-full py-3 bg-[#3D8B68] text-white font-semibold rounded-xl text-sm hover:bg-[#2D6A4F] transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+        disabled={saving}
+        className="w-full py-3 bg-[#3D8B68] text-white font-semibold rounded-xl text-sm hover:bg-[#2D6A4F] transition-colors disabled:opacity-50"
       >
-        {saved ? "✓ Saved!" : saving ? "Saving…" : "Save Jar Settings"}
+        {saved ? "✓ Saved!" : saving ? "Saving…" : "Save"}
       </button>
     </div>
   );

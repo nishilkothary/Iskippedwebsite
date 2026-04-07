@@ -35,6 +35,8 @@ export interface UserProfile {
   spendingGoals?: SpendingGoal[];
   activeSpendingGoalId?: string | null;
   totalSpent?: number;
+  totalGiveAllocated?: number;
+  totalLiveAllocated?: number;
 }
 
 export interface SkipCategory {
