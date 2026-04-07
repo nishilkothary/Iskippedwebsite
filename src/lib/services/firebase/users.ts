@@ -291,10 +291,12 @@ export async function getAllUsers(): Promise<UserProfile[]> {
 export async function recalculateTotals(
   uid: string,
   defaultSplit: { give: number; live: number }
-): Promise<{ totalSaved: number; totalSkips: number; totalGiveAllocated: number; totalLiveAllocated: number }> {
+): Promise<{ totalSaved: number; totalSkips: number; totalGiveAllocated: number; totalLiveAllocated: number; totalDonated: number; totalSpent: number }> {
   const { getAllSkips } = await import("./skips");
+
+  // Sum all skips
   const skips = await getAllSkips(uid);
-  const totals = skips.reduce(
+  const skipTotals = skips.reduce(
     (acc, skip) => {
       const split = skip.jarSplit ?? defaultSplit;
       return {
@@ -306,6 +308,16 @@ export async function recalculateTotals(
     },
     { totalSaved: 0, totalSkips: 0, totalGiveAllocated: 0, totalLiveAllocated: 0 }
   );
+
+  // Sum all donations
+  const donationsSnap = await getDocs(collection(db, "users", uid, "donations"));
+  const totalDonated = donationsSnap.docs.reduce((sum, d) => sum + ((d.data().amount as number) ?? 0), 0);
+
+  // Sum all spending history
+  const spendingSnap = await getDocs(collection(db, "users", uid, "spendingHistory"));
+  const totalSpent = spendingSnap.docs.reduce((sum, d) => sum + ((d.data().amountSaved as number) ?? 0), 0);
+
+  const totals = { ...skipTotals, totalDonated, totalSpent };
   await updateDoc(doc(db, "users", uid), totals);
   return totals;
 }
