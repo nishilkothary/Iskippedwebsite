@@ -90,11 +90,17 @@ export function SkipModal({ onClose }: Props) {
           <div className="mt-4 bg-[#F9FAFB] rounded-xl p-4 space-y-2 text-left">
             <div className="flex items-center justify-between">
               <span className="text-sm text-[#6B7280]">🤲 {successActiveProject?.title ?? "Give a little"}</span>
-              <span className="text-sm font-bold text-[#E8637A]">+{formatCurrency(skipGive)}</span>
+              <div className="text-right">
+                <span className="text-sm font-bold text-[#E8637A]">{skipGivePct}%</span>
+                <span className="text-xs text-[#9CA3AF] ml-1">+{formatCurrency(skipGive)}</span>
+              </div>
             </div>
             <div className="flex items-center justify-between">
               <span className="text-sm text-[#6B7280]">😊 {spendingGoalLabel}</span>
-              <span className="text-sm font-bold text-[#2BBAA4]">+{formatCurrency(skipLive)}</span>
+              <div className="text-right">
+                <span className="text-sm font-bold text-[#2BBAA4]">{100 - skipGivePct}%</span>
+                <span className="text-xs text-[#9CA3AF] ml-1">+{formatCurrency(skipLive)}</span>
+              </div>
             </div>
           </div>
 
@@ -188,19 +194,11 @@ export function SkipModal({ onClose }: Props) {
               <div className="mt-3 bg-[#F9FAFB] rounded-xl p-3 space-y-1.5">
                 <div className="flex items-center justify-between text-xs">
                   <span className="text-[#6B7280]">💚 {activeProjectLive?.title ?? "Give a little"}</span>
-                  <span className="font-bold text-[#3D8B68]">
-                    {giveGoalAmount > 0
-                      ? `+${giveContribPctLive.toFixed(1)}% to goal`
-                      : `+${formatCurrency(skipGiveLive)}`}
-                  </span>
+                  <span className="font-bold text-[#E8637A]">{skipGivePct}% · +{formatCurrency(skipGiveLive)}</span>
                 </div>
                 <div className="flex items-center justify-between text-xs">
                   <span className="text-[#6B7280]">✨ {spendingGoalLabelLive}</span>
-                  <span className="font-bold text-[#8B5CF6]">
-                    {liveGoalAmount > 0
-                      ? `+${liveContribPctLive.toFixed(1)}% to goal`
-                      : `+${formatCurrency(skipLiveLive)}`}
-                  </span>
+                  <span className="font-bold text-[#2BBAA4]">{100 - skipGivePct}% · +{formatCurrency(skipLiveLive)}</span>
                 </div>
               </div>
             )}

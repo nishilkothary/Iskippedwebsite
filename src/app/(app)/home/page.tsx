@@ -61,22 +61,20 @@ function Jar({ fillPercent, color, gradEnd, label, amount, emoji, causeLabel, hr
       style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 10, cursor: "pointer" }}
       onClick={onClick}
     >
-      {causeLabel && (
-        <div style={{
-          fontSize: 12, fontWeight: 700,
-          color: color,
-          textAlign: "center",
-          maxWidth: w,
-          lineHeight: 1.3,
-          letterSpacing: 0.2,
-          padding: "0 4px",
-          whiteSpace: "nowrap",
-          overflow: "hidden",
-          textOverflow: "ellipsis",
-        }}>
-          {causeLabel}
-        </div>
-      )}
+      <div style={{
+        fontSize: 12, fontWeight: causeLabel ? 700 : 500,
+        color: causeLabel ? color : "rgba(255,255,255,0.3)",
+        textAlign: "center",
+        maxWidth: w,
+        lineHeight: 1.3,
+        letterSpacing: 0.2,
+        padding: "0 4px",
+        whiteSpace: "nowrap",
+        overflow: "hidden",
+        textOverflow: "ellipsis",
+      }}>
+        {causeLabel ?? "Select a jar"}
+      </div>
       <svg width={w} height={h} viewBox={`0 0 ${w} ${h}`}>
         <defs>
           <linearGradient id={`gf-${uid}`} x1="0" y1="1" x2="0" y2="0">
@@ -340,8 +338,12 @@ export default function HomePage() {
 
         {/* Split bar — reflects actual allocation across all skips */}
         {(() => {
-          const totalAllocated = giveTotal + liveTotal;
-          const actualGivePct = totalAllocated > 0 ? Math.round((giveTotal / totalAllocated) * 100) : split.give;
+          const safeGive = Math.max(0, giveTotal);
+          const safeLive = Math.max(0, liveTotal);
+          const totalAllocated = safeGive + safeLive;
+          const actualGivePct = totalAllocated > 0
+            ? Math.max(0, Math.min(100, Math.round((safeGive / totalAllocated) * 100)))
+            : split.give;
           const actualLivePct = 100 - actualGivePct;
           return (
             <div style={{ display: "flex", justifyContent: "center", alignItems: "center", gap: 10 }}>

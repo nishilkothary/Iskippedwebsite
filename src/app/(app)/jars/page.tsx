@@ -394,7 +394,14 @@ function CauseTab({
       {activeProject && (
         <div className="bg-[#E4F0E8] border border-[#3D8B68] rounded-2xl p-4">
           <p className="text-[10px] font-bold text-[#3D8B68] uppercase tracking-wider mb-1">Your active cause</p>
-          <p className="font-extrabold text-[#111827] text-base">{activeProject.title}</p>
+          <div className="flex items-start justify-between gap-2">
+            <p className="font-extrabold text-[#111827] text-base">{activeProject.title}</p>
+            {activeProject.donationURL && (
+              <a href={activeProject.donationURL} target="_blank" rel="noopener noreferrer" className="text-xs text-[#3D8B68] underline flex-shrink-0 mt-0.5">
+                ↗ Learn more
+              </a>
+            )}
+          </div>
           <p className="text-sm text-[#6B7280] mt-0.5">{activeProject.sponsor}</p>
           {activeProject.location && (
             <p className="text-xs text-[#6B7280] mt-0.5">Location: {activeProject.location}</p>
@@ -482,7 +489,14 @@ function CauseTab({
                   <>
                     <div className="flex items-start justify-between gap-3">
                       <div className="flex-1 min-w-0">
-                        <p className="font-extrabold text-[#111827] text-base">{project.title}</p>
+                        <div className="flex items-start justify-between gap-1">
+                          <p className="font-extrabold text-[#111827] text-base">{project.title}</p>
+                          {project.donationURL && (
+                            <a href={project.donationURL} target="_blank" rel="noopener noreferrer" className="text-xs text-[#3D8B68] underline flex-shrink-0 mt-0.5">
+                              ↗ Learn more
+                            </a>
+                          )}
+                        </div>
                         <p className="text-sm text-[#6B7280] mt-0.5">{project.sponsor}</p>
                         {project.location && (
                           <p className="text-xs text-[#6B7280] mt-0.5">Location: {project.location}</p>
