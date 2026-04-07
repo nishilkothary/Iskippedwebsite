@@ -65,12 +65,14 @@ export async function getProject(id: string): Promise<Project | null> {
 
 export async function addCustomProject(
   uid: string,
-  data: { title: string; goalAmount: number; description?: string; donationURL?: string }
+  data: { title: string; sponsor?: string; location?: string; goalAmount: number; description?: string; donationURL?: string }
 ): Promise<string> {
   const ref = await addDoc(collection(db, "projects"), {
-    ...data,
-    sponsor: data.title,
+    title: data.title,
+    sponsor: data.sponsor || data.title,
+    location: data.location || null,
     description: data.description || "",
+    goalAmount: data.goalAmount,
     totalRaised: 0,
     imageURL: null,
     donationURL: data.donationURL || null,
@@ -84,11 +86,12 @@ export async function addCustomProject(
 
 export async function updateCustomProject(
   projectId: string,
-  data: { title: string; goalAmount: number; donationURL?: string }
+  data: { title: string; sponsor?: string; location?: string; goalAmount: number; donationURL?: string }
 ): Promise<void> {
   await updateDoc(doc(db, "projects", projectId), {
     title: data.title,
-    sponsor: data.title,
+    sponsor: data.sponsor || data.title,
+    location: data.location || null,
     goalAmount: data.goalAmount,
     donationURL: data.donationURL || null,
   });

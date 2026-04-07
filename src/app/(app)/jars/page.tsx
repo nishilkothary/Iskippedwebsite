@@ -63,8 +63,8 @@ function JarsPageInner() {
     updateProfile({ activeProjectId: project.id });
   }
 
-  async function handleAddCause(title: string, goalAmount: number, donationURL?: string) {
-    await addCustomProject(user!.uid, { title, goalAmount, donationURL });
+  async function handleAddCause(title: string, sponsor: string, location: string | undefined, goalAmount: number, donationURL?: string) {
+    await addCustomProject(user!.uid, { title, sponsor, location, goalAmount, donationURL });
     await refetch();
   }
 
@@ -153,7 +153,7 @@ function JarsPageInner() {
           onSelectCause={handleSelectCause}
           onAddCause={handleAddCause}
           onEditCause={async (projectId, data) => {
-            await updateCustomProject(projectId, data);
+            await updateCustomProject(projectId, { ...data });
             await refetch();
           }}
           onDonate={(amount) =>
@@ -213,8 +213,8 @@ function CauseTab({
   givingBalance: number;
   donations: DonationEvent[];
   onSelectCause: (p: Project) => void;
-  onAddCause: (title: string, goalAmount: number, donationURL?: string) => Promise<void>;
-  onEditCause: (projectId: string, data: { title: string; goalAmount: number; donationURL?: string }) => Promise<void>;
+  onAddCause: (title: string, sponsor: string, location: string | undefined, goalAmount: number, donationURL?: string) => Promise<void>;
+  onEditCause: (projectId: string, data: { title: string; sponsor: string; location?: string; goalAmount: number; donationURL?: string }) => Promise<void>;
   onDonate: (amount: number) => Promise<void>;
 }) {
   const [donatingId, setDonatingId] = useState<string | null>(null);
@@ -222,12 +222,16 @@ function CauseTab({
   const [donating, setDonating] = useState(false);
   const [showAddForm, setShowAddForm] = useState(false);
   const [customTitle, setCustomTitle] = useState("");
+  const [customSponsor, setCustomSponsor] = useState("");
+  const [customLocation, setCustomLocation] = useState("");
   const [customGoalStr, setCustomGoalStr] = useState("");
   const [customURL, setCustomURL] = useState("");
   const [addingCause, setAddingCause] = useState(false);
   const [switchTarget, setSwitchTarget] = useState<Project | null>(null);
   const [editingProjectId, setEditingProjectId] = useState<string | null>(null);
   const [editTitle, setEditTitle] = useState("");
+  const [editSponsor, setEditSponsor] = useState("");
+  const [editLocation, setEditLocation] = useState("");
   const [editGoalStr, setEditGoalStr] = useState("");
   const [editURL, setEditURL] = useState("");
   const [editWorking, setEditWorking] = useState(false);
@@ -235,6 +239,8 @@ function CauseTab({
   function startEdit(project: Project) {
     setEditingProjectId(project.id);
     setEditTitle(project.title);
+    setEditSponsor(project.sponsor);
+    setEditLocation(project.location ?? "");
     setEditGoalStr(project.goalAmount > 0 ? String(project.goalAmount) : "");
     setEditURL(project.donationURL ?? "");
   }
@@ -244,6 +250,8 @@ function CauseTab({
     setEditWorking(true);
     await onEditCause(projectId, {
       title: editTitle.trim(),
+      sponsor: editSponsor.trim(),
+      location: editLocation.trim() || undefined,
       goalAmount: parseFloat(editGoalStr) || 0,
       donationURL: editURL.trim() || undefined,
     });
@@ -255,8 +263,10 @@ function CauseTab({
     if (!customTitle.trim()) return;
     const goalAmount = parseFloat(customGoalStr) || 0;
     setAddingCause(true);
-    await onAddCause(customTitle.trim(), goalAmount, customURL.trim() || undefined);
+    await onAddCause(customTitle.trim(), customSponsor.trim(), customLocation.trim() || undefined, goalAmount, customURL.trim() || undefined);
     setCustomTitle("");
+    setCustomSponsor("");
+    setCustomLocation("");
     setCustomGoalStr("");
     setCustomURL("");
     setShowAddForm(false);
@@ -417,9 +427,23 @@ function CauseTab({
                       type="text"
                       value={editTitle}
                       onChange={(e) => setEditTitle(e.target.value)}
-                      placeholder="Cause name"
+                      placeholder="Cause (e.g. A year of Education)"
                       className="w-full border border-[#E5E7EB] rounded-xl px-3 py-2 text-sm text-[#111827] focus:outline-none focus:ring-2 focus:ring-[#3D8B68]/30"
                       autoFocus
+                    />
+                    <input
+                      type="text"
+                      value={editSponsor}
+                      onChange={(e) => setEditSponsor(e.target.value)}
+                      placeholder="Organisation (e.g. Caring for Cambodia)"
+                      className="w-full border border-[#E5E7EB] rounded-xl px-3 py-2 text-sm text-[#111827] focus:outline-none focus:ring-2 focus:ring-[#3D8B68]/30"
+                    />
+                    <input
+                      type="text"
+                      value={editLocation}
+                      onChange={(e) => setEditLocation(e.target.value)}
+                      placeholder="Location (optional, e.g. Cambodia)"
+                      className="w-full border border-[#E5E7EB] rounded-xl px-3 py-2 text-sm text-[#111827] focus:outline-none focus:ring-2 focus:ring-[#3D8B68]/30"
                     />
                     <div className="relative">
                       <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-[#6B7280]">$</span>
@@ -427,7 +451,7 @@ function CauseTab({
                         type="number"
                         value={editGoalStr}
                         onChange={(e) => setEditGoalStr(e.target.value)}
-                        placeholder="Goal amount"
+                        placeholder="Skipped Amount Needed"
                         className="w-full pl-7 border border-[#E5E7EB] rounded-xl px-3 py-2 text-sm text-[#111827] focus:outline-none focus:ring-2 focus:ring-[#3D8B68]/30"
                       />
                     </div>
@@ -529,21 +553,34 @@ function CauseTab({
             <p className="text-sm font-semibold text-[#111827]">Add your own cause</p>
             <input
               type="text"
-              placeholder="Organisation name"
+              placeholder="Cause (e.g. A year of Education)"
               value={customTitle}
               onChange={(e) => setCustomTitle(e.target.value)}
+              className="w-full border border-[#E5E7EB] rounded-xl px-3 py-2.5 text-sm text-[#111827] focus:outline-none focus:ring-2 focus:ring-[#3D8B68]/30"
+            />
+            <input
+              type="text"
+              placeholder="Organisation (e.g. Caring for Cambodia)"
+              value={customSponsor}
+              onChange={(e) => setCustomSponsor(e.target.value)}
+              className="w-full border border-[#E5E7EB] rounded-xl px-3 py-2.5 text-sm text-[#111827] focus:outline-none focus:ring-2 focus:ring-[#3D8B68]/30"
+            />
+            <input
+              type="text"
+              placeholder="Location (optional, e.g. Cambodia)"
+              value={customLocation}
+              onChange={(e) => setCustomLocation(e.target.value)}
               className="w-full border border-[#E5E7EB] rounded-xl px-3 py-2.5 text-sm text-[#111827] focus:outline-none focus:ring-2 focus:ring-[#3D8B68]/30"
             />
             <div className="relative">
               <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-[#6B7280]">$</span>
               <input
                 type="number"
-                placeholder="0"
+                placeholder="Skipped Amount Needed"
                 value={customGoalStr}
                 onChange={(e) => setCustomGoalStr(e.target.value)}
                 className="w-full pl-7 border border-[#E5E7EB] rounded-xl px-3 py-2.5 text-sm text-[#111827] focus:outline-none focus:ring-2 focus:ring-[#3D8B68]/30"
               />
-              <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-[#9CA3AF]">Skipped Expense Needed</span>
             </div>
             <input
               type="url"
@@ -561,7 +598,7 @@ function CauseTab({
                 {addingCause ? "Saving…" : "Save"}
               </button>
               <button
-                onClick={() => { setShowAddForm(false); setCustomTitle(""); setCustomGoalStr(""); setCustomURL(""); }}
+                onClick={() => { setShowAddForm(false); setCustomTitle(""); setCustomSponsor(""); setCustomLocation(""); setCustomGoalStr(""); setCustomURL(""); }}
                 className="px-4 py-2.5 border border-[#E5E7EB] text-[#6B7280] font-semibold rounded-xl text-sm hover:text-[#111827] transition-colors"
               >
                 Cancel
