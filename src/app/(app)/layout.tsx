@@ -63,9 +63,10 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
                 style={
                   active
                     ? {
-                        background: "linear-gradient(135deg, var(--green-primary), var(--green-cta))",
+                        background: "linear-gradient(135deg, var(--gold-cta), var(--gold-light))",
                         color: "var(--bg-base)",
                         fontWeight: 700,
+                        boxShadow: "0 2px 10px var(--gold-glow)",
                       }
                     : {
                         color: "var(--text-secondary)",
@@ -92,9 +93,9 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
             onClick={() => setShowSkipPicker(true)}
             className="w-full font-semibold py-3 rounded-full transition-all duration-200 hover:scale-[1.02] active:scale-[0.97]"
             style={{
-              background: "linear-gradient(135deg, var(--green-primary), var(--green-cta))",
+              background: "linear-gradient(135deg, var(--gold-cta), var(--gold-light))",
               color: "var(--bg-base)",
-              boxShadow: "0 4px 18px var(--green-glow)",
+              boxShadow: "0 4px 18px var(--gold-glow)",
             }}
           >
             ✨ Log a Skip
@@ -125,7 +126,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
               key={item.href}
               href={item.href}
               className="flex-1 flex flex-col items-center py-2 text-xs font-medium transition-colors"
-              style={{ color: active ? "var(--green-primary)" : "var(--text-muted)" }}
+              style={{ color: active ? "var(--gold-cta)" : "var(--text-muted)" }}
             >
               <span className="text-xl">{item.emoji}</span>
               {item.label}
@@ -135,7 +136,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
         <button
           onClick={() => setShowSkipPicker(true)}
           className="flex-1 flex flex-col items-center py-2 text-xs font-medium"
-          style={{ color: "var(--green-cta)" }}
+          style={{ color: "var(--gold-cta)" }}
         >
           <span className="text-xl">✨</span>
           Log Skip

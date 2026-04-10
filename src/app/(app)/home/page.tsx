@@ -295,9 +295,9 @@ export default function HomePage() {
         onClick={() => setShowSkipPicker(true)}
         className="w-full font-black py-4 rounded-full text-lg hover:scale-[1.02] active:scale-[0.97] transition-all duration-200 mb-5"
         style={{
-          background: "linear-gradient(135deg, var(--green-primary), var(--green-cta))",
+          background: "linear-gradient(135deg, var(--gold-cta), var(--gold-light))",
           color: "var(--bg-base)",
-          boxShadow: "0 4px 18px var(--green-glow)",
+          boxShadow: "0 4px 18px var(--gold-glow)",
         }}
       >
         ✨ Log a Skip

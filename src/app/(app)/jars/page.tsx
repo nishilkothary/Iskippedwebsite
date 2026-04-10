@@ -160,7 +160,7 @@ function JarsPageInner() {
             className="flex-1 py-2 text-sm font-semibold rounded-lg transition-all"
             style={
               activeTab === t.id
-                ? { background: "linear-gradient(135deg, var(--green-primary), var(--green-cta))", color: "var(--bg-base)" }
+                ? { background: "linear-gradient(135deg, var(--gold-cta), var(--gold-light))", color: "var(--bg-base)", boxShadow: "0 2px 10px var(--gold-glow)" }
                 : { color: "var(--text-muted)" }
             }
           >

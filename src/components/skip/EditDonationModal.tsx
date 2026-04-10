@@ -97,8 +97,8 @@ export function EditDonationModal({ donation, onClose }: Props) {
               disabled={loading || !amount || parseFloat(amount) <= 0}
               className="flex-1 font-bold py-3 rounded-xl transition-all disabled:opacity-60"
               style={{
-                background: "linear-gradient(135deg, var(--green-primary), var(--green-cta))",
-                color: "var(--bg-base)",
+                background: "linear-gradient(135deg, var(--coral-primary), var(--coral-dark))",
+                color: "#fff",
               }}
             >
               {loading ? "Saving…" : "Save"}

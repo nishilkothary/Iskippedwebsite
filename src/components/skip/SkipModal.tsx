@@ -330,9 +330,9 @@ export function SkipModal({ onClose }: Props) {
             disabled={isLogging || amount <= 0}
             className="w-full font-bold py-4 rounded-xl text-base transition-all disabled:opacity-60 disabled:cursor-not-allowed"
             style={{
-              background: "linear-gradient(135deg, var(--green-primary), var(--green-cta))",
+              background: "linear-gradient(135deg, var(--gold-cta), var(--gold-light))",
               color: "var(--bg-base)",
-              boxShadow: amount > 0 ? "0 4px 18px var(--green-glow)" : "none",
+              boxShadow: amount > 0 ? "0 4px 18px var(--gold-glow)" : "none",
             }}
           >
             {isLogging ? "Saving…" : amount > 0 ? `Skip ${formatCurrency(amount)}` : "Enter an amount"}

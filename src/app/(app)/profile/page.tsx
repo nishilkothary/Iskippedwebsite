@@ -227,7 +227,7 @@ function JarSettings({
         disabled={saving}
         className="w-full py-3 font-semibold rounded-xl text-sm transition-all disabled:opacity-50"
         style={{
-          background: "linear-gradient(135deg, var(--green-primary), var(--green-cta))",
+          background: "linear-gradient(135deg, var(--gold-cta), var(--gold-light))",
           color: "var(--bg-base)",
         }}
       >

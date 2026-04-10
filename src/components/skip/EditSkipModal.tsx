@@ -181,7 +181,7 @@ export function EditSkipModal({ skip, onClose }: Props) {
             disabled={loading || num <= 0}
             className="w-full font-bold py-4 rounded-xl text-base transition-all disabled:opacity-60 disabled:cursor-not-allowed"
             style={{
-              background: "linear-gradient(135deg, var(--green-primary), var(--green-cta))",
+              background: "linear-gradient(135deg, var(--gold-cta), var(--gold-light))",
               color: "var(--bg-base)",
             }}
           >
