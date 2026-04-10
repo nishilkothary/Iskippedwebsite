@@ -17,10 +17,10 @@
   --green-grad-end: #1DB954;
   --green-glow:     rgba(46,204,113,0.25);
 
-  /* Gold — primary CTA / active nav */
-  --gold-cta:   #F5C542;
-  --gold-light: #FFDA6B;
-  --gold-glow:  rgba(245,197,66,0.25);
+  /* White — primary CTA / active nav */
+  --gold-cta:   #FFFFFF;
+  --gold-light: #F0F0F0;
+  --gold-glow:  rgba(255,255,255,0.15);
 
   /* Give Jar / Donation */
   --coral-primary: #E8637A;
