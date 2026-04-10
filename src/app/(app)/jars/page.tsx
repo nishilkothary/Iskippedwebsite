@@ -979,8 +979,8 @@ function SplurgeTab({
           <div className="mt-2">
             <div className="h-2 rounded-full overflow-hidden" style={{ background: "var(--bg-surface-3)" }}>
               <div
-                className="h-full rounded-full transition-all duration-700" style={{ background: "#8B5CF6" }}
-                style={{ width: `${Math.min(100, (spendingBalance / activeGoal.targetAmount) * 100)}%` }}
+                className="h-full rounded-full transition-all duration-700"
+                style={{ background: "#8B5CF6", width: `${Math.min(100, (spendingBalance / activeGoal.targetAmount) * 100)}%` }}
               />
             </div>
             <div className="flex justify-between mt-1 text-xs" style={{ color: "var(--text-secondary)" }}>
