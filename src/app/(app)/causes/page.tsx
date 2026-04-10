@@ -39,9 +39,9 @@ export default function CausesPage() {
     <div className="p-4 md:p-8 max-w-2xl mx-auto pb-20 md:pb-8">
       {/* Org header */}
       <div className="mb-8">
-        <h1 className="text-2xl font-bold text-[#111827]">Caring for Cambodia</h1>
-        <p className="text-[#3D8B68] font-medium mt-0.5">Educating the children of Cambodia</p>
-        <p className="text-[#6B7280] text-sm mt-3 leading-relaxed">
+        <h1 className="text-2xl font-bold" style={{ color: "var(--text-primary)" }}>Caring for Cambodia</h1>
+        <p className="font-medium mt-0.5" style={{ color: "var(--green-primary)" }}>Educating the children of Cambodia</p>
+        <p className="text-sm mt-3 leading-relaxed" style={{ color: "var(--text-secondary)" }}>
           {cfcProject?.description ||
             "Caring for Cambodia has provided free, quality education to thousands of Cambodian children since 2003. 100% of funds go directly to students."}
         </p>
@@ -49,19 +49,23 @@ export default function CausesPage() {
           href="https://www.caringforcambodia.org"
           target="_blank"
           rel="noopener noreferrer"
-          className="inline-block text-sm text-[#3D8B68] font-medium mt-2 hover:underline"
+          className="inline-block text-sm font-medium mt-2 hover:underline"
+          style={{ color: "var(--green-primary)" }}
         >
           Learn more → caringforcambodia.org
         </a>
       </div>
 
       {/* $300 fact card */}
-      <div className="bg-[#3D8B68] rounded-2xl p-6 mb-6 text-white">
+      <div
+        className="rounded-2xl p-6 mb-6"
+        style={{ background: "linear-gradient(135deg, var(--coral-primary), var(--coral-dark))", color: "#fff" }}
+      >
         <div className="flex items-center gap-3">
           <span className="text-4xl">🎓</span>
           <div>
             <p className="text-2xl font-bold">$300 = 1 child educated</p>
-            <p className="text-[#B7D9C6] text-sm mt-0.5">for a full year</p>
+            <p className="text-sm mt-0.5" style={{ color: "rgba(255,255,255,0.75)" }}>for a full year</p>
           </div>
         </div>
       </div>
@@ -69,14 +73,14 @@ export default function CausesPage() {
       {/* Available to donate */}
       {loading ? (
         <div className="flex justify-center py-8">
-          <div className="w-6 h-6 border-4 border-[#3D8B68] border-t-transparent rounded-full animate-spin" />
+          <div className="w-6 h-6 border-4 border-t-transparent rounded-full animate-spin" style={{ borderColor: "var(--green-primary)", borderTopColor: "transparent" }} />
         </div>
       ) : (
-        <div className="bg-white rounded-2xl p-5 border border-[#E5E7EB] shadow-sm mb-6">
-          <p className="text-xs text-[#6B7280] uppercase tracking-wide mb-1">Available to Donate</p>
-          <p className="text-3xl font-bold text-[#3D8B68]">{formatCurrency(Math.max(0, availableToDonate))}</p>
+        <div className="rounded-2xl p-5 mb-6" style={{ background: "var(--bg-surface-1)", border: "1px solid var(--border-default)" }}>
+          <p className="text-xs uppercase tracking-wide mb-1" style={{ color: "var(--text-muted)" }}>Available to Donate</p>
+          <p className="text-3xl font-bold" style={{ color: "var(--coral-primary)" }}>{formatCurrency(Math.max(0, availableToDonate))}</p>
           {profile && profile.totalDonated > 0 && (
-            <p className="text-xs text-[#9CA3AF] mt-1">{formatCurrency(profile.totalDonated)} donated so far</p>
+            <p className="text-xs mt-1" style={{ color: "var(--text-muted)" }}>{formatCurrency(profile.totalDonated)} donated so far</p>
           )}
         </div>
       )}
@@ -87,13 +91,22 @@ export default function CausesPage() {
           href="https://www.caringforcambodia.org/donate"
           target="_blank"
           rel="noopener noreferrer"
-          className="block w-full bg-[#3D8B68] hover:bg-[#2D6A4F] text-white font-bold py-4 rounded-2xl text-center text-base transition-colors"
+          className="block w-full font-bold py-4 rounded-2xl text-center text-base transition-all hover:scale-[1.01]"
+          style={{
+            background: "linear-gradient(135deg, var(--coral-primary), var(--coral-dark))",
+            color: "#fff",
+            boxShadow: "0 4px 18px rgba(232,99,122,0.3)",
+          }}
         >
           Donate Now ↗
         </a>
         <button
           onClick={() => setShowDonationModal(true)}
-          className="w-full border-2 border-[#3D8B68] text-[#3D8B68] font-semibold py-4 rounded-2xl text-base hover:bg-[#E4F0E8] transition-colors"
+          className="w-full font-semibold py-4 rounded-2xl text-base transition-colors"
+          style={{
+            border: "2px solid var(--coral-primary)",
+            color: "var(--coral-primary)",
+          }}
         >
           I Made a Donation
         </button>
@@ -101,28 +114,29 @@ export default function CausesPage() {
 
       {/* Donation log */}
       <div className="mb-8">
-        <h2 className="text-lg font-semibold text-[#111827] mb-3">Donation Activity</h2>
+        <h2 className="text-lg font-semibold mb-3" style={{ color: "var(--text-primary)" }}>Donation Activity</h2>
         {donations.length === 0 ? (
-          <div className="bg-white rounded-2xl p-6 text-center border border-[#E5E7EB]">
-            <p className="text-[#9CA3AF] text-sm">No donations logged yet.</p>
+          <div className="rounded-2xl p-6 text-center" style={{ background: "var(--bg-surface-1)", border: "1px solid var(--border-default)" }}>
+            <p className="text-sm" style={{ color: "var(--text-muted)" }}>No donations logged yet.</p>
           </div>
         ) : (
           <div className="space-y-2">
             {donations.map((donation) => (
-              <div key={donation.id} className="bg-white rounded-xl px-4 py-3 border border-[#E5E7EB] flex items-center gap-3">
+              <div key={donation.id} className="rounded-xl px-4 py-3 flex items-center gap-3" style={{ background: "var(--bg-surface-1)", border: "1px solid var(--border-default)" }}>
                 <span className="text-xl flex-shrink-0">💚</span>
                 <div className="flex-1 min-w-0">
-                  <p className="text-sm font-medium text-[#111827] truncate">
+                  <p className="text-sm font-medium truncate" style={{ color: "var(--text-primary)" }}>
                     Donated to {donation.causeTitle}
                   </p>
-                  <p className="text-xs text-[#9CA3AF]">
+                  <p className="text-xs" style={{ color: "var(--text-muted)" }}>
                     {formatDonationDate(donation)}
                   </p>
                 </div>
-                <span className="text-sm font-bold text-[#3D8B68] flex-shrink-0">{formatCurrency(donation.amount)}</span>
+                <span className="text-sm font-bold flex-shrink-0" style={{ color: "var(--coral-primary)" }}>{formatCurrency(donation.amount)}</span>
                 <button
                   onClick={() => setEditingDonation(donation)}
-                  className="text-[#9CA3AF] hover:text-[#3D8B68] transition-colors flex-shrink-0 p-1"
+                  className="transition-colors flex-shrink-0 p-1"
+                  style={{ color: "var(--text-muted)" }}
                   title="Edit donation"
                 >
                   ✏️

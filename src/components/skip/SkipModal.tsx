@@ -78,40 +78,49 @@ export function SkipModal({ onClose }: Props) {
     const shareText = `I skipped ${itemLabel} and saved ${formatCurrency(skipGive)} for ${causeSentence}! Every skip makes a difference. Join the movement on Iskipped.com`;
 
     return (
-      <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4" onClick={onClose}>
-        <div className="bg-white rounded-2xl p-8 text-center max-w-sm w-full shadow-2xl relative" onClick={(e) => e.stopPropagation()}>
-          <button onClick={onClose} className="absolute top-4 right-4 text-[#9CA3AF] hover:text-[#111827] text-2xl leading-none">×</button>
+      <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4" onClick={onClose}>
+        <div
+          className="rounded-2xl p-8 text-center max-w-sm w-full shadow-2xl relative"
+          style={{ background: "var(--bg-surface-1)", border: "1px solid var(--border-default)" }}
+          onClick={(e) => e.stopPropagation()}
+        >
+          <button onClick={onClose} className="absolute top-4 right-4 text-2xl leading-none" style={{ color: "var(--text-muted)" }}>×</button>
           <div className="text-6xl mb-3">🎉</div>
-          <p className="text-2xl font-bold text-[#111827]">Great job!</p>
-          <p className="text-[#3D8B68] font-bold text-lg mt-1">{formatCurrency(amount)} saved</p>
-          <p className="text-[#6B7280] text-sm mt-2">{encouragement}</p>
+          <p className="text-2xl font-bold" style={{ color: "var(--text-primary)" }}>Great job!</p>
+          <p className="font-bold text-lg mt-1" style={{ color: "var(--green-primary)" }}>{formatCurrency(amount)} saved</p>
+          <p className="text-sm mt-2" style={{ color: "var(--text-secondary)" }}>{encouragement}</p>
 
           {/* 2-jar impact */}
-          <div className="mt-4 bg-[#F9FAFB] rounded-xl p-4 space-y-2 text-left">
+          <div className="mt-4 rounded-xl p-4 space-y-2 text-left" style={{ background: "var(--bg-surface-2)", border: "1px solid var(--border-default)" }}>
             <div className="flex items-center justify-between">
-              <span className="text-sm text-[#6B7280]">🤲 {successActiveProject?.title ?? "Give a little"}</span>
+              <span className="text-sm" style={{ color: "var(--text-secondary)" }}>🤲 {successActiveProject?.title ?? "Give a little"}</span>
               <div className="text-right">
-                <span className="text-sm font-bold text-[#E8637A]">{skipGivePct}%</span>
-                <span className="text-xs text-[#9CA3AF] ml-1">+{formatCurrency(skipGive)}</span>
+                <span className="text-sm font-bold" style={{ color: "var(--coral-primary)" }}>{skipGivePct}%</span>
+                <span className="text-xs ml-1" style={{ color: "var(--text-muted)" }}>+{formatCurrency(skipGive)}</span>
               </div>
             </div>
             <div className="flex items-center justify-between">
-              <span className="text-sm text-[#6B7280]">😊 {spendingGoalLabel}</span>
+              <span className="text-sm" style={{ color: "var(--text-secondary)" }}>😊 {spendingGoalLabel}</span>
               <div className="text-right">
-                <span className="text-sm font-bold text-[#2BBAA4]">{100 - skipGivePct}%</span>
-                <span className="text-xs text-[#9CA3AF] ml-1">+{formatCurrency(skipLive)}</span>
+                <span className="text-sm font-bold" style={{ color: "#2BBAA4" }}>{100 - skipGivePct}%</span>
+                <span className="text-xs ml-1" style={{ color: "var(--text-muted)" }}>+{formatCurrency(skipLive)}</span>
               </div>
             </div>
           </div>
 
           <div className="mt-5 text-left">
-            <p className="text-xs text-[#6B7280] mb-1 uppercase tracking-wide">Share</p>
+            <p className="text-xs mb-1 uppercase tracking-wide" style={{ color: "var(--text-muted)" }}>Share</p>
             <textarea
               readOnly
               value={shareText}
               onFocus={(e) => e.target.select()}
               rows={3}
-              className="w-full border border-[#E5E7EB] rounded-xl px-3 py-2 text-sm text-[#111827] bg-[#F9FAFB] resize-none focus:outline-none focus:ring-2 focus:ring-[#3D8B68]/30"
+              className="w-full rounded-xl px-3 py-2 text-sm resize-none focus:outline-none"
+              style={{
+                background: "var(--bg-surface-2)",
+                border: "1px solid var(--border-default)",
+                color: "var(--text-primary)",
+              }}
             />
             <button
               onClick={() => {
@@ -120,7 +129,12 @@ export function SkipModal({ onClose }: Props) {
                   setTimeout(() => setCopied(false), 2000);
                 });
               }}
-              className="mt-2 w-full border border-[#3D8B68] text-[#3D8B68] font-semibold py-2 rounded-xl hover:bg-[#E4F0E8] transition-colors text-sm"
+              className="mt-2 w-full font-semibold py-2 rounded-xl text-sm transition-colors"
+              style={{
+                border: "1px solid var(--border-emphasis)",
+                color: "var(--green-primary)",
+                background: "transparent",
+              }}
             >
               {copied ? "Copied!" : "Copy text"}
             </button>
@@ -140,35 +154,41 @@ export function SkipModal({ onClose }: Props) {
   const liveContribPctLive = liveGoalAmount > 0 ? (skipLiveLive / liveGoalAmount) * 100 : 0;
 
   return (
-    <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4" onClick={onClose}>
+    <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4" onClick={onClose}>
       <div
-        className="bg-white rounded-2xl shadow-2xl w-full max-w-lg max-h-[90vh] overflow-y-auto"
+        className="rounded-2xl shadow-2xl w-full max-w-lg max-h-[90vh] overflow-y-auto"
+        style={{ background: "var(--bg-surface-1)", border: "1px solid var(--border-default)" }}
         onClick={(e) => e.stopPropagation()}
       >
         {/* Header */}
-        <div className="flex items-center justify-between px-6 py-5 border-b border-[#E5E7EB]">
-          <h2 className="text-lg font-bold text-[#111827]">Log a Skip</h2>
-          <button onClick={onClose} className="text-[#6B7280] hover:text-[#111827] text-2xl leading-none">×</button>
+        <div className="flex items-center justify-between px-6 py-5" style={{ borderBottom: "1px solid var(--border-default)" }}>
+          <h2 className="text-lg font-bold" style={{ color: "var(--text-primary)" }}>Log a Skip</h2>
+          <button onClick={onClose} className="text-2xl leading-none" style={{ color: "var(--text-muted)" }}>×</button>
         </div>
 
         <div className="px-6 py-5 space-y-5">
           {/* What did you skip */}
           <div>
-            <label className="block text-sm font-medium text-[#111827] mb-2">What did you skip?</label>
+            <label className="block text-sm font-medium mb-2" style={{ color: "var(--text-primary)" }}>What did you skip?</label>
             <input
               type="text"
               value={whatSkipped}
               onChange={(e) => setWhatSkipped(e.target.value)}
               placeholder={`e.g. "morning latte at Starbucks"`}
-              className="w-full border border-[#E5E7EB] rounded-xl px-4 py-3 text-sm text-[#111827] placeholder-[#9CA3AF] focus:outline-none focus:ring-2 focus:ring-[#3D8B68]/30 focus:border-[#3D8B68]"
+              className="w-full rounded-xl px-4 py-3 text-sm focus:outline-none"
+              style={{
+                background: "var(--bg-surface-2)",
+                border: "1px solid var(--border-default)",
+                color: "var(--text-primary)",
+              }}
             />
           </div>
 
           {/* Amount */}
           <div>
-            <label className="block text-sm font-medium text-[#111827] mb-2">Amount skipped</label>
+            <label className="block text-sm font-medium mb-2" style={{ color: "var(--text-primary)" }}>Amount skipped</label>
             <div className="flex items-center gap-2">
-              <span className="text-2xl font-bold text-[#3D8B68]">$</span>
+              <span className="text-2xl font-bold" style={{ color: "var(--green-primary)" }}>$</span>
               <input
                 type="text"
                 inputMode="decimal"
@@ -187,15 +207,16 @@ export function SkipModal({ onClose }: Props) {
                     setAmountStr("0.01");
                   }
                 }}
-                className="w-28 text-2xl font-bold text-[#3D8B68] border-b-2 border-[#3D8B68] focus:outline-none bg-transparent"
+                className="w-28 text-2xl font-bold border-b-2 focus:outline-none bg-transparent"
+                style={{ color: "var(--green-primary)", borderColor: "var(--green-primary)" }}
               />
             </div>
             {amount > 0 && (
               <div className="mt-3 space-y-1">
-                <p className="text-sm font-semibold text-[#E8637A]">
+                <p className="text-sm font-semibold" style={{ color: "var(--coral-primary)" }}>
                   💚 +{giveGoalAmount > 0 ? `${giveContribPctLive.toFixed(1)}%` : formatCurrency(skipGiveLive)} towards {activeProjectLive?.title ?? "give jar"}
                 </p>
-                <p className="text-sm font-semibold text-[#2BBAA4]">
+                <p className="text-sm font-semibold" style={{ color: "#2BBAA4" }}>
                   ✨ +{liveGoalAmount > 0 ? `${liveContribPctLive.toFixed(1)}%` : formatCurrency(skipLiveLive)} towards {spendingGoalLabelLive}
                 </p>
               </div>
@@ -204,10 +225,10 @@ export function SkipModal({ onClose }: Props) {
 
           {/* Per-skip split slider */}
           <div>
-            <label className="block text-sm font-medium text-[#111827] mb-2">This skip's split</label>
-            <div className="flex items-center justify-between text-xs text-[#6B7280] mb-1">
-              <span>🤲 Give <span className="font-bold text-[#E8637A]">{skipGivePct}%</span></span>
-              <span>😊 Live <span className="font-bold text-[#2BBAA4]">{100 - skipGivePct}%</span></span>
+            <label className="block text-sm font-medium mb-2" style={{ color: "var(--text-primary)" }}>This skip&apos;s split</label>
+            <div className="flex items-center justify-between text-xs mb-1" style={{ color: "var(--text-secondary)" }}>
+              <span>🤲 Give <span className="font-bold" style={{ color: "var(--coral-primary)" }}>{skipGivePct}%</span></span>
+              <span>😊 Live <span className="font-bold" style={{ color: "#2BBAA4" }}>{100 - skipGivePct}%</span></span>
             </div>
             <input
               type="range"
@@ -220,7 +241,7 @@ export function SkipModal({ onClose }: Props) {
                 background: `linear-gradient(to right, #E8637A ${skipGivePct}%, #2BBAA4 ${skipGivePct}%)`,
               }}
             />
-            <div className="flex justify-between text-[10px] text-[#9CA3AF] mt-0.5">
+            <div className="flex justify-between mt-0.5" style={{ fontSize: 10, color: "var(--text-muted)" }}>
               <span>All Give</span>
               <span>All Live</span>
             </div>
@@ -228,17 +249,26 @@ export function SkipModal({ onClose }: Props) {
 
           {/* Categories */}
           <div>
-            <label className="block text-sm font-medium text-[#111827] mb-2">Category</label>
+            <label className="block text-sm font-medium mb-2" style={{ color: "var(--text-primary)" }}>Category</label>
             <div className="grid grid-cols-4 gap-2">
               {SKIP_CATEGORIES.map((cat) => (
                 <button
                   key={cat.id}
                   onClick={() => handleCatSelect(cat)}
-                  className={`flex flex-col items-center gap-1 p-3 rounded-xl border text-sm transition-all ${
+                  className="flex flex-col items-center gap-1 p-3 rounded-xl text-sm transition-all"
+                  style={
                     selectedCat.id === cat.id
-                      ? "border-[#3D8B68] bg-[#E4F0E8] text-[#3D8B68]"
-                      : "border-[#E5E7EB] bg-white text-[#6B7280] hover:border-[#3D8B68]/40"
-                  }`}
+                      ? {
+                          border: "1px solid var(--green-primary)",
+                          background: "var(--bg-surface-2)",
+                          color: "var(--green-primary)",
+                        }
+                      : {
+                          border: "1px solid var(--border-default)",
+                          background: "transparent",
+                          color: "var(--text-secondary)",
+                        }
+                  }
                 >
                   <span className="text-xl">{cat.emoji}</span>
                   <span className="text-xs font-medium">{cat.label}</span>
@@ -251,20 +281,30 @@ export function SkipModal({ onClose }: Props) {
                 value={customLabel}
                 onChange={(e) => setCustomLabel(e.target.value)}
                 placeholder="Enter category"
-                className="w-full border border-[#E5E7EB] rounded-xl px-4 py-3 text-sm text-[#111827] placeholder-[#9CA3AF] focus:outline-none focus:ring-2 focus:ring-[#3D8B68]/30 focus:border-[#3D8B68] mt-2"
+                className="w-full rounded-xl px-4 py-3 text-sm focus:outline-none mt-2"
+                style={{
+                  background: "var(--bg-surface-2)",
+                  border: "1px solid var(--border-default)",
+                  color: "var(--text-primary)",
+                }}
               />
             )}
           </div>
 
           {/* Notes */}
           <div>
-            <label className="block text-sm font-medium text-[#111827] mb-2">Personal notes (optional)</label>
+            <label className="block text-sm font-medium mb-2" style={{ color: "var(--text-primary)" }}>Personal notes (optional)</label>
             <textarea
               value={notes}
               onChange={(e) => setNotes(e.target.value)}
               placeholder="Any thoughts?"
               rows={2}
-              className="w-full border border-[#E5E7EB] rounded-xl px-4 py-3 text-sm text-[#111827] placeholder-[#9CA3AF] focus:outline-none focus:ring-2 focus:ring-[#3D8B68]/30 focus:border-[#3D8B68] resize-none"
+              className="w-full rounded-xl px-4 py-3 text-sm focus:outline-none resize-none"
+              style={{
+                background: "var(--bg-surface-2)",
+                border: "1px solid var(--border-default)",
+                color: "var(--text-primary)",
+              }}
             />
           </div>
 
@@ -272,13 +312,14 @@ export function SkipModal({ onClose }: Props) {
           <label className="flex items-center gap-3 cursor-pointer">
             <div
               onClick={() => setShareWithCommunity((v) => !v)}
-              className={`w-11 h-6 rounded-full transition-colors relative ${shareWithCommunity ? "bg-[#3D8B68]" : "bg-[#E5E7EB]"}`}
+              className="w-11 h-6 rounded-full transition-colors relative"
+              style={{ background: shareWithCommunity ? "var(--green-primary)" : "var(--bg-surface-3)" }}
             >
               <span
                 className={`absolute top-0.5 left-0.5 w-5 h-5 rounded-full bg-white shadow transition-transform ${shareWithCommunity ? "translate-x-5" : ""}`}
               />
             </div>
-            <span className="text-sm text-[#111827]">Share skip with our community (it makes a difference!)</span>
+            <span className="text-sm" style={{ color: "var(--text-primary)" }}>Share skip with our community (it makes a difference!)</span>
           </label>
         </div>
 
@@ -287,7 +328,12 @@ export function SkipModal({ onClose }: Props) {
           <button
             onClick={handleSubmit}
             disabled={isLogging || amount <= 0}
-            className="w-full bg-[#3D8B68] hover:bg-[#2D6A4F] text-white font-bold py-4 rounded-xl text-base transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
+            className="w-full font-bold py-4 rounded-xl text-base transition-all disabled:opacity-60 disabled:cursor-not-allowed"
+            style={{
+              background: "linear-gradient(135deg, var(--green-primary), var(--green-cta))",
+              color: "var(--bg-base)",
+              boxShadow: amount > 0 ? "0 4px 18px var(--green-glow)" : "none",
+            }}
           >
             {isLogging ? "Saving…" : amount > 0 ? `Skip ${formatCurrency(amount)}` : "Enter an amount"}
           </button>

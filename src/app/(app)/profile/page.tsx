@@ -16,6 +16,12 @@ export default function ProfilePage() {
 
   const currentSplit = normalizeJarSplit(profile.jarSplit as any);
 
+  const cardStyle = {
+    background: "var(--bg-surface-1)",
+    border: "1px solid var(--border-default)",
+    borderRadius: 16,
+  };
+
   async function handleRecalculate() {
     setRecalcState("loading");
     setRecalcResult(null);
@@ -31,11 +37,14 @@ export default function ProfilePage() {
 
   return (
     <div className="p-4 md:p-8 max-w-2xl mx-auto pb-20 md:pb-8">
-      <h1 className="text-2xl font-bold text-white mb-8">Profile</h1>
+      <h1 className="text-2xl font-bold mb-8" style={{ color: "var(--text-primary)" }}>Profile</h1>
 
       {/* Avatar & name */}
-      <div className="bg-white rounded-2xl p-8 border border-[#E5E7EB] shadow-sm mb-6 flex items-center gap-6">
-        <div className="w-20 h-20 rounded-full bg-[#E4F0E8] flex items-center justify-center text-3xl flex-shrink-0 overflow-hidden">
+      <div className="p-8 mb-6 flex items-center gap-6" style={{ ...cardStyle, borderRadius: 20 }}>
+        <div
+          className="w-20 h-20 rounded-full flex items-center justify-center text-3xl flex-shrink-0 overflow-hidden"
+          style={{ background: "var(--bg-surface-2)", color: "var(--green-primary)" }}
+        >
           {profile.photoURL ? (
             <img src={profile.photoURL} alt="" className="w-full h-full object-cover" />
           ) : (
@@ -43,9 +52,12 @@ export default function ProfilePage() {
           )}
         </div>
         <div>
-          <p className="text-xl font-bold text-[#111827]">{profile.displayName}</p>
-          <p className="text-sm text-[#6B7280]">{profile.email}</p>
-          <span className="inline-block mt-2 text-xs bg-[#E4F0E8] text-[#3D8B68] font-semibold px-3 py-1 rounded-full">
+          <p className="text-xl font-bold" style={{ color: "var(--text-primary)" }}>{profile.displayName}</p>
+          <p className="text-sm" style={{ color: "var(--text-secondary)" }}>{profile.email}</p>
+          <span
+            className="inline-block mt-2 text-xs font-semibold px-3 py-1 rounded-full"
+            style={{ background: "var(--bg-surface-2)", color: "var(--green-primary)", border: "1px solid var(--border-default)" }}
+          >
             Level {profile.level} · {profile.xp} XP
           </span>
         </div>
@@ -53,24 +65,24 @@ export default function ProfilePage() {
 
       {/* Lifetime stats */}
       <div className="mb-6">
-        <div className="bg-white rounded-2xl px-5 py-4 border border-[#E5E7EB] shadow-sm mb-3 flex items-center justify-between">
+        <div className="px-5 py-4 mb-3 flex items-center justify-between" style={{ ...cardStyle, borderRadius: 20 }}>
           <div>
-            <p className="text-xs font-semibold text-[#6B7280] uppercase tracking-wide">Total Skipped</p>
-            <p className="text-2xl font-bold text-[#111827] mt-0.5">{formatCurrency(profile.totalSaved)}</p>
-            <p className="text-xs text-[#9CA3AF] mt-0.5">across {profile.totalSkips} skip{profile.totalSkips !== 1 ? "s" : ""}</p>
+            <p className="text-xs font-semibold uppercase tracking-wide" style={{ color: "var(--text-secondary)" }}>Total Skipped</p>
+            <p className="text-2xl font-bold mt-0.5" style={{ color: "var(--text-primary)" }}>{formatCurrency(profile.totalSaved)}</p>
+            <p className="text-xs mt-0.5" style={{ color: "var(--text-muted)" }}>across {profile.totalSkips} skip{profile.totalSkips !== 1 ? "s" : ""}</p>
           </div>
           <span className="text-4xl">✂️</span>
         </div>
         <div className="grid grid-cols-3 gap-2 mb-3">
           {[
-            { emoji: "💚", label: "donated", value: formatCurrency(profile.totalDonated), color: "text-[#3D8B68]" },
-            { emoji: "🛍️", label: "spent", value: formatCurrency(profile.totalSpent ?? 0), color: "text-[#8B5CF6]" },
-            { emoji: "🫙", label: "in jars", value: formatCurrency(Math.max(0, profile.totalSaved - profile.totalDonated - (profile.totalSpent ?? 0))), color: "text-[#F59E0B]" },
+            { emoji: "💚", label: "donated", value: formatCurrency(profile.totalDonated), color: "var(--green-primary)" },
+            { emoji: "🛍️", label: "spent", value: formatCurrency(profile.totalSpent ?? 0), color: "#8B5CF6" },
+            { emoji: "🫙", label: "in jars", value: formatCurrency(Math.max(0, profile.totalSaved - profile.totalDonated - (profile.totalSpent ?? 0))), color: "#F59E0B" },
           ].map((s) => (
-            <div key={s.label} className="bg-white rounded-xl p-3 border border-[#E5E7EB] shadow-sm text-center">
+            <div key={s.label} className="p-3 text-center" style={cardStyle}>
               <p className="text-base">{s.emoji}</p>
-              <p className={`text-sm font-bold ${s.color}`}>{s.value}</p>
-              <p className="text-xs text-[#6B7280]">{s.label}</p>
+              <p className="text-sm font-bold" style={{ color: s.color }}>{s.value}</p>
+              <p className="text-xs" style={{ color: "var(--text-secondary)" }}>{s.label}</p>
             </div>
           ))}
         </div>
@@ -79,39 +91,47 @@ export default function ProfilePage() {
             { label: "Longest Streak", value: `${profile.longestStreak} days`, emoji: "🏆" },
             { label: "Current Streak", value: `${profile.streak} days`, emoji: "🔥" },
           ].map((s) => (
-            <div key={s.label} className="bg-white rounded-xl p-4 border border-[#E5E7EB] shadow-sm">
+            <div key={s.label} className="p-4" style={cardStyle}>
               <p className="text-lg mb-1">{s.emoji}</p>
-              <p className="text-lg font-bold text-[#111827]">{s.value}</p>
-              <p className="text-xs text-[#6B7280]">{s.label}</p>
+              <p className="text-lg font-bold" style={{ color: "var(--text-primary)" }}>{s.value}</p>
+              <p className="text-xs" style={{ color: "var(--text-secondary)" }}>{s.label}</p>
             </div>
           ))}
         </div>
       </div>
 
       {/* Recalculate totals */}
-      <div className="bg-white rounded-2xl p-5 border border-[#E5E7EB] shadow-sm mb-6">
-        <p className="text-sm font-bold text-[#111827] mb-1">🔄 Recalculate totals from skip history</p>
-        <p className="text-xs text-[#6B7280] mb-4">
+      <div className="p-5 mb-6" style={{ ...cardStyle, borderRadius: 20 }}>
+        <p className="text-sm font-bold mb-1" style={{ color: "var(--text-primary)" }}>🔄 Recalculate totals from skip history</p>
+        <p className="text-xs mb-4" style={{ color: "var(--text-secondary)" }}>
           If your jar balances look wrong, this recomputes your totals from your actual logged skips.
           Donations and purchases are not affected.
         </p>
         {recalcState === "done" && recalcResult && (
-          <div className="bg-[#E4F0E8] border border-[#3D8B68] rounded-xl px-4 py-3 mb-3">
-            <p className="text-sm font-semibold text-[#3D8B68]">
+          <div
+            className="rounded-xl px-4 py-3 mb-3"
+            style={{ background: "var(--bg-surface-2)", border: "1px solid var(--border-emphasis)" }}
+          >
+            <p className="text-sm font-semibold" style={{ color: "var(--green-primary)" }}>
               Done — {recalcResult.totalSkips} skip{recalcResult.totalSkips !== 1 ? "s" : ""} found,{" "}
               {formatCurrency(recalcResult.totalSaved)} total saved
             </p>
           </div>
         )}
         {recalcState === "error" && (
-          <div className="bg-red-50 border border-red-200 rounded-xl px-4 py-3 mb-3">
-            <p className="text-sm text-red-600">Something went wrong. Please try again.</p>
+          <div className="bg-red-500/10 border border-red-500/30 rounded-xl px-4 py-3 mb-3">
+            <p className="text-sm text-red-400">Something went wrong. Please try again.</p>
           </div>
         )}
         <button
           onClick={handleRecalculate}
           disabled={recalcState === "loading"}
-          className="w-full py-2.5 border border-[#D1D5DB] text-[#6B7280] font-semibold rounded-xl text-sm hover:border-[#3D8B68] hover:text-[#3D8B68] transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+          className="w-full py-2.5 font-semibold rounded-xl text-sm transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+          style={{
+            border: "1px solid var(--border-emphasis)",
+            color: "var(--text-secondary)",
+            background: "transparent",
+          }}
         >
           {recalcState === "loading" ? "Recalculating…" : "Recalculate"}
         </button>
@@ -131,7 +151,8 @@ export default function ProfilePage() {
           setProfile(null);
           router.replace("/sign-in");
         }}
-        className="w-full py-3 rounded-xl border border-red-200 text-red-500 hover:bg-red-50 font-semibold transition-colors"
+        className="w-full py-3 rounded-xl font-semibold transition-colors hover:bg-red-500/10"
+        style={{ border: "1px solid rgba(239,68,68,0.4)", color: "#ef4444" }}
       >
         Sign Out
       </button>
@@ -172,20 +193,29 @@ function JarSettings({
   }
 
   return (
-    <div className="bg-white rounded-2xl p-6 border border-[#E5E7EB] shadow-sm mb-6">
-      <h2 className="text-base font-bold text-[#111827] mb-1">Preferred Jar Split</h2>
-      <p className="text-xs text-[#6B7280] mb-4">🤲 Give a Little / 😊 Live a Little</p>
+    <div className="p-6 mb-6" style={{ background: "var(--bg-surface-1)", border: "1px solid var(--border-default)", borderRadius: 20 }}>
+      <h2 className="text-base font-bold mb-1" style={{ color: "var(--text-primary)" }}>Preferred Jar Split</h2>
+      <p className="text-xs mb-4" style={{ color: "var(--text-secondary)" }}>🤲 Give a Little / 😊 Live a Little</p>
 
       <div className="grid grid-cols-2 gap-2 mb-5">
         {presets.map((p) => (
           <button
             key={p.key}
             onClick={() => setSelected(p.key)}
-            className={`py-3 rounded-xl text-sm font-bold border-2 transition-all ${
+            className="py-3 rounded-xl text-sm font-bold transition-all"
+            style={
               selected === p.key
-                ? "border-[#3D8B68] bg-[#E4F0E8] text-[#3D8B68]"
-                : "border-[#E5E7EB] text-[#6B7280] hover:border-[#3D8B68]/40"
-            }`}
+                ? {
+                    border: "2px solid var(--green-primary)",
+                    background: "var(--bg-surface-2)",
+                    color: "var(--green-primary)",
+                  }
+                : {
+                    border: "1px solid var(--border-default)",
+                    color: "var(--text-secondary)",
+                    background: "transparent",
+                  }
+            }
           >
             {p.label}
           </button>
@@ -195,7 +225,11 @@ function JarSettings({
       <button
         onClick={handleSave}
         disabled={saving}
-        className="w-full py-3 bg-[#3D8B68] text-white font-semibold rounded-xl text-sm hover:bg-[#2D6A4F] transition-colors disabled:opacity-50"
+        className="w-full py-3 font-semibold rounded-xl text-sm transition-all disabled:opacity-50"
+        style={{
+          background: "linear-gradient(135deg, var(--green-primary), var(--green-cta))",
+          color: "var(--bg-base)",
+        }}
       >
         {saved ? "✓ Saved!" : saving ? "Saving…" : "Save"}
       </button>

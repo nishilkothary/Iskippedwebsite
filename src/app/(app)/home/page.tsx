@@ -175,14 +175,14 @@ function Jar({ fillPercent, color, gradEnd, label, amount, emoji, causeLabel, hr
       <div style={{ textAlign: "center" }}>
         <div style={{
           fontSize: 12, fontWeight: 600,
-          color: "rgba(255,255,255,0.5)",
+          color: "var(--text-secondary)",
           letterSpacing: 1.5, textTransform: "uppercase",
         }}>
           {label}
         </div>
         <div style={{
           fontSize: 28, fontWeight: 800,
-          color: "#fff",
+          color: "var(--text-primary)",
           marginTop: 2,
         }}>
           {amount}
@@ -251,27 +251,29 @@ export default function HomePage() {
   const firstName = profile.displayName.split(" ")[0];
 
   const cardStyle: React.CSSProperties = {
-    background: "rgba(255,255,255,0.035)",
-    border: "1px solid rgba(255,255,255,0.07)",
+    background: "var(--bg-surface-1)",
+    border: "1px solid var(--border-default)",
     borderRadius: 20,
     padding: 24,
   };
+
+  const rowDivider = "1px solid var(--border-default)";
 
   return (
     <div className="p-4 md:p-8 max-w-3xl mx-auto pb-24 md:pb-8">
 
       {/* Mobile logo — hidden on desktop (sidebar has it) */}
       <div className="flex md:hidden justify-center mb-5">
-        <p className="text-3xl font-black text-white tracking-tight">
-          i<span className="text-emerald-400">skipped</span>
+        <p className="text-3xl font-black tracking-tight" style={{ color: "var(--text-primary)" }}>
+          i<span style={{ color: "var(--green-primary)" }}>skipped</span>
         </p>
       </div>
 
       {/* Greeting + streak */}
       <div className="flex items-start justify-between mb-5">
         <div>
-          <h1 className="text-2xl font-black text-[#F9FAFB]">Hey, {firstName} 👋</h1>
-          <p className="text-[#6B7280] mt-0.5 text-sm">Skip, Give, Live.</p>
+          <h1 className="text-2xl font-black" style={{ color: "var(--text-primary)" }}>Hey, {firstName} 👋</h1>
+          <p className="mt-0.5 text-sm" style={{ color: "var(--text-muted)" }}>Skip, Give, Live.</p>
         </div>
         {profile.streak > 0 && (
           <div style={{
@@ -291,10 +293,11 @@ export default function HomePage() {
       {/* CTA */}
       <button
         onClick={() => setShowSkipPicker(true)}
-        className="w-full text-white font-black py-4 rounded-full text-lg hover:scale-[1.02] active:scale-[0.97] transition-all duration-200 mb-5"
+        className="w-full font-black py-4 rounded-full text-lg hover:scale-[1.02] active:scale-[0.97] transition-all duration-200 mb-5"
         style={{
-          background: "linear-gradient(135deg, #2BBAA4, #1E9485)",
-          boxShadow: "0 4px 20px rgba(43,186,164,0.35)",
+          background: "linear-gradient(135deg, var(--green-primary), var(--green-cta))",
+          color: "var(--bg-base)",
+          boxShadow: "0 4px 18px var(--green-glow)",
         }}
       >
         ✨ Log a Skip
@@ -305,14 +308,14 @@ export default function HomePage() {
         {/* Total */}
         <div style={{ textAlign: "center", marginBottom: 8 }}>
           <div style={{
-            fontSize: 11, color: "rgba(255,255,255,0.4)",
+            fontSize: 11, color: "var(--text-muted)",
             fontWeight: 600, letterSpacing: 1.5, textTransform: "uppercase",
           }}>
             Total Skipped &amp; Saved
           </div>
           <div style={{
             fontSize: 44, fontWeight: 800, margin: "4px 0",
-            background: "linear-gradient(135deg, #fff 40%, #6F5CE5)",
+            background: "linear-gradient(135deg, var(--text-primary) 40%, var(--green-primary))",
             WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent",
           }}>
             {formatCurrency(profile.totalSaved)}
@@ -356,17 +359,17 @@ export default function HomePage() {
           gap: 12,
         }}>
           <div style={{ flex: 1, minWidth: 0 }}>
-            <div style={{ fontSize: 14, fontWeight: 700, color: "#F9FAFB" }}>
+            <div style={{ fontSize: 14, fontWeight: 700, color: "var(--text-primary)" }}>
               Ready to use what&apos;s in your jar?
             </div>
-            <div style={{ fontSize: 12, color: "rgba(255,255,255,0.45)", marginTop: 3 }}>
+            <div style={{ fontSize: 12, color: "var(--text-muted)", marginTop: 3 }}>
               Your jar doesn&apos;t need to be full to make a difference.
             </div>
           </div>
           <button
             onClick={() => router.push("/jars?tab=cause")}
             style={{
-              background: "linear-gradient(135deg, #E8637A, #C44D62)",
+              background: "linear-gradient(135deg, var(--coral-primary), var(--coral-dark))",
               color: "#fff",
               fontWeight: 700,
               fontSize: 13,
@@ -390,23 +393,23 @@ export default function HomePage() {
         <div style={cardStyle}>
           <div style={{
             fontSize: 13, fontWeight: 600,
-            color: "rgba(255,255,255,0.5)",
+            color: "var(--text-secondary)",
             marginBottom: 20, letterSpacing: 0.5,
           }}>
             This Week
           </div>
           {[
-            { label: "Skips logged", value: String(weekSkips.length), color: "#6F5CE5" },
+            { label: "Skips logged", value: String(weekSkips.length), color: "var(--green-primary)" },
             { label: "Money saved", value: formatCurrency(weekLive), color: "#2BBAA4" },
-            { label: "Money given", value: formatCurrency(weekGive), color: "#E8637A" },
+            { label: "Money given", value: formatCurrency(weekGive), color: "var(--coral-primary)" },
             { label: "Top category", value: topCat ? `${topCat.emoji} ${topCat.label}` : "—", color: "#E8924A" },
           ].map((row, i) => (
             <div key={i} style={{
               display: "flex", justifyContent: "space-between", alignItems: "center",
               padding: "10px 0",
-              borderBottom: i < 3 ? "1px solid rgba(255,255,255,0.07)" : "none",
+              borderBottom: i < 3 ? rowDivider : "none",
             }}>
-              <span style={{ fontSize: 13, color: "rgba(255,255,255,0.35)" }}>{row.label}</span>
+              <span style={{ fontSize: 13, color: "var(--text-muted)" }}>{row.label}</span>
               <span style={{ fontSize: 15, fontWeight: 700, color: row.color }}>{row.value}</span>
             </div>
           ))}
@@ -418,13 +421,13 @@ export default function HomePage() {
             display: "flex", justifyContent: "space-between", alignItems: "center",
             marginBottom: 16,
           }}>
-            <span style={{ fontSize: 13, fontWeight: 600, color: "rgba(255,255,255,0.5)", letterSpacing: 0.5 }}>
+            <span style={{ fontSize: 13, fontWeight: 600, color: "var(--text-secondary)", letterSpacing: 0.5 }}>
               Recent Skips
             </span>
             <button
               onClick={() => router.push("/dashboard")}
               style={{
-                background: "none", border: "none", color: "#6F5CE5",
+                background: "none", border: "none", color: "var(--green-primary)",
                 fontSize: 12, fontWeight: 600, cursor: "pointer",
               }}
             >
@@ -435,7 +438,7 @@ export default function HomePage() {
           {recentSkips.length === 0 ? (
             <div style={{ textAlign: "center", padding: "24px 0" }}>
               <p style={{ fontSize: 32, marginBottom: 8 }}>☕</p>
-              <p style={{ fontSize: 13, color: "rgba(255,255,255,0.35)" }}>No skips yet!</p>
+              <p style={{ fontSize: 13, color: "var(--text-muted)" }}>No skips yet!</p>
             </div>
           ) : (
             recentSkips.slice(0, 4).map((skip, i) => (
@@ -444,12 +447,12 @@ export default function HomePage() {
                 style={{
                   display: "flex", alignItems: "center", gap: 12,
                   padding: "10px 0",
-                  borderBottom: i < Math.min(recentSkips.length, 4) - 1 ? "1px solid rgba(255,255,255,0.07)" : "none",
+                  borderBottom: i < Math.min(recentSkips.length, 4) - 1 ? rowDivider : "none",
                 }}
               >
                 <div style={{
                   width: 36, height: 36, borderRadius: 10,
-                  background: "rgba(255,255,255,0.06)",
+                  background: "var(--bg-surface-2)",
                   display: "flex", alignItems: "center", justifyContent: "center",
                   fontSize: 18, flexShrink: 0,
                 }}>
@@ -457,24 +460,24 @@ export default function HomePage() {
                 </div>
                 <div style={{ flex: 1, minWidth: 0 }}>
                   <div style={{
-                    fontSize: 13, fontWeight: 600, color: "#F9FAFB",
+                    fontSize: 13, fontWeight: 600, color: "var(--text-primary)",
                     whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis",
                   }}>
                     {skip.whatSkipped || skip.categoryLabel}
                   </div>
-                  <div style={{ fontSize: 11, color: "rgba(255,255,255,0.3)" }}>
+                  <div style={{ fontSize: 11, color: "var(--text-muted)" }}>
                     {skip.createdAt?.toDate ? formatRelativeTime(skip.createdAt.toDate()) : skip.date}
                   </div>
                 </div>
                 <div style={{ display: "flex", alignItems: "center", gap: 6, flexShrink: 0 }}>
-                  <span style={{ fontSize: 14, fontWeight: 700, color: "#F9FAFB" }}>
+                  <span style={{ fontSize: 14, fontWeight: 700, color: "var(--text-primary)" }}>
                     {formatCurrency(skip.amount)}
                   </span>
                   <button
                     onClick={() => setEditingSkip(skip)}
                     style={{
                       background: "none", border: "none", cursor: "pointer",
-                      color: "rgba(255,255,255,0.3)", fontSize: 14, padding: 4,
+                      color: "var(--text-muted)", fontSize: 14, padding: 4,
                     }}
                   >
                     ✏️
@@ -490,7 +493,7 @@ export default function HomePage() {
       <div className="flex justify-center mt-4">
         <button
           onClick={() => router.push("/jars")}
-          style={{ background: "none", border: "none", color: "#2BBAA4", fontSize: 12, fontWeight: 600, cursor: "pointer" }}
+          style={{ background: "none", border: "none", color: "var(--green-primary)", fontSize: 12, fontWeight: 600, cursor: "pointer" }}
         >
           Manage jars →
         </button>

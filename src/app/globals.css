@@ -1,8 +1,34 @@
 @import "tailwindcss";
 
 :root {
-  --background: #0D0D0D;
-  --foreground: #F9FAFB;
+  /* Background & Surfaces */
+  --bg-base:       #0B1A14;
+  --bg-surface-1:  #10241B;
+  --bg-surface-2:  #162E23;
+  --bg-surface-3:  #1C3A2C;
+
+  /* Borders */
+  --border-default:  rgba(46,204,113,0.12);
+  --border-emphasis: rgba(46,204,113,0.25);
+
+  /* Brand Greens */
+  --green-primary:  #2ECC71;
+  --green-cta:      #3DDC84;
+  --green-grad-end: #1DB954;
+  --green-glow:     rgba(46,204,113,0.25);
+
+  /* Give Jar / Donation */
+  --coral-primary: #E8637A;
+  --coral-dark:    #C44D62;
+
+  /* Text */
+  --text-primary:   #EDF5F0;
+  --text-secondary: rgba(237,245,240,0.6);
+  --text-muted:     rgba(237,245,240,0.35);
+
+  /* Legacy mappings (used by Tailwind @theme below) */
+  --background: #0B1A14;
+  --foreground: #EDF5F0;
 }
 
 @theme inline {
@@ -11,22 +37,28 @@
   --font-sans: var(--font-geist-sans);
   --font-mono: var(--font-geist-mono);
 
-  --color-primary: #3D8B68;
-  --color-primary-dark: #2D6A4F;
-  --color-primary-light: #1A2F25;
-  --color-accent: #F59E0B;
+  --color-primary:       var(--green-primary);
+  --color-primary-dark:  var(--green-grad-end);
+  --color-primary-light: var(--bg-surface-2);
+  --color-accent:        #F59E0B;
   --color-accent-orange: #F97316;
   --color-accent-purple: #8B5CF6;
-  --color-accent-blue: #3B82F6;
-  --color-card: #161616;
-  --color-text: #F9FAFB;
-  --color-text-secondary: #9CA3AF;
-  --color-text-muted: #6B7280;
-  --color-border: #2A2A2A;
+  --color-accent-blue:   #3B82F6;
+  --color-card:          var(--bg-surface-1);
+  --color-text:          var(--text-primary);
+  --color-text-secondary: var(--text-secondary);
+  --color-text-muted:    var(--text-muted);
+  --color-border:        var(--border-default);
 }
 
 body {
-  background: var(--background);
-  color: var(--foreground);
+  background: var(--bg-base);
+  color: var(--text-primary);
   font-family: Arial, Helvetica, sans-serif;
 }
+
+/* Scrollbar */
+::-webkit-scrollbar { width: 6px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: rgba(46,204,113,0.15); border-radius: 3px; }
+::-webkit-scrollbar-thumb:hover { background: rgba(46,204,113,0.25); }

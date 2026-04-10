@@ -27,8 +27,8 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
 
   if (isLoading && !profile) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-[#0D0D0D]">
-        <div className="w-8 h-8 border-4 border-[#3D8B68] border-t-transparent rounded-full animate-spin" />
+      <div className="min-h-screen flex items-center justify-center" style={{ background: "var(--bg-base)" }}>
+        <div className="w-8 h-8 border-4 border-t-transparent rounded-full animate-spin" style={{ borderColor: "var(--green-primary)", borderTopColor: "transparent" }} />
       </div>
     );
   }
@@ -36,12 +36,19 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
   if (!user) return null;
 
   return (
-    <div className="flex h-screen bg-[#0D0D0D]">
+    <div className="flex h-screen" style={{ background: "var(--bg-base)" }}>
       {/* Sidebar */}
-      <aside className="w-60 flex-shrink-0 bg-[#111111] border-r border-[#2A2A2A] hidden md:flex flex-col">
-        <div className="px-6 py-5 border-b border-[#2A2A2A]">
-          <p className="text-2xl font-black text-white tracking-tight">
-            i<span className="text-emerald-400">skipped</span>
+      <aside
+        className="w-60 flex-shrink-0 hidden md:flex flex-col"
+        style={{
+          background: "linear-gradient(180deg, #10241B, #0B1A14)",
+          borderRight: "1px solid var(--border-default)",
+          backdropFilter: "blur(12px)",
+        }}
+      >
+        <div className="px-6 py-5" style={{ borderBottom: "1px solid var(--border-default)" }}>
+          <p className="text-2xl font-black tracking-tight" style={{ color: "var(--text-primary)" }}>
+            i<span style={{ color: "var(--green-primary)" }}>skipped</span>
           </p>
         </div>
 
@@ -52,11 +59,26 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
               <Link
                 key={item.href}
                 href={item.href}
-                className={`flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors ${
+                className="flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-all"
+                style={
                   active
-                    ? "bg-[#1A2F25] text-[#4ADE80]"
-                    : "text-[#9CA3AF] hover:bg-[#1A1A1A] hover:text-white"
-                }`}
+                    ? {
+                        background: "linear-gradient(135deg, var(--green-primary), var(--green-cta))",
+                        color: "var(--bg-base)",
+                        fontWeight: 700,
+                      }
+                    : {
+                        color: "var(--text-secondary)",
+                      }
+                }
+                onMouseEnter={(e) => {
+                  if (!active) (e.currentTarget as HTMLElement).style.background = "var(--bg-surface-3)";
+                  if (!active) (e.currentTarget as HTMLElement).style.color = "var(--text-primary)";
+                }}
+                onMouseLeave={(e) => {
+                  if (!active) (e.currentTarget as HTMLElement).style.background = "transparent";
+                  if (!active) (e.currentTarget as HTMLElement).style.color = "var(--text-secondary)";
+                }}
               >
                 <span className="text-base">{item.emoji}</span>
                 {item.label}
@@ -68,7 +90,12 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
         <div className="px-3 pb-4">
           <button
             onClick={() => setShowSkipPicker(true)}
-            className="w-full bg-gradient-to-r from-[#3D8B68] to-[#34A87A] text-white font-semibold py-3 rounded-full shadow-md hover:shadow-xl hover:scale-[1.02] active:scale-[0.97] transition-all duration-200"
+            className="w-full font-semibold py-3 rounded-full transition-all duration-200 hover:scale-[1.02] active:scale-[0.97]"
+            style={{
+              background: "linear-gradient(135deg, var(--green-primary), var(--green-cta))",
+              color: "var(--bg-base)",
+              boxShadow: "0 4px 18px var(--green-glow)",
+            }}
           >
             ✨ Log a Skip
           </button>
@@ -83,16 +110,22 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
       {showSkipPicker && <SkipModal onClose={() => setShowSkipPicker(false)} />}
 
       {/* Mobile bottom nav */}
-      <nav className="flex md:hidden fixed bottom-0 left-0 right-0 bg-[#111111] border-t border-[#2A2A2A] z-10">
+      <nav
+        className="flex md:hidden fixed bottom-0 left-0 right-0 z-10"
+        style={{
+          background: "linear-gradient(180deg, #10241B, #0B1A14)",
+          borderTop: "1px solid var(--border-default)",
+          backdropFilter: "blur(12px)",
+        }}
+      >
         {NAV_ITEMS.map((item) => {
           const active = pathname === item.href;
           return (
             <Link
               key={item.href}
               href={item.href}
-              className={`flex-1 flex flex-col items-center py-2 text-xs font-medium transition-colors ${
-                active ? "text-[#4ADE80]" : "text-[#6B7280]"
-              }`}
+              className="flex-1 flex flex-col items-center py-2 text-xs font-medium transition-colors"
+              style={{ color: active ? "var(--green-primary)" : "var(--text-muted)" }}
             >
               <span className="text-xl">{item.emoji}</span>
               {item.label}
@@ -101,7 +134,8 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
         })}
         <button
           onClick={() => setShowSkipPicker(true)}
-          className="flex-1 flex flex-col items-center py-2 text-xs font-medium text-[#4ADE80]"
+          className="flex-1 flex flex-col items-center py-2 text-xs font-medium"
+          style={{ color: "var(--green-cta)" }}
         >
           <span className="text-xl">✨</span>
           Log Skip

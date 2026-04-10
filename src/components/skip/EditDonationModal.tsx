@@ -38,49 +38,68 @@ export function EditDonationModal({ donation, onClose }: Props) {
   }
 
   return (
-    <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4" onClick={onClose}>
-      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-sm" onClick={(e) => e.stopPropagation()}>
-        <div className="flex items-center justify-between px-6 py-5 border-b border-[#E5E7EB]">
-          <h2 className="text-lg font-bold text-[#111827]">Edit Donation</h2>
-          <button onClick={onClose} className="text-[#6B7280] hover:text-[#111827] text-2xl leading-none">×</button>
+    <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4" onClick={onClose}>
+      <div
+        className="rounded-2xl shadow-2xl w-full max-w-sm"
+        style={{ background: "var(--bg-surface-1)", border: "1px solid var(--border-default)" }}
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="flex items-center justify-between px-6 py-5" style={{ borderBottom: "1px solid var(--border-default)" }}>
+          <h2 className="text-lg font-bold" style={{ color: "var(--text-primary)" }}>Edit Donation</h2>
+          <button onClick={onClose} className="text-2xl leading-none" style={{ color: "var(--text-muted)" }}>×</button>
         </div>
         <div className="px-6 py-5 space-y-4">
-          <p className="text-sm text-[#6B7280]">Donated to {donation.causeTitle}</p>
+          <p className="text-sm" style={{ color: "var(--text-secondary)" }}>Donated to {donation.causeTitle}</p>
           <div>
-            <label className="text-xs text-[#6B7280] uppercase tracking-wide mb-1 block">Amount</label>
+            <label className="text-xs uppercase tracking-wide mb-1 block" style={{ color: "var(--text-muted)" }}>Amount</label>
             <div className="relative">
-              <span className="absolute left-4 top-1/2 -translate-y-1/2 text-[#6B7280] font-medium">$</span>
+              <span className="absolute left-4 top-1/2 -translate-y-1/2 font-medium" style={{ color: "var(--text-secondary)" }}>$</span>
               <input
                 type="number"
                 min="0.01"
                 step="0.01"
                 value={amount}
                 onChange={(e) => setAmount(e.target.value)}
-                className="w-full border border-[#E5E7EB] rounded-xl pl-8 pr-4 py-3 text-[#111827] text-lg font-semibold focus:outline-none focus:ring-2 focus:ring-[#3D8B68]/30 focus:border-[#3D8B68]"
+                className="w-full rounded-xl pl-8 pr-4 py-3 text-lg font-semibold focus:outline-none"
+                style={{
+                  background: "var(--bg-surface-2)",
+                  border: "1px solid var(--border-default)",
+                  color: "var(--text-primary)",
+                }}
               />
             </div>
           </div>
           <div>
-            <label className="text-xs text-[#6B7280] uppercase tracking-wide mb-1 block">Date</label>
+            <label className="text-xs uppercase tracking-wide mb-1 block" style={{ color: "var(--text-muted)" }}>Date</label>
             <input
               type="date"
               value={date}
               onChange={(e) => setDate(e.target.value)}
-              className="w-full border border-[#E5E7EB] rounded-xl px-4 py-3 text-[#111827] focus:outline-none focus:ring-2 focus:ring-[#3D8B68]/30 focus:border-[#3D8B68]"
+              className="w-full rounded-xl px-4 py-3 focus:outline-none"
+              style={{
+                background: "var(--bg-surface-2)",
+                border: "1px solid var(--border-default)",
+                color: "var(--text-primary)",
+              }}
             />
           </div>
           <div className="flex gap-3 pt-1">
             <button
               onClick={handleDelete}
               disabled={loading}
-              className="flex-1 border-2 border-red-400 text-red-500 font-semibold py-3 rounded-xl hover:bg-red-50 transition-colors disabled:opacity-60"
+              className="flex-1 font-semibold py-3 rounded-xl hover:bg-red-500/10 transition-colors disabled:opacity-60"
+              style={{ border: "2px solid rgba(239,68,68,0.4)", color: "#ef4444" }}
             >
               Delete
             </button>
             <button
               onClick={handleSave}
               disabled={loading || !amount || parseFloat(amount) <= 0}
-              className="flex-1 bg-[#3D8B68] hover:bg-[#2D6A4F] text-white font-bold py-3 rounded-xl transition-colors disabled:opacity-60"
+              className="flex-1 font-bold py-3 rounded-xl transition-all disabled:opacity-60"
+              style={{
+                background: "linear-gradient(135deg, var(--green-primary), var(--green-cta))",
+                color: "var(--bg-base)",
+              }}
             >
               {loading ? "Saving…" : "Save"}
             </button>
