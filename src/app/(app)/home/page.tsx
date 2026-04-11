@@ -70,6 +70,10 @@ function Jar({ fillPercent, color, gradEnd, label, amount, emoji, causeLabel, hr
         lineHeight: 1.35,
         letterSpacing: 0.2,
         padding: "0 4px",
+        minHeight: 44,
+        display: "flex",
+        alignItems: "flex-end",
+        justifyContent: "center",
       }}>
         {causeLabel ?? "👆 Tap to pick a jar"}
       </div>
@@ -209,16 +213,23 @@ export default function HomePage() {
   // Use per-skip allocated totals if available, fall back to profile-split calculation
   const giveTotal = profile.totalGiveAllocated ?? profile.totalSaved * (split.give / 100);
   const liveTotal = profile.totalLiveAllocated ?? profile.totalSaved * (split.live / 100);
-
-  const givingBalance = Math.max(0, giveTotal - (profile.totalDonated ?? 0));
-  const spendingBalance = Math.max(0, liveTotal - (profile.totalSpent ?? 0));
+  const globalGivingBalance = Math.max(0, giveTotal - (profile.totalDonated ?? 0));
+  const globalSpendingBalance = Math.max(0, liveTotal - (profile.totalSpent ?? 0));
 
   const activeProject = projects.find((p) => p.id === profile.activeProjectId) ?? null;
-  const goalAmount = activeProject?.goalAmount ?? 0;
-  const givingFillPct = goalAmount > 0 ? Math.min(100, (givingBalance / goalAmount) * 100) : 0;
-
   const { goals: spendingGoals, activeId: activeSpendingGoalId } = normalizeSpendingGoals(profile);
   const activeGoal = spendingGoals.find((g) => g.id === activeSpendingGoalId) ?? null;
+
+  // Use per-jar balances when available (fall back to global for legacy users)
+  const givingBalance = activeProject && profile.causeJarBalances !== undefined
+    ? Math.max(0, profile.causeJarBalances[activeProject.id] ?? 0)
+    : globalGivingBalance;
+  const spendingBalance = activeGoal && profile.goalJarBalances !== undefined
+    ? Math.max(0, profile.goalJarBalances[activeGoal.id] ?? 0)
+    : globalSpendingBalance;
+
+  const goalAmount = activeProject?.goalAmount ?? 0;
+  const givingFillPct = goalAmount > 0 ? Math.min(100, (givingBalance / goalAmount) * 100) : 0;
   const spendingFillPct = activeGoal
     ? Math.min(100, (spendingBalance / activeGoal.targetAmount) * 100)
     : 0;

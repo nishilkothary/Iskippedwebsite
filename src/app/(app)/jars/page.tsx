@@ -65,12 +65,12 @@ function JarsPageInner() {
   const { goals: spendingGoals, activeId: activeSpendingGoalId } = normalizeSpendingGoals(profile);
   const activeGoal = spendingGoals.find((g) => g.id === activeSpendingGoalId) ?? null;
 
-  // Per-jar balances (fall back to global if not yet tracked)
-  const givingBalance = activeProject
-    ? (profile.causeJarBalances?.[activeProject.id] ?? globalGivingBalance)
+  // Per-jar balances: use per-cause/goal when the field exists, fall back to global for legacy users
+  const givingBalance = activeProject && profile.causeJarBalances !== undefined
+    ? Math.max(0, profile.causeJarBalances[activeProject.id] ?? 0)
     : globalGivingBalance;
-  const spendingBalance = activeGoal
-    ? (profile.goalJarBalances?.[activeGoal.id] ?? globalSpendingBalance)
+  const spendingBalance = activeGoal && profile.goalJarBalances !== undefined
+    ? Math.max(0, profile.goalJarBalances[activeGoal.id] ?? 0)
     : globalSpendingBalance;
 
   async function handleSelectCause(project: Project, moveFunds: boolean) {
