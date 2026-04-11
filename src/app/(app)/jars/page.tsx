@@ -549,7 +549,8 @@ function CauseTab({
   }
 
   function handleSetActive(project: Project) {
-    if (givingBalance > 0 && activeProject && activeProject.id !== project.id) {
+    const targetBal = causeJarBalances?.[project.id] ?? 0;
+    if (givingBalance > 0 && activeProject && activeProject.id !== project.id && targetBal === 0) {
       setSwitchTarget(project);
     } else {
       onSelectCause(project, false);
@@ -717,8 +718,8 @@ function CauseTab({
 
       {/* Inactive jars with money */}
       {Object.entries(causeJarBalances ?? {}).filter(([id, bal]) => id !== activeProject?.id && bal > 0).length > 0 && (
-        <div>
-          <p className="text-xs font-semibold mb-2" style={{ color: "var(--text-muted)" }}>OTHER JARS WITH MONEY</p>
+        <div className="mt-2">
+          <p className="text-xs font-semibold uppercase tracking-wide mb-3" style={{ color: "rgba(237,245,240,0.85)" }}>Other Jars with Money</p>
           <div className="grid grid-cols-2 gap-3">
             {Object.entries(causeJarBalances ?? {})
               .filter(([id, bal]) => id !== activeProject?.id && bal > 0)
@@ -1088,7 +1089,8 @@ function SplurgeTab({
   const activeGoal = goals.find((g) => g.id === activeGoalId) ?? null;
 
   function handleSetActiveGoalWithCheck(goal: SpendingGoal) {
-    if (spendingBalance > 0 && activeGoalId && activeGoalId !== goal.id) {
+    const targetBal = goalJarBalances?.[goal.id] ?? 0;
+    if (spendingBalance > 0 && activeGoalId && activeGoalId !== goal.id && targetBal === 0) {
       setSwitchTarget(goal);
     } else {
       onSetActiveGoal(goal.id, false);
@@ -1218,8 +1220,8 @@ function SplurgeTab({
 
       {/* Inactive goal jars with money */}
       {Object.entries(goalJarBalances ?? {}).filter(([id, bal]) => id !== activeGoalId && bal > 0).length > 0 && (
-        <div>
-          <p className="text-xs font-semibold mb-2" style={{ color: "var(--text-muted)" }}>OTHER JARS WITH MONEY</p>
+        <div className="mt-2">
+          <p className="text-xs font-semibold uppercase tracking-wide mb-3" style={{ color: "rgba(237,245,240,0.85)" }}>Other Jars with Money</p>
           <div className="grid grid-cols-2 gap-3">
             {Object.entries(goalJarBalances ?? {})
               .filter(([id, bal]) => id !== activeGoalId && bal > 0)
