@@ -535,13 +535,14 @@ function CauseTab({
       {switchTarget && (
         <div className="fixed inset-0 bg-black/60 z-50 flex items-end sm:items-center justify-center p-4" onClick={() => setSwitchTarget(null)}>
           <div className="rounded-2xl w-full max-w-sm shadow-2xl" style={{ background: "var(--bg-surface-1)", border: "1px solid var(--border-default)" }} onClick={(e) => e.stopPropagation()}>
-            <div className="px-5 pt-5 pb-3" style={{ borderBottom: "1px solid var(--border-default)" }}>
-              <p className="font-bold" style={{ color: "var(--text-primary)" }}>Switch active cause?</p>
-              <p className="text-xs mt-1" style={{ color: "var(--text-secondary)" }}>
-                Your Give a Little jar has {formatCurrency(givingBalance)} saved toward <span className="font-semibold">{activeProject?.title}</span>.
+            <div className="px-5 pt-5 pb-4 relative" style={{ borderBottom: "1px solid var(--border-default)" }}>
+              <button onClick={() => setSwitchTarget(null)} className="absolute top-4 right-4 text-xl leading-none" style={{ color: "var(--text-muted)" }}>×</button>
+              <p className="text-lg font-bold pr-6" style={{ color: "var(--text-primary)" }}>Switch active cause?</p>
+              <p className="text-xs mt-1.5" style={{ color: "var(--text-secondary)" }}>
+                You have <span className="font-semibold" style={{ color: "var(--coral-primary)" }}>{formatCurrency(givingBalance)}</span> saved toward <span className="font-semibold">{activeProject?.title}</span>. What would you like to do with it?
               </p>
             </div>
-            <div style={{ borderTop: "1px solid var(--border-default)" }}>
+            <div>
               <button
                 className="w-full text-left px-5 py-4 transition-colors"
                 style={{ borderBottom: "1px solid var(--border-default)" }}
@@ -549,8 +550,8 @@ function CauseTab({
                 onMouseLeave={(e) => (e.currentTarget as HTMLElement).style.background = "transparent"}
                 onClick={() => { setSwitchTarget(null); setDonatingId(activeProject?.id ?? null); }}
               >
-                <p className="text-sm font-semibold" style={{ color: "var(--text-primary)" }}>💸 Donate first</p>
-                <p className="text-xs mt-0.5" style={{ color: "var(--text-secondary)" }}>Log a donation, then switch</p>
+                <p className="text-sm font-semibold" style={{ color: "var(--text-primary)" }}>💸 Log a donation first</p>
+                <p className="text-xs mt-0.5" style={{ color: "var(--text-secondary)" }}>Enter how much you donated, then switch</p>
               </button>
               <button
                 className="w-full text-left px-5 py-4 transition-colors"
@@ -558,17 +559,8 @@ function CauseTab({
                 onMouseLeave={(e) => (e.currentTarget as HTMLElement).style.background = "transparent"}
                 onClick={() => { onSelectCause(switchTarget, true); setSwitchTarget(null); }}
               >
-                <p className="text-sm font-semibold" style={{ color: "var(--text-primary)" }}>→ Switch &amp; move balance to {switchTarget.title}</p>
+                <p className="text-sm font-semibold" style={{ color: "var(--text-primary)" }}>→ Move balance to {switchTarget.title}</p>
                 <p className="text-xs mt-0.5" style={{ color: "var(--text-secondary)" }}>Existing savings count toward the new cause</p>
-              </button>
-            </div>
-            <div className="px-5 pb-5 pt-2">
-              <button
-                onClick={() => setSwitchTarget(null)}
-                className="w-full py-2.5 font-semibold rounded-xl text-sm"
-                style={{ border: "1px solid var(--border-default)", color: "var(--text-secondary)" }}
-              >
-                Cancel
               </button>
             </div>
           </div>
@@ -698,22 +690,22 @@ function CauseTab({
                     )}
                     <div className="flex items-start justify-between gap-3">
                       <div className="flex-1 min-w-0">
-                        <div className="flex items-start justify-between gap-1">
+                        <div className="flex items-baseline gap-1.5 flex-wrap">
                           <p className="font-extrabold text-[#EDF5F0] text-base">{project.title}</p>
+                          {project.goalAmount > 0 && (
+                            <span className="text-xs text-[#2ECC71] font-semibold">{formatCurrency(project.goalAmount)}</span>
+                          )}
+                        </div>
+                        <div className="flex items-center gap-2 mt-0.5">
+                          <p className="text-sm text-[rgba(237,245,240,0.6)]">{project.sponsor}</p>
                           {project.donationURL && (
-                            <a href={project.donationURL} target="_blank" rel="noopener noreferrer" className="text-xs text-[#2ECC71] underline flex-shrink-0 mt-0.5">
+                            <a href={project.donationURL} target="_blank" rel="noopener noreferrer" className="text-xs text-[#2ECC71] underline flex-shrink-0">
                               ↗ Learn more
                             </a>
                           )}
                         </div>
-                        <p className="text-sm text-[rgba(237,245,240,0.6)] mt-0.5">{project.sponsor}</p>
                         {project.location && (
-                          <p className="text-xs text-[rgba(237,245,240,0.6)] mt-0.5">Location: {project.location}</p>
-                        )}
-                        {project.goalAmount > 0 && (
-                          <p className="text-xs text-[#2ECC71] font-semibold mt-1">
-                            Skipped Amount Needed: {formatCurrency(project.goalAmount)}
-                          </p>
+                          <p className="text-xs text-[rgba(237,245,240,0.6)] mt-0.5">{project.location}</p>
                         )}
                       </div>
                       <div className="flex items-center gap-1.5 flex-shrink-0">
@@ -1042,24 +1034,25 @@ function SplurgeTab({
       {switchTarget && (
         <div className="fixed inset-0 bg-black/60 z-50 flex items-end sm:items-center justify-center p-4" onClick={() => setSwitchTarget(null)}>
           <div className="rounded-2xl w-full max-w-sm shadow-2xl" style={{ background: "var(--bg-surface-1)", border: "1px solid var(--border-default)" }} onClick={(e) => e.stopPropagation()}>
-            <div className="px-5 pt-5 pb-3" style={{ borderBottom: "1px solid var(--border-default)" }}>
-              <p className="font-bold" style={{ color: "var(--text-primary)" }}>Switch active goal?</p>
-              <p className="text-xs mt-1" style={{ color: "var(--text-secondary)" }}>
-                Your Live a Little jar has {formatCurrency(spendingBalance)} saved toward <span className="font-semibold">{activeGoal?.label}</span>.
+            <div className="px-5 pt-5 pb-4 relative" style={{ borderBottom: "1px solid var(--border-default)" }}>
+              <button onClick={() => setSwitchTarget(null)} className="absolute top-4 right-4 text-xl leading-none" style={{ color: "var(--text-muted)" }}>×</button>
+              <p className="text-lg font-bold pr-6" style={{ color: "var(--text-primary)" }}>Switch active goal?</p>
+              <p className="text-xs mt-1.5" style={{ color: "var(--text-secondary)" }}>
+                You have <span className="font-semibold" style={{ color: "#8B5CF6" }}>{formatCurrency(spendingBalance)}</span> saved toward <span className="font-semibold">{activeGoal?.label}</span>. What would you like to do with it?
               </p>
             </div>
-            <div style={{ borderTop: "1px solid var(--border-default)" }}>
+            <div>
               <button
                 className="w-full text-left px-5 py-4 transition-colors"
                 style={{ borderBottom: "1px solid var(--border-default)" }}
                 onMouseEnter={(e) => (e.currentTarget as HTMLElement).style.background = "var(--bg-surface-2)"}
                 onMouseLeave={(e) => (e.currentTarget as HTMLElement).style.background = "transparent"}
-                onClick={() => { setSwitchTarget(null); setConfirmCompleteId(activeGoalId); }}
+                onClick={() => { setSwitchTarget(null); if (activeGoalId) setPurchasingId(activeGoalId); }}
               >
                 <p className="text-sm font-semibold" style={{ color: "var(--text-primary)" }}>
-                  {activeGoal?.type === "donation" ? "💛 Donate first" : "🛒 Shop first"}
+                  {activeGoal?.type === "donation" ? "💛 Log a donation first" : "🛒 Log a purchase first"}
                 </p>
-                <p className="text-xs mt-0.5" style={{ color: "var(--text-secondary)" }}>Empty your current jar before switching</p>
+                <p className="text-xs mt-0.5" style={{ color: "var(--text-secondary)" }}>Enter how much you spent, then switch</p>
               </button>
               <button
                 className="w-full text-left px-5 py-4 transition-colors"
@@ -1067,17 +1060,8 @@ function SplurgeTab({
                 onMouseLeave={(e) => (e.currentTarget as HTMLElement).style.background = "transparent"}
                 onClick={() => { onSetActiveGoal(switchTarget.id, true); setSwitchTarget(null); }}
               >
-                <p className="text-sm font-semibold" style={{ color: "var(--text-primary)" }}>→ Move funds to {switchTarget.label}</p>
+                <p className="text-sm font-semibold" style={{ color: "var(--text-primary)" }}>→ Move balance to {switchTarget.label}</p>
                 <p className="text-xs mt-0.5" style={{ color: "var(--text-secondary)" }}>Your balance will count toward the new goal</p>
-              </button>
-            </div>
-            <div className="px-5 pb-5 pt-2">
-              <button
-                onClick={() => setSwitchTarget(null)}
-                className="w-full py-2.5 font-semibold rounded-xl text-sm"
-                style={{ border: "1px solid var(--border-default)", color: "var(--text-secondary)" }}
-              >
-                Cancel
               </button>
             </div>
           </div>
@@ -1231,8 +1215,10 @@ function SplurgeTab({
                     )}
                     <div className="flex items-start justify-between gap-2">
                       <div className="flex-1 min-w-0">
-                        <p className="font-extrabold text-[#EDF5F0] text-base">{goal.label}</p>
-                        <p className="text-xs text-[rgba(237,245,240,0.6)] mt-0.5">Skipped Amount Needed: {formatCurrency(goal.targetAmount)}</p>
+                        <div className="flex items-baseline gap-1.5 flex-wrap">
+                          <p className="font-extrabold text-[#EDF5F0] text-base">{goal.label}</p>
+                          <span className="text-xs text-[#8B5CF6] font-semibold">{formatCurrency(goal.targetAmount)}</span>
+                        </div>
                       </div>
                       <div className="flex items-center gap-1.5 flex-shrink-0">
                         <button

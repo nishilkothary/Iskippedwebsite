@@ -130,6 +130,9 @@ export function useSkips() {
       totalSkips: profile.totalSkips - 1,
       totalGiveAllocated: Math.max(0, (profile.totalGiveAllocated ?? 0) - giveAllocAmount),
       totalLiveAllocated: Math.max(0, (profile.totalLiveAllocated ?? 0) - liveAllocAmount),
+      causeJarBalances: skip.projectId
+        ? { ...profile.causeJarBalances, [skip.projectId]: Math.max(0, (profile.causeJarBalances?.[skip.projectId] ?? 0) - giveAllocAmount) }
+        : profile.causeJarBalances,
     });
     // Sync community feed (fire-and-forget; may not exist for old/unshared skips)
     deleteCommunityFeedItem(skip.id);
