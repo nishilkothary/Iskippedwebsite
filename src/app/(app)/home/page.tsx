@@ -409,8 +409,8 @@ export default function HomePage() {
           </div>
           {[
             { label: "Skips logged", value: String(weekSkips.length), color: "var(--green-primary)" },
-            { label: "Money saved", value: formatCurrency(weekLive), color: "#2BBAA4" },
-            { label: "Money given", value: formatCurrency(weekGive), color: "var(--coral-primary)" },
+            { label: "Live jar", value: formatCurrency(weekLive), color: "#2BBAA4" },
+            { label: "Give jar", value: formatCurrency(weekGive), color: "var(--coral-primary)" },
             { label: "Top category", value: topCat ? `${topCat.emoji} ${topCat.label}` : "—", color: "#E8924A" },
           ].map((row, i) => (
             <div key={i} style={{
