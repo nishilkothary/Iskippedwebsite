@@ -69,9 +69,6 @@ export default function CommunityPage() {
                     {item.type === "skip" ? (
                       <p className="text-sm" style={{ color: "var(--text-primary)" }}>
                         <span className="font-semibold">{firstName}</span> {item.message}
-                        {item.projectTitle && (
-                          <span className="font-semibold" style={{ color: "var(--green-primary)" }}> for {item.projectTitle}</span>
-                        )}
                       </p>
                     ) : (
                       <p className="text-sm" style={{ color: "var(--text-primary)" }}>
