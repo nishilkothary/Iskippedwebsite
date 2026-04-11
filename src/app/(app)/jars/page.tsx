@@ -198,6 +198,7 @@ function JarsPageInner() {
           onDonate={(amount) =>
             donate(amount, activeProject?.id ?? "giving", activeProject?.title ?? "Giving")
           }
+          onDonateToProject={(projectId, projectTitle, amount) => donate(amount, projectId, projectTitle)}
           onEditDonation={editDonation}
           onDeleteDonation={deleteDonation}
         />
@@ -255,25 +256,7 @@ function JarPreview({ fillPct, color, gradEnd, label, amount, emptyPrompt }: {
   const yStart = jarH - fillH;
   const uid = (label ?? "empty").replace(/\W/g, "");
 
-  const jarPath = [
-    `M${20*scale},${40*scale}`,
-    `Q${20*scale},${40*scale} ${25*scale},${35*scale}`,
-    `L${35*scale},${30*scale}`,
-    `Q${40*scale},${28*scale} ${42*scale},${25*scale}`,
-    `L${42*scale},${15*scale}`,
-    `Q${42*scale},${10*scale} ${48*scale},${10*scale}`,
-    `L${72*scale},${10*scale}`,
-    `Q${78*scale},${10*scale} ${78*scale},${15*scale}`,
-    `L${78*scale},${25*scale}`,
-    `Q${80*scale},${28*scale} ${85*scale},${30*scale}`,
-    `L${95*scale},${35*scale}`,
-    `Q${100*scale},${40*scale} ${100*scale},${45*scale}`,
-    `L${100*scale},${155*scale}`,
-    `Q${100*scale},${170*scale} ${85*scale},${170*scale}`,
-    `L${35*scale},${170*scale}`,
-    `Q${20*scale},${170*scale} ${20*scale},${155*scale}`,
-    `Z`,
-  ].join(" ");
+  const jarPath = makeJarPath(scale);
 
   return (
     <div className="flex flex-col items-center mb-5">
@@ -343,6 +326,127 @@ function JarPreview({ fillPct, color, gradEnd, label, amount, emptyPrompt }: {
   );
 }
 
+function makeJarPath(scale: number) {
+  return [
+    `M${20*scale},${40*scale}`,
+    `Q${20*scale},${40*scale} ${25*scale},${35*scale}`,
+    `L${35*scale},${30*scale}`,
+    `Q${40*scale},${28*scale} ${42*scale},${25*scale}`,
+    `L${42*scale},${15*scale}`,
+    `Q${42*scale},${10*scale} ${48*scale},${10*scale}`,
+    `L${72*scale},${10*scale}`,
+    `Q${78*scale},${10*scale} ${78*scale},${15*scale}`,
+    `L${78*scale},${25*scale}`,
+    `Q${80*scale},${28*scale} ${85*scale},${30*scale}`,
+    `L${95*scale},${35*scale}`,
+    `Q${100*scale},${40*scale} ${100*scale},${45*scale}`,
+    `L${100*scale},${155*scale}`,
+    `Q${100*scale},${170*scale} ${85*scale},${170*scale}`,
+    `L${35*scale},${170*scale}`,
+    `Q${20*scale},${170*scale} ${20*scale},${155*scale}`,
+    `Z`,
+  ].join(" ");
+}
+
+function MiniJarCause({
+  proj, bal, onMakeActive, onDonate,
+}: {
+  proj: Project | undefined;
+  bal: number;
+  onMakeActive: () => void;
+  onDonate: (amount: number) => Promise<void>;
+}) {
+  const [showInput, setShowInput] = useState(false);
+  const [amtStr, setAmtStr] = useState("");
+  const [donating, setDonating] = useState(false);
+  const color = "#E8637A";
+  const gradEnd = "#C44D62";
+  const w = 80; const h = 112;
+  const scale = w / 120;
+  const fillPct = proj && proj.goalAmount > 0 ? Math.min((bal / proj.goalAmount) * 100, 100) : (bal > 0 ? 100 : 0);
+  const clamp = Math.min(Math.max(fillPct, 0), 100);
+  const fillH = (clamp / 100) * 120 * scale;
+  const jarH = 170 * scale;
+  const yStart = jarH - fillH;
+  const uid = ("mc_" + (proj?.id ?? "x")).replace(/\W/g, "");
+  const jarPath = makeJarPath(scale);
+  return (
+    <div className="flex flex-col items-center gap-1.5 rounded-2xl p-3" style={{ background: "var(--bg-surface-1)", border: "1px solid var(--border-default)" }}>
+      <p className="text-xs font-semibold text-center leading-tight" style={{ color, maxWidth: w }}>{proj?.title ?? "Inactive"}</p>
+      <svg width={w} height={h} viewBox={`0 0 ${w} ${h}`}>
+        <defs>
+          <linearGradient id={`mj-gf-${uid}`} x1="0" y1="1" x2="0" y2="0">
+            <stop offset="0%" stopColor={gradEnd} /><stop offset="100%" stopColor={color} />
+          </linearGradient>
+          <clipPath id={`mj-jc-${uid}`}><path d={jarPath} /></clipPath>
+        </defs>
+        <g clipPath={`url(#mj-jc-${uid})`}>
+          {clamp > 0 && <rect x={15*scale} y={yStart} width={90*scale} height={fillH + 15*scale} fill={`url(#mj-gf-${uid})`} rx={4*scale} />}
+        </g>
+        <path d={jarPath} fill="none" stroke="rgba(255,255,255,0.3)" strokeWidth={2*scale} strokeLinejoin="round" />
+        <text x={60*scale} y={92*scale} textAnchor="middle" dominantBaseline="middle" fontSize={17*scale} fontWeight="800" fill={clamp > 0 ? "rgba(255,255,255,0.9)" : "rgba(255,255,255,0.2)"} style={{ fontFamily: "inherit" }}>{Math.round(clamp)}%</text>
+      </svg>
+      <p className="text-sm font-bold" style={{ color }}>{formatCurrency(bal)}</p>
+      <button onClick={onMakeActive} className="w-full text-xs font-semibold py-1.5 rounded-xl" style={{ border: "1px solid var(--green-primary)", color: "var(--green-primary)" }}>Make Active</button>
+      {proj?.donationURL && (
+        <a href={proj.donationURL} target="_blank" rel="noopener noreferrer" className="w-full text-center text-xs font-semibold py-1.5 rounded-xl block" style={{ border: "1px solid var(--border-emphasis)", color: "var(--green-primary)" }}>🌍 Donate →</a>
+      )}
+      {showInput ? (
+        <div className="flex gap-1 w-full">
+          <div className="relative flex-1">
+            <span className="absolute left-2 top-1/2 -translate-y-1/2 text-xs" style={{ color: "var(--text-muted)" }}>$</span>
+            <input type="number" value={amtStr} onChange={e => setAmtStr(e.target.value)} className="w-full pl-5 rounded-lg px-2 py-1 text-xs focus:outline-none" style={{ background: "var(--bg-surface-2)", border: "1px solid var(--green-primary)", color: "var(--text-primary)" }} autoFocus />
+          </div>
+          <button onClick={async () => { const amt = parseFloat(amtStr); if (!amt || amt <= 0) return; setDonating(true); await onDonate(amt); setAmtStr(""); setShowInput(false); setDonating(false); }} disabled={donating} className="bg-[#2ECC71] text-[#0B1A14] font-semibold px-2 py-1 rounded-lg text-xs disabled:opacity-50">{donating ? "…" : "OK"}</button>
+          <button onClick={() => { setShowInput(false); setAmtStr(""); }} className="text-xs px-2 py-1 rounded-lg" style={{ border: "1px solid var(--border-default)", color: "var(--text-muted)" }}>✕</button>
+        </div>
+      ) : (
+        <button onClick={() => setShowInput(true)} className="w-full text-xs font-semibold py-1.5 rounded-xl" style={{ background: "#2ECC71", color: "#0B1A14" }}>💸 I Donated</button>
+      )}
+    </div>
+  );
+}
+
+function MiniJarGoal({
+  goal, bal, onMakeActive,
+}: {
+  goal: SpendingGoal | undefined;
+  bal: number;
+  onMakeActive: () => void;
+}) {
+  const color = "#8B5CF6";
+  const gradEnd = "#6D28D9";
+  const w = 80; const h = 112;
+  const scale = w / 120;
+  const fillPct = goal && goal.targetAmount > 0 ? Math.min((bal / goal.targetAmount) * 100, 100) : (bal > 0 ? 100 : 0);
+  const clamp = Math.min(Math.max(fillPct, 0), 100);
+  const fillH = (clamp / 100) * 120 * scale;
+  const jarH = 170 * scale;
+  const yStart = jarH - fillH;
+  const uid = ("mg_" + (goal?.id ?? "x")).replace(/\W/g, "");
+  const jarPath = makeJarPath(scale);
+  return (
+    <div className="flex flex-col items-center gap-1.5 rounded-2xl p-3" style={{ background: "var(--bg-surface-1)", border: "1px solid var(--border-default)" }}>
+      <p className="text-xs font-semibold text-center leading-tight" style={{ color, maxWidth: w }}>{goal?.label ?? "Inactive"}</p>
+      <svg width={w} height={h} viewBox={`0 0 ${w} ${h}`}>
+        <defs>
+          <linearGradient id={`mj-gf-${uid}`} x1="0" y1="1" x2="0" y2="0">
+            <stop offset="0%" stopColor={gradEnd} /><stop offset="100%" stopColor={color} />
+          </linearGradient>
+          <clipPath id={`mj-jc-${uid}`}><path d={jarPath} /></clipPath>
+        </defs>
+        <g clipPath={`url(#mj-jc-${uid})`}>
+          {clamp > 0 && <rect x={15*scale} y={yStart} width={90*scale} height={fillH + 15*scale} fill={`url(#mj-gf-${uid})`} rx={4*scale} />}
+        </g>
+        <path d={jarPath} fill="none" stroke="rgba(255,255,255,0.3)" strokeWidth={2*scale} strokeLinejoin="round" />
+        <text x={60*scale} y={92*scale} textAnchor="middle" dominantBaseline="middle" fontSize={17*scale} fontWeight="800" fill={clamp > 0 ? "rgba(255,255,255,0.9)" : "rgba(255,255,255,0.2)"} style={{ fontFamily: "inherit" }}>{Math.round(clamp)}%</text>
+      </svg>
+      <p className="text-sm font-bold" style={{ color }}>{formatCurrency(bal)}</p>
+      <button onClick={onMakeActive} className="w-full text-xs font-semibold py-1.5 rounded-xl" style={{ border: `1px solid ${color}`, color }}>Make Active</button>
+    </div>
+  );
+}
+
 /* ── Cause Tab ── */
 function CauseTab({
   uid,
@@ -356,6 +460,7 @@ function CauseTab({
   onEditCause,
   onDeleteCause,
   onDonate,
+  onDonateToProject,
   onEditDonation,
   onDeleteDonation,
 }: {
@@ -370,6 +475,7 @@ function CauseTab({
   onEditCause: (projectId: string, data: { title: string; sponsor: string; location?: string; goalAmount: number; donationURL?: string }) => Promise<void>;
   onDeleteCause: (projectId: string) => Promise<void>;
   onDonate: (amount: number) => Promise<void>;
+  onDonateToProject: (projectId: string, projectTitle: string, amount: number) => Promise<void>;
   onEditDonation: (donation: DonationEvent, newAmount: number) => Promise<void>;
   onDeleteDonation: (donation: DonationEvent) => Promise<void>;
 }) {
@@ -464,8 +570,7 @@ function CauseTab({
             🌍 Donate →
           </a>
         )}
-        {activeProject?.id === project.id && (
-          donatingId === project.id ? (
+        {donatingId === project.id ? (
             <div className="flex gap-2">
               <div className="relative flex-1">
                 <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-[rgba(237,245,240,0.6)]">$</span>
@@ -508,7 +613,7 @@ function CauseTab({
               💸 I Donated
             </button>
           )
-        )}
+        }
       </div>
     );
   }
@@ -607,23 +712,26 @@ function CauseTab({
         emptyPrompt="👆 Pick a cause below"
       />
 
+      {/* Donate / I Donated — below jar */}
+      {activeProject && <CauseDonateRow project={activeProject} />}
+
       {/* Inactive jars with money */}
       {Object.entries(causeJarBalances ?? {}).filter(([id, bal]) => id !== activeProject?.id && bal > 0).length > 0 && (
         <div>
           <p className="text-xs font-semibold mb-2" style={{ color: "var(--text-muted)" }}>OTHER JARS WITH MONEY</p>
-          <div className="space-y-2">
+          <div className="grid grid-cols-2 gap-3">
             {Object.entries(causeJarBalances ?? {})
               .filter(([id, bal]) => id !== activeProject?.id && bal > 0)
               .map(([id, bal]) => {
                 const proj = projects.find((p) => p.id === id);
                 return (
-                  <div key={id} className="rounded-xl px-4 py-3 flex items-center justify-between" style={{ background: "var(--bg-surface-1)", border: "1px solid var(--border-default)" }}>
-                    <div>
-                      <p className="text-sm font-semibold" style={{ color: "var(--text-primary)" }}>{proj?.title ?? id}</p>
-                      <p className="text-xs" style={{ color: "var(--text-muted)" }}>Inactive jar</p>
-                    </div>
-                    <span className="text-sm font-bold" style={{ color: "var(--coral-primary)" }}>{formatCurrency(bal)}</span>
-                  </div>
+                  <MiniJarCause
+                    key={id}
+                    proj={proj}
+                    bal={bal}
+                    onMakeActive={() => handleSetActive(proj ?? { id, title: id, sponsor: "", goalAmount: 0, isCustom: false } as Project)}
+                    onDonate={async (amt) => { await onDonateToProject(id, proj?.title ?? id, amt); }}
+                  />
                 );
               })}
           </div>
@@ -632,7 +740,7 @@ function CauseTab({
 
       {/* All causes */}
       <div>
-        <p className="text-sm font-semibold text-[rgba(237,245,240,0.6)] mb-3">Causes</p>
+        <p className="text-sm font-semibold text-[rgba(237,245,240,0.85)] mb-3">Causes</p>
         <div className="space-y-3">
           {projects.map((project) => {
             const isActive = activeProject?.id === project.id;
@@ -640,7 +748,7 @@ function CauseTab({
             return (
               <div
                 key={project.id}
-                className="rounded-2xl p-4"
+                className="rounded-2xl p-3"
                 style={{
                   background: isActive ? "rgba(255,255,255,0.04)" : "var(--bg-surface-1)",
                   border: isActive ? "2px solid rgba(255,255,255,0.7)" : "1px solid var(--border-default)",
@@ -769,7 +877,6 @@ function CauseTab({
                         🌍 Donate →
                       </a>
                     )}
-                    {isActive && <CauseDonateRow project={project} />}
                   </>
                 )}
               </div>
@@ -777,9 +884,76 @@ function CauseTab({
           })}
         </div>
 
+        {/* Add your own cause */}
+        {showAddForm ? (
+          <div className="mt-3 rounded-2xl p-4 space-y-3" style={{ background: "var(--bg-surface-1)", border: "1px solid var(--border-default)" }}>
+            <p className="text-sm font-semibold" style={{ color: "var(--text-primary)" }}>Add your own cause</p>
+            <input
+              type="text"
+              placeholder="Cause (e.g. A Student's Yearly Education)"
+              value={customTitle}
+              onChange={(e) => setCustomTitle(e.target.value)}
+              className="w-full rounded-xl px-3 py-2.5 text-sm focus:outline-none" style={{ background: "var(--bg-surface-2)", border: "1px solid var(--border-default)", color: "var(--text-primary)" }}
+            />
+            <input
+              type="text"
+              placeholder="Organisation (e.g. Caring for Cambodia)"
+              value={customSponsor}
+              onChange={(e) => setCustomSponsor(e.target.value)}
+              className="w-full rounded-xl px-3 py-2.5 text-sm focus:outline-none" style={{ background: "var(--bg-surface-2)", border: "1px solid var(--border-default)", color: "var(--text-primary)" }}
+            />
+            <input
+              type="text"
+              placeholder="Location (optional, e.g. Cambodia)"
+              value={customLocation}
+              onChange={(e) => setCustomLocation(e.target.value)}
+              className="w-full rounded-xl px-3 py-2.5 text-sm focus:outline-none" style={{ background: "var(--bg-surface-2)", border: "1px solid var(--border-default)", color: "var(--text-primary)" }}
+            />
+            <div className="relative">
+              <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-[rgba(237,245,240,0.6)]">$</span>
+              <input
+                type="number"
+                placeholder="Skipped Amount Needed"
+                value={customGoalStr}
+                onChange={(e) => setCustomGoalStr(e.target.value)}
+                className="w-full pl-7 rounded-xl px-3 py-2.5 text-sm focus:outline-none" style={{ background: "var(--bg-surface-2)", border: "1px solid var(--border-default)", color: "var(--text-primary)" }}
+              />
+            </div>
+            <input
+              type="url"
+              placeholder="Donation link (optional)"
+              value={customURL}
+              onChange={(e) => setCustomURL(e.target.value)}
+              className="w-full rounded-xl px-3 py-2.5 text-sm focus:outline-none" style={{ background: "var(--bg-surface-2)", border: "1px solid var(--border-default)", color: "var(--text-primary)" }}
+            />
+            <div className="flex gap-2">
+              <button
+                onClick={handleAddCause}
+                disabled={addingCause || !customTitle.trim()}
+                className="flex-1 bg-[#2ECC71] text-[#0B1A14] font-semibold py-2.5 rounded-xl text-sm disabled:opacity-50"
+              >
+                {addingCause ? "Saving…" : "Save"}
+              </button>
+              <button
+                onClick={() => { setShowAddForm(false); setCustomTitle(""); setCustomSponsor(""); setCustomLocation(""); setCustomGoalStr(""); setCustomURL(""); }}
+                className="px-4 py-2.5 border-[rgba(46,204,113,0.12)] text-[rgba(237,245,240,0.6)] font-semibold rounded-xl text-sm hover:text-[#EDF5F0] transition-colors"
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
+        ) : (
+          <button
+            onClick={() => setShowAddForm(true)}
+            className="mt-3 w-full py-2.5 border border-dashed border-[rgba(46,204,113,0.25)] text-[rgba(237,245,240,0.6)] font-semibold rounded-xl hover:border-[#2ECC71] hover:text-[#2ECC71] transition-colors text-sm"
+          >
+            ＋ Add your own cause
+          </button>
+        )}
+
         {/* Donation history */}
         <div className="mt-4">
-          <p className="text-xs font-semibold text-[rgba(237,245,240,0.6)] uppercase tracking-wide mb-2">Donations</p>
+          <p className="text-xs font-semibold text-[rgba(237,245,240,0.85)] uppercase tracking-wide mb-2">Donations</p>
           {donations.length === 0 ? (
             <p className="text-xs text-[rgba(237,245,240,0.35)] py-2">No donations yet — your jar doesn&apos;t need to be full to give!</p>
           ) : (
@@ -852,71 +1026,6 @@ function CauseTab({
           )}
         </div>
 
-        {showAddForm ? (
-          <div className="mt-3 rounded-2xl p-4 space-y-3" style={{ background: "var(--bg-surface-1)", border: "1px solid var(--border-default)" }}>
-            <p className="text-sm font-semibold" style={{ color: "var(--text-primary)" }}>Add your own cause</p>
-            <input
-              type="text"
-              placeholder="Cause (e.g. A Student's Yearly Education)"
-              value={customTitle}
-              onChange={(e) => setCustomTitle(e.target.value)}
-              className="w-full rounded-xl px-3 py-2.5 text-sm focus:outline-none" style={{ background: "var(--bg-surface-2)", border: "1px solid var(--border-default)", color: "var(--text-primary)" }}
-            />
-            <input
-              type="text"
-              placeholder="Organisation (e.g. Caring for Cambodia)"
-              value={customSponsor}
-              onChange={(e) => setCustomSponsor(e.target.value)}
-              className="w-full rounded-xl px-3 py-2.5 text-sm focus:outline-none" style={{ background: "var(--bg-surface-2)", border: "1px solid var(--border-default)", color: "var(--text-primary)" }}
-            />
-            <input
-              type="text"
-              placeholder="Location (optional, e.g. Cambodia)"
-              value={customLocation}
-              onChange={(e) => setCustomLocation(e.target.value)}
-              className="w-full rounded-xl px-3 py-2.5 text-sm focus:outline-none" style={{ background: "var(--bg-surface-2)", border: "1px solid var(--border-default)", color: "var(--text-primary)" }}
-            />
-            <div className="relative">
-              <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-[rgba(237,245,240,0.6)]">$</span>
-              <input
-                type="number"
-                placeholder="Skipped Amount Needed"
-                value={customGoalStr}
-                onChange={(e) => setCustomGoalStr(e.target.value)}
-                className="w-full pl-7 rounded-xl px-3 py-2.5 text-sm focus:outline-none" style={{ background: "var(--bg-surface-2)", border: "1px solid var(--border-default)", color: "var(--text-primary)" }}
-              />
-            </div>
-            <input
-              type="url"
-              placeholder="Donation link (optional)"
-              value={customURL}
-              onChange={(e) => setCustomURL(e.target.value)}
-              className="w-full rounded-xl px-3 py-2.5 text-sm focus:outline-none" style={{ background: "var(--bg-surface-2)", border: "1px solid var(--border-default)", color: "var(--text-primary)" }}
-            />
-            <div className="flex gap-2">
-              <button
-                onClick={handleAddCause}
-                disabled={addingCause || !customTitle.trim()}
-                className="flex-1 bg-[#2ECC71] text-[#0B1A14] font-semibold py-2.5 rounded-xl text-sm disabled:opacity-50"
-              >
-                {addingCause ? "Saving…" : "Save"}
-              </button>
-              <button
-                onClick={() => { setShowAddForm(false); setCustomTitle(""); setCustomSponsor(""); setCustomLocation(""); setCustomGoalStr(""); setCustomURL(""); }}
-                className="px-4 py-2.5 border-[rgba(46,204,113,0.12)] text-[rgba(237,245,240,0.6)] font-semibold rounded-xl text-sm hover:text-[#EDF5F0] transition-colors"
-              >
-                Cancel
-              </button>
-            </div>
-          </div>
-        ) : (
-          <button
-            onClick={() => setShowAddForm(true)}
-            className="mt-3 w-full py-2.5 border border-dashed border-[rgba(46,204,113,0.25)] text-[rgba(237,245,240,0.6)] font-semibold rounded-xl hover:border-[#2ECC71] hover:text-[#2ECC71] transition-colors text-sm"
-          >
-            ＋ Add your own cause
-          </button>
-        )}
       </div>
     </div>
   );
@@ -1113,19 +1222,18 @@ function SplurgeTab({
       {Object.entries(goalJarBalances ?? {}).filter(([id, bal]) => id !== activeGoalId && bal > 0).length > 0 && (
         <div>
           <p className="text-xs font-semibold mb-2" style={{ color: "var(--text-muted)" }}>OTHER JARS WITH MONEY</p>
-          <div className="space-y-2">
+          <div className="grid grid-cols-2 gap-3">
             {Object.entries(goalJarBalances ?? {})
               .filter(([id, bal]) => id !== activeGoalId && bal > 0)
               .map(([id, bal]) => {
                 const goal = goals.find((g) => g.id === id);
                 return (
-                  <div key={id} className="rounded-xl px-4 py-3 flex items-center justify-between" style={{ background: "var(--bg-surface-1)", border: "1px solid var(--border-default)" }}>
-                    <div>
-                      <p className="text-sm font-semibold" style={{ color: "var(--text-primary)" }}>{goal?.label ?? id}</p>
-                      <p className="text-xs" style={{ color: "var(--text-muted)" }}>Inactive jar</p>
-                    </div>
-                    <span className="text-sm font-bold" style={{ color: "#8B5CF6" }}>{formatCurrency(bal)}</span>
-                  </div>
+                  <MiniJarGoal
+                    key={id}
+                    goal={goal}
+                    bal={bal}
+                    onMakeActive={() => handleSetActiveGoalWithCheck(goal ?? { id, label: id, targetAmount: 0, type: "splurge" })}
+                  />
                 );
               })}
           </div>
@@ -1149,7 +1257,7 @@ function SplurgeTab({
             return (
               <div
                 key={goal.id}
-                className="rounded-2xl p-4 transition-all"
+                className="rounded-2xl p-3 transition-all"
                 style={{
                   background: isActive ? "rgba(255,255,255,0.04)" : "var(--bg-surface-1)",
                   border: isActive ? "2px solid rgba(255,255,255,0.7)" : "1px solid var(--border-default)",
@@ -1437,7 +1545,7 @@ function SplurgeTab({
 
       {/* Spending history */}
       <div>
-        <p className="text-xs font-semibold text-[rgba(237,245,240,0.6)] uppercase tracking-wide mb-2 mt-2">History</p>
+        <p className="text-xs font-semibold text-[rgba(237,245,240,0.85)] uppercase tracking-wide mb-2 mt-2">History</p>
         {spendingHistory.length === 0 ? (
           <p className="text-xs text-[rgba(237,245,240,0.35)] py-2">No purchases yet — complete a goal to log it here.</p>
         ) : (

@@ -279,7 +279,7 @@ export default function HomePage() {
       </div>
 
       {/* Greeting + streak */}
-      <div className="flex items-start justify-between mb-5">
+      <div className="flex items-start justify-between mb-8">
         <div>
           <h1 className="text-2xl font-black" style={{ color: "var(--text-primary)" }}>Hey, {firstName} 👋</h1>
           <p className="mt-0.5 text-sm" style={{ color: "var(--text-muted)" }}>Skip, Give, Live.</p>

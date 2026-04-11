@@ -24,7 +24,6 @@ export function SkipModal({ onClose }: Props) {
   const [amountStr, setAmountStr] = useState("");
   const [customLabel, setCustomLabel] = useState("");
   const [whatSkipped, setWhatSkipped] = useState("");
-  const [notes, setNotes] = useState("");
   const [shareWithCommunity, setShareWithCommunity] = useState(false);
   const [projectId] = useState<string | null>(profile?.activeProjectId ?? null);
   const [success, setSuccess] = useState(false);
@@ -50,7 +49,6 @@ export function SkipModal({ onClose }: Props) {
       projectLocation: selectedProject?.location ?? null,
       shareWithCommunity,
       whatSkipped: whatSkipped || undefined,
-      notes: notes || undefined,
       jarSplit: { give: skipGivePct, live: 100 - skipGivePct },
     });
     if (result) {
@@ -292,23 +290,6 @@ export function SkipModal({ onClose }: Props) {
                 }}
               />
             )}
-          </div>
-
-          {/* Notes */}
-          <div>
-            <label className="block text-sm font-medium mb-2" style={{ color: "var(--text-primary)" }}>Personal notes (optional)</label>
-            <textarea
-              value={notes}
-              onChange={(e) => setNotes(e.target.value)}
-              placeholder="Any thoughts?"
-              rows={2}
-              className="w-full rounded-xl px-4 py-3 text-sm focus:outline-none resize-none"
-              style={{
-                background: "var(--bg-surface-2)",
-                border: "1px solid var(--border-default)",
-                color: "var(--text-primary)",
-              }}
-            />
           </div>
 
           {/* Share toggle */}
