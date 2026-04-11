@@ -253,6 +253,22 @@ export async function recordDonation(uid: string, amount: number, projectId: str
   await batch.commit();
 }
 
+export async function recordPurchase(uid: string, goalId: string, goalLabel: string, targetAmount: number, amount: number): Promise<void> {
+  const batch = writeBatch(db);
+  batch.set(doc(collection(db, "users", uid, "spendingHistory")), {
+    goalId,
+    label: goalLabel,
+    targetAmount,
+    amountSaved: amount,
+    purchasedAt: serverTimestamp(),
+  });
+  batch.update(doc(db, "users", uid), {
+    totalSpent: increment(amount),
+    [`goalJarBalances.${goalId}`]: increment(-amount),
+  });
+  await batch.commit();
+}
+
 export function subscribeToDonations(uid: string, callback: (donations: DonationEvent[]) => void): Unsubscribe {
   const q = query(collection(db, "users", uid, "donations"), orderBy("donatedAt", "desc"), limit(50));
   return onSnapshot(q, (snap) => callback(snap.docs.map((d) => ({ id: d.id, ...d.data() } as DonationEvent))));

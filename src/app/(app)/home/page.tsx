@@ -224,9 +224,7 @@ export default function HomePage() {
   const givingBalance = activeProject && profile.causeJarBalances !== undefined
     ? Math.max(0, profile.causeJarBalances[activeProject.id] ?? 0)
     : globalGivingBalance;
-  const spendingBalance = activeGoal && profile.goalJarBalances !== undefined
-    ? Math.max(0, profile.goalJarBalances[activeGoal.id] ?? 0)
-    : globalSpendingBalance;
+  const spendingBalance = globalSpendingBalance;
 
   const goalAmount = activeProject?.goalAmount ?? 0;
   const givingFillPct = goalAmount > 0 ? Math.min(100, (givingBalance / goalAmount) * 100) : 0;
