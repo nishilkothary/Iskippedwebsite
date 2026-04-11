@@ -153,24 +153,6 @@ function JarsPageInner() {
         {activeTab === "cause" ? "🤲 Give a Little" : "😊 Live a Little"}
       </h1>
 
-      {/* Tab row */}
-      <div className="flex gap-2 mb-6 p-1 rounded-xl" style={{ background: "var(--bg-surface-1)", border: "1px solid var(--border-default)" }}>
-        {tabs.map((t) => (
-          <button
-            key={t.id}
-            onClick={() => setActiveTab(t.id)}
-            className="flex-1 py-2 text-sm font-semibold rounded-lg transition-all"
-            style={
-              activeTab === t.id
-                ? { background: "linear-gradient(135deg, var(--gold-cta), var(--gold-light))", color: "var(--bg-base)", boxShadow: "0 2px 10px var(--gold-glow)" }
-                : { color: "var(--text-muted)" }
-            }
-          >
-            {t.emoji} {t.label}
-          </button>
-        ))}
-      </div>
-
       {activeTab === "cause" && (
         <CauseTab
           uid={user.uid}
@@ -227,33 +209,107 @@ export default function JarsPage() {
   );
 }
 
-function JarHeader({ color, label, amount, fillPct, emptyPrompt }: {
+function JarPreview({ fillPct, color, gradEnd, label, amount, emptyPrompt }: {
+  fillPct: number;
   color: string;
+  gradEnd: string;
   label: string | null;
   amount: string;
-  fillPct: number;
   emptyPrompt: string;
 }) {
+  const clamp = Math.min(Math.max(fillPct, 0), 100);
+  const w = 130;
+  const h = 185;
+  const scale = w / 120;
+  const fillH = (clamp / 100) * 120 * scale;
+  const jarH = 170 * scale;
+  const yStart = jarH - fillH;
+  const uid = (label ?? "empty").replace(/\W/g, "");
+
+  const jarPath = [
+    `M${20*scale},${40*scale}`,
+    `Q${20*scale},${40*scale} ${25*scale},${35*scale}`,
+    `L${35*scale},${30*scale}`,
+    `Q${40*scale},${28*scale} ${42*scale},${25*scale}`,
+    `L${42*scale},${15*scale}`,
+    `Q${42*scale},${10*scale} ${48*scale},${10*scale}`,
+    `L${72*scale},${10*scale}`,
+    `Q${78*scale},${10*scale} ${78*scale},${15*scale}`,
+    `L${78*scale},${25*scale}`,
+    `Q${80*scale},${28*scale} ${85*scale},${30*scale}`,
+    `L${95*scale},${35*scale}`,
+    `Q${100*scale},${40*scale} ${100*scale},${45*scale}`,
+    `L${100*scale},${155*scale}`,
+    `Q${100*scale},${170*scale} ${85*scale},${170*scale}`,
+    `L${35*scale},${170*scale}`,
+    `Q${20*scale},${170*scale} ${20*scale},${155*scale}`,
+    `Z`,
+  ].join(" ");
+
   return (
-    <div className="rounded-2xl p-5 mb-1" style={{
-      background: "var(--bg-surface-1)",
-      border: `2px solid ${label ? color : "rgba(46,204,113,0.12)"}`,
-      transition: "border-color 0.3s",
-    }}>
-      {label ? (
-        <>
-          <div className="flex items-start justify-between gap-2 mb-3">
-            <p className="font-bold text-base leading-snug" style={{ color: "var(--text-primary)" }}>{label}</p>
-            <span className="text-lg font-black flex-shrink-0" style={{ color }}>{amount}</span>
-          </div>
-          <div className="h-2 rounded-full overflow-hidden" style={{ background: "var(--bg-surface-3)" }}>
-            <div className="h-full rounded-full transition-all duration-700" style={{ background: color, width: `${Math.min(100, Math.max(0, fillPct))}%` }} />
-          </div>
-          <p className="text-xs mt-1.5" style={{ color: "var(--text-muted)" }}>{Math.round(Math.min(100, Math.max(0, fillPct)))}% toward goal</p>
-        </>
-      ) : (
-        <p className="text-center text-sm font-semibold py-2" style={{ color: "var(--text-muted)" }}>{emptyPrompt}</p>
-      )}
+    <div className="flex flex-col items-center mb-5">
+      <div style={{
+        fontSize: label ? 14 : 13,
+        fontWeight: label ? 700 : 600,
+        color: label ? color : "rgba(255,255,255,0.55)",
+        textAlign: "center",
+        marginBottom: 6,
+        maxWidth: w,
+        lineHeight: 1.3,
+        padding: "0 4px",
+      }}>
+        {label ?? emptyPrompt}
+      </div>
+
+      <svg width={w} height={h} viewBox={`0 0 ${w} ${h}`}>
+        <defs>
+          <linearGradient id={`jp-gf-${uid}`} x1="0" y1="1" x2="0" y2="0">
+            <stop offset="0%" stopColor={gradEnd} />
+            <stop offset="100%" stopColor={color} />
+          </linearGradient>
+          <clipPath id={`jp-jc-${uid}`}>
+            <path d={jarPath} />
+          </clipPath>
+        </defs>
+
+        <g clipPath={`url(#jp-jc-${uid})`}>
+          {clamp > 0 && (
+            <rect
+              x={15*scale} y={yStart}
+              width={90*scale} height={fillH + 15*scale}
+              fill={`url(#jp-gf-${uid})`}
+              rx={4*scale}
+            >
+              <animate attributeName="y" from={jarH} to={yStart} dur="1.2s" fill="freeze" calcMode="spline" keySplines="0.25 0.1 0.25 1" />
+            </rect>
+          )}
+          {clamp > 10 && (
+            <circle cx={40*scale} cy={yStart + fillH*0.4} r={3*scale} fill="rgba(255,255,255,0.2)">
+              <animate attributeName="cy" values={`${yStart+fillH*0.7};${yStart+fillH*0.1}`} dur="3s" repeatCount="indefinite" />
+            </circle>
+          )}
+        </g>
+
+        <path d={jarPath} fill="none" stroke="rgba(255,255,255,0.3)" strokeWidth={2*scale} strokeLinejoin="round" />
+
+        <text x={60*scale} y={92*scale} textAnchor="middle" dominantBaseline="middle"
+          fontSize={17*scale} fontWeight="800"
+          fill={clamp > 0 ? "rgba(255,255,255,0.9)" : "rgba(255,255,255,0.2)"}
+          style={{ fontFamily: "inherit" }}>
+          {Math.round(clamp)}%
+        </text>
+        {clamp > 0 && (
+          <text x={60*scale} y={112*scale} textAnchor="middle" dominantBaseline="middle"
+            fontSize={7*scale} fontWeight="600" fill="rgba(255,255,255,0.5)"
+            style={{ fontFamily: "inherit" }}>
+            to goal
+          </text>
+        )}
+      </svg>
+
+      <div style={{ fontSize: 26, fontWeight: 800, color: label ? "var(--text-primary)" : "var(--text-muted)", marginTop: 2 }}>
+        {amount}
+      </div>
     </div>
   );
 }
@@ -447,7 +503,17 @@ function CauseTab({
                 onClick={() => { setSwitchTarget(null); setDonatingId(activeProject?.id ?? null); }}
               >
                 <p className="text-sm font-semibold" style={{ color: "var(--text-primary)" }}>💸 Donate first</p>
-                <p className="text-xs mt-0.5" style={{ color: "var(--text-secondary)" }}>Empty your current jar before switching</p>
+                <p className="text-xs mt-0.5" style={{ color: "var(--text-secondary)" }}>Log a donation, then switch</p>
+              </button>
+              <button
+                className="w-full text-left px-5 py-4 transition-colors"
+                style={{ borderBottom: "1px solid var(--border-default)" }}
+                onMouseEnter={(e) => (e.currentTarget as HTMLElement).style.background = "var(--bg-surface-2)"}
+                onMouseLeave={(e) => (e.currentTarget as HTMLElement).style.background = "transparent"}
+                onClick={() => { onSelectCause(switchTarget); setSwitchTarget(null); }}
+              >
+                <p className="text-sm font-semibold" style={{ color: "var(--text-primary)" }}>→ Switch &amp; move balance to {switchTarget.title}</p>
+                <p className="text-xs mt-0.5" style={{ color: "var(--text-secondary)" }}>Existing savings count toward the new cause</p>
               </button>
               <button
                 className="w-full text-left px-5 py-4 transition-colors"
@@ -455,8 +521,8 @@ function CauseTab({
                 onMouseLeave={(e) => (e.currentTarget as HTMLElement).style.background = "transparent"}
                 onClick={() => { onSelectCause(switchTarget); setSwitchTarget(null); }}
               >
-                <p className="text-sm font-semibold" style={{ color: "var(--text-primary)" }}>→ Move funds to {switchTarget.title}</p>
-                <p className="text-xs mt-0.5" style={{ color: "var(--text-secondary)" }}>Your balance will count toward the new cause</p>
+                <p className="text-sm font-semibold" style={{ color: "var(--text-primary)" }}>🫙 Keep existing money in jar, switch for new skips</p>
+                <p className="text-xs mt-0.5" style={{ color: "var(--text-secondary)" }}>Current balance stays, new skips go to {switchTarget.title}</p>
               </button>
             </div>
             <div className="px-5 pb-5 pt-2">
@@ -500,13 +566,14 @@ function CauseTab({
         </div>
       )}
 
-      {/* Jar header */}
-      <JarHeader
-        color="var(--coral-primary)"
+      {/* Jar preview */}
+      <JarPreview
+        color="#E8637A"
+        gradEnd="#C44D62"
         label={activeProject?.title ?? null}
         amount={formatCurrency(givingBalance)}
         fillPct={activeProject && activeProject.goalAmount > 0 ? (givingBalance / activeProject.goalAmount) * 100 : (givingBalance > 0 ? 100 : 0)}
-        emptyPrompt="👆 Pick a cause below to start your jar"
+        emptyPrompt="👆 Pick a cause below"
       />
 
       {/* All causes */}
@@ -521,8 +588,8 @@ function CauseTab({
                 key={project.id}
                 className="rounded-2xl p-4"
                 style={{
-                  background: isActive ? "rgba(232,99,122,0.05)" : "var(--bg-surface-1)",
-                  border: isActive ? "2px solid var(--coral-primary)" : "1px solid var(--border-default)",
+                  background: isActive ? "rgba(255,255,255,0.04)" : "var(--bg-surface-1)",
+                  border: isActive ? "2px solid rgba(255,255,255,0.7)" : "1px solid var(--border-default)",
                 }}
               >
                 {isEditing ? (
@@ -953,6 +1020,15 @@ function SplurgeTab({
                 <p className="text-sm font-semibold" style={{ color: "var(--text-primary)" }}>→ Move funds to {switchTarget.label}</p>
                 <p className="text-xs mt-0.5" style={{ color: "var(--text-secondary)" }}>Your balance will count toward the new goal</p>
               </button>
+              <button
+                className="w-full text-left px-5 py-4 transition-colors"
+                onMouseEnter={(e) => (e.currentTarget as HTMLElement).style.background = "var(--bg-surface-2)"}
+                onMouseLeave={(e) => (e.currentTarget as HTMLElement).style.background = "transparent"}
+                onClick={() => { onSetActiveGoal(switchTarget.id); setSwitchTarget(null); }}
+              >
+                <p className="text-sm font-semibold" style={{ color: "var(--text-primary)" }}>🫙 Keep existing money in jar, switch for new skips</p>
+                <p className="text-xs mt-0.5" style={{ color: "var(--text-secondary)" }}>Current balance stays, new skips go to {switchTarget.label}</p>
+              </button>
             </div>
             <div className="px-5 pb-5 pt-2">
               <button
@@ -967,13 +1043,14 @@ function SplurgeTab({
         </div>
       )}
 
-      {/* Jar header */}
-      <JarHeader
+      {/* Jar preview */}
+      <JarPreview
         color="#8B5CF6"
+        gradEnd="#6D28D9"
         label={activeGoal?.label ?? null}
         amount={formatCurrency(spendingBalance)}
         fillPct={activeGoal ? (spendingBalance / activeGoal.targetAmount) * 100 : 0}
-        emptyPrompt="👆 Pick a goal below to start your jar"
+        emptyPrompt="👆 Pick a goal below"
       />
 
       <div className="flex items-center justify-between mb-1">
@@ -995,8 +1072,8 @@ function SplurgeTab({
                 key={goal.id}
                 className="rounded-2xl p-4 transition-all"
                 style={{
-                  background: isActive ? "rgba(139,92,246,0.07)" : "var(--bg-surface-1)",
-                  border: isActive ? "2px solid #8B5CF6" : "1px solid var(--border-default)",
+                  background: isActive ? "rgba(255,255,255,0.04)" : "var(--bg-surface-1)",
+                  border: isActive ? "2px solid rgba(255,255,255,0.7)" : "1px solid var(--border-default)",
                 }}
               >
                 {isEditing ? (

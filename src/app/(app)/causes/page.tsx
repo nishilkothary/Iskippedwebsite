@@ -9,8 +9,6 @@ import { DonationLogModal } from "@/components/skip/DonationLogModal";
 import { EditDonationModal } from "@/components/skip/EditDonationModal";
 import { DonationEvent } from "@/lib/types/models";
 
-const CFC_TITLE = "Caring for Cambodia";
-
 export default function CausesPage() {
   const { projects, loading } = useProjects();
   const { user, profile, updateProfile } = useAuthStore();
@@ -18,7 +16,7 @@ export default function CausesPage() {
   const [showDonationModal, setShowDonationModal] = useState(false);
   const [editingDonation, setEditingDonation] = useState<DonationEvent | null>(null);
 
-  const cfcProject = projects.find((p) => p.title === CFC_TITLE || p.title?.includes("Cambodia"));
+  const cfcProject = projects.find((p) => p.id === "cfc" || p.title?.includes("Student") || p.title?.includes("Cambodia"));
   const availableToDonate = (profile?.totalSaved ?? 0) - (profile?.totalDonated ?? 0);
 
   useEffect(() => {
@@ -39,11 +37,11 @@ export default function CausesPage() {
     <div className="p-4 md:p-8 max-w-2xl mx-auto pb-20 md:pb-8">
       {/* Org header */}
       <div className="mb-8">
-        <h1 className="text-2xl font-bold" style={{ color: "var(--text-primary)" }}>Caring for Cambodia</h1>
-        <p className="font-medium mt-0.5" style={{ color: "var(--green-primary)" }}>Educating the children of Cambodia</p>
+        <h1 className="text-2xl font-bold" style={{ color: "var(--text-primary)" }}>{cfcProject?.title ?? "A Student's Education"}</h1>
+        <p className="font-medium mt-0.5" style={{ color: "var(--green-primary)" }}>{cfcProject?.sponsor ?? "Caring for Cambodia"}{cfcProject?.location ? ` · ${cfcProject.location}` : ""}</p>
         <p className="text-sm mt-3 leading-relaxed" style={{ color: "var(--text-secondary)" }}>
           {cfcProject?.description ||
-            "Caring for Cambodia has provided free, quality education to thousands of Cambodian children since 2003. 100% of funds go directly to students."}
+            "Your savings fund a full year of quality education for a child in Cambodia, including tuition, uniforms, and school supplies."}
         </p>
         <a
           href="https://www.caringforcambodia.org"
@@ -150,7 +148,7 @@ export default function CausesPage() {
       {showDonationModal && (
         <DonationLogModal
           projectId={cfcProject?.id ?? "caring-for-cambodia"}
-          projectTitle={cfcProject?.title ?? "Caring for Cambodia"}
+          projectTitle={cfcProject?.title ?? "A Student's Yearly Education"}
           onClose={() => setShowDonationModal(false)}
         />
       )}

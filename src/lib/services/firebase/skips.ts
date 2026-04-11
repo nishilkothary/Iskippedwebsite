@@ -27,6 +27,7 @@ export interface LogSkipParams {
   amount: number;
   projectId: string | null;
   projectTitle: string | null;
+  projectLocation?: string | null;
   currentTotalSaved: number;
   currentTotalSkips: number;
   currentXp: number;
@@ -46,11 +47,13 @@ export interface LogSkipParams {
 export async function logSkip(params: LogSkipParams): Promise<{ skipId: string; newTotal: number; newXp: number; newLevel: number; newStreak: number }> {
   const {
     uid, category, categoryLabel, categoryEmoji, amount,
-    projectId, projectTitle, currentTotalSaved, currentTotalSkips,
+    projectId, projectTitle, projectLocation, currentTotalSaved, currentTotalSkips,
     currentXp, currentStreak, currentLongestStreak, lastSkipDate,
     savedTowardActiveCause, shareWithCommunity, whatSkipped, notes,
     jarSplit, defaultJarSplit, displayName, photoURL,
   } = params;
+  const locationSuffix = projectLocation ? ` in ${projectLocation}` : "";
+  const causeSuffix = projectTitle ? ` for ${projectTitle}${locationSuffix}` : "";
 
   const effectiveSplit = jarSplit ?? defaultJarSplit ?? { give: 50, live: 50 };
   const giveAmount = amount * (effectiveSplit.give / 100);
@@ -129,7 +132,7 @@ export async function logSkip(params: LogSkipParams): Promise<{ skipId: string; 
     skipCategory: category,
     skipEmoji: categoryEmoji,
     projectTitle,
-    message: `skipped ${categoryLabel} and saved ${formatAmount(amount)}`,
+    message: `skipped ${categoryLabel} and saved ${formatAmount(amount)}${causeSuffix}`,
     createdAt: serverTimestamp(),
   });
 
@@ -168,7 +171,7 @@ export async function logSkip(params: LogSkipParams): Promise<{ skipId: string; 
         skipCategory: category,
         skipEmoji: categoryEmoji,
         projectTitle,
-        message: `skipped ${categoryLabel} and saved ${formatAmount(amount)}`,
+        message: `skipped ${categoryLabel} and saved ${formatAmount(amount)}${causeSuffix}`,
         createdAt: serverTimestamp(),
       });
       await communityBatch.commit();

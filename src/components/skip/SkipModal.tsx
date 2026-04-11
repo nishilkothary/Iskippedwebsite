@@ -25,11 +25,12 @@ export function SkipModal({ onClose }: Props) {
   const [customLabel, setCustomLabel] = useState("");
   const [whatSkipped, setWhatSkipped] = useState("");
   const [notes, setNotes] = useState("");
-  const [shareWithCommunity, setShareWithCommunity] = useState(true);
+  const [shareWithCommunity, setShareWithCommunity] = useState(false);
   const [projectId] = useState<string | null>(profile?.activeProjectId ?? null);
   const [success, setSuccess] = useState(false);
   const [copied, setCopied] = useState(false);
   const [successProjectTitle, setSuccessProjectTitle] = useState<string | null>(null);
+  const [successProjectLocation, setSuccessProjectLocation] = useState<string | null>(null);
   const [skipGivePct, setSkipGivePct] = useState(profileSplit.give);
 
   function handleCatSelect(cat: typeof defaultCat) {
@@ -46,6 +47,7 @@ export function SkipModal({ onClose }: Props) {
       amount,
       projectId,
       projectTitle: selectedProject?.title ?? null,
+      projectLocation: selectedProject?.location ?? null,
       shareWithCommunity,
       whatSkipped: whatSkipped || undefined,
       notes: notes || undefined,
@@ -53,6 +55,7 @@ export function SkipModal({ onClose }: Props) {
     });
     if (result) {
       setSuccessProjectTitle(selectedProject?.title ?? null);
+      setSuccessProjectLocation(selectedProject?.location ?? null);
       setSuccess(true);
     }
   }
@@ -74,8 +77,8 @@ export function SkipModal({ onClose }: Props) {
 
     const itemLabel = whatSkipped || customLabel || selectedCat.label.toLowerCase();
     const causeTitle = successProjectTitle ?? "a good cause";
-    const causeSentence = causeTitle.charAt(0).toLowerCase() + causeTitle.slice(1);
-    const shareText = `I skipped ${itemLabel} and saved ${formatCurrency(skipGive)} for ${causeSentence}! Every skip makes a difference. Join the movement on Iskipped.com`;
+    const locationPart = successProjectLocation ? ` in ${successProjectLocation}` : "";
+    const shareText = `I skipped ${itemLabel} and saved ${formatCurrency(skipGive)} for ${causeTitle}${locationPart} Every skip makes a difference. Join the movement on Iskipped.com`;
 
     return (
       <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4" onClick={onClose}>
