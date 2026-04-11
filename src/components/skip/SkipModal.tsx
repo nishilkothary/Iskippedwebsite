@@ -95,17 +95,11 @@ export function SkipModal({ onClose }: Props) {
           <div className="mt-4 rounded-xl p-4 space-y-2 text-left" style={{ background: "var(--bg-surface-2)", border: "1px solid var(--border-default)" }}>
             <div className="flex items-center justify-between">
               <span className="text-sm" style={{ color: "var(--text-secondary)" }}>🤲 {successActiveProject?.title ?? "Give a little"}</span>
-              <div className="text-right">
-                <span className="text-sm font-bold" style={{ color: "var(--coral-primary)" }}>{skipGivePct}%</span>
-                <span className="text-xs ml-1" style={{ color: "var(--text-muted)" }}>+{formatCurrency(skipGive)}</span>
-              </div>
+              <span className="text-sm font-bold" style={{ color: "var(--coral-primary)" }}>+{formatCurrency(skipGive)}</span>
             </div>
             <div className="flex items-center justify-between">
               <span className="text-sm" style={{ color: "var(--text-secondary)" }}>😊 {spendingGoalLabel}</span>
-              <div className="text-right">
-                <span className="text-sm font-bold" style={{ color: "#2BBAA4" }}>{100 - skipGivePct}%</span>
-                <span className="text-xs ml-1" style={{ color: "var(--text-muted)" }}>+{formatCurrency(skipLive)}</span>
-              </div>
+              <span className="text-sm font-bold" style={{ color: "#2BBAA4" }}>+{formatCurrency(skipLive)}</span>
             </div>
           </div>
 
@@ -115,7 +109,7 @@ export function SkipModal({ onClose }: Props) {
               readOnly
               value={shareText}
               onFocus={(e) => e.target.select()}
-              rows={3}
+              rows={5}
               className="w-full rounded-xl px-3 py-2 text-sm resize-none focus:outline-none"
               style={{
                 background: "var(--bg-surface-2)",

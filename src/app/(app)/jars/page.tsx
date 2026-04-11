@@ -1196,7 +1196,7 @@ function SplurgeTab({
                         value={editAmount}
                         onChange={(e) => setEditAmount(e.target.value)}
                         className="w-full pl-7 rounded-xl px-3 py-2 text-sm focus:outline-none" style={{ background: "var(--bg-surface-2)", border: "1px solid var(--border-default)", color: "var(--text-primary)" }}
-                        placeholder="Target amount"
+                        placeholder="Skipped Amount Needed"
                       />
                     </div>
                     <input
@@ -1232,7 +1232,7 @@ function SplurgeTab({
                     <div className="flex items-start justify-between gap-2">
                       <div className="flex-1 min-w-0">
                         <p className="font-extrabold text-[#EDF5F0] text-base">{goal.label}</p>
-                        <p className="text-xs text-[rgba(237,245,240,0.6)] mt-0.5">Goal: {formatCurrency(goal.targetAmount)}</p>
+                        <p className="text-xs text-[rgba(237,245,240,0.6)] mt-0.5">Skipped Amount Needed: {formatCurrency(goal.targetAmount)}</p>
                       </div>
                       <div className="flex items-center gap-1.5 flex-shrink-0">
                         <button
