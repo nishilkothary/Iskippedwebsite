@@ -62,18 +62,16 @@ function Jar({ fillPercent, color, gradEnd, label, amount, emoji, causeLabel, hr
       onClick={onClick}
     >
       <div style={{
-        fontSize: 12, fontWeight: causeLabel ? 700 : 500,
-        color: causeLabel ? color : "rgba(255,255,255,0.3)",
+        fontSize: causeLabel ? 14 : 13,
+        fontWeight: causeLabel ? 700 : 600,
+        color: causeLabel ? color : "rgba(255,255,255,0.75)",
         textAlign: "center",
         maxWidth: w,
-        lineHeight: 1.3,
+        lineHeight: 1.35,
         letterSpacing: 0.2,
         padding: "0 4px",
-        whiteSpace: "nowrap",
-        overflow: "hidden",
-        textOverflow: "ellipsis",
       }}>
-        {causeLabel ?? "Select a jar"}
+        {causeLabel ?? "👆 Tap to pick a jar"}
       </div>
       <svg width={w} height={h} viewBox={`0 0 ${w} ${h}`}>
         <defs>
@@ -142,7 +140,7 @@ function Jar({ fillPercent, color, gradEnd, label, amount, emoji, causeLabel, hr
         <path
           d={jarPath}
           fill="none"
-          stroke="rgba(0,0,0,0.12)"
+          stroke="rgba(255,255,255,0.25)"
           strokeWidth={2.5*scale}
           strokeLinejoin="round"
         />

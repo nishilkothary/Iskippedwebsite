@@ -149,7 +149,9 @@ function JarsPageInner() {
 
   return (
     <div className="p-4 md:p-8 max-w-2xl mx-auto pb-20 md:pb-8">
-      <h1 className="text-2xl font-bold text-white mb-5">My Jars</h1>
+      <h1 className="text-2xl font-bold mb-5" style={{ color: "var(--text-primary)" }}>
+        {activeTab === "cause" ? "🤲 Give a Little" : "😊 Live a Little"}
+      </h1>
 
       {/* Tab row */}
       <div className="flex gap-2 mb-6 p-1 rounded-xl" style={{ background: "var(--bg-surface-1)", border: "1px solid var(--border-default)" }}>
@@ -222,6 +224,37 @@ export default function JarsPage() {
     <Suspense>
       <JarsPageInner />
     </Suspense>
+  );
+}
+
+function JarHeader({ color, label, amount, fillPct, emptyPrompt }: {
+  color: string;
+  label: string | null;
+  amount: string;
+  fillPct: number;
+  emptyPrompt: string;
+}) {
+  return (
+    <div className="rounded-2xl p-5 mb-1" style={{
+      background: "var(--bg-surface-1)",
+      border: `2px solid ${label ? color : "rgba(46,204,113,0.12)"}`,
+      transition: "border-color 0.3s",
+    }}>
+      {label ? (
+        <>
+          <div className="flex items-start justify-between gap-2 mb-3">
+            <p className="font-bold text-base leading-snug" style={{ color: "var(--text-primary)" }}>{label}</p>
+            <span className="text-lg font-black flex-shrink-0" style={{ color }}>{amount}</span>
+          </div>
+          <div className="h-2 rounded-full overflow-hidden" style={{ background: "var(--bg-surface-3)" }}>
+            <div className="h-full rounded-full transition-all duration-700" style={{ background: color, width: `${Math.min(100, Math.max(0, fillPct))}%` }} />
+          </div>
+          <p className="text-xs mt-1.5" style={{ color: "var(--text-muted)" }}>{Math.round(Math.min(100, Math.max(0, fillPct)))}% toward goal</p>
+        </>
+      ) : (
+        <p className="text-center text-sm font-semibold py-2" style={{ color: "var(--text-muted)" }}>{emptyPrompt}</p>
+      )}
+    </div>
   );
 }
 
@@ -467,64 +500,30 @@ function CauseTab({
         </div>
       )}
 
-      {/* Active cause highlight */}
-      {activeProject && (
-        <div className="rounded-2xl p-4" style={{ background: "var(--bg-surface-2)", border: "1px solid var(--border-emphasis)" }}>
-          <p className="text-[10px] font-bold uppercase tracking-wider mb-1" style={{ color: "var(--green-primary)" }}>Your active cause</p>
-          <div className="flex items-start justify-between gap-2">
-            <p className="font-extrabold text-base" style={{ color: "var(--text-primary)" }}>{activeProject.title}</p>
-            <div className="flex items-center gap-1.5 flex-shrink-0">
-              {activeProject.isCustom && (
-                <>
-                  <button
-                    onClick={() => startEdit(activeProject)}
-                    className="p-1 text-base" style={{ color: "var(--green-primary)", opacity: 0.6 }}
-                    title="Edit"
-                  >
-                    ✏️
-                  </button>
-                  <button
-                    onClick={() => setConfirmDeleteId(activeProject.id)}
-                    className="p-1 text-base" style={{ color: "rgba(46,204,113,0.5)" }}
-                    title="Delete"
-                  >
-                    🗑️
-                  </button>
-                </>
-              )}
-              {activeProject.donationURL && (
-                <a href={activeProject.donationURL} target="_blank" rel="noopener noreferrer" className="text-xs underline mt-0.5" style={{ color: "var(--green-primary)" }}>
-                  ↗ Learn more
-                </a>
-              )}
-            </div>
-          </div>
-          <p className="text-sm mt-0.5" style={{ color: "var(--text-secondary)" }}>{activeProject.sponsor}</p>
-          {activeProject.location && (
-            <p className="text-xs mt-0.5" style={{ color: "var(--text-secondary)" }}>Location: {activeProject.location}</p>
-          )}
-          {activeProject.goalAmount > 0 && (
-            <p className="text-xs font-semibold mt-1" style={{ color: "var(--green-primary)" }}>
-              {formatCurrency(givingBalance)} saved · Skipped Amount Needed: {formatCurrency(activeProject.goalAmount)}
-            </p>
-          )}
-          <CauseDonateRow project={activeProject} />
-        </div>
-      )}
+      {/* Jar header */}
+      <JarHeader
+        color="var(--coral-primary)"
+        label={activeProject?.title ?? null}
+        amount={formatCurrency(givingBalance)}
+        fillPct={activeProject && activeProject.goalAmount > 0 ? (givingBalance / activeProject.goalAmount) * 100 : (givingBalance > 0 ? 100 : 0)}
+        emptyPrompt="👆 Pick a cause below to start your jar"
+      />
 
       {/* All causes */}
       <div>
-        <p className="text-sm font-semibold text-[rgba(237,245,240,0.6)] mb-3">All causes</p>
+        <p className="text-sm font-semibold text-[rgba(237,245,240,0.6)] mb-3">Causes</p>
         <div className="space-y-3">
           {projects.map((project) => {
             const isActive = activeProject?.id === project.id;
-            if (isActive) return null;
             const isEditing = editingProjectId === project.id;
             return (
               <div
                 key={project.id}
                 className="rounded-2xl p-4"
-                style={{ background: "var(--bg-surface-1)", border: "1px solid var(--border-default)" }}
+                style={{
+                  background: isActive ? "rgba(232,99,122,0.05)" : "var(--bg-surface-1)",
+                  border: isActive ? "2px solid var(--coral-primary)" : "1px solid var(--border-default)",
+                }}
               >
                 {isEditing ? (
                   <div className="space-y-2">
@@ -585,6 +584,11 @@ function CauseTab({
                   </div>
                 ) : (
                   <>
+                    {isActive && (
+                      <span className="inline-block text-[10px] font-bold px-2 py-0.5 rounded-full mb-2" style={{ background: "rgba(232,99,122,0.15)", color: "var(--coral-primary)" }}>
+                        ✓ Active
+                      </span>
+                    )}
                     <div className="flex items-start justify-between gap-3">
                       <div className="flex-1 min-w-0">
                         <div className="flex items-start justify-between gap-1">
@@ -624,15 +628,17 @@ function CauseTab({
                             </button>
                           </>
                         )}
-                        <button
-                          onClick={() => handleSetActive(project)}
-                          className="text-xs font-semibold text-[#2ECC71] border border-[#2ECC71] px-3 py-1.5 rounded-full hover:bg-[#162E23] transition-colors"
-                        >
-                          Set as My Jar
-                        </button>
+                        {!isActive && (
+                          <button
+                            onClick={() => handleSetActive(project)}
+                            className="text-xs font-semibold text-[#2ECC71] border border-[#2ECC71] px-3 py-1.5 rounded-full hover:bg-[#162E23] transition-colors"
+                          >
+                            Set as My Jar
+                          </button>
+                        )}
                       </div>
                     </div>
-                    {project.donationURL && (
+                    {!isActive && project.donationURL && (
                       <a
                         href={project.donationURL}
                         target="_blank"
@@ -642,6 +648,7 @@ function CauseTab({
                         🌍 Donate →
                       </a>
                     )}
+                    {isActive && <CauseDonateRow project={project} />}
                   </>
                 )}
               </div>
@@ -960,135 +967,25 @@ function SplurgeTab({
         </div>
       )}
 
-      {/* Active goal highlight */}
-      {activeGoal && (
-        <div className="rounded-2xl p-4" style={{ background: "rgba(139,92,246,0.1)", border: "1px solid rgba(139,92,246,0.35)" }}>
-          <p className="text-[10px] font-bold uppercase tracking-wider mb-1" style={{ color: "#8B5CF6" }}>Your active goal</p>
-          <div className="flex items-start justify-between gap-2">
-            <p className="font-bold text-sm" style={{ color: "var(--text-primary)" }}>{activeGoal.label}</p>
-            {!deletingActiveGoal && (
-              <button
-                onClick={() => { setDeletingActiveGoal(true); setConfirmCompleteId(null); }}
-                className="text-[#8B5CF6]/50 hover:text-red-500 p-1 text-base flex-shrink-0"
-                title="Delete"
-              >
-                🗑️
-              </button>
-            )}
-          </div>
-          <div className="mt-2">
-            <div className="h-2 rounded-full overflow-hidden" style={{ background: "var(--bg-surface-3)" }}>
-              <div
-                className="h-full rounded-full transition-all duration-700"
-                style={{ background: "#8B5CF6", width: `${Math.min(100, (spendingBalance / activeGoal.targetAmount) * 100)}%` }}
-              />
-            </div>
-            <div className="flex justify-between mt-1 text-xs" style={{ color: "var(--text-secondary)" }}>
-              <span>{formatCurrency(spendingBalance)} saved</span>
-              <span>Goal: {formatCurrency(activeGoal.targetAmount)}</span>
-            </div>
-          </div>
-          {(activeGoal.shoppingLink || activeGoal.donationURL) && (
-            <a
-              href={activeGoal.shoppingLink ?? activeGoal.donationURL}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="mt-3 flex items-center justify-center gap-1.5 w-full py-2 border border-[#8B5CF6] text-[#8B5CF6] font-semibold rounded-xl hover:bg-[rgba(139,92,246,0.15)] transition-colors text-xs"
-            >
-              {activeGoal.type === "donation" ? "💛 Donate →" : "🛒 Shop now →"}
-            </a>
-          )}
-          {!confirmCompleteId && (
-            <button
-              onClick={() => setConfirmCompleteId(activeGoal.id)}
-              className="mt-2 w-full py-2 border border-[#8B5CF6] text-[#8B5CF6] font-semibold rounded-xl hover:bg-[rgba(139,92,246,0.15)] transition-colors text-xs"
-            >
-              {activeGoal.type === "donation" ? "✓ I Donated!" : "✓ I Bought It!"}
-            </button>
-          )}
-          {confirmCompleteId === activeGoal.id && (
-            <div className="mt-2 rounded-xl p-3" style={{ background: "rgba(245,158,11,0.1)", border: "1px solid rgba(245,158,11,0.3)" }}>
-              <p className="text-xs font-semibold text-[#EDF5F0] mb-1">
-                {activeGoal.type === "donation" ? "Mark as donated?" : "Mark as purchased?"}
-              </p>
-              <p className="text-xs text-[rgba(237,245,240,0.6)] mb-2">
-                This will log {formatCurrency(spendingBalance)} as spent and remove this goal.
-              </p>
-              <div className="flex gap-2">
-                <button
-                  onClick={() => { setCompleting(true); onCompleteGoal(activeGoal.id).then(() => { setConfirmCompleteId(null); setCompleting(false); }); }}
-                  disabled={completing}
-                  className="flex-1 bg-[#8B5CF6] text-white font-semibold py-1.5 rounded-xl text-xs disabled:opacity-50"
-                >
-                  {completing ? "…" : "Yes, confirm"}
-                </button>
-                <button onClick={() => setConfirmCompleteId(null)} className="flex-1 border-[rgba(46,204,113,0.12)] text-[rgba(237,245,240,0.6)] font-semibold py-1.5 rounded-xl text-xs">
-                  Cancel
-                </button>
-              </div>
-            </div>
-          )}
-          {deletingActiveGoal && (
-            <div className="mt-2 rounded-xl p-3 space-y-2" style={{ background: "rgba(239,68,68,0.1)", border: "1px solid rgba(239,68,68,0.3)" }}>
-              <p className="text-xs font-semibold text-[#EDF5F0]">Delete "{activeGoal.label}"?</p>
-              {spendingBalance > 0 && (
-                <p className="text-xs text-[rgba(237,245,240,0.6)]">You have {formatCurrency(spendingBalance)} in this jar.</p>
-              )}
-              {spendingBalance > 0 ? (
-                <div className="space-y-1.5">
-                  <button
-                    onClick={() => { setCompleting(true); onCompleteGoal(activeGoal.id).then(() => { setDeletingActiveGoal(false); setCompleting(false); }); }}
-                    disabled={completing || movingToGive}
-                    className="w-full bg-[#8B5CF6] text-white font-semibold py-2 rounded-xl text-xs disabled:opacity-50"
-                  >
-                    {completing ? "…" : activeGoal.type === "donation" ? "💛 Mark as Donated" : "🛒 Mark as Purchased"}
-                  </button>
-                  <button
-                    onClick={() => { setMovingToGive(true); onMoveToGive(activeGoal.id).then(() => { setDeletingActiveGoal(false); setMovingToGive(false); }); }}
-                    disabled={completing || movingToGive}
-                    className="w-full bg-[#2ECC71] text-[#0B1A14] font-semibold py-2 rounded-xl text-xs disabled:opacity-50"
-                  >
-                    {movingToGive ? "…" : "🤲 Move All to Donation Jar"}
-                  </button>
-                  <button
-                    onClick={() => setDeletingActiveGoal(false)}
-                    className="w-full border-[rgba(46,204,113,0.12)] text-[rgba(237,245,240,0.6)] font-semibold py-2 rounded-xl text-xs"
-                  >
-                    Cancel
-                  </button>
-                </div>
-              ) : (
-                <div className="flex gap-2">
-                  <button
-                    onClick={() => { onDeleteGoal(activeGoal.id).then(() => setDeletingActiveGoal(false)); }}
-                    className="flex-1 bg-red-500 text-white font-semibold py-1.5 rounded-xl text-xs"
-                  >
-                    Delete
-                  </button>
-                  <button
-                    onClick={() => setDeletingActiveGoal(false)}
-                    className="flex-1 border-[rgba(46,204,113,0.12)] text-[rgba(237,245,240,0.6)] font-semibold py-1.5 rounded-xl text-xs"
-                  >
-                    Cancel
-                  </button>
-                </div>
-              )}
-            </div>
-          )}
-        </div>
-      )}
+      {/* Jar header */}
+      <JarHeader
+        color="#8B5CF6"
+        label={activeGoal?.label ?? null}
+        amount={formatCurrency(spendingBalance)}
+        fillPct={activeGoal ? (spendingBalance / activeGoal.targetAmount) * 100 : 0}
+        emptyPrompt="👆 Pick a goal below to start your jar"
+      />
 
       <div className="flex items-center justify-between mb-1">
-        <h2 className="text-base font-bold text-white">😊 Live a little — Goals</h2>
+        <h2 className="text-base font-bold" style={{ color: "var(--text-primary)" }}>Goals</h2>
         <span className="text-sm font-bold text-[#8B5CF6]">{formatCurrency(spendingBalance)} available</span>
       </div>
 
-      {/* Goal list — all goals except active (shown at top) */}
-      {goals.filter((g) => g.id !== activeGoalId).length > 0 && (
+      {/* Goal list — all goals */}
+      {goals.length > 0 && (
         <div className="space-y-3">
-          {goals.filter((g) => g.id !== activeGoalId).map((goal) => {
-            const isActive = false;
-            const fillPct = 0;
+          {goals.map((goal) => {
+            const isActive = goal.id === activeGoalId;
             const isEditing = editingGoalId === goal.id;
             const isConfirmComplete = confirmCompleteId === goal.id;
             const isConfirmDelete = deletingGoalId === goal.id;
@@ -1097,7 +994,10 @@ function SplurgeTab({
               <div
                 key={goal.id}
                 className="rounded-2xl p-4 transition-all"
-                style={{ background: "var(--bg-surface-1)", border: "1px solid var(--border-default)" }}
+                style={{
+                  background: isActive ? "rgba(139,92,246,0.07)" : "var(--bg-surface-1)",
+                  border: isActive ? "2px solid #8B5CF6" : "1px solid var(--border-default)",
+                }}
               >
                 {isEditing ? (
                   <div className="space-y-2">
@@ -1144,6 +1044,11 @@ function SplurgeTab({
                   </div>
                 ) : (
                   <>
+                    {isActive && (
+                      <span className="inline-block text-[10px] font-bold px-2 py-0.5 rounded-full mb-2" style={{ background: "rgba(139,92,246,0.15)", color: "#8B5CF6" }}>
+                        ✓ Active
+                      </span>
+                    )}
                     <div className="flex items-start justify-between gap-2 mb-2">
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center gap-2 flex-wrap">
@@ -1155,11 +1060,6 @@ function SplurgeTab({
                           }`}>
                             {goal.type === "donation" ? "💛 Donation" : "🛍️ Splurge"}
                           </span>
-                          {isActive && (
-                            <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-[#162E23] text-[#2ECC71]">
-                              ★ Main
-                            </span>
-                          )}
                         </div>
                         <p className="text-xs text-[rgba(237,245,240,0.6)] mt-0.5">Goal: {formatCurrency(goal.targetAmount)}</p>
                       </div>
@@ -1172,7 +1072,7 @@ function SplurgeTab({
                           ✏️
                         </button>
                         <button
-                          onClick={() => setDeletingGoalId(goal.id)}
+                          onClick={() => isActive ? (setDeletingActiveGoal(true), setConfirmCompleteId(null)) : setDeletingGoalId(goal.id)}
                           className="text-[rgba(237,245,240,0.35)] hover:text-red-400 p-1 text-base"
                           title="Delete"
                         >
@@ -1180,6 +1080,19 @@ function SplurgeTab({
                         </button>
                       </div>
                     </div>
+
+                    {/* Active: progress bar */}
+                    {isActive && (
+                      <div className="mb-3">
+                        <div className="h-2 rounded-full overflow-hidden" style={{ background: "var(--bg-surface-3)" }}>
+                          <div className="h-full rounded-full transition-all duration-700" style={{ background: "#8B5CF6", width: `${Math.min(100, (spendingBalance / goal.targetAmount) * 100)}%` }} />
+                        </div>
+                        <div className="flex justify-between mt-1 text-xs" style={{ color: "var(--text-secondary)" }}>
+                          <span>{formatCurrency(spendingBalance)} saved</span>
+                          <span>Goal: {formatCurrency(goal.targetAmount)}</span>
+                        </div>
+                      </div>
+                    )}
 
                     {/* Shopping/donation link */}
                     {(goal.shoppingLink || goal.donationURL) && (
@@ -1193,7 +1106,77 @@ function SplurgeTab({
                       </a>
                     )}
 
-                    {/* Set as active */}
+                    {/* Active: complete button */}
+                    {isActive && !confirmCompleteId && !deletingActiveGoal && (
+                      <button
+                        onClick={() => setConfirmCompleteId(goal.id)}
+                        className="w-full py-2 mt-1 border border-[#8B5CF6] text-[#8B5CF6] font-semibold rounded-xl hover:bg-[rgba(139,92,246,0.15)] transition-colors text-xs"
+                      >
+                        {goal.type === "donation" ? "✓ I Donated!" : "✓ I Bought It!"}
+                      </button>
+                    )}
+
+                    {/* Active: confirm complete */}
+                    {isActive && isConfirmComplete && (
+                      <div className="mt-2 rounded-xl p-3" style={{ background: "rgba(245,158,11,0.1)", border: "1px solid rgba(245,158,11,0.3)" }}>
+                        <p className="text-xs font-semibold text-[#EDF5F0] mb-1">
+                          {goal.type === "donation" ? "Mark as donated?" : "Mark as purchased?"}
+                        </p>
+                        <p className="text-xs text-[rgba(237,245,240,0.6)] mb-2">
+                          This will log {formatCurrency(spendingBalance)} as spent and remove this goal.
+                        </p>
+                        <div className="flex gap-2">
+                          <button
+                            onClick={() => { setCompleting(true); onCompleteGoal(goal.id).then(() => { setConfirmCompleteId(null); setCompleting(false); }); }}
+                            disabled={completing}
+                            className="flex-1 bg-[#8B5CF6] text-white font-semibold py-1.5 rounded-xl text-xs disabled:opacity-50"
+                          >
+                            {completing ? "…" : "Yes, confirm"}
+                          </button>
+                          <button onClick={() => setConfirmCompleteId(null)} className="flex-1 border-[rgba(46,204,113,0.12)] text-[rgba(237,245,240,0.6)] font-semibold py-1.5 rounded-xl text-xs">
+                            Cancel
+                          </button>
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Active: delete with balance options */}
+                    {isActive && deletingActiveGoal && (
+                      <div className="mt-2 rounded-xl p-3 space-y-2" style={{ background: "rgba(239,68,68,0.1)", border: "1px solid rgba(239,68,68,0.3)" }}>
+                        <p className="text-xs font-semibold text-[#EDF5F0]">Delete &quot;{goal.label}&quot;?</p>
+                        {spendingBalance > 0 && (
+                          <p className="text-xs text-[rgba(237,245,240,0.6)]">You have {formatCurrency(spendingBalance)} in this jar.</p>
+                        )}
+                        {spendingBalance > 0 ? (
+                          <div className="space-y-1.5">
+                            <button
+                              onClick={() => { setCompleting(true); onCompleteGoal(goal.id).then(() => { setDeletingActiveGoal(false); setCompleting(false); }); }}
+                              disabled={completing || movingToGive}
+                              className="w-full bg-[#8B5CF6] text-white font-semibold py-2 rounded-xl text-xs disabled:opacity-50"
+                            >
+                              {completing ? "…" : goal.type === "donation" ? "💛 Mark as Donated" : "🛒 Mark as Purchased"}
+                            </button>
+                            <button
+                              onClick={() => { setMovingToGive(true); onMoveToGive(goal.id).then(() => { setDeletingActiveGoal(false); setMovingToGive(false); }); }}
+                              disabled={completing || movingToGive}
+                              className="w-full bg-[#2ECC71] text-[#0B1A14] font-semibold py-2 rounded-xl text-xs disabled:opacity-50"
+                            >
+                              {movingToGive ? "…" : "🤲 Move All to Donation Jar"}
+                            </button>
+                            <button onClick={() => setDeletingActiveGoal(false)} className="w-full border-[rgba(46,204,113,0.12)] text-[rgba(237,245,240,0.6)] font-semibold py-2 rounded-xl text-xs">
+                              Cancel
+                            </button>
+                          </div>
+                        ) : (
+                          <div className="flex gap-2">
+                            <button onClick={() => { onDeleteGoal(goal.id).then(() => setDeletingActiveGoal(false)); }} className="flex-1 bg-red-500 text-white font-semibold py-1.5 rounded-xl text-xs">Delete</button>
+                            <button onClick={() => setDeletingActiveGoal(false)} className="flex-1 border-[rgba(46,204,113,0.12)] text-[rgba(237,245,240,0.6)] font-semibold py-1.5 rounded-xl text-xs">Cancel</button>
+                          </div>
+                        )}
+                      </div>
+                    )}
+
+                    {/* Inactive: set as active */}
                     {!isActive && (
                       <button
                         onClick={() => handleSetActiveGoalWithCheck(goal)}
@@ -1203,23 +1186,13 @@ function SplurgeTab({
                       </button>
                     )}
 
-                    {/* Confirm delete */}
-                    {isConfirmDelete && (
-                      <div className="mt-2 bg-red-50 border border-red-200 rounded-xl p-3 flex items-center justify-between">
-                        <p className="text-xs text-red-400">Delete "{goal.label}"?</p>
+                    {/* Inactive: confirm delete */}
+                    {!isActive && isConfirmDelete && (
+                      <div className="mt-2 rounded-xl p-3 flex items-center justify-between" style={{ background: "rgba(239,68,68,0.1)", border: "1px solid rgba(239,68,68,0.3)" }}>
+                        <p className="text-xs text-red-400">Delete &quot;{goal.label}&quot;?</p>
                         <div className="flex gap-2">
-                          <button
-                            onClick={() => handleDeleteGoal(goal.id)}
-                            className="text-xs bg-red-500 text-white px-3 py-1 rounded-lg"
-                          >
-                            Delete
-                          </button>
-                          <button
-                            onClick={() => setDeletingGoalId(null)}
-                            className="text-xs border-[rgba(46,204,113,0.12)] text-[rgba(237,245,240,0.6)] px-3 py-1 rounded-lg"
-                          >
-                            Cancel
-                          </button>
+                          <button onClick={() => handleDeleteGoal(goal.id)} className="text-xs bg-red-500 text-white px-3 py-1 rounded-lg">Delete</button>
+                          <button onClick={() => setDeletingGoalId(null)} className="text-xs border-[rgba(46,204,113,0.12)] text-[rgba(237,245,240,0.6)] px-3 py-1 rounded-lg">Cancel</button>
                         </div>
                       </div>
                     )}

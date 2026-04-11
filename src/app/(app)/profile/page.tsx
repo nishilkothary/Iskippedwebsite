@@ -71,8 +71,7 @@ export default function ProfilePage() {
             <p className="text-2xl font-bold mt-0.5" style={{ color: "var(--text-primary)" }}>{formatCurrency(profile.totalSaved)}</p>
             <p className="text-xs mt-0.5" style={{ color: "var(--text-muted)" }}>across {profile.totalSkips} skip{profile.totalSkips !== 1 ? "s" : ""}</p>
           </div>
-          <span className="text-4xl">✂️</span>
-        </div>
+                </div>
         <div className="grid grid-cols-3 gap-2 mb-3">
           {[
             { emoji: "💚", label: "donated", value: formatCurrency(profile.totalDonated), color: "var(--green-primary)" },
