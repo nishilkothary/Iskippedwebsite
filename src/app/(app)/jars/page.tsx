@@ -1064,7 +1064,6 @@ function SplurgeTab({
   const [showAddForm, setShowAddForm] = useState(false);
   const [addLabel, setAddLabel] = useState("");
   const [addAmount, setAddAmount] = useState("");
-  const [addType, setAddType] = useState<"splurge" | "donation">("splurge");
   const [addLink, setAddLink] = useState("");
   const [saving, setSaving] = useState(false);
 
@@ -1103,14 +1102,13 @@ function SplurgeTab({
     const goal: Omit<SpendingGoal, "id"> = {
       label: addLabel.trim(),
       targetAmount: amount,
-      type: addType,
+      type: "splurge",
     };
     if (addLink.trim()) goal.shoppingLink = addLink.trim();
     await onAddGoal(goal);
     setAddLabel("");
     setAddAmount("");
     setAddLink("");
-    setAddType("splurge");
     setShowAddForm(false);
     setSaving(false);
   }
@@ -1473,27 +1471,9 @@ function SplurgeTab({
         <div className="rounded-2xl p-4 space-y-3" style={{ background: "var(--bg-surface-1)", border: "1px solid var(--border-default)" }}>
           <p className="text-sm font-semibold" style={{ color: "var(--text-primary)" }}>New goal</p>
 
-          {/* Type toggle */}
-          <div className="flex rounded-xl p-1" style={{ background: "var(--bg-surface-2)" }}>
-            <button
-              onClick={() => setAddType("splurge")}
-              className="flex-1 py-2 rounded-lg text-sm font-semibold transition"
-              style={addType === "splurge" ? { background: "var(--bg-surface-3)", color: "#8B5CF6" } : { color: "var(--text-muted)" }}
-            >
-              🛍️ Splurge
-            </button>
-            <button
-              onClick={() => setAddType("donation")}
-              className="flex-1 py-2 rounded-lg text-sm font-semibold transition"
-              style={addType === "donation" ? { background: "var(--bg-surface-3)", color: "#F59E0B" } : { color: "var(--text-muted)" }}
-            >
-              💛 Donation
-            </button>
-          </div>
-
           <input
             type="text"
-            placeholder={addType === "splurge" ? "e.g. AirPods, Vacation, Shoes" : "e.g. Red Cross, Local shelter"}
+            placeholder="e.g. AirPods, Vacation, Shoes"
             value={addLabel}
             onChange={(e) => setAddLabel(e.target.value)}
             className="w-full rounded-xl px-4 py-3 text-sm focus:outline-none" style={{ background: "var(--bg-surface-2)", border: "1px solid var(--border-default)", color: "var(--text-primary)" }}
@@ -1512,7 +1492,7 @@ function SplurgeTab({
             <span className="absolute left-4 top-1/2 -translate-y-1/2 text-sm text-[rgba(237,245,240,0.6)]">🔗</span>
             <input
               type="url"
-              placeholder={addType === "splurge" ? "Shopping link (optional)" : "Donation link (optional)"}
+              placeholder="Shopping link (optional)"
               value={addLink}
               onChange={(e) => setAddLink(e.target.value)}
               className="w-full pl-10 rounded-xl px-4 py-3 text-sm focus:outline-none" style={{ background: "var(--bg-surface-2)", border: "1px solid var(--border-default)", color: "var(--text-primary)" }}
@@ -1527,7 +1507,7 @@ function SplurgeTab({
               {saving ? "Saving…" : "Add Goal"}
             </button>
             <button
-              onClick={() => { setShowAddForm(false); setAddLabel(""); setAddAmount(""); setAddLink(""); setAddType("splurge"); }}
+              onClick={() => { setShowAddForm(false); setAddLabel(""); setAddAmount(""); setAddLink(""); }}
               className="px-5 py-3 border-[rgba(46,204,113,0.12)] text-[rgba(237,245,240,0.6)] font-semibold rounded-xl text-sm hover:text-[#EDF5F0] transition-colors"
             >
               Cancel

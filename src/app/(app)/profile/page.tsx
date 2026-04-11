@@ -6,11 +6,35 @@ import { signOut } from "@/lib/services/firebase/auth";
 import { formatCurrency } from "@/lib/utils/currency";
 import { updateJarSettings, normalizeJarSplit, recalculateTotals } from "@/lib/services/firebase/users";
 
+const FAQ_ITEMS = [
+  {
+    q: "Does any money actually transfer when I log a skip?",
+    a: "No — I Skipped is a tracking and motivation tool, not a payment platform. We encourage all users to donate what they've pledged in their jar, but no funds move automatically.",
+  },
+  {
+    q: "My balance doesn't look right. What should I do?",
+    a: "Use the Recalculate button in the Help & Feedback section. It rebuilds all your totals directly from your logged skip history and should bring everything back in sync.",
+  },
+  {
+    q: "Will more causes be added?",
+    a: "Yes! We're currently in beta and actively growing our list of causes. Stay tuned — more options are on the way.",
+  },
+  {
+    q: "Do I have to select a donation jar?",
+    a: "While we strongly encourage everyone to pick a cause, it's not required. Your Give a Little jar will keep filling up until you choose one.",
+  },
+  {
+    q: "I have feedback — where can I share it?",
+    a: "We'd love to hear from you! Send us an email at iskippedfor@gmail.com and we'll get back to you.",
+  },
+];
+
 export default function ProfilePage() {
   const router = useRouter();
   const { user, profile, setUser, setProfile, updateProfile } = useAuthStore();
   const [recalcState, setRecalcState] = useState<"idle" | "loading" | "done" | "error">("idle");
   const [recalcResult, setRecalcResult] = useState<{ totalSkips: number; totalSaved: number } | null>(null);
+  const [openFaq, setOpenFaq] = useState<number | null>(null);
 
   if (!profile || !user) return null;
 
@@ -71,7 +95,7 @@ export default function ProfilePage() {
             <p className="text-2xl font-bold mt-0.5" style={{ color: "var(--text-primary)" }}>{formatCurrency(profile.totalSaved)}</p>
             <p className="text-xs mt-0.5" style={{ color: "var(--text-muted)" }}>across {profile.totalSkips} skip{profile.totalSkips !== 1 ? "s" : ""}</p>
           </div>
-                </div>
+        </div>
         <div className="grid grid-cols-3 gap-2 mb-3">
           {[
             { emoji: "💚", label: "donated", value: formatCurrency(profile.totalDonated), color: "var(--green-primary)" },
@@ -99,49 +123,78 @@ export default function ProfilePage() {
         </div>
       </div>
 
-      {/* Recalculate totals */}
-      <div className="p-5 mb-6" style={{ ...cardStyle, borderRadius: 20 }}>
-        <p className="text-sm font-bold mb-1" style={{ color: "var(--text-primary)" }}>🔄 Recalculate totals from skip history</p>
-        <p className="text-xs mb-4" style={{ color: "var(--text-secondary)" }}>
-          If your jar balances look wrong, this recomputes your totals from your actual logged skips.
-          Donations and purchases are not affected.
-        </p>
-        {recalcState === "done" && recalcResult && (
-          <div
-            className="rounded-xl px-4 py-3 mb-3"
-            style={{ background: "var(--bg-surface-2)", border: "1px solid var(--border-emphasis)" }}
-          >
-            <p className="text-sm font-semibold" style={{ color: "var(--green-primary)" }}>
-              Done — {recalcResult.totalSkips} skip{recalcResult.totalSkips !== 1 ? "s" : ""} found,{" "}
-              {formatCurrency(recalcResult.totalSaved)} total saved
-            </p>
-          </div>
-        )}
-        {recalcState === "error" && (
-          <div className="bg-red-500/10 border border-red-500/30 rounded-xl px-4 py-3 mb-3">
-            <p className="text-sm text-red-400">Something went wrong. Please try again.</p>
-          </div>
-        )}
-        <button
-          onClick={handleRecalculate}
-          disabled={recalcState === "loading"}
-          className="w-full py-2.5 font-semibold rounded-xl text-sm transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-          style={{
-            border: "1px solid var(--border-emphasis)",
-            color: "var(--text-secondary)",
-            background: "transparent",
-          }}
-        >
-          {recalcState === "loading" ? "Recalculating…" : "Recalculate"}
-        </button>
-      </div>
-
       {/* Jar Settings */}
       <JarSettings
         uid={user.uid}
         initialSplit={currentSplit}
         onSave={(split) => updateProfile({ jarSplit: split })}
       />
+
+      {/* Help & Feedback */}
+      <div className="mb-6">
+        <h2 className="text-base font-bold mb-4" style={{ color: "var(--text-primary)" }}>Help &amp; Feedback</h2>
+
+        {/* Recalculate */}
+        <div className="p-5 mb-4" style={{ ...cardStyle, borderRadius: 20 }}>
+          <p className="text-sm font-bold mb-1" style={{ color: "var(--text-primary)" }}>🔄 Recalculate totals</p>
+          <p className="text-xs mb-4" style={{ color: "var(--text-secondary)" }}>
+            If your jar balances look off, this recomputes your totals from your actual logged skips. Donations and purchases are not affected.
+          </p>
+          {recalcState === "done" && recalcResult && (
+            <div className="rounded-xl px-4 py-3 mb-3" style={{ background: "var(--bg-surface-2)", border: "1px solid var(--border-emphasis)" }}>
+              <p className="text-sm font-semibold" style={{ color: "var(--green-primary)" }}>
+                Done — {recalcResult.totalSkips} skip{recalcResult.totalSkips !== 1 ? "s" : ""} found,{" "}
+                {formatCurrency(recalcResult.totalSaved)} total saved
+              </p>
+            </div>
+          )}
+          {recalcState === "error" && (
+            <div className="bg-red-500/10 border border-red-500/30 rounded-xl px-4 py-3 mb-3">
+              <p className="text-sm text-red-400">Something went wrong. Please try again.</p>
+            </div>
+          )}
+          <button
+            onClick={handleRecalculate}
+            disabled={recalcState === "loading"}
+            className="w-full py-2.5 font-semibold rounded-xl text-sm transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+            style={{ border: "1px solid var(--border-emphasis)", color: "var(--text-secondary)", background: "transparent" }}
+          >
+            {recalcState === "loading" ? "Recalculating…" : "Recalculate"}
+          </button>
+        </div>
+
+        {/* Contact */}
+        <div className="p-5 mb-4" style={{ ...cardStyle, borderRadius: 20 }}>
+          <p className="text-sm font-bold mb-1" style={{ color: "var(--text-primary)" }}>✉️ Have feedback or questions?</p>
+          <p className="text-sm" style={{ color: "var(--text-secondary)" }}>
+            Reach us at{" "}
+            <a href="mailto:iskippedfor@gmail.com" className="underline" style={{ color: "var(--green-primary)" }}>
+              iskippedfor@gmail.com
+            </a>
+          </p>
+        </div>
+
+        {/* FAQ */}
+        <div style={{ ...cardStyle, borderRadius: 20, overflow: "hidden" }}>
+          <p className="px-5 pt-5 pb-3 text-sm font-bold" style={{ color: "var(--text-primary)" }}>FAQ</p>
+          {FAQ_ITEMS.map((item, i) => (
+            <div key={i} style={{ borderTop: "1px solid var(--border-default)" }}>
+              <button
+                className="w-full text-left px-5 py-4 flex items-start justify-between gap-3"
+                onClick={() => setOpenFaq(openFaq === i ? null : i)}
+              >
+                <span className="text-sm font-semibold" style={{ color: "var(--text-primary)" }}>{item.q}</span>
+                <span className="text-lg leading-none flex-shrink-0 mt-0.5" style={{ color: "var(--text-muted)" }}>
+                  {openFaq === i ? "−" : "+"}
+                </span>
+              </button>
+              {openFaq === i && (
+                <p className="px-5 pb-4 text-sm" style={{ color: "var(--text-secondary)" }}>{item.a}</p>
+              )}
+            </div>
+          ))}
+        </div>
+      </div>
 
       <button
         onClick={async () => {
