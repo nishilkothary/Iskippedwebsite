@@ -5,7 +5,7 @@ import { useProjects } from "@/hooks/useProjects";
 import { useAuthStore } from "@/store/authStore";
 import { SKIP_CATEGORIES } from "@/lib/constants/skipCategories";
 import { formatCurrency } from "@/lib/utils/currency";
-import { normalizeJarSplit } from "@/lib/services/firebase/users";
+import { normalizeJarSplit, normalizeSpendingGoals } from "@/lib/services/firebase/users";
 
 interface Props {
   onClose: () => void;
@@ -147,11 +147,13 @@ export function SkipModal({ onClose }: Props) {
 
   const skipGiveLive = amount * (skipGivePct / 100);
   const skipLiveLive = amount * ((100 - skipGivePct) / 100);
-  const spendingGoalLabelLive = profile?.spendingGoal?.label ?? "Live a little";
   const activeProjectLive = projects.find((p) => p.id === profile?.activeProjectId) ?? null;
+  const { goals: spendingGoals, activeId: activeSpendingGoalId } = normalizeSpendingGoals(profile ?? {} as any);
+  const activeGoalLive = spendingGoals.find((g) => g.id === activeSpendingGoalId) ?? null;
+  const spendingGoalLabelLive = activeGoalLive?.label ?? "Live a little";
   const giveGoalAmount = activeProjectLive?.goalAmount ?? 0;
   const giveContribPctLive = giveGoalAmount > 0 ? (skipGiveLive / giveGoalAmount) * 100 : 0;
-  const liveGoalAmount = profile?.spendingGoal?.targetAmount ?? 0;
+  const liveGoalAmount = activeGoalLive?.targetAmount ?? 0;
   const liveContribPctLive = liveGoalAmount > 0 ? (skipLiveLive / liveGoalAmount) * 100 : 0;
 
   return (
