@@ -70,6 +70,7 @@ export async function completeGoal(
       : currentActiveGoalId;
   const batch = writeBatch(db);
   batch.set(doc(collection(db, "users", uid, "spendingHistory")), {
+    goalId,
     label,
     targetAmount,
     amountSaved,
@@ -257,20 +258,28 @@ export function subscribeToDonations(uid: string, callback: (donations: Donation
   return onSnapshot(q, (snap) => callback(snap.docs.map((d) => ({ id: d.id, ...d.data() } as DonationEvent))));
 }
 
-export async function updateDonation(uid: string, donationId: string, newAmount: number, oldAmount: number, date?: string): Promise<void> {
+export async function updateDonation(uid: string, donationId: string, newAmount: number, oldAmount: number, causeId: string, date?: string): Promise<void> {
   const delta = newAmount - oldAmount;
   const batch = writeBatch(db);
   const donationUpdates: Record<string, any> = { amount: newAmount };
   if (date !== undefined) donationUpdates.date = date;
   batch.update(doc(db, "users", uid, "donations", donationId), donationUpdates);
-  if (delta !== 0) batch.update(doc(db, "users", uid), { totalDonated: increment(delta) });
+  if (delta !== 0) {
+    batch.update(doc(db, "users", uid), {
+      totalDonated: increment(delta),
+      [`causeJarBalances.${causeId}`]: increment(-delta),
+    });
+  }
   await batch.commit();
 }
 
-export async function deleteDonation(uid: string, donationId: string, amount: number): Promise<void> {
+export async function deleteDonation(uid: string, donationId: string, amount: number, causeId: string): Promise<void> {
   const batch = writeBatch(db);
   batch.delete(doc(db, "users", uid, "donations", donationId));
-  batch.update(doc(db, "users", uid), { totalDonated: increment(-amount) });
+  batch.update(doc(db, "users", uid), {
+    totalDonated: increment(-amount),
+    [`causeJarBalances.${causeId}`]: increment(amount),
+  });
   await batch.commit();
 }
 
@@ -322,11 +331,14 @@ export async function updateSpendingHistory(
 export async function deleteSpendingHistory(
   uid: string,
   eventId: string,
-  amountSaved: number
+  amountSaved: number,
+  goalId?: string
 ): Promise<void> {
   const batch = writeBatch(db);
   batch.delete(doc(db, "users", uid, "spendingHistory", eventId));
-  batch.update(doc(db, "users", uid), { totalSpent: increment(-amountSaved) });
+  const updates: Record<string, any> = { totalSpent: increment(-amountSaved) };
+  if (goalId) updates[`goalJarBalances.${goalId}`] = increment(amountSaved);
+  batch.update(doc(db, "users", uid), updates);
   await batch.commit();
 }
 

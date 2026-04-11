@@ -138,16 +138,28 @@ export function useSkips() {
   async function editDonation(donation: DonationEvent, newAmount: number, date?: string): Promise<void> {
     if (!user || !profile) return;
     const delta = newAmount - donation.amount;
-    await firebaseUpdateDonation(user.uid, donation.id, newAmount, donation.amount, date);
+    await firebaseUpdateDonation(user.uid, donation.id, newAmount, donation.amount, donation.causeId, date);
     if (delta !== 0) {
-      updateProfile({ totalDonated: profile.totalDonated + delta });
+      updateProfile({
+        totalDonated: profile.totalDonated + delta,
+        causeJarBalances: {
+          ...(profile.causeJarBalances ?? {}),
+          [donation.causeId]: (profile.causeJarBalances?.[donation.causeId] ?? 0) - delta,
+        },
+      });
     }
   }
 
   async function deleteDonation(donation: DonationEvent): Promise<void> {
     if (!user || !profile) return;
-    await firebaseDeleteDonation(user.uid, donation.id, donation.amount);
-    updateProfile({ totalDonated: profile.totalDonated - donation.amount });
+    await firebaseDeleteDonation(user.uid, donation.id, donation.amount, donation.causeId);
+    updateProfile({
+      totalDonated: profile.totalDonated - donation.amount,
+      causeJarBalances: {
+        ...(profile.causeJarBalances ?? {}),
+        [donation.causeId]: (profile.causeJarBalances?.[donation.causeId] ?? 0) + donation.amount,
+      },
+    });
   }
 
   return { recentSkips, isLogging, log, donate, edit, deleteSkip, donations, editDonation, deleteDonation };

@@ -198,7 +198,6 @@ function JarsPageInner() {
           onDonate={(amount) =>
             donate(amount, activeProject?.id ?? "giving", activeProject?.title ?? "Giving")
           }
-          onDonateToProject={(projectId, projectTitle, amount) => donate(amount, projectId, projectTitle)}
           onEditDonation={editDonation}
           onDeleteDonation={deleteDonation}
         />
@@ -222,8 +221,15 @@ function JarsPageInner() {
             return updateSpendingHistory(user.uid, event.id, newAmount, event.amountSaved);
           }}
           onDeleteHistory={(event) => {
-            updateProfile({ totalSpent: (profile.totalSpent ?? 0) - event.amountSaved });
-            return deleteSpendingHistory(user.uid, event.id, event.amountSaved);
+            const updates: Parameters<typeof updateProfile>[0] = { totalSpent: (profile.totalSpent ?? 0) - event.amountSaved };
+            if (event.goalId) {
+              updates.goalJarBalances = {
+                ...(profile.goalJarBalances ?? {}),
+                [event.goalId]: (profile.goalJarBalances?.[event.goalId] ?? 0) + event.amountSaved,
+              };
+            }
+            updateProfile(updates);
+            return deleteSpendingHistory(user.uid, event.id, event.amountSaved, event.goalId);
           }}
         />
       )}
@@ -348,105 +354,6 @@ function makeJarPath(scale: number) {
   ].join(" ");
 }
 
-function MiniJarCause({
-  proj, bal, onMakeActive, onDonate,
-}: {
-  proj: Project | undefined;
-  bal: number;
-  onMakeActive: () => void;
-  onDonate: (amount: number) => Promise<void>;
-}) {
-  const [showInput, setShowInput] = useState(false);
-  const [amtStr, setAmtStr] = useState("");
-  const [donating, setDonating] = useState(false);
-  const color = "#E8637A";
-  const gradEnd = "#C44D62";
-  const w = 80; const h = 112;
-  const scale = w / 120;
-  const fillPct = proj && proj.goalAmount > 0 ? Math.min((bal / proj.goalAmount) * 100, 100) : (bal > 0 ? 100 : 0);
-  const clamp = Math.min(Math.max(fillPct, 0), 100);
-  const fillH = (clamp / 100) * 120 * scale;
-  const jarH = 170 * scale;
-  const yStart = jarH - fillH;
-  const uid = ("mc_" + (proj?.id ?? "x")).replace(/\W/g, "");
-  const jarPath = makeJarPath(scale);
-  return (
-    <div className="flex flex-col items-center gap-1.5 rounded-2xl p-3" style={{ background: "var(--bg-surface-1)", border: "1px solid var(--border-default)" }}>
-      <p className="text-xs font-semibold text-center leading-tight" style={{ color, maxWidth: w }}>{proj?.title ?? "Inactive"}</p>
-      <svg width={w} height={h} viewBox={`0 0 ${w} ${h}`}>
-        <defs>
-          <linearGradient id={`mj-gf-${uid}`} x1="0" y1="1" x2="0" y2="0">
-            <stop offset="0%" stopColor={gradEnd} /><stop offset="100%" stopColor={color} />
-          </linearGradient>
-          <clipPath id={`mj-jc-${uid}`}><path d={jarPath} /></clipPath>
-        </defs>
-        <g clipPath={`url(#mj-jc-${uid})`}>
-          {clamp > 0 && <rect x={15*scale} y={yStart} width={90*scale} height={fillH + 15*scale} fill={`url(#mj-gf-${uid})`} rx={4*scale} />}
-        </g>
-        <path d={jarPath} fill="none" stroke="rgba(255,255,255,0.3)" strokeWidth={2*scale} strokeLinejoin="round" />
-        <text x={60*scale} y={92*scale} textAnchor="middle" dominantBaseline="middle" fontSize={17*scale} fontWeight="800" fill={clamp > 0 ? "rgba(255,255,255,0.9)" : "rgba(255,255,255,0.2)"} style={{ fontFamily: "inherit" }}>{Math.round(clamp)}%</text>
-      </svg>
-      <p className="text-sm font-bold" style={{ color }}>{formatCurrency(bal)}</p>
-      <button onClick={onMakeActive} className="w-full text-xs font-semibold py-1.5 rounded-xl" style={{ border: "1px solid var(--green-primary)", color: "var(--green-primary)" }}>Make Active</button>
-      {proj?.donationURL && (
-        <a href={proj.donationURL} target="_blank" rel="noopener noreferrer" className="w-full text-center text-xs font-semibold py-1.5 rounded-xl block" style={{ border: "1px solid var(--border-emphasis)", color: "var(--green-primary)" }}>🌍 Donate →</a>
-      )}
-      {showInput ? (
-        <div className="flex gap-1 w-full">
-          <div className="relative flex-1">
-            <span className="absolute left-2 top-1/2 -translate-y-1/2 text-xs" style={{ color: "var(--text-muted)" }}>$</span>
-            <input type="number" value={amtStr} onChange={e => setAmtStr(e.target.value)} className="w-full pl-5 rounded-lg px-2 py-1 text-xs focus:outline-none" style={{ background: "var(--bg-surface-2)", border: "1px solid var(--green-primary)", color: "var(--text-primary)" }} autoFocus />
-          </div>
-          <button onClick={async () => { const amt = parseFloat(amtStr); if (!amt || amt <= 0) return; setDonating(true); await onDonate(amt); setAmtStr(""); setShowInput(false); setDonating(false); }} disabled={donating} className="bg-[#2ECC71] text-[#0B1A14] font-semibold px-2 py-1 rounded-lg text-xs disabled:opacity-50">{donating ? "…" : "OK"}</button>
-          <button onClick={() => { setShowInput(false); setAmtStr(""); }} className="text-xs px-2 py-1 rounded-lg" style={{ border: "1px solid var(--border-default)", color: "var(--text-muted)" }}>✕</button>
-        </div>
-      ) : (
-        <button onClick={() => setShowInput(true)} className="w-full text-xs font-semibold py-1.5 rounded-xl" style={{ background: "#2ECC71", color: "#0B1A14" }}>💸 I Donated</button>
-      )}
-    </div>
-  );
-}
-
-function MiniJarGoal({
-  goal, bal, onMakeActive,
-}: {
-  goal: SpendingGoal | undefined;
-  bal: number;
-  onMakeActive: () => void;
-}) {
-  const color = "#8B5CF6";
-  const gradEnd = "#6D28D9";
-  const w = 80; const h = 112;
-  const scale = w / 120;
-  const fillPct = goal && goal.targetAmount > 0 ? Math.min((bal / goal.targetAmount) * 100, 100) : (bal > 0 ? 100 : 0);
-  const clamp = Math.min(Math.max(fillPct, 0), 100);
-  const fillH = (clamp / 100) * 120 * scale;
-  const jarH = 170 * scale;
-  const yStart = jarH - fillH;
-  const uid = ("mg_" + (goal?.id ?? "x")).replace(/\W/g, "");
-  const jarPath = makeJarPath(scale);
-  return (
-    <div className="flex flex-col items-center gap-1.5 rounded-2xl p-3" style={{ background: "var(--bg-surface-1)", border: "1px solid var(--border-default)" }}>
-      <p className="text-xs font-semibold text-center leading-tight" style={{ color, maxWidth: w }}>{goal?.label ?? "Inactive"}</p>
-      <svg width={w} height={h} viewBox={`0 0 ${w} ${h}`}>
-        <defs>
-          <linearGradient id={`mj-gf-${uid}`} x1="0" y1="1" x2="0" y2="0">
-            <stop offset="0%" stopColor={gradEnd} /><stop offset="100%" stopColor={color} />
-          </linearGradient>
-          <clipPath id={`mj-jc-${uid}`}><path d={jarPath} /></clipPath>
-        </defs>
-        <g clipPath={`url(#mj-jc-${uid})`}>
-          {clamp > 0 && <rect x={15*scale} y={yStart} width={90*scale} height={fillH + 15*scale} fill={`url(#mj-gf-${uid})`} rx={4*scale} />}
-        </g>
-        <path d={jarPath} fill="none" stroke="rgba(255,255,255,0.3)" strokeWidth={2*scale} strokeLinejoin="round" />
-        <text x={60*scale} y={92*scale} textAnchor="middle" dominantBaseline="middle" fontSize={17*scale} fontWeight="800" fill={clamp > 0 ? "rgba(255,255,255,0.9)" : "rgba(255,255,255,0.2)"} style={{ fontFamily: "inherit" }}>{Math.round(clamp)}%</text>
-      </svg>
-      <p className="text-sm font-bold" style={{ color }}>{formatCurrency(bal)}</p>
-      <button onClick={onMakeActive} className="w-full text-xs font-semibold py-1.5 rounded-xl" style={{ border: `1px solid ${color}`, color }}>Make Active</button>
-    </div>
-  );
-}
-
 /* ── Cause Tab ── */
 function CauseTab({
   uid,
@@ -460,7 +367,6 @@ function CauseTab({
   onEditCause,
   onDeleteCause,
   onDonate,
-  onDonateToProject,
   onEditDonation,
   onDeleteDonation,
 }: {
@@ -475,7 +381,6 @@ function CauseTab({
   onEditCause: (projectId: string, data: { title: string; sponsor: string; location?: string; goalAmount: number; donationURL?: string }) => Promise<void>;
   onDeleteCause: (projectId: string) => Promise<void>;
   onDonate: (amount: number) => Promise<void>;
-  onDonateToProject: (projectId: string, projectTitle: string, amount: number) => Promise<void>;
   onEditDonation: (donation: DonationEvent, newAmount: number) => Promise<void>;
   onDeleteDonation: (donation: DonationEvent) => Promise<void>;
 }) {
@@ -644,22 +549,12 @@ function CauseTab({
               </button>
               <button
                 className="w-full text-left px-5 py-4 transition-colors"
-                style={{ borderBottom: "1px solid var(--border-default)" }}
                 onMouseEnter={(e) => (e.currentTarget as HTMLElement).style.background = "var(--bg-surface-2)"}
                 onMouseLeave={(e) => (e.currentTarget as HTMLElement).style.background = "transparent"}
                 onClick={() => { onSelectCause(switchTarget, true); setSwitchTarget(null); }}
               >
                 <p className="text-sm font-semibold" style={{ color: "var(--text-primary)" }}>→ Switch &amp; move balance to {switchTarget.title}</p>
                 <p className="text-xs mt-0.5" style={{ color: "var(--text-secondary)" }}>Existing savings count toward the new cause</p>
-              </button>
-              <button
-                className="w-full text-left px-5 py-4 transition-colors"
-                onMouseEnter={(e) => (e.currentTarget as HTMLElement).style.background = "var(--bg-surface-2)"}
-                onMouseLeave={(e) => (e.currentTarget as HTMLElement).style.background = "transparent"}
-                onClick={() => { onSelectCause(switchTarget, false); setSwitchTarget(null); }}
-              >
-                <p className="text-sm font-semibold" style={{ color: "var(--text-primary)" }}>🫙 Keep existing money in jar, switch for new skips</p>
-                <p className="text-xs mt-0.5" style={{ color: "var(--text-secondary)" }}>Current balance stays, new skips go to {switchTarget.title}</p>
               </button>
             </div>
             <div className="px-5 pb-5 pt-2">
@@ -710,34 +605,11 @@ function CauseTab({
         label={activeProject?.title ?? null}
         amount={formatCurrency(givingBalance)}
         fillPct={activeProject && activeProject.goalAmount > 0 ? (givingBalance / activeProject.goalAmount) * 100 : (givingBalance > 0 ? 100 : 0)}
-        emptyPrompt="👆 Pick a cause below"
+        emptyPrompt="👇 Pick a cause below"
       />
 
       {/* Donate / I Donated — below jar */}
       {activeProject && <CauseDonateRow project={activeProject} />}
-
-      {/* Inactive jars with money */}
-      {Object.entries(causeJarBalances ?? {}).filter(([id, bal]) => id !== activeProject?.id && bal > 0).length > 0 && (
-        <div className="mt-2">
-          <p className="text-xs font-semibold uppercase tracking-wide mb-3" style={{ color: "rgba(237,245,240,0.85)" }}>Other Jars with Money</p>
-          <div className="grid grid-cols-2 gap-3">
-            {Object.entries(causeJarBalances ?? {})
-              .filter(([id, bal]) => id !== activeProject?.id && bal > 0)
-              .map(([id, bal]) => {
-                const proj = projects.find((p) => p.id === id);
-                return (
-                  <MiniJarCause
-                    key={id}
-                    proj={proj}
-                    bal={bal}
-                    onMakeActive={() => handleSetActive(proj ?? { id, title: id, sponsor: "", goalAmount: 0, isCustom: false } as Project)}
-                    onDonate={async (amt) => { await onDonateToProject(id, proj?.title ?? id, amt); }}
-                  />
-                );
-              })}
-          </div>
-        </div>
-      )}
 
       {/* All causes */}
       <div>
@@ -1185,15 +1057,6 @@ function SplurgeTab({
                 <p className="text-sm font-semibold" style={{ color: "var(--text-primary)" }}>→ Move funds to {switchTarget.label}</p>
                 <p className="text-xs mt-0.5" style={{ color: "var(--text-secondary)" }}>Your balance will count toward the new goal</p>
               </button>
-              <button
-                className="w-full text-left px-5 py-4 transition-colors"
-                onMouseEnter={(e) => (e.currentTarget as HTMLElement).style.background = "var(--bg-surface-2)"}
-                onMouseLeave={(e) => (e.currentTarget as HTMLElement).style.background = "transparent"}
-                onClick={() => { onSetActiveGoal(switchTarget.id, false); setSwitchTarget(null); }}
-              >
-                <p className="text-sm font-semibold" style={{ color: "var(--text-primary)" }}>🫙 Keep existing money in jar, switch for new skips</p>
-                <p className="text-xs mt-0.5" style={{ color: "var(--text-secondary)" }}>Current balance stays, new skips go to {switchTarget.label}</p>
-              </button>
             </div>
             <div className="px-5 pb-5 pt-2">
               <button
@@ -1215,30 +1078,8 @@ function SplurgeTab({
         label={activeGoal?.label ?? null}
         amount={formatCurrency(spendingBalance)}
         fillPct={activeGoal ? (spendingBalance / activeGoal.targetAmount) * 100 : 0}
-        emptyPrompt="👆 Pick a goal below"
+        emptyPrompt="👇 Pick a goal below"
       />
-
-      {/* Inactive goal jars with money */}
-      {Object.entries(goalJarBalances ?? {}).filter(([id, bal]) => id !== activeGoalId && bal > 0).length > 0 && (
-        <div className="mt-2">
-          <p className="text-xs font-semibold uppercase tracking-wide mb-3" style={{ color: "rgba(237,245,240,0.85)" }}>Other Jars with Money</p>
-          <div className="grid grid-cols-2 gap-3">
-            {Object.entries(goalJarBalances ?? {})
-              .filter(([id, bal]) => id !== activeGoalId && bal > 0)
-              .map(([id, bal]) => {
-                const goal = goals.find((g) => g.id === id);
-                return (
-                  <MiniJarGoal
-                    key={id}
-                    goal={goal}
-                    bal={bal}
-                    onMakeActive={() => handleSetActiveGoalWithCheck(goal ?? { id, label: id, targetAmount: 0, type: "splurge" })}
-                  />
-                );
-              })}
-          </div>
-        </div>
-      )}
 
       <div className="flex items-center justify-between mb-1">
         <h2 className="text-base font-bold" style={{ color: "var(--text-primary)" }}>Goals</h2>

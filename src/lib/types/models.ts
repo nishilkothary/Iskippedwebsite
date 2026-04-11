@@ -119,6 +119,7 @@ export interface DonationEvent {
 
 export interface SpendingHistoryEvent {
   id: string;
+  goalId?: string;
   label: string;
   targetAmount: number;
   amountSaved: number;

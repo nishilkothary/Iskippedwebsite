@@ -24,6 +24,10 @@ const FAQ_ITEMS = [
     a: "While we strongly encourage everyone to pick a cause, it's not required. Your Give a Little jar will keep filling up until you choose one.",
   },
   {
+    q: "Can I fund multiple live or give jars at once?",
+    a: "No — at this time you can save for one thing at a time. You can transfer funds to a new cause/goal by activating a new jar, or mark as donated/purchased to close out that jar and start a new one.",
+  },
+  {
     q: "I have feedback — where can I share it?",
     a: "We'd love to hear from you! Send us an email at iskippedfor@gmail.com and we'll get back to you.",
   },
