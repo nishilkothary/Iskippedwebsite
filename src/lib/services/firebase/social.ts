@@ -12,6 +12,7 @@ import {
   doc,
   deleteDoc,
   updateDoc,
+  Timestamp,
 } from "firebase/firestore";
 import { ref, onValue } from "firebase/database";
 import { db, rtdb } from "./config";
@@ -96,6 +97,18 @@ export async function updateCommunityFeedItem(
   } catch {
     // Doc may not exist
   }
+}
+
+export async function deleteOldCommunityFeedItems(beforeDate: Date): Promise<number> {
+  const q = query(
+    collection(db, "communityFeed"),
+    where("createdAt", "<", Timestamp.fromDate(beforeDate)),
+    limit(200)
+  );
+  const snap = await getDocs(q);
+  const deletes = snap.docs.map((d) => deleteDoc(doc(db, "communityFeed", d.id)).catch(() => {}));
+  await Promise.all(deletes);
+  return snap.docs.length;
 }
 
 export async function searchUsers(displayName: string): Promise<Array<{ uid: string; displayName: string; photoURL: string | null }>> {
