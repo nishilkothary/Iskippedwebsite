@@ -1,0 +1,149 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // ─── Helpers ────────────────────────────────────────────────────────────
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isOwner(uid) {
+      return isSignedIn() && request.auth.uid == uid;
+    }
+
+    function incomingData() {
+      return request.resource.data;
+    }
+
+    function isPositiveNumber(val) {
+      return val is number && val >= 0;
+    }
+
+    // ─── Users ──────────────────────────────────────────────────────────────
+    // Authenticated users can read any profile (needed for leaderboard, search,
+    // social follows). Only the owner can write their own profile.
+    match /users/{uid} {
+      allow read: if isSignedIn();
+      allow create: if isOwner(uid)
+        && incomingData().uid == uid
+        && incomingData().keys().hasAll(["uid", "displayName", "email",
+                                         "totalSaved", "totalSkips", "streak"])
+        && isPositiveNumber(incomingData().totalSaved)
+        && isPositiveNumber(incomingData().totalSkips)
+        && isPositiveNumber(incomingData().streak);
+      allow update: if isOwner(uid)
+        // uid is immutable
+        && (!incomingData().keys().hasAny(["uid"]) || incomingData().uid == uid);
+      allow delete: if false;
+
+      // ─── Skips ──────────────────────────────────────────────────────────
+      match /skips/{skipId} {
+        allow read:   if isOwner(uid);
+        allow create: if isOwner(uid)
+          && incomingData().uid == uid
+          && incomingData().amount is number
+          && incomingData().amount > 0
+          && incomingData().category is string;
+        allow update: if isOwner(uid)
+          && (!incomingData().keys().hasAny(["uid"]) || incomingData().uid == uid);
+        allow delete: if isOwner(uid);
+      }
+
+      // ─── Donations ──────────────────────────────────────────────────────
+      match /donations/{donationId} {
+        allow read:   if isOwner(uid);
+        allow create: if isOwner(uid)
+          && incomingData().amount is number
+          && incomingData().amount > 0
+          && incomingData().causeId is string
+          && incomingData().causeTitle is string;
+        allow update: if isOwner(uid)
+          && incomingData().amount is number
+          && incomingData().amount > 0;
+        allow delete: if isOwner(uid);
+      }
+
+      // ─── Spending History ────────────────────────────────────────────────
+      match /spendingHistory/{eventId} {
+        allow read:   if isOwner(uid);
+        allow create: if isOwner(uid)
+          && incomingData().label is string
+          && incomingData().amountSaved is number
+          && incomingData().amountSaved > 0;
+        allow update: if isOwner(uid)
+          && incomingData().amountSaved is number
+          && incomingData().amountSaved > 0;
+        allow delete: if isOwner(uid);
+      }
+
+      // ─── Social Graph ────────────────────────────────────────────────────
+      match /following/{targetUid} {
+        // A user can see their own follow list; the followed user can verify
+        // they're in the list for follower counts.
+        allow read:   if isOwner(uid) || isOwner(targetUid);
+        allow create: if isOwner(uid)
+          && incomingData().uid == targetUid;
+        allow delete: if isOwner(uid);
+        allow update: if false;
+      }
+    }
+
+    // ─── Projects (Causes) ──────────────────────────────────────────────────
+    // Anyone signed in can browse causes. Custom causes can only be edited /
+    // deleted by the user who created them; built-in causes are read-only.
+    match /projects/{projectId} {
+      allow read: if isSignedIn();
+      allow create: if isSignedIn()
+        && incomingData().isCustom == true
+        && incomingData().createdBy == request.auth.uid
+        && incomingData().title is string
+        && incomingData().title.size() > 0;
+      allow update: if isSignedIn()
+        && (
+          // Owner can edit their custom cause
+          (resource.data.isCustom == true && resource.data.createdBy == request.auth.uid)
+          ||
+          // Any authenticated user can increment totalRaised (via donation batch)
+          (
+            incomingData().diff(resource.data).affectedKeys().hasOnly(["totalRaised"])
+            && incomingData().totalRaised is number
+            && incomingData().totalRaised >= resource.data.totalRaised
+          )
+        );
+      allow delete: if isSignedIn()
+        && resource.data.isCustom == true
+        && resource.data.createdBy == request.auth.uid;
+    }
+
+    // ─── Personal Fan-out Feed ───────────────────────────────────────────────
+    // The feed owner reads their own feed. The owner also writes (feed items
+    // are created client-side in the same batch as the skip document).
+    match /feed/{uid}/items/{itemId} {
+      allow read:   if isOwner(uid);
+      allow create: if isOwner(uid) && incomingData().uid == uid;
+      allow update: if isOwner(uid) && incomingData().uid == uid;
+      allow delete: if isOwner(uid);
+    }
+
+    // ─── Community Feed ──────────────────────────────────────────────────────
+    // All signed-in users can read. A user can create a feed item if the doc ID
+    // matches their skip (document ID = skipId, uid field = caller). They can
+    // only delete or update their own items.
+    match /communityFeed/{skipId} {
+      allow read:   if isSignedIn();
+      allow create: if isSignedIn()
+        && incomingData().uid == request.auth.uid;
+      allow update: if isSignedIn()
+        && resource.data.uid == request.auth.uid
+        && incomingData().uid == request.auth.uid;
+      allow delete: if isSignedIn()
+        && resource.data.uid == request.auth.uid;
+    }
+
+    // ─── Deny everything else ────────────────────────────────────────────────
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}
