@@ -12,6 +12,8 @@ import {
   updateSpendingHistory,
   deleteSpendingHistory,
   setActiveProject,
+  switchCause,
+  switchGoal,
   normalizeJarSplit,
   normalizeSpendingGoals,
   updateSpendingGoals,
@@ -27,6 +29,10 @@ function JarsPageInner() {
   const rawTab = searchParams.get("tab");
   const initialTab: Tab = rawTab === "live" || rawTab === "cause" ? rawTab : "cause";
   const [activeTab, setActiveTab] = useState<Tab>(initialTab);
+
+  useEffect(() => {
+    setActiveTab(rawTab === "live" ? "live" : "cause");
+  }, [rawTab]);
 
   const { user, profile, updateProfile } = useAuthStore();
   const { donate, editDonation, deleteDonation } = useSkips();
@@ -51,17 +57,31 @@ function JarsPageInner() {
   const split = normalizeJarSplit(profile.jarSplit as any);
   const giveTotal = profile.totalGiveAllocated ?? profile.totalSaved * (split.give / 100);
   const liveTotal = profile.totalLiveAllocated ?? profile.totalSaved * (split.live / 100);
-  const givingBalance = Math.max(0, giveTotal - (profile.totalDonated ?? 0));
-  const spendingBalance = Math.max(0, liveTotal - (profile.totalSpent ?? 0));
+  const globalGivingBalance = Math.max(0, giveTotal - (profile.totalDonated ?? 0));
+  const globalSpendingBalance = Math.max(0, liveTotal - (profile.totalSpent ?? 0));
 
   const activeProject = projects.find((p) => p.id === profile.activeProjectId) ?? projects[0] ?? null;
 
   const { goals: spendingGoals, activeId: activeSpendingGoalId } = normalizeSpendingGoals(profile);
   const activeGoal = spendingGoals.find((g) => g.id === activeSpendingGoalId) ?? null;
 
-  async function handleSelectCause(project: Project) {
-    await setActiveProject(user!.uid, project.id);
-    updateProfile({ activeProjectId: project.id });
+  // Per-jar balances (fall back to global if not yet tracked)
+  const givingBalance = activeProject
+    ? (profile.causeJarBalances?.[activeProject.id] ?? globalGivingBalance)
+    : globalGivingBalance;
+  const spendingBalance = activeGoal
+    ? (profile.goalJarBalances?.[activeGoal.id] ?? globalSpendingBalance)
+    : globalSpendingBalance;
+
+  async function handleSelectCause(project: Project, moveFunds: boolean) {
+    const transfer = await switchCause(user!.uid, activeProject?.id ?? null, project.id, moveFunds);
+    const currentBalances = profile!.causeJarBalances ?? {};
+    const newCauseJarBalances = transfer
+      ? Object.fromEntries(
+          Object.entries({ ...currentBalances, ...transfer }).map(([k, v]) => [k, v as number])
+        )
+      : currentBalances;
+    updateProfile({ activeProjectId: project.id, causeJarBalances: newCauseJarBalances });
   }
 
   async function handleAddCause(title: string, sponsor: string, location: string | undefined, goalAmount: number, donationURL?: string) {
@@ -102,9 +122,15 @@ function JarsPageInner() {
     updateProfile({ spendingGoals: newGoals, activeSpendingGoalId: newActiveId });
   }
 
-  async function handleSetActiveGoal(goalId: string) {
-    await updateSpendingGoals(user!.uid, spendingGoals, goalId);
-    updateProfile({ activeSpendingGoalId: goalId });
+  async function handleSetActiveGoal(goalId: string, moveFunds = false) {
+    const transfer = await switchGoal(user!.uid, activeSpendingGoalId, goalId, moveFunds, spendingGoals);
+    const currentBalances = profile!.goalJarBalances ?? {};
+    const newGoalJarBalances = transfer
+      ? Object.fromEntries(
+          Object.entries({ ...currentBalances, ...transfer }).map(([k, v]) => [k, v as number])
+        )
+      : currentBalances;
+    updateProfile({ activeSpendingGoalId: goalId, goalJarBalances: newGoalJarBalances });
   }
 
   async function handleCompleteGoal(goalId: string) {
@@ -126,6 +152,7 @@ function JarsPageInner() {
       totalSpent: (profile!.totalSpent ?? 0) + spendingBalance,
       spendingGoals: newGoals,
       activeSpendingGoalId: newActiveId,
+      goalJarBalances: { ...(profile!.goalJarBalances ?? {}), [goalId]: 0 },
     });
   }
 
@@ -160,6 +187,7 @@ function JarsPageInner() {
           activeProject={activeProject}
           givingBalance={givingBalance}
           donations={donations}
+          causeJarBalances={profile.causeJarBalances}
           onSelectCause={handleSelectCause}
           onAddCause={handleAddCause}
           onEditCause={async (projectId, data) => {
@@ -181,6 +209,7 @@ function JarsPageInner() {
           goals={spendingGoals}
           activeGoalId={activeSpendingGoalId}
           spendingHistory={spendingHistory}
+          goalJarBalances={profile.goalJarBalances}
           onAddGoal={handleAddGoal}
           onEditGoal={handleEditGoal}
           onDeleteGoal={handleDeleteGoal}
@@ -321,6 +350,7 @@ function CauseTab({
   activeProject,
   givingBalance,
   donations,
+  causeJarBalances,
   onSelectCause,
   onAddCause,
   onEditCause,
@@ -334,7 +364,8 @@ function CauseTab({
   activeProject: Project | null;
   givingBalance: number;
   donations: DonationEvent[];
-  onSelectCause: (p: Project) => void;
+  causeJarBalances: Record<string, number> | undefined;
+  onSelectCause: (p: Project, moveFunds: boolean) => void;
   onAddCause: (title: string, sponsor: string, location: string | undefined, goalAmount: number, donationURL?: string) => Promise<void>;
   onEditCause: (projectId: string, data: { title: string; sponsor: string; location?: string; goalAmount: number; donationURL?: string }) => Promise<void>;
   onDeleteCause: (projectId: string) => Promise<void>;
@@ -415,7 +446,7 @@ function CauseTab({
     if (givingBalance > 0 && activeProject && activeProject.id !== project.id) {
       setSwitchTarget(project);
     } else {
-      onSelectCause(project);
+      onSelectCause(project, false);
     }
   }
 
@@ -510,7 +541,7 @@ function CauseTab({
                 style={{ borderBottom: "1px solid var(--border-default)" }}
                 onMouseEnter={(e) => (e.currentTarget as HTMLElement).style.background = "var(--bg-surface-2)"}
                 onMouseLeave={(e) => (e.currentTarget as HTMLElement).style.background = "transparent"}
-                onClick={() => { onSelectCause(switchTarget); setSwitchTarget(null); }}
+                onClick={() => { onSelectCause(switchTarget, true); setSwitchTarget(null); }}
               >
                 <p className="text-sm font-semibold" style={{ color: "var(--text-primary)" }}>→ Switch &amp; move balance to {switchTarget.title}</p>
                 <p className="text-xs mt-0.5" style={{ color: "var(--text-secondary)" }}>Existing savings count toward the new cause</p>
@@ -519,7 +550,7 @@ function CauseTab({
                 className="w-full text-left px-5 py-4 transition-colors"
                 onMouseEnter={(e) => (e.currentTarget as HTMLElement).style.background = "var(--bg-surface-2)"}
                 onMouseLeave={(e) => (e.currentTarget as HTMLElement).style.background = "transparent"}
-                onClick={() => { onSelectCause(switchTarget); setSwitchTarget(null); }}
+                onClick={() => { onSelectCause(switchTarget, false); setSwitchTarget(null); }}
               >
                 <p className="text-sm font-semibold" style={{ color: "var(--text-primary)" }}>🫙 Keep existing money in jar, switch for new skips</p>
                 <p className="text-xs mt-0.5" style={{ color: "var(--text-secondary)" }}>Current balance stays, new skips go to {switchTarget.title}</p>
@@ -575,6 +606,29 @@ function CauseTab({
         fillPct={activeProject && activeProject.goalAmount > 0 ? (givingBalance / activeProject.goalAmount) * 100 : (givingBalance > 0 ? 100 : 0)}
         emptyPrompt="👆 Pick a cause below"
       />
+
+      {/* Inactive jars with money */}
+      {Object.entries(causeJarBalances ?? {}).filter(([id, bal]) => id !== activeProject?.id && bal > 0).length > 0 && (
+        <div>
+          <p className="text-xs font-semibold mb-2" style={{ color: "var(--text-muted)" }}>OTHER JARS WITH MONEY</p>
+          <div className="space-y-2">
+            {Object.entries(causeJarBalances ?? {})
+              .filter(([id, bal]) => id !== activeProject?.id && bal > 0)
+              .map(([id, bal]) => {
+                const proj = projects.find((p) => p.id === id);
+                return (
+                  <div key={id} className="rounded-xl px-4 py-3 flex items-center justify-between" style={{ background: "var(--bg-surface-1)", border: "1px solid var(--border-default)" }}>
+                    <div>
+                      <p className="text-sm font-semibold" style={{ color: "var(--text-primary)" }}>{proj?.title ?? id}</p>
+                      <p className="text-xs" style={{ color: "var(--text-muted)" }}>Inactive jar</p>
+                    </div>
+                    <span className="text-sm font-bold" style={{ color: "var(--coral-primary)" }}>{formatCurrency(bal)}</span>
+                  </div>
+                );
+              })}
+          </div>
+        </div>
+      )}
 
       {/* All causes */}
       <div>
@@ -874,6 +928,7 @@ function SplurgeTab({
   goals,
   activeGoalId,
   spendingHistory,
+  goalJarBalances,
   onAddGoal,
   onEditGoal,
   onDeleteGoal,
@@ -887,10 +942,11 @@ function SplurgeTab({
   goals: SpendingGoal[];
   activeGoalId: string | null;
   spendingHistory: SpendingHistoryEvent[];
+  goalJarBalances: Record<string, number> | undefined;
   onAddGoal: (goal: Omit<SpendingGoal, "id">) => Promise<void>;
   onEditGoal: (goalId: string, updates: Partial<SpendingGoal>) => Promise<void>;
   onDeleteGoal: (goalId: string) => Promise<void>;
-  onSetActiveGoal: (goalId: string) => Promise<void>;
+  onSetActiveGoal: (goalId: string, moveFunds: boolean) => Promise<void>;
   onCompleteGoal: (goalId: string) => Promise<void>;
   onMoveToGive: (goalId: string) => Promise<void>;
   onEditHistory: (event: SpendingHistoryEvent, newAmount: number) => Promise<void>;
@@ -927,7 +983,7 @@ function SplurgeTab({
     if (spendingBalance > 0 && activeGoalId && activeGoalId !== goal.id) {
       setSwitchTarget(goal);
     } else {
-      onSetActiveGoal(goal.id);
+      onSetActiveGoal(goal.id, false);
     }
   }
 
@@ -1015,7 +1071,7 @@ function SplurgeTab({
                 className="w-full text-left px-5 py-4 transition-colors"
                 onMouseEnter={(e) => (e.currentTarget as HTMLElement).style.background = "var(--bg-surface-2)"}
                 onMouseLeave={(e) => (e.currentTarget as HTMLElement).style.background = "transparent"}
-                onClick={() => { onSetActiveGoal(switchTarget.id); setSwitchTarget(null); }}
+                onClick={() => { onSetActiveGoal(switchTarget.id, true); setSwitchTarget(null); }}
               >
                 <p className="text-sm font-semibold" style={{ color: "var(--text-primary)" }}>→ Move funds to {switchTarget.label}</p>
                 <p className="text-xs mt-0.5" style={{ color: "var(--text-secondary)" }}>Your balance will count toward the new goal</p>
@@ -1024,7 +1080,7 @@ function SplurgeTab({
                 className="w-full text-left px-5 py-4 transition-colors"
                 onMouseEnter={(e) => (e.currentTarget as HTMLElement).style.background = "var(--bg-surface-2)"}
                 onMouseLeave={(e) => (e.currentTarget as HTMLElement).style.background = "transparent"}
-                onClick={() => { onSetActiveGoal(switchTarget.id); setSwitchTarget(null); }}
+                onClick={() => { onSetActiveGoal(switchTarget.id, false); setSwitchTarget(null); }}
               >
                 <p className="text-sm font-semibold" style={{ color: "var(--text-primary)" }}>🫙 Keep existing money in jar, switch for new skips</p>
                 <p className="text-xs mt-0.5" style={{ color: "var(--text-secondary)" }}>Current balance stays, new skips go to {switchTarget.label}</p>
@@ -1052,6 +1108,29 @@ function SplurgeTab({
         fillPct={activeGoal ? (spendingBalance / activeGoal.targetAmount) * 100 : 0}
         emptyPrompt="👆 Pick a goal below"
       />
+
+      {/* Inactive goal jars with money */}
+      {Object.entries(goalJarBalances ?? {}).filter(([id, bal]) => id !== activeGoalId && bal > 0).length > 0 && (
+        <div>
+          <p className="text-xs font-semibold mb-2" style={{ color: "var(--text-muted)" }}>OTHER JARS WITH MONEY</p>
+          <div className="space-y-2">
+            {Object.entries(goalJarBalances ?? {})
+              .filter(([id, bal]) => id !== activeGoalId && bal > 0)
+              .map(([id, bal]) => {
+                const goal = goals.find((g) => g.id === id);
+                return (
+                  <div key={id} className="rounded-xl px-4 py-3 flex items-center justify-between" style={{ background: "var(--bg-surface-1)", border: "1px solid var(--border-default)" }}>
+                    <div>
+                      <p className="text-sm font-semibold" style={{ color: "var(--text-primary)" }}>{goal?.label ?? id}</p>
+                      <p className="text-xs" style={{ color: "var(--text-muted)" }}>Inactive jar</p>
+                    </div>
+                    <span className="text-sm font-bold" style={{ color: "#8B5CF6" }}>{formatCurrency(bal)}</span>
+                  </div>
+                );
+              })}
+          </div>
+        </div>
+      )}
 
       <div className="flex items-center justify-between mb-1">
         <h2 className="text-base font-bold" style={{ color: "var(--text-primary)" }}>Goals</h2>

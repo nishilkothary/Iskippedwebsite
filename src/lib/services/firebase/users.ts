@@ -80,6 +80,7 @@ export async function completeGoal(
     spendingGoals: newGoals,
     activeSpendingGoalId: newActiveId,
     spendingGoal: null,
+    [`goalJarBalances.${goalId}`]: 0,
   });
   await batch.commit();
 }
@@ -166,6 +167,52 @@ export async function setActiveProject(uid: string, projectId: string | null): P
   await updateDoc(doc(db, "users", uid), { activeProjectId: projectId });
 }
 
+export async function switchCause(
+  uid: string,
+  oldCauseId: string | null,
+  newCauseId: string,
+  moveFunds: boolean
+): Promise<Record<string, number> | null> {
+  const updates: Record<string, unknown> = { activeProjectId: newCauseId };
+  let balanceTransfer: Record<string, number> | null = null;
+  if (moveFunds && oldCauseId) {
+    const snap = await getDoc(doc(db, "users", uid));
+    const oldBal: number = snap.data()?.causeJarBalances?.[oldCauseId] ?? 0;
+    if (oldBal > 0) {
+      updates[`causeJarBalances.${newCauseId}`] = increment(oldBal);
+      updates[`causeJarBalances.${oldCauseId}`] = 0;
+      balanceTransfer = { [oldCauseId]: 0, [newCauseId]: oldBal };
+    }
+  }
+  await updateDoc(doc(db, "users", uid), updates);
+  return balanceTransfer;
+}
+
+export async function switchGoal(
+  uid: string,
+  oldGoalId: string | null,
+  newGoalId: string,
+  moveFunds: boolean,
+  goals: SpendingGoal[]
+): Promise<Record<string, number> | null> {
+  const updates: Record<string, unknown> = {
+    activeSpendingGoalId: newGoalId,
+    spendingGoals: goals,
+  };
+  let balanceTransfer: Record<string, number> | null = null;
+  if (moveFunds && oldGoalId) {
+    const snap = await getDoc(doc(db, "users", uid));
+    const oldBal: number = snap.data()?.goalJarBalances?.[oldGoalId] ?? 0;
+    if (oldBal > 0) {
+      updates[`goalJarBalances.${newGoalId}`] = increment(oldBal);
+      updates[`goalJarBalances.${oldGoalId}`] = 0;
+      balanceTransfer = { [oldGoalId]: 0, [newGoalId]: oldBal };
+    }
+  }
+  await updateDoc(doc(db, "users", uid), updates);
+  return balanceTransfer;
+}
+
 export async function followUser(uid: string, targetUid: string): Promise<void> {
   await setDoc(doc(db, "users", uid, "following", targetUid), {
     uid: targetUid,
@@ -195,6 +242,7 @@ export async function recordDonation(uid: string, amount: number, projectId: str
   batch.update(doc(db, "users", uid), {
     totalDonated: increment(amount),
     savedTowardActiveCause: 0,
+    [`causeJarBalances.${projectId}`]: increment(-amount),
   });
   const projectRef = doc(db, "projects", projectId);
   const projectSnap = await getDoc(projectRef);
@@ -291,7 +339,7 @@ export async function getAllUsers(): Promise<UserProfile[]> {
 export async function recalculateTotals(
   uid: string,
   defaultSplit: { give: number; live: number }
-): Promise<{ totalSaved: number; totalSkips: number; totalGiveAllocated: number; totalLiveAllocated: number; totalDonated: number; totalSpent: number }> {
+): Promise<{ totalSaved: number; totalSkips: number; totalGiveAllocated: number; totalLiveAllocated: number; totalDonated: number; totalSpent: number; causeJarBalances: Record<string, number> }> {
   const { getAllSkips } = await import("./skips");
 
   // Sum all skips
@@ -317,7 +365,22 @@ export async function recalculateTotals(
   const spendingSnap = await getDocs(collection(db, "users", uid, "spendingHistory"));
   const totalSpent = spendingSnap.docs.reduce((sum, d) => sum + ((d.data().amountSaved as number) ?? 0), 0);
 
-  const totals = { ...skipTotals, totalDonated, totalSpent };
+  // Rebuild per-cause jar balances from skip history minus donations per cause
+  const causeJarBalances: Record<string, number> = {};
+  skips.forEach((skip) => {
+    const split = skip.jarSplit ?? defaultSplit;
+    if (skip.projectId) {
+      causeJarBalances[skip.projectId] = (causeJarBalances[skip.projectId] ?? 0) + skip.amount * (split.give / 100);
+    }
+  });
+  donationsSnap.docs.forEach((d) => {
+    const { causeId, amount: donAmt } = d.data() as { causeId?: string; amount?: number };
+    if (causeId) {
+      causeJarBalances[causeId] = Math.max(0, (causeJarBalances[causeId] ?? 0) - (donAmt ?? 0));
+    }
+  });
+
+  const totals = { ...skipTotals, totalDonated, totalSpent, causeJarBalances };
   await updateDoc(doc(db, "users", uid), totals);
   return totals;
 }

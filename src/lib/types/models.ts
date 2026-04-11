@@ -37,6 +37,8 @@ export interface UserProfile {
   totalSpent?: number;
   totalGiveAllocated?: number;
   totalLiveAllocated?: number;
+  causeJarBalances?: Record<string, number>;
+  goalJarBalances?: Record<string, number>;
 }
 
 export interface SkipCategory {

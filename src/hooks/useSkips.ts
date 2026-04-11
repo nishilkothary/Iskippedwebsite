@@ -3,7 +3,7 @@ import { useEffect, useState } from "react";
 import { useAuthStore } from "@/store/authStore";
 import { useSkipStore } from "@/store/skipStore";
 import { subscribeToSkips, logSkip, LogSkipParams, updateSkip as firebaseUpdateSkip, deleteSkip as firebaseDeleteSkip } from "@/lib/services/firebase/skips";
-import { normalizeJarSplit } from "@/lib/services/firebase/users";
+import { normalizeJarSplit, normalizeSpendingGoals } from "@/lib/services/firebase/users";
 import { recordDonation, subscribeToDonations, updateDonation as firebaseUpdateDonation, deleteDonation as firebaseDeleteDonation } from "@/lib/services/firebase/users";
 import { deleteCommunityFeedItem, updateCommunityFeedItem } from "@/lib/services/firebase/social";
 import { DEMO_MODE } from "@/lib/constants/demo";
@@ -29,11 +29,14 @@ export function useSkips() {
     return unsub;
   }, [user?.uid]);
 
-  async function log(params: Omit<LogSkipParams, "uid" | "currentTotalSaved" | "currentTotalSkips" | "currentXp" | "currentStreak" | "currentLongestStreak" | "lastSkipDate" | "savedTowardActiveCause" | "defaultJarSplit">) {
+  async function log(params: Omit<LogSkipParams, "uid" | "currentTotalSaved" | "currentTotalSkips" | "currentXp" | "currentStreak" | "currentLongestStreak" | "lastSkipDate" | "savedTowardActiveCause" | "defaultJarSplit" | "activeGoalId">) {
     if (!user || !profile) return null;
     setLogging(true);
     const defaultJarSplit = normalizeJarSplit(profile.jarSplit as any);
     const effectiveSplit = params.jarSplit ?? defaultJarSplit;
+    const activeGoalId = normalizeSpendingGoals(profile).activeId;
+    const giveAmount = params.amount * (effectiveSplit.give / 100);
+    const liveAmount = params.amount * (effectiveSplit.live / 100);
     try {
       const result = await logSkip({
         ...params,
@@ -48,13 +51,20 @@ export function useSkips() {
         defaultJarSplit,
         displayName: user.displayName || profile.displayName,
         photoURL: user.photoURL || profile.photoURL || undefined,
+        activeGoalId,
       });
       if (result) {
         updateProfile({
           totalSaved: profile.totalSaved + params.amount,
           totalSkips: profile.totalSkips + 1,
-          totalGiveAllocated: (profile.totalGiveAllocated ?? 0) + params.amount * (effectiveSplit.give / 100),
-          totalLiveAllocated: (profile.totalLiveAllocated ?? 0) + params.amount * (effectiveSplit.live / 100),
+          totalGiveAllocated: (profile.totalGiveAllocated ?? 0) + giveAmount,
+          totalLiveAllocated: (profile.totalLiveAllocated ?? 0) + liveAmount,
+          causeJarBalances: params.projectId
+            ? { ...profile.causeJarBalances, [params.projectId]: (profile.causeJarBalances?.[params.projectId] ?? 0) + giveAmount }
+            : profile.causeJarBalances,
+          goalJarBalances: activeGoalId
+            ? { ...profile.goalJarBalances, [activeGoalId]: (profile.goalJarBalances?.[activeGoalId] ?? 0) + liveAmount }
+            : profile.goalJarBalances,
         });
       }
       return result;
@@ -67,9 +77,11 @@ export function useSkips() {
     if (!user || !profile) return;
     await recordDonation(user.uid, amount, projectId, projectTitle, date);
     const prevDonated = profile.causeStats?.[projectId]?.donated ?? 0;
+    const prevJarBal = profile.causeJarBalances?.[projectId] ?? 0;
     updateProfile({
       totalDonated: profile.totalDonated + amount,
       causeStats: { ...profile.causeStats, [projectId]: { donated: prevDonated + amount } },
+      causeJarBalances: { ...profile.causeJarBalances, [projectId]: Math.max(0, prevJarBal - amount) },
     });
   }
 
