@@ -219,7 +219,7 @@ export default function SignInPage() {
         {/* Hero copy */}
         <div>
           <h2 className="text-5xl font-black text-white leading-tight mb-4">
-            Skip, Give, <span className="text-emerald-300">Live.</span>
+            Skip, Live, <span className="text-emerald-300">Give.</span>
           </h2>
           <p className="text-emerald-100 text-lg leading-relaxed max-w-sm">
             Every purchase you skip becomes savings you can direct to causes that change lives.
@@ -271,7 +271,7 @@ export default function SignInPage() {
             </p>
           </div>
           <h1 className="text-3xl font-black text-white text-center leading-tight mb-2">
-            Skip, Give, <span className="text-emerald-300">Live.</span>
+            Skip, Live, <span className="text-emerald-300">Give.</span>
           </h1>
           <p className="text-emerald-100 text-sm text-center">
             Turn everyday skips into real impact.
