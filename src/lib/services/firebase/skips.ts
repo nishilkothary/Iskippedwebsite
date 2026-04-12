@@ -135,7 +135,7 @@ export async function logSkip(params: LogSkipParams): Promise<{ skipId: string; 
     skipCategory: category,
     skipEmoji: categoryEmoji,
     projectTitle,
-    message: `skipped ${whatSkipped || categoryLabel} and saved ${formatAmount(amount)}${causeSuffix}`,
+    message: `skipped ${whatSkipped || categoryLabel} and saved ${formatAmount(giveAmount)}${causeSuffix}`,
     createdAt: serverTimestamp(),
   });
 
@@ -174,7 +174,7 @@ export async function logSkip(params: LogSkipParams): Promise<{ skipId: string; 
         skipCategory: category,
         skipEmoji: categoryEmoji,
         projectTitle,
-        message: `skipped ${whatSkipped || categoryLabel} and saved ${formatAmount(amount)}${causeSuffix}`,
+        message: `skipped ${whatSkipped || categoryLabel} and saved ${formatAmount(giveAmount)}${causeSuffix}`,
         createdAt: serverTimestamp(),
       });
       await communityBatch.commit();
