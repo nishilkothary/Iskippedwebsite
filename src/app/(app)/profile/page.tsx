@@ -13,7 +13,7 @@ const FAQ_ITEMS = [
   },
   {
     q: "My balance doesn't look right. What should I do?",
-    a: "Use the Recalculate button in the Help & Feedback section. It rebuilds all your totals directly from your logged skip history and should bring everything back in sync.",
+    a: "Use the Recalculate button at the bottom of the home page. It rebuilds all your totals directly from your logged skip history and should bring everything back in sync.",
   },
   {
     q: "Will more causes be added?",
