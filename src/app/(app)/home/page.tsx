@@ -495,14 +495,15 @@ export default function HomePage() {
         </div>
       </div>
 
-      {/* Manage jars link + recalculate */}
-      <div className="flex justify-center items-center gap-4 mt-4">
-        <button
-          onClick={() => router.push("/jars")}
-          style={{ background: "none", border: "none", color: "var(--green-primary)", fontSize: 12, fontWeight: 600, cursor: "pointer" }}
-        >
-          Manage jars →
-        </button>
+      {/* Recalculate card */}
+      <div className="mt-4" style={cardStyle}>
+        <p style={{ fontSize: 14, fontWeight: 700, color: "var(--text-primary)", marginBottom: 4 }}>🔄 Recalculate totals</p>
+        <p style={{ fontSize: 12, color: "var(--text-secondary)", marginBottom: 16 }}>
+          If your jar balances look off, this recomputes your totals from your actual logged skips. Donations and purchases are not affected.
+        </p>
+        {recalcDone && (
+          <p style={{ fontSize: 12, fontWeight: 600, color: "var(--green-primary)", marginBottom: 8 }}>✓ Done — balances updated.</p>
+        )}
         <button
           onClick={async () => {
             if (!user || !profile || recalcWorking) return;
@@ -518,9 +519,14 @@ export default function HomePage() {
             }
           }}
           disabled={recalcWorking}
-          style={{ background: "none", border: "none", color: recalcDone ? "var(--green-primary)" : "var(--text-muted)", fontSize: 12, fontWeight: 600, cursor: "pointer", opacity: recalcWorking ? 0.5 : 1 }}
+          style={{
+            width: "100%", padding: "10px 0", fontWeight: 600, fontSize: 14, borderRadius: 12,
+            border: "1px solid var(--border-emphasis)", color: "var(--text-secondary)",
+            background: "transparent", cursor: recalcWorking ? "not-allowed" : "pointer",
+            opacity: recalcWorking ? 0.5 : 1,
+          }}
         >
-          {recalcWorking ? "Recalculating…" : recalcDone ? "✓ Done" : "🔄 Recalculate balances"}
+          {recalcWorking ? "Recalculating…" : "Recalculate"}
         </button>
       </div>
 
