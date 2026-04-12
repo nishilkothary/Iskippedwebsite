@@ -105,7 +105,12 @@ function JarsPageInner() {
   }
 
   async function handleEditGoal(goalId: string, updates: Partial<SpendingGoal>) {
-    const newGoals = spendingGoals.map((g) => (g.id === goalId ? { ...g, ...updates } : g));
+    const newGoals = spendingGoals.map((g) => {
+      if (g.id !== goalId) return g;
+      const merged = { ...g, ...updates };
+      // Firestore rejects undefined field values — strip them before writing
+      return Object.fromEntries(Object.entries(merged).filter(([, v]) => v !== undefined)) as unknown as SpendingGoal;
+    });
     await updateSpendingGoals(user!.uid, newGoals, activeSpendingGoalId);
     updateProfile({ spendingGoals: newGoals });
   }
@@ -634,7 +639,7 @@ function CauseTab({
                       type="text"
                       value={editSponsor}
                       onChange={(e) => setEditSponsor(e.target.value)}
-                      placeholder="Organisation (e.g. Caring for Cambodia)"
+                      placeholder="Organization (e.g. Caring for Cambodia)"
                       className="w-full rounded-xl px-3 py-2 text-sm focus:outline-none" style={{ background: "var(--bg-surface-2)", border: "1px solid var(--border-default)", color: "var(--text-primary)" }}
                     />
                     <input
@@ -763,7 +768,7 @@ function CauseTab({
             />
             <input
               type="text"
-              placeholder="Organisation (e.g. Caring for Cambodia)"
+              placeholder="Organization (e.g. Caring for Cambodia)"
               value={customSponsor}
               onChange={(e) => setCustomSponsor(e.target.value)}
               className="w-full rounded-xl px-3 py-2.5 text-sm focus:outline-none" style={{ background: "var(--bg-surface-2)", border: "1px solid var(--border-default)", color: "var(--text-primary)" }}
