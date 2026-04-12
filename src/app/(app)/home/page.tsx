@@ -8,7 +8,7 @@ import { useProjects } from "@/hooks/useProjects";
 import { useUIStore } from "@/store/uiStore";
 import { formatCurrency } from "@/lib/utils/currency";
 import { formatRelativeTime } from "@/lib/utils/dates";
-import { normalizeJarSplit, normalizeSpendingGoals } from "@/lib/services/firebase/users";
+import { normalizeJarSplit, normalizeSpendingGoals, recalculateTotals } from "@/lib/services/firebase/users";
 import { EditSkipModal } from "@/components/skip/EditSkipModal";
 import { Skip } from "@/lib/types/models";
 
@@ -201,11 +201,13 @@ function Jar({ fillPercent, color, gradEnd, label, amount, emoji, causeLabel, hr
 // ─── Home Page ──────────────────────────────────────────────────────────────
 export default function HomePage() {
   const router = useRouter();
-  const { profile } = useAuthStore();
+  const { user, profile, updateProfile } = useAuthStore();
   const { recentSkips } = useSkips();
   const { projects } = useProjects();
   const { setShowSkipPicker } = useUIStore();
   const [editingSkip, setEditingSkip] = useState<Skip | null>(null);
+  const [recalcWorking, setRecalcWorking] = useState(false);
+  const [recalcDone, setRecalcDone] = useState(false);
 
   if (!profile) return null;
 
@@ -220,10 +222,7 @@ export default function HomePage() {
   const { goals: spendingGoals, activeId: activeSpendingGoalId } = normalizeSpendingGoals(profile);
   const activeGoal = spendingGoals.find((g) => g.id === activeSpendingGoalId) ?? null;
 
-  // Use per-jar balances when available (fall back to global for legacy users)
-  const givingBalance = activeProject && profile.causeJarBalances !== undefined
-    ? Math.max(0, profile.causeJarBalances[activeProject.id] ?? 0)
-    : globalGivingBalance;
+  const givingBalance = globalGivingBalance;
   const spendingBalance = globalSpendingBalance;
 
   const goalAmount = activeProject?.goalAmount ?? 0;
@@ -333,8 +332,8 @@ export default function HomePage() {
         <div style={{ display: "flex", justifyContent: "center", gap: 16, margin: "20px 0", flexWrap: "nowrap" }}>
           <Jar
             fillPercent={spendingFillPct}
-            color="#2BBAA4"
-            gradEnd="#1E9485"
+            color="#8B5CF6"
+            gradEnd="#6D28D9"
             label="Live a Little"
             amount={formatCurrency(spendingBalance)}
             emoji="😊"
@@ -343,8 +342,8 @@ export default function HomePage() {
           />
           <Jar
             fillPercent={givingFillPct}
-            color="#E8637A"
-            gradEnd="#C44D62"
+            color="#2BBAA4"
+            gradEnd="#1E9485"
             label="Give a Little"
             amount={formatCurrency(givingBalance)}
             emoji="🤲"
@@ -496,13 +495,32 @@ export default function HomePage() {
         </div>
       </div>
 
-      {/* Manage jars link */}
-      <div className="flex justify-center mt-4">
+      {/* Manage jars link + recalculate */}
+      <div className="flex justify-center items-center gap-4 mt-4">
         <button
           onClick={() => router.push("/jars")}
           style={{ background: "none", border: "none", color: "var(--green-primary)", fontSize: 12, fontWeight: 600, cursor: "pointer" }}
         >
           Manage jars →
+        </button>
+        <button
+          onClick={async () => {
+            if (!user || !profile || recalcWorking) return;
+            setRecalcWorking(true);
+            setRecalcDone(false);
+            try {
+              const result = await recalculateTotals(user.uid, normalizeJarSplit(profile.jarSplit as any));
+              updateProfile(result);
+              setRecalcDone(true);
+              setTimeout(() => setRecalcDone(false), 3000);
+            } finally {
+              setRecalcWorking(false);
+            }
+          }}
+          disabled={recalcWorking}
+          style={{ background: "none", border: "none", color: recalcDone ? "var(--green-primary)" : "var(--text-muted)", fontSize: 12, fontWeight: 600, cursor: "pointer", opacity: recalcWorking ? 0.5 : 1 }}
+        >
+          {recalcWorking ? "Recalculating…" : recalcDone ? "✓ Done" : "🔄 Recalculate balances"}
         </button>
       </div>
 

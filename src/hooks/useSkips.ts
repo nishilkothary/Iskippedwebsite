@@ -123,7 +123,7 @@ export function useSkips() {
     const skipSplit = skip.jarSplit ?? normalizeJarSplit(profile.jarSplit as any);
     const giveAllocAmount = skip.amount * (skipSplit.give / 100);
     const liveAllocAmount = skip.amount * (skipSplit.live / 100);
-    await firebaseDeleteSkip(user.uid, skip.id, skip.amount, giveAllocAmount, liveAllocAmount);
+    await firebaseDeleteSkip(user.uid, skip.id, skip.amount, giveAllocAmount, liveAllocAmount, skip.projectId);
     removeSkip(skip.id);
     updateProfile({
       totalSaved: profile.totalSaved - skip.amount,

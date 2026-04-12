@@ -66,10 +66,7 @@ function JarsPageInner() {
   const { goals: spendingGoals, activeId: activeSpendingGoalId } = normalizeSpendingGoals(profile);
   const activeGoal = spendingGoals.find((g) => g.id === activeSpendingGoalId) ?? null;
 
-  // Per-jar balances: use per-cause/goal when the field exists, fall back to global for legacy users
-  const givingBalance = activeProject && profile.causeJarBalances !== undefined
-    ? Math.max(0, profile.causeJarBalances[activeProject.id] ?? 0)
-    : globalGivingBalance;
+  const givingBalance = globalGivingBalance;
   const spendingBalance = globalSpendingBalance;
 
   async function handleSelectCause(project: Project, moveFunds: boolean) {
@@ -597,8 +594,8 @@ function CauseTab({
 
       {/* Jar preview */}
       <JarPreview
-        color="#E8637A"
-        gradEnd="#C44D62"
+        color="#2BBAA4"
+        gradEnd="#1E9485"
         label={activeProject?.title ?? null}
         amount={formatCurrency(givingBalance)}
         fillPct={activeProject && activeProject.goalAmount > 0 ? (givingBalance / activeProject.goalAmount) * 100 : (givingBalance > 0 ? 100 : 0)}

@@ -242,7 +242,8 @@ export async function deleteSkip(
   skipId: string,
   amount: number,
   giveAllocAmount = 0,
-  liveAllocAmount = 0
+  liveAllocAmount = 0,
+  projectId?: string | null
 ): Promise<void> {
   const batch = writeBatch(db);
   batch.delete(doc(db, "users", uid, "skips", skipId));
@@ -251,6 +252,7 @@ export async function deleteSkip(
     totalSkips: increment(-1),
     totalGiveAllocated: increment(-giveAllocAmount),
     totalLiveAllocated: increment(-liveAllocAmount),
+    ...(projectId ? { [`causeJarBalances.${projectId}`]: increment(-giveAllocAmount) } : {}),
   });
   await batch.commit();
 }
