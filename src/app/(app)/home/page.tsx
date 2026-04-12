@@ -67,8 +67,8 @@ function Jar({ fillPercent, color, gradEnd, label, amount, emoji, causeLabel, go
           {causeLabel ?? "👆 Tap to pick a jar"}
         </div>
         {causeLabel && goalAmount && goalAmount > 0 && (
-          <div style={{ fontSize: 11, fontWeight: 500, color: color, opacity: 0.75, marginTop: 2 }}>
-            Skipped needed: {formatCurrency(goalAmount)}
+          <div style={{ fontSize: 11, fontWeight: 500, color: color, opacity: 0.75, marginTop: 2, fontStyle: "italic" }}>
+            goal: {formatCurrency(goalAmount)}
           </div>
         )}
       </div>
