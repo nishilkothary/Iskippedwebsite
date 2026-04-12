@@ -86,7 +86,7 @@ export default function ProfilePage() {
             className="inline-block mt-2 text-xs font-semibold px-3 py-1 rounded-full"
             style={{ background: "var(--bg-surface-2)", color: "var(--green-primary)", border: "1px solid var(--border-default)" }}
           >
-            Level {profile.level} · {profile.xp} XP
+            Level {profile.level}
           </span>
         </div>
       </div>

@@ -690,10 +690,10 @@ function CauseTab({
                     )}
                     <div className="flex items-start justify-between gap-3">
                       <div className="flex-1 min-w-0">
-                        <div className="flex items-baseline gap-1.5 flex-wrap">
+                        <div className="flex items-baseline gap-0 flex-wrap">
                           <p className="font-extrabold text-[#EDF5F0] text-base">{project.title}</p>
                           {project.goalAmount > 0 && (
-                            <span className="text-xs text-[#2ECC71] font-semibold">{formatCurrency(project.goalAmount)}</span>
+                            <span className="font-extrabold text-[#EDF5F0] text-base">: {formatCurrency(project.goalAmount)}</span>
                           )}
                         </div>
                         <div className="flex items-center gap-2 mt-0.5">
@@ -815,7 +815,7 @@ function CauseTab({
         ) : (
           <button
             onClick={() => setShowAddForm(true)}
-            className="mt-3 w-full py-2.5 border border-dashed border-[rgba(46,204,113,0.25)] text-[rgba(237,245,240,0.6)] font-semibold rounded-xl hover:border-[#2ECC71] hover:text-[#2ECC71] transition-colors text-sm"
+            className="mt-3 w-full py-2.5 border border-dashed border-[rgba(46,204,113,0.25)] text-white font-bold rounded-xl hover:border-[#2ECC71] hover:text-[#2ECC71] transition-colors text-sm"
           >
             ＋ Add your own cause
           </button>
@@ -1215,9 +1215,9 @@ function SplurgeTab({
                     )}
                     <div className="flex items-start justify-between gap-2">
                       <div className="flex-1 min-w-0">
-                        <div className="flex items-baseline gap-1.5 flex-wrap">
+                        <div className="flex items-baseline gap-0 flex-wrap">
                           <p className="font-extrabold text-[#EDF5F0] text-base">{goal.label}</p>
-                          <span className="text-xs text-[#8B5CF6] font-semibold">{formatCurrency(goal.targetAmount)}</span>
+                          <span className="font-extrabold text-[#EDF5F0] text-base">: {formatCurrency(goal.targetAmount)}</span>
                         </div>
                       </div>
                       <div className="flex items-center gap-1.5 flex-shrink-0">
@@ -1375,7 +1375,7 @@ function SplurgeTab({
       ) : (
         <button
           onClick={() => setShowAddForm(true)}
-          className="w-full py-2.5 border border-dashed border-[rgba(139,92,246,0.25)] text-[rgba(237,245,240,0.6)] font-semibold rounded-xl hover:border-[#8B5CF6] hover:text-[#8B5CF6] transition-colors text-sm"
+          className="w-full py-2.5 border border-dashed border-[rgba(139,92,246,0.25)] text-white font-bold rounded-xl hover:border-[#8B5CF6] hover:text-[#8B5CF6] transition-colors text-sm"
         >
           ＋ Add goal
         </button>
