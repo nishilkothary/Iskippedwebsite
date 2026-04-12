@@ -456,8 +456,7 @@ function CauseTab({
   }
 
   function handleSetActive(project: Project) {
-    const targetBal = causeJarBalances?.[project.id] ?? 0;
-    if (givingBalance > 0 && activeProject && activeProject.id !== project.id && targetBal === 0) {
+    if (activeProject && activeProject.id !== project.id) {
       setSwitchTarget(project);
     } else {
       onSelectCause(project, false);
@@ -547,7 +546,7 @@ function CauseTab({
                 onMouseLeave={(e) => (e.currentTarget as HTMLElement).style.background = "transparent"}
                 onClick={() => { setSwitchTarget(null); setDonatingId(activeProject?.id ?? null); }}
               >
-                <p className="text-sm font-semibold" style={{ color: "var(--text-primary)" }}>💸 Log a donation first</p>
+                <p className="text-sm font-semibold" style={{ color: "var(--text-primary)" }}>Log a donation first</p>
                 <p className="text-xs mt-0.5" style={{ color: "var(--text-secondary)" }}>Enter how much you donated, then switch</p>
               </button>
               <button
@@ -963,8 +962,7 @@ function SplurgeTab({
   const activeGoal = activeGoalProp;
 
   function handleSetActiveGoalWithCheck(goal: SpendingGoal) {
-    const targetBal = goalJarBalances?.[goal.id] ?? 0;
-    if (spendingBalance > 0 && activeGoalId && activeGoalId !== goal.id && targetBal === 0) {
+    if (activeGoalId && activeGoalId !== goal.id) {
       setSwitchTarget(goal);
     } else {
       onSetActiveGoal(goal.id, false);
@@ -1047,7 +1045,7 @@ function SplurgeTab({
                 onClick={() => { setSwitchTarget(null); if (activeGoalId) setPurchasingId(activeGoalId); }}
               >
                 <p className="text-sm font-semibold" style={{ color: "var(--text-primary)" }}>
-                  {activeGoal?.type === "donation" ? "💛 Log a donation first" : "🛒 Log a purchase first"}
+                  {activeGoal?.type === "donation" ? "Log a donation first" : "Log a purchase first"}
                 </p>
                 <p className="text-xs mt-0.5" style={{ color: "var(--text-secondary)" }}>Enter how much you spent, then switch</p>
               </button>
