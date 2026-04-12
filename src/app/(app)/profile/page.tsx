@@ -28,6 +28,10 @@ const FAQ_ITEMS = [
     a: "No — at this time you can save for one thing at a time. You can transfer funds to a new cause/goal by activating a new jar, or mark as donated/purchased to close out that jar and start a new one.",
   },
   {
+    q: "Is there an Iskipped app?",
+    a: "We are still in the testing phase so there is no current app. For now we recommend pinning the URL to your phone's homepage for ease of access. Based on your feedback, we hope to bring an app to all our users shortly!",
+  },
+  {
     q: "I have feedback — where can I share it?",
     a: "We'd love to hear from you! Send us an email at iskippedfor@gmail.com and we'll get back to you.",
   },
