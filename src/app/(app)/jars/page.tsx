@@ -698,9 +698,9 @@ function CauseTab({
                           )}
                         </div>
                         {project.location && (
-                          <p className="text-sm text-[rgba(237,245,240,0.6)] mt-0.5">Location: {project.location}</p>
+                          <p className="text-sm font-semibold text-[#2ECC71] mt-0.5">Location: {project.location}</p>
                         )}
-                        <p className="text-sm text-[rgba(237,245,240,0.6)] mt-0.5">{project.sponsor}</p>
+                        <p className="text-sm text-[rgba(237,245,240,0.6)] mt-0.5">Organization: {project.sponsor}</p>
                         {project.donationURL && (
                           <a href={project.donationURL} target="_blank" rel="noopener noreferrer" className="text-xs text-[#2ECC71] underline mt-0.5 block">
                             ↗ Learn more
