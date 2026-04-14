@@ -1,0 +1,16 @@
+{
+  "rules": {
+    ".read": false,
+    ".write": false,
+    "globalStats": {
+      ".read": true,
+      ".write": "auth !== null"
+    },
+    "causeTotals": {
+      ".read": true,
+      "$projectId": {
+        ".write": "auth !== null"
+      }
+    }
+  }
+}

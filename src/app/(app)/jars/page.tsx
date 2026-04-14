@@ -697,16 +697,14 @@ function CauseTab({
                             <span className="font-extrabold text-[#EDF5F0] text-base">: {formatCurrency(project.goalAmount)}</span>
                           )}
                         </div>
-                        <div className="flex items-center gap-2 mt-0.5">
-                          <p className="text-sm text-[rgba(237,245,240,0.6)]">{project.sponsor}</p>
-                          {project.donationURL && (
-                            <a href={project.donationURL} target="_blank" rel="noopener noreferrer" className="text-xs text-[#2ECC71] underline flex-shrink-0">
-                              ↗ Learn more
-                            </a>
-                          )}
-                        </div>
+                        <p className="text-sm text-[rgba(237,245,240,0.6)] mt-0.5">{project.sponsor}</p>
                         {project.location && (
-                          <p className="text-xs text-[rgba(237,245,240,0.6)] mt-0.5">{project.location}</p>
+                          <p className="text-xs text-[rgba(237,245,240,0.6)] mt-0.5">Location: {project.location}</p>
+                        )}
+                        {project.donationURL && (
+                          <a href={project.donationURL} target="_blank" rel="noopener noreferrer" className="text-xs text-[#2ECC71] underline mt-0.5 block">
+                            ↗ Learn more
+                          </a>
                         )}
                       </div>
                       <div className="flex items-center gap-1.5 flex-shrink-0">
