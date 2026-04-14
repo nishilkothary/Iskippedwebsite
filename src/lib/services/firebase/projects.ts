@@ -98,6 +98,20 @@ export const OFFICIAL_PROJECTS: Project[] = [
     createdBy: null,
     tags: ["food", "emergency", "syria"],
   },
+  {
+    id: "tsf-barbra",
+    title: "Barbra's Education",
+    sponsor: "The School Fund",
+    description: "Your savings help fund Barbra's education in Kenya, giving her the opportunity to stay in school and build a better future.",
+    goalAmount: 600,
+    totalRaised: 0,
+    imageURL: null,
+    donationURL: "https://theschoolfund.org/cgi-bin/dyn?c=view&t=student&i=8828&year=2027",
+    isCustom: false,
+    location: "Kenya",
+    createdBy: null,
+    tags: ["education", "kenya"],
+  },
 ];
 
 export async function getAllProjects(): Promise<Project[]> {
