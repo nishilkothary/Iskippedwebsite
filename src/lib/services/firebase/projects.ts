@@ -47,7 +47,7 @@ export const OFFICIAL_PROJECTS: Project[] = [
     title: "Support a Mobile Library for 3 Schools",
     sponsor: "Kenya Connect",
     description: "Your savings help bring a mobile library to three schools in rural Kenya, giving students access to books and learning resources.",
-    goalAmount: 0,
+    goalAmount: 500,
     totalRaised: 0,
     imageURL: null,
     donationURL: "https://www.kenyaconnect.org/donate",

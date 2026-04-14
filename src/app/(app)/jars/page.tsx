@@ -691,10 +691,10 @@ function CauseTab({
                     )}
                     <div className="flex items-start justify-between gap-3">
                       <div className="flex-1 min-w-0">
-                        <div className="flex items-baseline gap-0 flex-wrap">
+                        <div className="flex items-baseline gap-1 flex-nowrap">
                           <p className="font-extrabold text-[#EDF5F0] text-base">{project.title}</p>
                           {project.goalAmount > 0 && (
-                            <span className="font-extrabold text-[#EDF5F0] text-base">: {formatCurrency(project.goalAmount)}</span>
+                            <span className="font-extrabold text-[#EDF5F0] text-base flex-shrink-0">: {formatCurrency(project.goalAmount)}</span>
                           )}
                         </div>
                         {project.location && (
@@ -726,25 +726,15 @@ function CauseTab({
                             </button>
                           </>
                         )}
-                        {!isActive && (
-                          <button
-                            onClick={() => handleSetActive(project)}
-                            className="text-xs font-semibold text-[#2ECC71] border border-[#2ECC71] px-3 py-1.5 rounded-full hover:bg-[#162E23] transition-colors"
-                          >
-                            Set as My Jar
-                          </button>
-                        )}
                       </div>
                     </div>
-                    {!isActive && project.donationURL && (
-                      <a
-                        href={project.donationURL}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="mt-3 flex items-center justify-center gap-1.5 w-full py-2 border border-[#2ECC71] text-[#2ECC71] font-semibold rounded-xl hover:bg-[#162E23] transition-colors text-xs"
+                    {!isActive && (
+                      <button
+                        onClick={() => handleSetActive(project)}
+                        className="mt-3 w-full py-2 text-xs font-semibold text-[#2ECC71] border border-[#2ECC71] rounded-xl hover:bg-[#162E23] transition-colors"
                       >
-                        🌍 Donate →
-                      </a>
+                        Set as My Jar
+                      </button>
                     )}
                   </>
                 )}
