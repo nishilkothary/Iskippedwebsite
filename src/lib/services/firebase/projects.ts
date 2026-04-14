@@ -70,6 +70,20 @@ export const OFFICIAL_PROJECTS: Project[] = [
     createdBy: null,
     tags: ["food", "emergency", "ukraine"],
   },
+  {
+    id: "kc-library",
+    title: "Support a Mobile Library for 3 Schools",
+    sponsor: "Kenya Connect",
+    description: "Your savings help bring a mobile library to three schools in rural Kenya, giving students access to books and learning resources.",
+    goalAmount: 0,
+    totalRaised: 0,
+    imageURL: null,
+    donationURL: "https://www.kenyaconnect.org/donate",
+    isCustom: false,
+    location: "Kenya",
+    createdBy: null,
+    tags: ["education", "library", "kenya"],
+  },
 ];
 
 export async function getAllProjects(): Promise<Project[]> {
