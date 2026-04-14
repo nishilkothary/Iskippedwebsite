@@ -611,7 +611,7 @@ function CauseTab({
 
       {/* All causes */}
       <div>
-        <p className="text-sm font-semibold text-[rgba(237,245,240,0.85)] mb-3">Causes</p>
+        <p className="text-xl font-bold text-[#EDF5F0] mb-3">Featured Causes</p>
         <div className="space-y-3">
           {projects.map((project) => {
             const isActive = activeProject?.id === project.id;

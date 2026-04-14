@@ -56,6 +56,20 @@ export const OFFICIAL_PROJECTS: Project[] = [
     createdBy: null,
     tags: ["food", "emergency", "palestine"],
   },
+  {
+    id: "stm-ukraine",
+    title: "100 Emergency Meals",
+    sponsor: "Share the Meal",
+    description: "Your savings provide 100 emergency meals to families displaced by conflict in Ukraine.",
+    goalAmount: 100,
+    totalRaised: 0,
+    imageURL: null,
+    donationURL: "https://sharethemeal.org/en-us/campaigns/ukraine1",
+    isCustom: false,
+    location: "Ukraine",
+    createdBy: null,
+    tags: ["food", "emergency", "ukraine"],
+  },
 ];
 
 export async function getAllProjects(): Promise<Project[]> {
