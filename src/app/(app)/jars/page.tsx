@@ -895,6 +895,10 @@ function CauseTab({
           )}
         </div>
 
+      <p className="text-xs text-[rgba(237,245,240,0.35)] text-center mt-6 leading-relaxed">
+        I Skipped connects you with charitable organizations. Donations are processed directly by each organization. I Skipped does not handle or hold any donation funds.
+      </p>
+
       </div>
     </div>
   );
