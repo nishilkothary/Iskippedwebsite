@@ -222,7 +222,7 @@ export default function SignInPage() {
             Skip, Live, <span className="text-emerald-300">Give.</span>
           </h2>
           <p className="text-emerald-100 text-lg leading-relaxed max-w-sm">
-            Every purchase you skip becomes savings you can direct to causes that change lives.
+            Turn everyday skips into savings for yourself and donations that change lives.
           </p>
         </div>
 
@@ -304,7 +304,7 @@ export default function SignInPage() {
           {/* Desktop logo + heading */}
           <div className="hidden lg:block text-center mb-8">
             <p className="text-3xl font-black tracking-tight mb-5">
-              i<span className="text-emerald-500">skipped</span>
+              <span className="text-[#111827]">i</span><span className="text-emerald-500">skipped</span>
             </p>
             <h1 className="text-2xl font-bold text-[#111827]">Welcome — let's get started</h1>
             <p className="text-sm text-[#6B7280] mt-2">Your first skip is waiting.</p>
