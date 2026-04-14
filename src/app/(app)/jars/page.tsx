@@ -1133,7 +1133,7 @@ function SplurgeTab({
       )}
 
       <div className="flex items-center justify-between mb-1">
-        <p className="text-sm font-semibold text-[rgba(237,245,240,0.85)]">Goals</p>
+        <p className="text-xl font-bold text-[#EDF5F0]">My Goals</p>
         <span className="text-sm font-bold text-[#8B5CF6]">{formatCurrency(spendingBalance)} available</span>
       </div>
 
