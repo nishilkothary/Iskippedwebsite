@@ -32,6 +32,10 @@ const FAQ_ITEMS = [
     a: "We are still in the testing phase so there is no current app. For now we recommend pinning the URL to your phone's homepage for ease of access. Based on your feedback, we hope to bring an app to all our users shortly!",
   },
   {
+    q: "Does I Skipped process the donations?",
+    a: "No. I Skipped connects you with charitable organizations. Donations are processed directly by each organization. I Skipped does not handle or hold any donation funds.",
+  },
+  {
     q: "I have feedback — where can I share it?",
     a: "We'd love to hear from you! Send us an email at iskippedfor@gmail.com and we'll get back to you.",
   },
