@@ -54,7 +54,7 @@ export async function logSkip(params: LogSkipParams): Promise<{ skipId: string; 
     jarSplit, defaultJarSplit, displayName, photoURL, activeGoalId,
   } = params;
   const locationSuffix = projectLocation ? ` in ${projectLocation}` : "";
-  const causeSuffix = projectTitle ? ` for ${projectTitle}${locationSuffix}` : "";
+  const causeSuffix = projectTitle ? ` to help fund ${projectTitle}${locationSuffix}` : "";
 
   const effectiveSplit = jarSplit ?? defaultJarSplit ?? { give: 50, live: 50 };
   const giveAmount = amount * (effectiveSplit.give / 100);

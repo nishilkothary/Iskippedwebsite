@@ -44,7 +44,7 @@ export const OFFICIAL_PROJECTS: Project[] = [
   },
   {
     id: "kc-library",
-    title: "Support a Mobile Library for 3 Schools",
+    title: "A Mobile Library for 3 Schools",
     sponsor: "Kenya Connect",
     description: "Your savings help bring a mobile library to three schools in rural Kenya, giving students access to books and learning resources.",
     goalAmount: 500,
@@ -86,7 +86,7 @@ export const OFFICIAL_PROJECTS: Project[] = [
   },
   {
     id: "stm-syria",
-    title: "Share 100 Meals with Families in Need",
+    title: "100 Meals for Families in Need",
     sponsor: "Share the Meal",
     description: "Your savings provide 100 meals to families in need in Syria.",
     goalAmount: 80,

@@ -76,7 +76,7 @@ export function SkipModal({ onClose }: Props) {
     const itemLabel = whatSkipped || customLabel || selectedCat.label.toLowerCase();
     const causeTitle = successProjectTitle ?? "a good cause";
     const locationPart = successProjectLocation ? ` in ${successProjectLocation}` : "";
-    const shareText = `I skipped ${itemLabel} and saved ${formatCurrency(skipGive)} for ${causeTitle}${locationPart}. Every skip makes a difference. Join the movement on Iskipped.com`;
+    const shareText = `I skipped ${itemLabel} and saved ${formatCurrency(skipGive)} to help fund ${causeTitle}${locationPart}. Every skip makes a difference. Join the movement on Iskipped.com`;
 
     return (
       <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4" onClick={onClose}>
@@ -301,6 +301,9 @@ export function SkipModal({ onClose }: Props) {
             </div>
             <span className="text-sm" style={{ color: "var(--text-primary)" }}>Share name and skip with community</span>
           </label>
+          <p className="text-xs mt-1.5" style={{ color: "var(--text-muted)" }}>
+            Your skip always appears in the community feed. Turning this on shows your first name and what you skipped. Turning it off posts anonymously as &ldquo;Someone skipped [item] to help fund [cause]&rdquo; — your identity is never revealed.
+          </p>
         </div>
 
         {/* Submit */}

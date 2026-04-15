@@ -343,7 +343,7 @@ export default function HomePage() {
             label="Give a Little"
             amount={formatCurrency(givingBalance)}
             emoji="🤲"
-            causeLabel={activeProject?.title}
+            causeLabel={activeProject ? `${activeProject.title}${activeProject.location ? ` in ${activeProject.location}` : ""}` : undefined}
             goalAmount={activeProject?.goalAmount}
             href="/jars?tab=cause"
           />
