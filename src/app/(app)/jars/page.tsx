@@ -1207,12 +1207,14 @@ function SplurgeTab({
                     )}
                     <div className="flex items-start justify-between gap-2">
                       <div className="flex-1 min-w-0">
-                        <div className="flex items-baseline gap-0 flex-wrap">
-                          <p className="font-extrabold text-[#EDF5F0] text-base">{goal.label}</p>
-                          <span className="font-extrabold text-[#EDF5F0] text-base">: {formatCurrency(goal.targetAmount)}</span>
-                        </div>
+                        <p className="font-extrabold text-[#EDF5F0] text-base">{goal.label}</p>
                       </div>
                       <div className="flex items-center gap-1.5 flex-shrink-0">
+                        {goal.targetAmount > 0 && (
+                          <span className="font-bold text-[#8B5CF6] text-sm">
+                            ${Math.round(goal.targetAmount).toLocaleString()}
+                          </span>
+                        )}
                         <button
                           onClick={() => startEditGoal(goal)}
                           className="text-[rgba(237,245,240,0.35)] hover:text-[#8B5CF6] p-1 text-base"
