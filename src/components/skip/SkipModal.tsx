@@ -299,7 +299,7 @@ export function SkipModal({ onClose }: Props) {
                 className={`absolute top-0.5 left-0.5 w-5 h-5 rounded-full bg-white shadow transition-transform ${shareWithCommunity ? "translate-x-5" : ""}`}
               />
             </div>
-            <span className="text-sm" style={{ color: "var(--text-primary)" }}>Share skip with our community (it makes a difference!)</span>
+            <span className="text-sm" style={{ color: "var(--text-primary)" }}>Share name and skip with community</span>
           </label>
         </div>
 

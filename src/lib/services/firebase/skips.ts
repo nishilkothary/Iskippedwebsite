@@ -158,35 +158,36 @@ export async function logSkip(params: LogSkipParams): Promise<{ skipId: string; 
     // Non-critical, continue
   }
 
-  // 5. Community share (opt-in)
-  if (shareWithCommunity) {
-    try {
-      // Write to community feed — use skip ID as doc ID so edits/deletes can find it
-      const communityFeedRef = doc(db, "communityFeed", skipRef.id);
-      const communityBatch = writeBatch(db);
-      communityBatch.set(communityFeedRef, {
-        uid,
-        displayName: displayName || "Skipper",
-        ...(photoURL ? { photoURL } : {}),
-        type: "skip",
-        skipId: skipRef.id,
-        skipAmount: amount,
-        skipCategory: category,
-        skipEmoji: categoryEmoji,
-        projectTitle,
-        message: `skipped ${whatSkipped || categoryLabel} and saved ${formatAmount(giveAmount)}${causeSuffix}`,
-        createdAt: serverTimestamp(),
-      });
-      await communityBatch.commit();
+  // 5. Community share — always visible, identity is opt-in
+  try {
+    const shareName = shareWithCommunity ?? false;
+    // Write to community feed — use skip ID as doc ID so edits/deletes can find it
+    const communityFeedRef = doc(db, "communityFeed", skipRef.id);
+    const communityBatch = writeBatch(db);
+    communityBatch.set(communityFeedRef, {
+      uid,
+      displayName: shareName ? (displayName || "Skipper") : "Anonymous",
+      ...(shareName && photoURL ? { photoURL } : {}),
+      type: "skip",
+      skipId: skipRef.id,
+      skipAmount: amount,
+      skipCategory: category,
+      skipEmoji: categoryEmoji,
+      skipLabel: whatSkipped || categoryLabel,
+      projectTitle,
+      shareName,
+      message: `skipped ${whatSkipped || categoryLabel} and saved ${formatAmount(giveAmount)}${causeSuffix}`,
+      createdAt: serverTimestamp(),
+    });
+    await communityBatch.commit();
 
-      // Update per-cause counter if a cause was selected
-      if (projectId) {
-        const causeTotalRef = ref(rtdb, `causeTotals/${projectId}`);
-        await runTransaction(causeTotalRef, (current) => (current || 0) + amount);
-      }
-    } catch (e) {
-      // Non-critical, continue
+    // Cause counter only when identity is shared (preserves original behavior)
+    if (shareName && projectId) {
+      const causeTotalRef = ref(rtdb, `causeTotals/${projectId}`);
+      await runTransaction(causeTotalRef, (current) => (current || 0) + amount);
     }
+  } catch (e) {
+    // Non-critical, continue
   }
 
   return {

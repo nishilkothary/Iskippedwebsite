@@ -104,6 +104,8 @@ export interface FeedItem {
   badgeEmoji?: string;
   milestoneAmount?: number;
   projectTitle?: string;
+  shareName?: boolean;
+  skipLabel?: string;
   message: string;
   createdAt: Timestamp;
 }

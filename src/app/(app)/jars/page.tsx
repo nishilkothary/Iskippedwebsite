@@ -691,12 +691,7 @@ function CauseTab({
                     )}
                     <div className="flex items-start justify-between gap-3">
                       <div className="flex-1 min-w-0">
-                        <div className="flex items-baseline gap-1 flex-nowrap">
-                          <p className="font-extrabold text-[#EDF5F0] text-base">{project.title}</p>
-                          {project.goalAmount > 0 && (
-                            <span className="font-extrabold text-[#EDF5F0] text-base flex-shrink-0">: {formatCurrency(project.goalAmount)}</span>
-                          )}
-                        </div>
+                        <p className="font-extrabold text-[#EDF5F0] text-base">{project.title}</p>
                         {project.location && (
                           <p className="text-sm font-semibold text-[#2ECC71] mt-0.5">Location: {project.location}</p>
                         )}
@@ -708,6 +703,11 @@ function CauseTab({
                         )}
                       </div>
                       <div className="flex items-center gap-1.5 flex-shrink-0">
+                        {project.goalAmount > 0 && (
+                          <span className="font-bold text-[#2ECC71] text-sm">
+                            ${Math.round(project.goalAmount).toLocaleString()}
+                          </span>
+                        )}
                         {project.isCustom && (
                           <>
                             <button

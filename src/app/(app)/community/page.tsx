@@ -56,6 +56,7 @@ export default function CommunityPage() {
         ) : (
           <div className="space-y-3">
             {feed.map((item) => {
+              const showName = item.shareName !== false; // undefined → true (backward compat)
               const firstName = item.displayName?.split(" ")[0] ?? "Someone";
               return (
                 <div key={item.id} className="rounded-xl px-5 py-4 flex items-start gap-3" style={cardStyle}>
@@ -68,7 +69,11 @@ export default function CommunityPage() {
                   <div className="flex-1 min-w-0">
                     {item.type === "skip" ? (
                       <p className="text-sm" style={{ color: "var(--text-primary)" }}>
-                        <span className="font-semibold">{firstName}</span> {item.message}
+                        {showName ? (
+                          <><span className="font-semibold">{firstName}</span> {item.message}</>
+                        ) : (
+                          <>Someone skipped <span className="font-semibold">{item.skipLabel || item.skipCategory}</span>{item.projectTitle ? ` for ${item.projectTitle}` : ""}</>
+                        )}
                       </p>
                     ) : (
                       <p className="text-sm" style={{ color: "var(--text-primary)" }}>
