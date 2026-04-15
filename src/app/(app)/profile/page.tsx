@@ -36,6 +36,10 @@ const FAQ_ITEMS = [
     a: "No. I Skipped connects you with charitable organizations. Donations are processed directly by each organization. I Skipped does not handle or hold any donation funds.",
   },
   {
+    q: "What does the 'Share name and skip with community' toggle do?",
+    a: "Your skip always appears in the community feed — the toggle controls your identity. Turn it on and your first name and what you skipped will be shown. Turn it off and your skip appears anonymously as 'Someone skipped [item] to help fund [cause]'. Your identity is never revealed when the toggle is off.",
+  },
+  {
     q: "I have feedback — where can I share it?",
     a: "We'd love to hear from you! Send us an email at iskippedfor@gmail.com and we'll get back to you.",
   },

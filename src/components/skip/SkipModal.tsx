@@ -301,9 +301,6 @@ export function SkipModal({ onClose }: Props) {
             </div>
             <span className="text-sm" style={{ color: "var(--text-primary)" }}>Share name and skip with community</span>
           </label>
-          <p className="text-xs mt-1.5" style={{ color: "var(--text-muted)" }}>
-            Your skip always appears in the community feed. Turning this on shows your first name and what you skipped. Turning it off posts anonymously as &ldquo;Someone skipped [item] to help fund [cause]&rdquo; — your identity is never revealed.
-          </p>
         </div>
 
         {/* Submit */}
