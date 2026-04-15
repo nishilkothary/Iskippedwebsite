@@ -62,7 +62,7 @@ function Jar({ fillPercent, color, gradEnd, label, amount, emoji, causeLabel, go
       style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 10, cursor: "pointer" }}
       onClick={onClick}
     >
-      <div style={{ textAlign: "center", maxWidth: w, padding: "0 4px", minHeight: 52, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "flex-end" }}>
+      <div style={{ textAlign: "center", maxWidth: w, padding: "0 4px", height: 76, overflow: "hidden", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "flex-end" }}>
         <div style={{ fontSize: causeLabel ? 14 : 13, fontWeight: causeLabel ? 700 : 600, color: causeLabel ? color : "rgba(255,255,255,0.75)", lineHeight: 1.35, letterSpacing: 0.2 }}>
           {causeLabel ?? "👆 Tap to pick a jar"}
         </div>
