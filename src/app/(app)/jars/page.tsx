@@ -1208,27 +1208,29 @@ function SplurgeTab({
                     <div className="flex items-start justify-between gap-2">
                       <div className="flex-1 min-w-0">
                         <p className="font-extrabold text-[#EDF5F0] text-base">{goal.label}</p>
+                      </div>
+                      <div className="flex flex-col items-end gap-1 flex-shrink-0">
                         {goal.targetAmount > 0 && (
                           <span className="font-bold text-[#8B5CF6] text-sm">
                             ${Math.round(goal.targetAmount).toLocaleString()}
                           </span>
                         )}
-                      </div>
-                      <div className="flex items-center gap-1.5 flex-shrink-0">
-                        <button
-                          onClick={() => startEditGoal(goal)}
-                          className="text-[rgba(237,245,240,0.35)] hover:text-[#8B5CF6] p-1 text-base"
-                          title="Edit"
-                        >
-                          ✏️
-                        </button>
-                        <button
-                          onClick={() => isActive ? (setDeletingActiveGoal(true), setConfirmCompleteId(null)) : setDeletingGoalId(goal.id)}
-                          className="text-[rgba(237,245,240,0.35)] hover:text-red-400 p-1 text-base"
-                          title="Delete"
-                        >
-                          🗑️
-                        </button>
+                        <div className="flex items-center gap-1.5">
+                          <button
+                            onClick={() => startEditGoal(goal)}
+                            className="text-[rgba(237,245,240,0.35)] hover:text-[#8B5CF6] p-1 text-base"
+                            title="Edit"
+                          >
+                            ✏️
+                          </button>
+                          <button
+                            onClick={() => isActive ? (setDeletingActiveGoal(true), setConfirmCompleteId(null)) : setDeletingGoalId(goal.id)}
+                            className="text-[rgba(237,245,240,0.35)] hover:text-red-400 p-1 text-base"
+                            title="Delete"
+                          >
+                            🗑️
+                          </button>
+                        </div>
                       </div>
                     </div>
                     {!isActive && (
