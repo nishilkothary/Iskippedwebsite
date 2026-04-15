@@ -492,6 +492,18 @@ export default function HomePage() {
         </div>
       </div>
 
+      {/* Feedback section */}
+      <div className="mt-4" style={{ ...cardStyle, textAlign: "center" }}>
+        <p style={{ fontSize: 14, fontWeight: 700, color: "var(--text-primary)", marginBottom: 6 }}>Have any feedback?</p>
+        <p style={{ fontSize: 13, color: "var(--text-secondary)", lineHeight: 1.6 }}>
+          We are still in beta testing and would love for you to share what you would like to see from Iskipped. Please email{" "}
+          <a href="mailto:iskippedfor@gmail.com" style={{ color: "var(--green-primary)", textDecoration: "underline" }}>
+            iskippedfor@gmail.com
+          </a>{" "}
+          with your feedback!
+        </p>
+      </div>
+
       {/* Recalculate card */}
       <div className="mt-4" style={cardStyle}>
         <p style={{ fontSize: 14, fontWeight: 700, color: "var(--text-primary)", marginBottom: 4 }}>🔄 Recalculate totals</p>

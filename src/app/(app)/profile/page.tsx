@@ -37,7 +37,7 @@ const FAQ_ITEMS = [
   },
   {
     q: "What does the 'Share name and skip with community' toggle do?",
-    a: "Your skip always appears in the community feed — the toggle controls your identity. Turn it on and your first name and what you skipped will be shown. Turn it off and your skip appears anonymously as 'Someone skipped [item] to help fund [cause]'. Your identity is never revealed when the toggle is off.",
+    a: "This shares your first name and what you skipped. Keeping it off will hide your name and only show the category of the skip.",
   },
   {
     q: "I have feedback — where can I share it?",

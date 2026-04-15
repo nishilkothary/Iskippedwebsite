@@ -684,21 +684,59 @@ function CauseTab({
                   </div>
                 ) : (
                   <>
-                    <div className="flex items-center justify-between mb-2">
-                      {isActive ? (
-                        <span className="inline-block text-[10px] font-bold px-2 py-0.5 rounded-full" style={{ background: "rgba(232,99,122,0.15)", color: "var(--coral-primary)" }}>
-                          ✓ Active
-                        </span>
-                      ) : <span />}
-                      {project.goalAmount > 0 && (
-                        <span className="font-bold text-[#2ECC71] text-sm">
-                          ${Math.round(project.goalAmount).toLocaleString()}
-                        </span>
-                      )}
-                    </div>
-                    <div className="flex items-start justify-between gap-3">
-                      <div className="flex-1 min-w-0">
-                        <p className="font-extrabold text-[#EDF5F0] text-base">{project.title}</p>
+                    {isActive ? (
+                      <>
+                        <div className="flex items-center justify-between mb-2">
+                          <span className="inline-block text-[10px] font-bold px-2 py-0.5 rounded-full" style={{ background: "rgba(232,99,122,0.15)", color: "var(--coral-primary)" }}>
+                            ✓ Active
+                          </span>
+                          {project.goalAmount > 0 && (
+                            <span className="font-bold text-[#2ECC71] text-sm">
+                              ${Math.round(project.goalAmount).toLocaleString()}
+                            </span>
+                          )}
+                        </div>
+                        <div className="flex items-start justify-between gap-3">
+                          <div className="flex-1 min-w-0">
+                            <p className="font-extrabold text-[#EDF5F0] text-base">{project.title}</p>
+                            {project.location && (
+                              <p className="text-sm font-semibold text-[#2ECC71] mt-0.5">Location: {project.location}</p>
+                            )}
+                            <p className="text-sm text-[rgba(237,245,240,0.6)] mt-0.5">Organization: {project.sponsor}</p>
+                            {project.donationURL && (
+                              <a href={project.donationURL} target="_blank" rel="noopener noreferrer" className="text-xs text-[#2ECC71] underline mt-0.5 block">
+                                ↗ Learn more
+                              </a>
+                            )}
+                          </div>
+                          <div className="flex items-center gap-1.5 flex-shrink-0">
+                            {project.isCustom && (
+                              <>
+                                <button onClick={() => startEdit(project)} className="p-1 text-base" style={{ color: "var(--text-muted)" }} title="Edit">✏️</button>
+                                <button onClick={() => setConfirmDeleteId(project.id)} className="text-[rgba(237,245,240,0.35)] hover:text-red-400 p-1 text-base" title="Delete">🗑️</button>
+                              </>
+                            )}
+                          </div>
+                        </div>
+                      </>
+                    ) : (
+                      <>
+                        <div className="flex items-start justify-between gap-3 mb-1">
+                          <p className="font-extrabold text-[#EDF5F0] text-base flex-1 min-w-0">{project.title}</p>
+                          <div className="flex items-center gap-1.5 flex-shrink-0">
+                            {project.goalAmount > 0 && (
+                              <span className="font-bold text-[#2ECC71] text-sm">
+                                ${Math.round(project.goalAmount).toLocaleString()}
+                              </span>
+                            )}
+                            {project.isCustom && (
+                              <>
+                                <button onClick={() => startEdit(project)} className="p-1 text-base" style={{ color: "var(--text-muted)" }} title="Edit">✏️</button>
+                                <button onClick={() => setConfirmDeleteId(project.id)} className="text-[rgba(237,245,240,0.35)] hover:text-red-400 p-1 text-base" title="Delete">🗑️</button>
+                              </>
+                            )}
+                          </div>
+                        </div>
                         {project.location && (
                           <p className="text-sm font-semibold text-[#2ECC71] mt-0.5">Location: {project.location}</p>
                         )}
@@ -708,35 +746,13 @@ function CauseTab({
                             ↗ Learn more
                           </a>
                         )}
-                      </div>
-                      <div className="flex items-center gap-1.5 flex-shrink-0">
-                        {project.isCustom && (
-                          <>
-                            <button
-                              onClick={() => startEdit(project)}
-                              className="p-1 text-base" style={{ color: "var(--text-muted)" }}
-                              title="Edit"
-                            >
-                              ✏️
-                            </button>
-                            <button
-                              onClick={() => setConfirmDeleteId(project.id)}
-                              className="text-[rgba(237,245,240,0.35)] hover:text-red-400 p-1 text-base"
-                              title="Delete"
-                            >
-                              🗑️
-                            </button>
-                          </>
-                        )}
-                      </div>
-                    </div>
-                    {!isActive && (
-                      <button
-                        onClick={() => handleSetActive(project)}
-                        className="mt-3 w-full py-2 text-xs font-semibold text-[#2ECC71] border border-[#2ECC71] rounded-xl hover:bg-[#162E23] transition-colors"
-                      >
-                        Set as My Jar
-                      </button>
+                        <button
+                          onClick={() => handleSetActive(project)}
+                          className="mt-3 w-full py-2 text-xs font-semibold text-[#2ECC71] border border-[#2ECC71] rounded-xl hover:bg-[#162E23] transition-colors"
+                        >
+                          Set as My Jar
+                        </button>
+                      </>
                     )}
                   </>
                 )}
@@ -1202,46 +1218,49 @@ function SplurgeTab({
                   </div>
                 ) : (
                   <>
-                    <div className="flex items-center justify-between mb-2">
-                      {isActive ? (
-                        <span className="inline-block text-[10px] font-bold px-2 py-0.5 rounded-full" style={{ background: "rgba(139,92,246,0.15)", color: "#8B5CF6" }}>
-                          ✓ Active
-                        </span>
-                      ) : <span />}
-                      {goal.targetAmount > 0 && (
-                        <span className="font-bold text-[#8B5CF6] text-sm">
-                          ${Math.round(goal.targetAmount).toLocaleString()}
-                        </span>
-                      )}
-                    </div>
-                    <div className="flex items-start justify-between gap-2">
-                      <div className="flex-1 min-w-0">
-                        <p className="font-extrabold text-[#EDF5F0] text-base">{goal.label}</p>
-                      </div>
-                      <div className="flex items-center gap-1.5 flex-shrink-0">
+                    {isActive ? (
+                      <>
+                        <div className="flex items-center justify-between mb-2">
+                          <span className="inline-block text-[10px] font-bold px-2 py-0.5 rounded-full" style={{ background: "rgba(139,92,246,0.15)", color: "#8B5CF6" }}>
+                            ✓ Active
+                          </span>
+                          {goal.targetAmount > 0 && (
+                            <span className="font-bold text-[#8B5CF6] text-sm">
+                              ${Math.round(goal.targetAmount).toLocaleString()}
+                            </span>
+                          )}
+                        </div>
+                        <div className="flex items-start justify-between gap-2">
+                          <div className="flex-1 min-w-0">
+                            <p className="font-extrabold text-[#EDF5F0] text-base">{goal.label}</p>
+                          </div>
+                          <div className="flex items-center gap-1.5 flex-shrink-0">
+                            <button onClick={() => startEditGoal(goal)} className="text-[rgba(237,245,240,0.35)] hover:text-[#8B5CF6] p-1 text-base" title="Edit">✏️</button>
+                            <button onClick={() => (setDeletingActiveGoal(true), setConfirmCompleteId(null))} className="text-[rgba(237,245,240,0.35)] hover:text-red-400 p-1 text-base" title="Delete">🗑️</button>
+                          </div>
+                        </div>
+                      </>
+                    ) : (
+                      <>
+                        <div className="flex items-start justify-between gap-2 mb-1">
+                          <p className="font-extrabold text-[#EDF5F0] text-base flex-1 min-w-0">{goal.label}</p>
+                          <div className="flex items-center gap-1.5 flex-shrink-0">
+                            {goal.targetAmount > 0 && (
+                              <span className="font-bold text-[#8B5CF6] text-sm">
+                                ${Math.round(goal.targetAmount).toLocaleString()}
+                              </span>
+                            )}
+                            <button onClick={() => startEditGoal(goal)} className="text-[rgba(237,245,240,0.35)] hover:text-[#8B5CF6] p-1 text-base" title="Edit">✏️</button>
+                            <button onClick={() => setDeletingGoalId(goal.id)} className="text-[rgba(237,245,240,0.35)] hover:text-red-400 p-1 text-base" title="Delete">🗑️</button>
+                          </div>
+                        </div>
                         <button
-                          onClick={() => startEditGoal(goal)}
-                          className="text-[rgba(237,245,240,0.35)] hover:text-[#8B5CF6] p-1 text-base"
-                          title="Edit"
+                          onClick={() => handleSetActiveGoalWithCheck(goal)}
+                          className="mt-3 w-full py-2 text-xs font-semibold text-[#8B5CF6] border border-[#8B5CF6] rounded-xl hover:bg-[rgba(139,92,246,0.15)] transition-colors"
                         >
-                          ✏️
+                          Set as My Jar
                         </button>
-                        <button
-                          onClick={() => isActive ? (setDeletingActiveGoal(true), setConfirmCompleteId(null)) : setDeletingGoalId(goal.id)}
-                          className="text-[rgba(237,245,240,0.35)] hover:text-red-400 p-1 text-base"
-                          title="Delete"
-                        >
-                          🗑️
-                        </button>
-                      </div>
-                    </div>
-                    {!isActive && (
-                      <button
-                        onClick={() => handleSetActiveGoalWithCheck(goal)}
-                        className="mt-3 w-full py-2 text-xs font-semibold text-[#8B5CF6] border border-[#8B5CF6] rounded-xl hover:bg-[rgba(139,92,246,0.15)] transition-colors"
-                      >
-                        Set as My Jar
-                      </button>
+                      </>
                     )}
 
                     {/* Active: confirm complete */}
