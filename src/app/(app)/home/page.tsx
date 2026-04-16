@@ -21,13 +21,14 @@ interface JarProps {
   amount: string;
   emoji: string;
   causeLabel?: string;
+  causeSubLabel?: string;
   goalAmount?: number;
   emptyLabel?: string;
   href?: string;
   onClick?: () => void;
 }
 
-function Jar({ fillPercent, color, gradEnd, label, amount, emoji, causeLabel, goalAmount, emptyLabel, href, onClick }: JarProps) {
+function Jar({ fillPercent, color, gradEnd, label, amount, emoji, causeLabel, causeSubLabel, goalAmount, emptyLabel, href, onClick }: JarProps) {
   const clamp = Math.min(Math.max(fillPercent, 0), 100);
   const w = 160;
   const h = 240;
@@ -64,12 +65,12 @@ function Jar({ fillPercent, color, gradEnd, label, amount, emoji, causeLabel, go
       onClick={onClick}
     >
       <div style={{ textAlign: "center", maxWidth: w, padding: "0 4px", height: 76, overflow: "hidden", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "flex-end" }}>
-        <div style={{ fontSize: causeLabel ? 14 : 13, fontWeight: causeLabel ? 700 : 600, color: causeLabel ? color : "rgba(255,255,255,0.75)", lineHeight: 1.35, letterSpacing: 0.2 }}>
+        <div style={{ fontSize: 13, fontWeight: causeLabel ? 700 : 600, color: causeLabel ? color : "rgba(255,255,255,0.75)", lineHeight: 1.35, letterSpacing: 0.2, display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", overflow: "hidden", textAlign: "center" }}>
           {causeLabel ?? emptyLabel ?? "👆 Tap to pick a jar"}
         </div>
-        {causeLabel && goalAmount && goalAmount > 0 && (
-          <div style={{ fontSize: 11, fontWeight: 500, color: color, opacity: 0.75, marginTop: 2, fontStyle: "italic" }}>
-            Goal: ${Math.round(goalAmount)}
+        {causeSubLabel && (
+          <div style={{ fontSize: 11, fontWeight: 500, color: "rgba(255,255,255,0.5)", marginTop: 3, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", maxWidth: w - 8 }}>
+            {causeSubLabel}
           </div>
         )}
       </div>
@@ -147,7 +148,7 @@ function Jar({ fillPercent, color, gradEnd, label, amount, emoji, causeLabel, go
 
         {/* Percentage centered in jar body */}
         <text
-          x={60*scale} y={92*scale}
+          x={60*scale} y={goalAmount && goalAmount > 0 ? 84*scale : 92*scale}
           textAnchor="middle"
           dominantBaseline="middle"
           fontSize={17*scale}
@@ -158,7 +159,7 @@ function Jar({ fillPercent, color, gradEnd, label, amount, emoji, causeLabel, go
           {Math.round(clamp)}%
         </text>
         <text
-          x={60*scale} y={112*scale}
+          x={60*scale} y={goalAmount && goalAmount > 0 ? 102*scale : 112*scale}
           textAnchor="middle"
           dominantBaseline="middle"
           fontSize={7*scale}
@@ -166,8 +167,21 @@ function Jar({ fillPercent, color, gradEnd, label, amount, emoji, causeLabel, go
           fill="rgba(255,255,255,0.55)"
           style={{ fontFamily: "inherit" }}
         >
-          to goal
+          {goalAmount && goalAmount > 0 ? "to goal of" : "to goal"}
         </text>
+        {goalAmount && goalAmount > 0 && (
+          <text
+            x={60*scale} y={114*scale}
+            textAnchor="middle"
+            dominantBaseline="middle"
+            fontSize={7*scale}
+            fontWeight="700"
+            fill="rgba(255,255,255,0.75)"
+            style={{ fontFamily: "inherit" }}
+          >
+            ${Math.round(goalAmount).toLocaleString()}
+          </text>
+        )}
       </svg>
 
       <div style={{ textAlign: "center" }}>
@@ -333,7 +347,8 @@ export default function HomePage() {
             label="Give a Little"
             amount={formatCurrency(givingBalance)}
             emoji="🤲"
-            causeLabel={activeProject ? `${activeProject.title}${activeProject.location ? ` in ${activeProject.location}` : ""}` : undefined}
+            causeLabel={activeProject?.title}
+            causeSubLabel={activeProject?.location}
             goalAmount={activeProject?.goalAmount}
             emptyLabel="Pick your cause"
             href="/jars?tab=cause"

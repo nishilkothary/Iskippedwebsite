@@ -29,7 +29,7 @@ export function subscribeToCommunityFeed(callback: (items: FeedItem[]) => void):
   const q = query(
     collection(db, "communityFeed"),
     orderBy("createdAt", "desc"),
-    limit(30)
+    limit(15)
   );
   return onSnapshot(q, (snap) => {
     const items = snap.docs.map((d) => ({ id: d.id, ...d.data() } as FeedItem));
