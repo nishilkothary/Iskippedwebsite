@@ -72,7 +72,7 @@ export default function CommunityPage() {
                         {showName ? (
                           <><span className="font-semibold">{firstName}</span> {item.message}</>
                         ) : (
-                          <>Someone skipped <span className="font-semibold">{item.skipLabel || item.skipCategory}</span>{item.projectTitle ? ` for ${item.projectTitle}` : ""}</>
+                          <>Someone skipped <span className="font-semibold">{item.skipLabel || item.skipCategory}</span>{item.projectTitle ? ` to help fund ${item.projectTitle}` : ""}</>
                         )}
                       </p>
                     ) : (
