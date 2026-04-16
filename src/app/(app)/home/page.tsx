@@ -247,13 +247,13 @@ export default function HomePage() {
   const weekLive = weekSkips.reduce((sum, s) => sum + (s.amount * (s.jarSplit?.live ?? split.live) / 100), 0);
   const topCat = weekSkips.length > 0
     ? (() => {
-        const freq: Record<string, { count: number; emoji: string; label: string }> = {};
+        const totals: Record<string, { amount: number; emoji: string; label: string }> = {};
         for (const s of weekSkips) {
           const key = s.categoryLabel ?? "Other";
-          if (!freq[key]) freq[key] = { count: 0, emoji: s.categoryEmoji ?? "", label: key };
-          freq[key].count++;
+          if (!totals[key]) totals[key] = { amount: 0, emoji: s.categoryEmoji ?? "", label: key };
+          totals[key].amount += s.amount;
         }
-        return Object.values(freq).sort((a, b) => b.count - a.count)[0];
+        return Object.values(totals).sort((a, b) => b.amount - a.amount)[0];
       })()
     : null;
 
