@@ -243,9 +243,8 @@ export default function HomePage() {
     const d = s.createdAt?.toDate ? s.createdAt.toDate() : new Date(s.date);
     return d >= weekStart;
   });
-  const weekTotal = weekSkips.reduce((sum, s) => sum + s.amount, 0);
-  const weekLive = weekTotal * (split.live / 100);
-  const weekGive = weekTotal * (split.give / 100);
+  const weekGive = weekSkips.reduce((sum, s) => sum + (s.amount * (s.jarSplit?.give ?? split.give) / 100), 0);
+  const weekLive = weekSkips.reduce((sum, s) => sum + (s.amount * (s.jarSplit?.live ?? split.live) / 100), 0);
   const topCat = weekSkips.length > 0
     ? (() => {
         const freq: Record<string, { count: number; emoji: string; label: string }> = {};
@@ -414,8 +413,8 @@ export default function HomePage() {
           </div>
           {[
             { label: "Skips logged", value: String(weekSkips.length), color: "var(--green-primary)" },
-            { label: "Live jar", value: formatCurrency(weekLive), color: "#2BBAA4" },
-            { label: "Give jar", value: formatCurrency(weekGive), color: "var(--coral-primary)" },
+            { label: "Give jar", value: formatCurrency(weekGive), color: "#2BBAA4" },
+            { label: "Live jar", value: formatCurrency(weekLive), color: "#8B5CF6" },
             { label: "Top category", value: topCat ? `${topCat.emoji} ${topCat.label}` : "—", color: "#E8924A" },
           ].map((row, i) => (
             <div key={i} style={{
