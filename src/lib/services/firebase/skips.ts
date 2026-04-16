@@ -175,6 +175,7 @@ export async function logSkip(params: LogSkipParams): Promise<{ skipId: string; 
       skipEmoji: categoryEmoji,
       skipLabel: whatSkipped || categoryLabel,
       projectTitle,
+      ...(projectLocation ? { projectLocation } : {}),
       shareName,
       message: `skipped ${whatSkipped || categoryLabel} and saved ${formatAmount(giveAmount)}${causeSuffix}`,
       createdAt: serverTimestamp(),
