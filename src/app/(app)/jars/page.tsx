@@ -1163,7 +1163,7 @@ function SplurgeTab({
 
       {/* Goal list — all goals */}
       {goals.length > 0 && (
-        <div className="space-y-3">
+        <div className="space-y-3 mt-4">
           {goals.map((goal) => {
             const isActive = goal.id === activeGoalId;
             const isEditing = editingGoalId === goal.id;
