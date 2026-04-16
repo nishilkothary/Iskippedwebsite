@@ -65,14 +65,14 @@ function Jar({ fillPercent, color, gradEnd, label, amount, emoji, causeLabel, ca
       onClick={onClick}
     >
       <div style={{ textAlign: "center", maxWidth: w, padding: "0 4px", height: 76, overflow: "hidden", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "flex-end" }}>
-        <div style={{ fontSize: 13, fontWeight: causeLabel ? 700 : 600, color: causeLabel ? color : "rgba(255,255,255,0.75)", lineHeight: 1.35, letterSpacing: 0.2, display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", overflow: "hidden", textAlign: "center" }}>
-          {causeLabel ?? emptyLabel ?? "👆 Tap to pick a jar"}
-        </div>
         {causeSubLabel && (
-          <div style={{ fontSize: 11, fontWeight: 500, color: "rgba(255,255,255,0.5)", marginTop: 3, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", maxWidth: w - 8 }}>
+          <div style={{ fontSize: 11, fontWeight: 500, color: "rgba(255,255,255,0.5)", marginBottom: 3, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", maxWidth: w - 8 }}>
             {causeSubLabel}
           </div>
         )}
+        <div style={{ fontSize: 13, fontWeight: causeLabel ? 700 : 600, color: causeLabel ? color : "rgba(255,255,255,0.75)", lineHeight: 1.35, letterSpacing: 0.2, display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", overflow: "hidden", textAlign: "center" }}>
+          {causeLabel ?? emptyLabel ?? "👆 Tap to pick a jar"}
+        </div>
       </div>
       <svg width={w} height={h} viewBox={`0 0 ${w} ${h}`}>
         <defs>
