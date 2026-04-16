@@ -912,6 +912,12 @@ function CauseTab({
   );
 }
 
+const PREBUILT_REWARDS = [
+  { label: "Concert Tickets", targetAmount: 150 },
+  { label: "Vacation Fund", targetAmount: 1000 },
+  { label: "New Kicks", targetAmount: 120 },
+];
+
 /* ── Splurge Tab ── */
 function SplurgeTab({
   spendingBalance,
@@ -1151,7 +1157,7 @@ function SplurgeTab({
       )}
 
       <div className="flex items-center justify-between mb-1">
-        <p className="text-xl font-bold text-[#EDF5F0]">My Goals</p>
+        <p className="text-xl font-bold text-[#EDF5F0]">My Rewards</p>
         <span className="text-sm font-bold text-[#8B5CF6]">{formatCurrency(spendingBalance)} available</span>
       </div>
 
@@ -1180,7 +1186,7 @@ function SplurgeTab({
                       value={editLabel}
                       onChange={(e) => setEditLabel(e.target.value)}
                       className="w-full rounded-xl px-3 py-2 text-sm focus:outline-none" style={{ background: "var(--bg-surface-2)", border: "1px solid var(--border-default)", color: "var(--text-primary)" }}
-                      placeholder="Goal name"
+                      placeholder="Reward name"
                       autoFocus
                     />
                     <div className="relative">
@@ -1341,10 +1347,29 @@ function SplurgeTab({
         </div>
       )}
 
-      {/* Add goal */}
+      {/* Prebuilt reward suggestions — shown only when no goals exist */}
+      {goals.length === 0 && !showAddForm && (
+        <div className="space-y-2 mb-1">
+          <p className="text-xs font-semibold uppercase tracking-wide" style={{ color: "var(--text-muted)" }}>Quick start</p>
+          <div className="flex flex-wrap gap-2">
+            {PREBUILT_REWARDS.map((r) => (
+              <button
+                key={r.label}
+                onClick={() => { setAddLabel(r.label); setAddAmount(String(r.targetAmount)); setShowAddForm(true); }}
+                className="px-3 py-1.5 rounded-full text-sm font-semibold transition-colors"
+                style={{ background: "rgba(139,92,246,0.15)", color: "#C4B5FD", border: "1px solid rgba(139,92,246,0.3)" }}
+              >
+                {r.label}
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Add reward */}
       {showAddForm ? (
         <div className="rounded-2xl p-4 space-y-3" style={{ background: "var(--bg-surface-1)", border: "1px solid var(--border-default)" }}>
-          <p className="text-sm font-semibold" style={{ color: "var(--text-primary)" }}>New goal</p>
+          <p className="text-sm font-semibold" style={{ color: "var(--text-primary)" }}>New reward</p>
 
           <input
             type="text"
@@ -1379,7 +1404,7 @@ function SplurgeTab({
               disabled={saving || !addLabel.trim() || !addAmount}
               className="flex-1 py-3 bg-[#8B5CF6] text-white font-semibold rounded-xl text-sm disabled:opacity-50"
             >
-              {saving ? "Saving…" : "Add Goal"}
+              {saving ? "Saving…" : "Add Reward"}
             </button>
             <button
               onClick={() => { setShowAddForm(false); setAddLabel(""); setAddAmount(""); setAddLink(""); }}
@@ -1394,7 +1419,7 @@ function SplurgeTab({
           onClick={() => setShowAddForm(true)}
           className="w-full py-2.5 border border-dashed border-[rgba(139,92,246,0.25)] text-white font-bold rounded-xl hover:border-[#8B5CF6] hover:text-[#8B5CF6] transition-colors text-sm"
         >
-          ＋ Add goal
+          ＋ Add reward
         </button>
       )}
 

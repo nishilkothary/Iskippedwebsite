@@ -22,11 +22,12 @@ interface JarProps {
   emoji: string;
   causeLabel?: string;
   goalAmount?: number;
+  emptyLabel?: string;
   href?: string;
   onClick?: () => void;
 }
 
-function Jar({ fillPercent, color, gradEnd, label, amount, emoji, causeLabel, goalAmount, href, onClick }: JarProps) {
+function Jar({ fillPercent, color, gradEnd, label, amount, emoji, causeLabel, goalAmount, emptyLabel, href, onClick }: JarProps) {
   const clamp = Math.min(Math.max(fillPercent, 0), 100);
   const w = 160;
   const h = 240;
@@ -64,7 +65,7 @@ function Jar({ fillPercent, color, gradEnd, label, amount, emoji, causeLabel, go
     >
       <div style={{ textAlign: "center", maxWidth: w, padding: "0 4px", height: 76, overflow: "hidden", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "flex-end" }}>
         <div style={{ fontSize: causeLabel ? 14 : 13, fontWeight: causeLabel ? 700 : 600, color: causeLabel ? color : "rgba(255,255,255,0.75)", lineHeight: 1.35, letterSpacing: 0.2 }}>
-          {causeLabel ?? "👆 Tap to pick a jar"}
+          {causeLabel ?? emptyLabel ?? "👆 Tap to pick a jar"}
         </div>
         {causeLabel && goalAmount && goalAmount > 0 && (
           <div style={{ fontSize: 11, fontWeight: 500, color: color, opacity: 0.75, marginTop: 2, fontStyle: "italic" }}>
@@ -326,17 +327,6 @@ export default function HomePage() {
         {/* Jars */}
         <div style={{ display: "flex", justifyContent: "center", gap: 16, margin: "20px 0", flexWrap: "nowrap" }}>
           <Jar
-            fillPercent={spendingFillPct}
-            color="#8B5CF6"
-            gradEnd="#6D28D9"
-            label="Live a Little"
-            amount={formatCurrency(spendingBalance)}
-            emoji="😊"
-            causeLabel={activeGoal?.label}
-            goalAmount={activeGoal?.targetAmount}
-            onClick={() => router.push("/jars?tab=live")}
-          />
-          <Jar
             fillPercent={givingFillPct}
             color="#2BBAA4"
             gradEnd="#1E9485"
@@ -345,7 +335,20 @@ export default function HomePage() {
             emoji="🤲"
             causeLabel={activeProject ? `${activeProject.title}${activeProject.location ? ` in ${activeProject.location}` : ""}` : undefined}
             goalAmount={activeProject?.goalAmount}
+            emptyLabel="Pick your cause"
             href="/jars?tab=cause"
+          />
+          <Jar
+            fillPercent={spendingFillPct}
+            color="#8B5CF6"
+            gradEnd="#6D28D9"
+            label="Live a Little"
+            amount={formatCurrency(spendingBalance)}
+            emoji="😊"
+            causeLabel={activeGoal?.label}
+            goalAmount={activeGoal?.targetAmount}
+            emptyLabel="Pick your reward"
+            onClick={() => router.push("/jars?tab=live")}
           />
         </div>
 
