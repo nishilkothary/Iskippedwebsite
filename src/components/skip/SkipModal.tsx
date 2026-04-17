@@ -1,5 +1,6 @@
 "use client";
 import { useState } from "react";
+import { useRouter } from "next/navigation";
 import { useSkips } from "@/hooks/useSkips";
 import { useProjects } from "@/hooks/useProjects";
 import { useAuthStore } from "@/store/authStore";
@@ -12,6 +13,7 @@ interface Props {
 }
 
 export function SkipModal({ onClose }: Props) {
+  const router = useRouter();
   const { log, isLogging } = useSkips();
   const { projects } = useProjects();
   const { profile } = useAuthStore();
@@ -78,6 +80,10 @@ export function SkipModal({ onClose }: Props) {
     const locationPart = successProjectLocation ? ` in ${successProjectLocation}` : "";
     const shareText = `I skipped ${itemLabel} and saved ${formatCurrency(skipGive)} to help fund ${causeTitle}${locationPart}. Every skip makes a difference. Join the movement on Iskipped.com`;
 
+    // Show cause nudge on 1st skip and every 3rd skip after that (until cause is chosen)
+    const postLogSkipCount = (profile?.totalSkips ?? 0) + 1;
+    const showCauseNudge = !successActiveProject && (postLogSkipCount === 1 || postLogSkipCount % 3 === 1);
+
     return (
       <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4" onClick={onClose}>
         <div
@@ -94,7 +100,7 @@ export function SkipModal({ onClose }: Props) {
           {/* 2-jar impact */}
           <div className="mt-4 rounded-xl p-4 space-y-2 text-left" style={{ background: "var(--bg-surface-2)", border: "1px solid var(--border-default)" }}>
             <div className="flex items-center justify-between">
-              <span className="text-sm" style={{ color: "var(--text-secondary)" }}>🤲 {successActiveProject?.title ?? "Give a little"}</span>
+              <span className="text-sm" style={{ color: "var(--text-secondary)" }}>🤲 {successActiveProject?.title ?? "No cause selected yet"}</span>
               <span className="text-sm font-bold" style={{ color: "var(--coral-primary)" }}>+{formatCurrency(skipGive)}</span>
             </div>
             <div className="flex items-center justify-between">
@@ -102,6 +108,24 @@ export function SkipModal({ onClose }: Props) {
               <span className="text-sm font-bold" style={{ color: "#2BBAA4" }}>+{formatCurrency(skipLive)}</span>
             </div>
           </div>
+
+          {/* Cause nudge */}
+          {showCauseNudge && (
+            <div className="mt-4 rounded-xl p-4 text-left" style={{ background: "var(--bg-surface-2)", borderLeft: "4px solid #2BBAA4", border: "1px solid var(--border-default)" }}>
+              <p className="text-sm font-bold mb-1" style={{ color: "var(--text-primary)" }}>🌍 Your skips can change lives</p>
+              <p className="text-xs leading-relaxed" style={{ color: "var(--text-secondary)" }}>
+                Every dollar you save has the power to make a real difference in someone&apos;s life — and having a cause gives you a deeper reason to keep skipping.
+                Pick a cause to start seeing the real impact of every skip you make. You can always change it anytime.
+              </p>
+              <button
+                onClick={() => { onClose(); router.push("/jars?tab=cause"); }}
+                className="mt-3 w-full font-bold py-2 rounded-xl text-sm"
+                style={{ background: "#2BBAA4", color: "#fff", border: "none", cursor: "pointer" }}
+              >
+                Pick a cause →
+              </button>
+            </div>
+          )}
 
           <div className="mt-5 text-left">
             <p className="text-xs mb-1 uppercase tracking-wide" style={{ color: "var(--text-muted)" }}>Share</p>

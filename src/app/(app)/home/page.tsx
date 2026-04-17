@@ -361,6 +361,45 @@ export default function HomePage() {
 
       </div>
 
+      {/* ── Pick a cause banner ── */}
+      {!profile.activeProjectId && (
+        <div style={{
+          ...cardStyle,
+          marginBottom: 20,
+          borderLeft: "4px solid var(--green-primary)",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "space-between",
+          gap: 12,
+        }}>
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <div style={{ fontSize: 14, fontWeight: 700, color: "var(--text-primary)" }}>
+              🤲 Pick a cause you care about
+            </div>
+            <div style={{ fontSize: 12, color: "var(--text-muted)", marginTop: 3, lineHeight: 1.5 }}>
+              Your skips can make a real difference in people&apos;s lives. Pick a cause to start seeing the impact — you can always change it anytime!
+            </div>
+          </div>
+          <button
+            onClick={() => router.push("/jars?tab=cause")}
+            style={{
+              background: "linear-gradient(135deg, var(--coral-primary), var(--coral-dark))",
+              color: "#fff",
+              fontWeight: 700,
+              fontSize: 13,
+              border: "none",
+              borderRadius: 12,
+              padding: "10px 16px",
+              cursor: "pointer",
+              flexShrink: 0,
+              whiteSpace: "nowrap",
+            }}
+          >
+            Explore causes →
+          </button>
+        </div>
+      )}
+
       {/* ── Jar prompt ── */}
       {givingBalance > 0 && (
         <div style={{

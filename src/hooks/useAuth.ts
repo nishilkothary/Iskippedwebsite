@@ -4,11 +4,9 @@ import { onAuthChange } from "@/lib/services/firebase/auth";
 import { useAuthStore } from "@/store/authStore";
 import { doc, onSnapshot, updateDoc } from "firebase/firestore";
 import { db } from "@/lib/services/firebase/config";
-import { getAllProjects } from "@/lib/services/firebase/projects";
-import { setActiveProject } from "@/lib/services/firebase/users";
 
 export function useAuth() {
-  const { user, profile, isLoading, setUser, setProfile, setLoading, updateProfile } = useAuthStore();
+  const { user, profile, isLoading, setUser, setProfile, setLoading } = useAuthStore();
 
   useEffect(() => {
     const unsubAuth = onAuthChange(async (authUser) => {
@@ -25,15 +23,6 @@ export function useAuth() {
             updateDoc(doc(db, "users", authUser.uid), { displayName: authUser.displayName });
           }
           setProfile(data);
-          if (!data.activeProjectId) {
-            getAllProjects().then((projects) => {
-              const cfc = projects.find((p) => p.title?.includes("Cambodia"));
-              if (cfc) {
-                setActiveProject(authUser.uid, cfc.id);
-                updateProfile({ activeProjectId: cfc.id });
-              }
-            });
-          }
         }
         setLoading(false);
       });
