@@ -1,9 +1,8 @@
 "use client";
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { useProjects } from "@/hooks/useProjects";
 import { useAuthStore } from "@/store/authStore";
 import { useSkips } from "@/hooks/useSkips";
-import { setActiveProject } from "@/lib/services/firebase/users";
 import { formatCurrency } from "@/lib/utils/currency";
 import { DonationLogModal } from "@/components/skip/DonationLogModal";
 import { EditDonationModal } from "@/components/skip/EditDonationModal";
@@ -11,7 +10,7 @@ import { DonationEvent } from "@/lib/types/models";
 
 export default function CausesPage() {
   const { projects, loading } = useProjects();
-  const { user, profile, updateProfile } = useAuthStore();
+  const { user, profile } = useAuthStore();
   const { donations } = useSkips();
   const [showDonationModal, setShowDonationModal] = useState(false);
   const [editingDonation, setEditingDonation] = useState<DonationEvent | null>(null);
@@ -19,13 +18,7 @@ export default function CausesPage() {
   const cfcProject = projects.find((p) => p.id === "cfc" || p.title?.includes("Student") || p.title?.includes("Cambodia"));
   const availableToDonate = (profile?.totalSaved ?? 0) - (profile?.totalDonated ?? 0);
 
-  useEffect(() => {
-    if (!user || !cfcProject || profile?.activeProjectId === cfcProject.id) return;
-    setActiveProject(user.uid, cfcProject.id);
-    updateProfile({ activeProjectId: cfcProject.id });
-  }, [cfcProject?.id, user?.uid]);
-
-  function formatDonationDate(donation: DonationEvent): string {
+function formatDonationDate(donation: DonationEvent): string {
     if (donation.date) return donation.date;
     if (donation.donatedAt?.toDate) {
       return donation.donatedAt.toDate().toISOString().slice(0, 10);
