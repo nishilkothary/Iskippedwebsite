@@ -80,9 +80,43 @@ export function SkipModal({ onClose }: Props) {
     const locationPart = successProjectLocation ? ` in ${successProjectLocation}` : "";
     const shareText = `I skipped ${itemLabel} and saved ${formatCurrency(skipGive)} to help fund ${causeTitle}${locationPart}. Every skip makes a difference. Join the movement on Iskipped.com`;
 
-    // Show cause nudge on 1st skip and every 3rd skip after that (until cause is chosen)
+    // Show cause nudge INSTEAD of great job on skip #1 and every 3rd skip (until cause is chosen)
     const postLogSkipCount = (profile?.totalSkips ?? 0) + 1;
     const showCauseNudge = !successActiveProject && (postLogSkipCount === 1 || postLogSkipCount % 3 === 1);
+
+    if (showCauseNudge) {
+      return (
+        <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4" onClick={onClose}>
+          <div
+            className="rounded-2xl p-8 text-center max-w-sm w-full shadow-2xl relative"
+            style={{ background: "var(--bg-surface-1)", border: "1px solid var(--border-default)" }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <button onClick={onClose} className="absolute top-4 right-4 text-2xl leading-none" style={{ color: "var(--text-muted)" }}>×</button>
+            <div className="text-6xl mb-3">🌍</div>
+            <p className="text-2xl font-bold" style={{ color: "var(--text-primary)" }}>Your skips can change lives</p>
+            <p className="font-bold text-lg mt-1" style={{ color: "var(--green-primary)" }}>{formatCurrency(amount)} saved</p>
+            <p className="text-sm mt-3 leading-relaxed" style={{ color: "var(--text-secondary)" }}>
+              Every dollar you save has the power to make a real difference in someone&apos;s life — and having a cause gives you a deeper reason to keep skipping. Pick a cause to start seeing the real impact of every skip you make. You can always change it anytime.
+            </p>
+            <button
+              onClick={() => { onClose(); router.push("/jars?tab=cause"); }}
+              className="mt-5 w-full font-bold py-3 rounded-xl text-sm"
+              style={{ background: "#2BBAA4", color: "#fff", border: "none", cursor: "pointer", fontSize: 15 }}
+            >
+              Pick a cause →
+            </button>
+            <button
+              onClick={onClose}
+              className="mt-2 w-full py-2 text-sm"
+              style={{ background: "none", border: "none", cursor: "pointer", color: "var(--text-muted)" }}
+            >
+              Maybe later
+            </button>
+          </div>
+        </div>
+      );
+    }
 
     return (
       <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4" onClick={onClose}>
@@ -108,24 +142,6 @@ export function SkipModal({ onClose }: Props) {
               <span className="text-sm font-bold" style={{ color: "#2BBAA4" }}>+{formatCurrency(skipLive)}</span>
             </div>
           </div>
-
-          {/* Cause nudge */}
-          {showCauseNudge && (
-            <div className="mt-4 rounded-xl p-4 text-left" style={{ background: "var(--bg-surface-2)", borderLeft: "4px solid #2BBAA4", border: "1px solid var(--border-default)" }}>
-              <p className="text-sm font-bold mb-1" style={{ color: "var(--text-primary)" }}>🌍 Your skips can change lives</p>
-              <p className="text-xs leading-relaxed" style={{ color: "var(--text-secondary)" }}>
-                Every dollar you save has the power to make a real difference in someone&apos;s life — and having a cause gives you a deeper reason to keep skipping.
-                Pick a cause to start seeing the real impact of every skip you make. You can always change it anytime.
-              </p>
-              <button
-                onClick={() => { onClose(); router.push("/jars?tab=cause"); }}
-                className="mt-3 w-full font-bold py-2 rounded-xl text-sm"
-                style={{ background: "#2BBAA4", color: "#fff", border: "none", cursor: "pointer" }}
-              >
-                Pick a cause →
-              </button>
-            </div>
-          )}
 
           <div className="mt-5 text-left">
             <p className="text-xs mb-1 uppercase tracking-wide" style={{ color: "var(--text-muted)" }}>Share</p>
