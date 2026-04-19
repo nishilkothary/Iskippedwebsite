@@ -57,7 +57,7 @@ export default function CommunityPage() {
           <div className="space-y-3">
             {feed.map((item) => {
               const showName = item.shareName !== false; // undefined → true (backward compat)
-              const firstName = item.displayName?.split(" ")[0] ?? "Someone";
+              const firstName = item.displayName?.split(" ")[0] ?? "A friend";
               return (
                 <div key={item.id} className="rounded-xl px-5 py-4 flex items-start gap-3" style={cardStyle}>
                   <div
@@ -72,7 +72,7 @@ export default function CommunityPage() {
                         {showName ? (
                           <><span className="font-semibold">{firstName}</span> {item.message}</>
                         ) : (
-                          <>Someone skipped <span className="font-semibold">{item.skipLabel || item.skipCategory}</span>{item.projectTitle ? ` to help fund ${item.projectTitle}${item.projectLocation ? ` in ${item.projectLocation}` : ""}` : ""}</>
+                          <>A friend skipped <span className="font-semibold">{item.skipLabel || item.skipCategory}</span>{item.projectTitle ? ` to help fund ${item.projectTitle}${item.projectLocation ? ` in ${item.projectLocation}` : ""}` : ""}</>
                         )}
                       </p>
                     ) : (

@@ -264,7 +264,9 @@ export function SkipModal({ onClose }: Props) {
             {amount > 0 && (
               <div className="mt-3 space-y-1">
                 <p className="text-sm font-semibold" style={{ color: "var(--coral-primary)" }}>
-                  +{giveGoalAmount > 0 ? `${giveContribPctLive.toFixed(1)}%` : formatCurrency(skipGiveLive)} towards {activeProjectLive?.title ?? "give jar"}
+                  +{activeProjectLive?.unitCost && !activeProjectLive.unitIsGoal
+                    ? formatUnits(skipGiveLive, activeProjectLive.unitCost, activeProjectLive.unitName!)
+                    : giveGoalAmount > 0 ? `${giveContribPctLive.toFixed(1)}%` : formatCurrency(skipGiveLive)} towards {activeProjectLive?.title ?? "give jar"}
                 </p>
                 <p className="text-sm font-semibold" style={{ color: "#2BBAA4" }}>
                   +{liveGoalAmount > 0 ? `${liveContribPctLive.toFixed(1)}%` : formatCurrency(skipLiveLive)} towards {spendingGoalLabelLive}

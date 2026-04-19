@@ -754,29 +754,36 @@ function CauseTab({
         </div>
       )}
 
-      {/* Jar preview */}
-      {activeProject ? (() => {
-        const personalGoal = causeGoalAmounts?.[activeProject.id] ?? activeProject.goalAmount ?? 0;
-        return (
-          <JarPreview
-            color="#2BBAA4"
-            gradEnd="#1E9485"
-            label={activeProject.title}
-            amount={formatCurrency(givingBalance)}
-            fillPct={personalGoal > 0 ? Math.min(100, (givingBalance / personalGoal) * 100) : (givingBalance > 0 ? 100 : 0)}
-            emptyPrompt="👇 Pick a cause below"
-          />
-        );
-      })() : (
+      {/* Give impact summary */}
+      {activeProject ? (
+        <div className="rounded-2xl p-5" style={{ background: "var(--bg-surface-2)", border: "1px solid var(--border-default)" }}>
+          <p className="text-xs font-semibold uppercase tracking-widest mb-3" style={{ color: "var(--text-muted)" }}>{activeProject.title}</p>
+          {activeProject.unitCost && !activeProject.unitIsGoal ? (
+            <div className="text-center mb-4">
+              <p className="text-5xl font-extrabold" style={{ color: "var(--text-primary)" }}>
+                {givingBalance / activeProject.unitCost >= 10
+                  ? Math.round(givingBalance / activeProject.unitCost)
+                  : parseFloat((givingBalance / activeProject.unitCost).toFixed(1))}
+              </p>
+              <p className="text-base font-semibold mt-1" style={{ color: "#2BBAA4" }}>
+                {activeProject.unitDisplay ?? activeProject.unitName?.toLowerCase()} funded
+              </p>
+            </div>
+          ) : (
+            <div className="text-center mb-4">
+              <p className="text-3xl font-extrabold" style={{ color: "var(--text-primary)" }}>{formatCurrency(givingBalance)}</p>
+              <p className="text-sm mt-1" style={{ color: "var(--text-muted)" }}>saved toward this cause</p>
+            </div>
+          )}
+          <CauseDonateRow project={activeProject} />
+        </div>
+      ) : (
         <div className="rounded-2xl p-5 text-center" style={{ background: "var(--bg-surface-2)", border: "1px solid var(--border-default)" }}>
           <p className="text-xs font-semibold uppercase tracking-widest mb-1" style={{ color: "var(--text-muted)" }}>Available to Give</p>
           <p className="text-3xl font-extrabold" style={{ color: "var(--text-primary)" }}>{formatCurrency(givingBalance)}</p>
           <p className="text-xs mt-2" style={{ color: "var(--text-muted)" }}>Pick a cause below to start tracking your impact</p>
         </div>
       )}
-
-      {/* Donate / I Donated — below jar */}
-      {activeProject && <CauseDonateRow project={activeProject} />}
 
       {/* All causes */}
       <div>
