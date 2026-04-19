@@ -846,29 +846,8 @@ function CauseTab({
                   <>
                     {isActive ? (
                       <>
-                        <div className="flex items-center justify-between mb-2">
-                          <span className="inline-block text-[10px] font-bold px-2 py-0.5 rounded-full" style={{ background: "rgba(232,99,122,0.15)", color: "var(--coral-primary)" }}>
-                            ✓ Active
-                          </span>
-                          <button
-                            onClick={() => setDeactivateConfirm(true)}
-                            className="font-bold text-sm"
-                            style={{ color: "#2ECC71", background: "transparent", border: "none", cursor: "pointer", padding: 0 }}
-                            title="Click to deactivate"
-                          >
-                            {formatCurrency(causeJarBalances?.[project.id] ?? 0)} saved
-                          </button>
-                        </div>
-                        <div className="flex items-start justify-between gap-3">
-                          <div className="flex-1 min-w-0">
-                            <p className="font-extrabold text-[#EDF5F0] text-base">{project.title}</p>
-                            <p className="text-sm text-[rgba(237,245,240,0.6)] mt-0.5">Organization: {project.sponsor}</p>
-                            {project.donationURL && (
-                              <a href={project.donationURL} target="_blank" rel="noopener noreferrer" className="text-xs text-[#2ECC71] underline mt-0.5 block">
-                                ↗ Learn more
-                              </a>
-                            )}
-                          </div>
+                        <div className="flex items-start justify-between gap-3 mb-1">
+                          <p className="font-extrabold text-[#EDF5F0] text-base flex-1 min-w-0">{project.title}</p>
                           <div className="flex items-center gap-1.5 flex-shrink-0">
                             {project.isCustom && (
                               <>
@@ -876,8 +855,30 @@ function CauseTab({
                                 <button onClick={() => setConfirmDeleteId(project.id)} className="text-[rgba(237,245,240,0.35)] hover:text-red-400 p-1 text-base" title="Delete">🗑️</button>
                               </>
                             )}
+                            <button
+                              onClick={() => setDeactivateConfirm(true)}
+                              className="inline-block text-[10px] font-bold px-2 py-0.5 rounded-full"
+                              style={{ background: "rgba(232,99,122,0.15)", color: "var(--coral-primary)", border: "none", cursor: "pointer" }}
+                            >
+                              ✓ Active
+                            </button>
                           </div>
                         </div>
+                        {project.unitName && project.unitCost ? (
+                          <p className="text-sm font-bold text-[#2ECC71] mt-1">
+                            1 {project.unitName} = {project.unitCost < 1 ? `${Math.round(project.unitCost * 100)}¢` : formatCurrency(project.unitCost)}
+                          </p>
+                        ) : project.goalAmount > 0 ? (
+                          <p className="text-sm font-bold text-[#2ECC71] mt-1">
+                            Goal: {formatCurrency(project.goalAmount)}
+                          </p>
+                        ) : null}
+                        <p className="text-sm text-[rgba(237,245,240,0.6)] mt-0.5">Organization: {project.sponsor}</p>
+                        {project.donationURL && (
+                          <a href={project.donationURL} target="_blank" rel="noopener noreferrer" className="text-xs text-[#2ECC71] underline mt-0.5 block">
+                            ↗ Learn more
+                          </a>
+                        )}
                       </>
                     ) : (
                       <>
