@@ -147,7 +147,9 @@ export function SkipModal({ onClose }: Props) {
               <span className="text-sm font-bold" style={{ color: "var(--coral-primary)" }}>
                 {successProjectUnitName && successProjectUnitCost && !successActiveProject?.unitIsGoal
                   ? `+${formatUnits(skipGive, successProjectUnitCost, successProjectUnitName)}`
-                  : `+${formatCurrency(skipGive)}`}
+                  : successActiveProject && (successActiveProject.goalAmount ?? 0) > 0
+                    ? `+${((skipGive / successActiveProject.goalAmount!) * 100).toFixed(1)}% of goal`
+                    : `+${formatCurrency(skipGive)}`}
               </span>
             </div>
             <div className="flex items-center justify-between">
@@ -354,7 +356,7 @@ export function SkipModal({ onClose }: Props) {
                 className={`absolute top-0.5 left-0.5 w-5 h-5 rounded-full bg-white shadow transition-transform ${shareWithCommunity ? "translate-x-5" : ""}`}
               />
             </div>
-            <span className="text-sm" style={{ color: "var(--text-primary)" }}>Share name and skip with community</span>
+            <span className="text-sm" style={{ color: "var(--text-primary)" }}>Share my skip with the community (It motivates others)!</span>
           </label>
         </div>
 

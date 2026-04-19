@@ -755,6 +755,9 @@ function CauseTab({
       )}
 
       {/* Give impact summary */}
+      {activeProject && (
+        <p className="text-xl font-bold mb-3" style={{ color: "var(--text-primary)" }}>My Active Giving Jar</p>
+      )}
       {activeProject ? (
         <div className="rounded-2xl p-5" style={{ background: "var(--bg-surface-2)", border: "1px solid var(--border-default)" }}>
           <p className="text-xs font-semibold uppercase tracking-widest mb-3" style={{ color: "var(--text-muted)" }}>{activeProject.title}</p>
