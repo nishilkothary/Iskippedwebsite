@@ -66,16 +66,16 @@ export async function logSkip(params: LogSkipParams): Promise<{ skipId: string; 
   function lcFirst(s: string) { return s.charAt(0).toLowerCase() + s.slice(1); }
   let causeSuffix = "";
   if (projectTitle && projectUnitName && projectUnitCost && !projectUnitIsGoal) {
-    // Count mode: "funded 4 days for a student's education in Cambodia"
+    // Count mode: "to help fund 4 days of A Student's Education in Cambodia"
     const count = giveAmountForMessage / projectUnitCost;
     const display = count >= 10 ? Math.round(count) : parseFloat(count.toFixed(1));
-    causeSuffix = ` and funded ${display} ${projectUnitDisplay ?? projectUnitName.toLowerCase()} for ${lcFirst(projectTitle)}`;
+    causeSuffix = ` to help fund ${display} ${projectUnitDisplay ?? projectUnitName.toLowerCase()} of ${projectTitle}`;
   } else if (projectTitle && projectUnitName && projectUnitCost && projectUnitIsGoal) {
-    // % mode: "helped fund 8% of a chromebook for a student to learn coding"
+    // % mode: "to help fund 8% of A Chromebook for a Student to Learn Coding"
     const pct = Math.max(1, Math.round((giveAmountForMessage / projectUnitCost) * 100));
-    causeSuffix = ` and helped fund ${pct}% of ${lcFirst(projectTitle)}`;
+    causeSuffix = ` to help fund ${pct}% of ${projectTitle}`;
   } else if (projectTitle) {
-    causeSuffix = ` to help fund ${projectTitle}${locationSuffix}`;
+    causeSuffix = ` to help fund ${projectTitle}`;
   }
 
   const effectiveSplit = jarSplit ?? defaultJarSplit ?? { give: 50, live: 50 };
@@ -157,7 +157,7 @@ export async function logSkip(params: LogSkipParams): Promise<{ skipId: string; 
     skipCategory: category,
     skipEmoji: categoryEmoji,
     projectTitle,
-    message: `skipped ${whatSkipped || categoryLabel} and saved ${formatAmount(giveAmount)}${causeSuffix}`,
+    message: `skipped ${whatSkipped || categoryLabel}${causeSuffix}`,
     createdAt: serverTimestamp(),
   });
 
@@ -199,7 +199,7 @@ export async function logSkip(params: LogSkipParams): Promise<{ skipId: string; 
       projectTitle,
       ...(projectLocation ? { projectLocation } : {}),
       shareName,
-      message: `skipped ${whatSkipped || categoryLabel} and saved ${formatAmount(giveAmount)}${causeSuffix}`,
+      message: `skipped ${whatSkipped || categoryLabel}${causeSuffix}`,
       createdAt: serverTimestamp(),
     });
     await communityBatch.commit();
