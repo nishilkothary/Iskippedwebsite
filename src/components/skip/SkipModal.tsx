@@ -122,7 +122,7 @@ export function SkipModal({ onClose }: Props) {
               You could use {formatCurrency(skipGive)} from this skip to fund:
             </p>
             <ul className="text-left mt-2 space-y-1" style={{ color: "var(--text-secondary)", fontSize: 13, paddingLeft: 20 }}>
-              {nudgeCfc?.unitCost && <li>{formatUnits(skipGive, nudgeCfc.unitCost, nudgeCfc.unitName!)} of a Student&apos;s Education in Cambodia</li>}
+              {nudgeCfc?.unitCost && <li>{formatUnits(skipGive, nudgeCfc.unitCost, nudgeCfc.unitName!)} in {nudgeCfc.location}</li>}
               {nudgePalestine?.unitCost && <li>{formatUnits(skipGive, nudgePalestine.unitCost, nudgePalestine.unitName!)} in Palestine</li>}
               {nudgeUkraine?.unitCost && <li>{formatUnits(skipGive, nudgeUkraine.unitCost, nudgeUkraine.unitName!)} in Ukraine</li>}
             </ul>

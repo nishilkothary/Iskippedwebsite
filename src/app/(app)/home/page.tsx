@@ -386,7 +386,7 @@ export default function HomePage() {
             You could currently fund:
           </div>
           <ul style={{ fontSize: 13, color: "var(--text-secondary)", marginBottom: 8, paddingLeft: 18, lineHeight: 1.9 }}>
-            {cfcProject?.unitCost && <li>{formatUnits(givingBalance, cfcProject.unitCost, cfcProject.unitName!)} of a Student&apos;s Education in Cambodia</li>}
+            {cfcProject?.unitCost && <li>{formatUnits(givingBalance, cfcProject.unitCost, cfcProject.unitName!)} in {cfcProject.location}</li>}
             {palestineProject?.unitCost && <li>{formatUnits(givingBalance, palestineProject.unitCost, palestineProject.unitName!)} in Palestine</li>}
             {ukraineProject?.unitCost && <li>{formatUnits(givingBalance, ukraineProject.unitCost, ukraineProject.unitName!)} in Ukraine</li>}
           </ul>
