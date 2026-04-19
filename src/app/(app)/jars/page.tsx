@@ -62,7 +62,7 @@ function JarsPageInner() {
   const globalGivingBalance = Math.max(0, giveTotal - (profile.totalDonated ?? 0));
   const globalSpendingBalance = Math.max(0, liveTotal - (profile.totalSpent ?? 0));
 
-  const activeProject = projects.find((p) => p.id === profile.activeProjectId) ?? projects[0] ?? null;
+  const activeProject = projects.find((p) => p.id === profile.activeProjectId) ?? null;
 
   const { goals: spendingGoals, activeId: activeSpendingGoalId } = normalizeSpendingGoals(profile);
   const activeGoal = spendingGoals.find((g) => g.id === activeSpendingGoalId) ?? null;
@@ -755,21 +755,25 @@ function CauseTab({
       )}
 
       {/* Jar preview */}
-      {(() => {
-        const personalGoal = causeGoalAmounts?.[activeProject?.id ?? ""] ?? activeProject?.goalAmount ?? 0;
+      {activeProject ? (() => {
+        const personalGoal = causeGoalAmounts?.[activeProject.id] ?? activeProject.goalAmount ?? 0;
         return (
           <JarPreview
             color="#2BBAA4"
             gradEnd="#1E9485"
-            label={activeProject?.title ?? null}
+            label={activeProject.title}
             amount={formatCurrency(givingBalance)}
             fillPct={personalGoal > 0 ? Math.min(100, (givingBalance / personalGoal) * 100) : (givingBalance > 0 ? 100 : 0)}
             emptyPrompt="👇 Pick a cause below"
-            unitDisplay={activeProject?.unitCost && !activeProject.unitIsGoal ? activeProject.unitDisplay : undefined}
-            unitCount={activeProject?.unitCost && !activeProject.unitIsGoal ? givingBalance / activeProject.unitCost : undefined}
           />
         );
-      })()}
+      })() : (
+        <div className="rounded-2xl p-5 text-center" style={{ background: "var(--bg-surface-2)", border: "1px solid var(--border-default)" }}>
+          <p className="text-xs font-semibold uppercase tracking-widest mb-1" style={{ color: "var(--text-muted)" }}>Available to Give</p>
+          <p className="text-3xl font-extrabold" style={{ color: "var(--text-primary)" }}>{formatCurrency(givingBalance)}</p>
+          <p className="text-xs mt-2" style={{ color: "var(--text-muted)" }}>Pick a cause below to start tracking your impact</p>
+        </div>
+      )}
 
       {/* Donate / I Donated — below jar */}
       {activeProject && <CauseDonateRow project={activeProject} />}
