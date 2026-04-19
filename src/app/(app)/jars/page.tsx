@@ -1276,21 +1276,23 @@ function SplurgeTab({
         <p className="text-xl font-bold mb-3" style={{ color: "var(--text-primary)" }}>My Reward Jar:</p>
         {activeGoal ? (
           <div>
-            <div className="flex items-center justify-between mb-2">
+            <div className="mb-3">
+              <span className="text-4xl font-extrabold" style={{ color: "#8B5CF6" }}>
+                {Math.round(Math.min(100, (spendingBalance / activeGoal.targetAmount) * 100))}%
+              </span>
+              <span className="text-sm ml-1.5" style={{ color: "var(--text-muted)" }}>towards goal</span>
+            </div>
+            <div className="flex items-center justify-between mb-1">
+              <p className="text-sm font-semibold" style={{ color: "var(--text-primary)" }}>{activeGoal.label}</p>
               <button
                 onClick={onDeactivateGoal}
-                className="text-xs font-bold px-2 py-0.5 rounded-full"
+                className="text-xs font-bold px-2 py-0.5 rounded-full flex-shrink-0 ml-2"
                 style={{ background: "rgba(139,92,246,0.15)", color: "#8B5CF6", border: "none", cursor: "pointer" }}
               >
                 ✓ Active
               </button>
-              <span className="text-3xl font-extrabold" style={{ color: "#8B5CF6" }}>
-                {Math.round(Math.min(100, (spendingBalance / activeGoal.targetAmount) * 100))}%
-              </span>
             </div>
-            <p className="text-sm font-semibold" style={{ color: "var(--text-primary)" }}>{activeGoal.label}</p>
-            <p className="text-xs mt-0.5" style={{ color: "var(--text-muted)" }}>My reward costs: {formatCurrency(activeGoal.targetAmount)}</p>
-            <p className="text-xs mt-1 font-semibold" style={{ color: "#8B5CF6" }}>{formatCurrency(spendingBalance)} saved</p>
+            <p className="text-xs" style={{ color: "var(--text-muted)" }}>My reward costs: {formatCurrency(activeGoal.targetAmount)}</p>
             <div className="mt-3 space-y-2">
               {activeGoal.shoppingLink && (
                 <a
@@ -1428,18 +1430,20 @@ function SplurgeTab({
                   <>
                     {isActive ? (
                       <>
-                        <div className="flex items-center justify-between mb-2">
-                          <span className="inline-block text-[10px] font-bold px-2 py-0.5 rounded-full" style={{ background: "rgba(139,92,246,0.15)", color: "#8B5CF6" }}>
+                        <div className="flex items-center justify-between mb-0.5">
+                          <p className="font-extrabold text-[#EDF5F0] text-base flex-1 min-w-0 mr-2">{goal.label}</p>
+                          <span className="inline-block text-[10px] font-bold px-2 py-0.5 rounded-full flex-shrink-0" style={{ background: "rgba(139,92,246,0.15)", color: "#8B5CF6" }}>
                             ✓ Active
                           </span>
-                          <div className="flex items-center gap-1.5">
-                            <button onClick={() => startEditGoal(goal)} className="text-[rgba(237,245,240,0.35)] hover:text-[#8B5CF6] p-1 text-base" title="Edit">✏️</button>
-                            <button onClick={() => (setDeletingActiveGoal(true), setConfirmCompleteId(null))} className="text-[rgba(237,245,240,0.35)] hover:text-red-400 p-1 text-base" title="Delete">🗑️</button>
-                          </div>
                         </div>
-                        <p className="font-extrabold text-[#EDF5F0] text-base">{goal.label}</p>
                         {goal.targetAmount > 0 && (
-                          <p className="text-xs mt-0.5 text-[rgba(237,245,240,0.5)]">My reward costs: {formatCurrency(goal.targetAmount)}</p>
+                          <div className="flex items-center justify-between mt-0.5">
+                            <p className="text-xs text-[rgba(237,245,240,0.5)]">My reward costs: {formatCurrency(goal.targetAmount)}</p>
+                            <div className="flex items-center gap-1">
+                              <button onClick={() => startEditGoal(goal)} className="text-[rgba(237,245,240,0.35)] hover:text-[#8B5CF6] p-1 text-base" title="Edit">✏️</button>
+                              <button onClick={() => (setDeletingActiveGoal(true), setConfirmCompleteId(null))} className="text-[rgba(237,245,240,0.35)] hover:text-red-400 p-1 text-base" title="Delete">🗑️</button>
+                            </div>
+                          </div>
                         )}
                       </>
                     ) : (
