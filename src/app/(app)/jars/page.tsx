@@ -170,7 +170,7 @@ function JarsPageInner() {
 
   async function handleDeactivateGoal() {
     await updateSpendingGoals(user!.uid, spendingGoals, null);
-    updateProfile({ activeSpendingGoalId: null });
+    updateProfile({ activeSpendingGoalId: null, spendingGoals, spendingGoal: null });
   }
 
   async function handleMoveToGive(goalId: string) {
