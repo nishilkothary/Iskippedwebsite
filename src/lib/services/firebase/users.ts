@@ -168,6 +168,10 @@ export async function setActiveProject(uid: string, projectId: string | null): P
   await updateDoc(doc(db, "users", uid), { activeProjectId: projectId });
 }
 
+export async function setUserCauseGoal(uid: string, causeId: string, amount: number): Promise<void> {
+  await updateDoc(doc(db, "users", uid), { [`causeGoalAmounts.${causeId}`]: amount });
+}
+
 export async function switchCause(
   uid: string,
   oldCauseId: string | null,

@@ -54,6 +54,8 @@ export function SkipModal({ onClose }: Props) {
       projectLocation: selectedProject?.location ?? null,
       projectUnitName: selectedProject?.unitName ?? null,
       projectUnitCost: selectedProject?.unitCost ?? null,
+      projectUnitDisplay: selectedProject?.unitDisplay ?? null,
+      projectUnitIsGoal: selectedProject?.unitIsGoal ?? null,
       shareWithCommunity,
       whatSkipped: whatSkipped || undefined,
       jarSplit: { give: skipGivePct, live: 100 - skipGivePct },
@@ -143,7 +145,7 @@ export function SkipModal({ onClose }: Props) {
             <div className="flex items-center justify-between">
               <span className="text-sm" style={{ color: "var(--text-secondary)" }}>🤲 {successActiveProject?.title ?? "No cause selected yet"}</span>
               <span className="text-sm font-bold" style={{ color: "var(--coral-primary)" }}>
-                {successProjectUnitName && successProjectUnitCost
+                {successProjectUnitName && successProjectUnitCost && !successActiveProject?.unitIsGoal
                   ? `+${formatUnits(skipGive, successProjectUnitCost, successProjectUnitName)}`
                   : `+${formatCurrency(skipGive)}`}
               </span>

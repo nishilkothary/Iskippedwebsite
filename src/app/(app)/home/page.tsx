@@ -271,8 +271,8 @@ export default function HomePage() {
   const givingBalance = globalGivingBalance;
   const spendingBalance = globalSpendingBalance;
 
-  const goalAmount = activeProject?.goalAmount ?? 0;
-  const givingFillPct = goalAmount > 0 ? Math.min(100, (givingBalance / goalAmount) * 100) : 0;
+  const personalGoal = profile.causeGoalAmounts?.[activeProject?.id ?? ""] ?? activeProject?.goalAmount ?? 0;
+  const givingFillPct = personalGoal > 0 ? Math.min(100, (givingBalance / personalGoal) * 100) : 0;
   const spendingFillPct = activeGoal
     ? Math.min(100, (spendingBalance / activeGoal.targetAmount) * 100)
     : 0;
@@ -383,11 +383,11 @@ export default function HomePage() {
             amount={formatCurrency(givingBalance)}
             emoji="🤲"
             causeLabel={activeProject?.title}
-            goalAmount={activeProject?.goalAmount}
+            goalAmount={personalGoal > 0 ? personalGoal : undefined}
             emptyLabel="Pick your cause"
             href="/jars?tab=cause"
-            unitDisplay={activeProject?.unitCost ? activeProject.unitDisplay : undefined}
-            unitCount={activeProject?.unitCost ? givingBalance / activeProject.unitCost : undefined}
+            unitDisplay={activeProject?.unitCost && !activeProject.unitIsGoal ? activeProject.unitDisplay : undefined}
+            unitCount={activeProject?.unitCost && !activeProject.unitIsGoal ? givingBalance / activeProject.unitCost : undefined}
           />
           <Jar
             fillPercent={spendingFillPct}

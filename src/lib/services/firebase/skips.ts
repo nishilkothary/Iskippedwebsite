@@ -31,6 +31,8 @@ export interface LogSkipParams {
   projectLocation?: string | null;
   projectUnitName?: string | null;
   projectUnitCost?: number | null;
+  projectUnitDisplay?: string | null;
+  projectUnitIsGoal?: boolean | null;
   currentTotalSaved: number;
   currentTotalSkips: number;
   currentXp: number;
@@ -51,18 +53,30 @@ export interface LogSkipParams {
 export async function logSkip(params: LogSkipParams): Promise<{ skipId: string; newTotal: number; newXp: number; newLevel: number; newStreak: number }> {
   const {
     uid, category, categoryLabel, categoryEmoji, amount,
-    projectId, projectTitle, projectLocation, projectUnitName, projectUnitCost,
+    projectId, projectTitle, projectLocation,
+    projectUnitName, projectUnitCost, projectUnitDisplay, projectUnitIsGoal,
     currentTotalSaved, currentTotalSkips,
     currentXp, currentStreak, currentLongestStreak, lastSkipDate,
     savedTowardActiveCause, shareWithCommunity, whatSkipped, notes,
     jarSplit, defaultJarSplit, displayName, photoURL, activeGoalId,
   } = params;
   const locationSuffix = projectLocation ? ` in ${projectLocation}` : "";
-  const causeSuffix = projectTitle
-    ? projectUnitName && projectUnitCost
-      ? ` and helped fund ${formatUnits(amount * ((jarSplit ?? defaultJarSplit ?? { give: 50, live: 50 }).give / 100), projectUnitCost, projectUnitName)}${locationSuffix}`
-      : ` to help fund ${projectTitle}${locationSuffix}`
-    : "";
+  const effectiveSplitForMessage = jarSplit ?? defaultJarSplit ?? { give: 50, live: 50 };
+  const giveAmountForMessage = amount * (effectiveSplitForMessage.give / 100);
+  function lcFirst(s: string) { return s.charAt(0).toLowerCase() + s.slice(1); }
+  let causeSuffix = "";
+  if (projectTitle && projectUnitName && projectUnitCost && !projectUnitIsGoal) {
+    // Count mode: "funded 4 days for a student's education in Cambodia"
+    const count = giveAmountForMessage / projectUnitCost;
+    const display = count >= 10 ? Math.round(count) : parseFloat(count.toFixed(1));
+    causeSuffix = ` and funded ${display} ${projectUnitDisplay ?? projectUnitName.toLowerCase()} for ${lcFirst(projectTitle)}`;
+  } else if (projectTitle && projectUnitName && projectUnitCost && projectUnitIsGoal) {
+    // % mode: "helped fund 8% of a chromebook for a student to learn coding"
+    const pct = Math.max(1, Math.round((giveAmountForMessage / projectUnitCost) * 100));
+    causeSuffix = ` and helped fund ${pct}% of ${lcFirst(projectTitle)}`;
+  } else if (projectTitle) {
+    causeSuffix = ` to help fund ${projectTitle}${locationSuffix}`;
+  }
 
   const effectiveSplit = jarSplit ?? defaultJarSplit ?? { give: 50, live: 50 };
   const giveAmount = amount * (effectiveSplit.give / 100);

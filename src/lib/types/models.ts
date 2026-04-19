@@ -39,6 +39,7 @@ export interface UserProfile {
   totalLiveAllocated?: number;
   causeJarBalances?: Record<string, number>;
   goalJarBalances?: Record<string, number>;
+  causeGoalAmounts?: Record<string, number>; // per-cause personal dollar goal set by user
 }
 
 export interface SkipCategory {
@@ -80,6 +81,7 @@ export interface Project {
   unitName?: string;    // singular unit: "Day of Education", "Life-Saving Meal"
   unitDisplay?: string; // short plural for jar SVG: "days", "meals"
   unitCost?: number;    // dollars per unit, e.g. 0.822
+  unitIsGoal?: boolean; // true = 1 unit IS the full goal (e.g. Chromebook $250 = 1 unit); shows % mode
   createdBy: string | null; // uid for custom causes
   tags: string[];
 }

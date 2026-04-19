@@ -19,6 +19,7 @@ import {
   normalizeSpendingGoals,
   updateSpendingGoals,
   subscribeToDonations,
+  setUserCauseGoal,
 } from "@/lib/services/firebase/users";
 import { addCustomProject, updateCustomProject, deleteCustomProject } from "@/lib/services/firebase/projects";
 import { SpendingHistoryEvent, Project, SpendingGoal, DonationEvent } from "@/lib/types/models";
@@ -78,6 +79,11 @@ function JarsPageInner() {
         )
       : currentBalances;
     updateProfile({ activeProjectId: project.id, causeJarBalances: newCauseJarBalances });
+  }
+
+  async function handleSetCauseGoal(causeId: string, amount: number) {
+    await setUserCauseGoal(user!.uid, causeId, amount);
+    updateProfile({ causeGoalAmounts: { ...profile!.causeGoalAmounts, [causeId]: amount } });
   }
 
   async function handleAddCause(title: string, sponsor: string, location: string | undefined, goalAmount: number, donationURL?: string) {
@@ -189,7 +195,9 @@ function JarsPageInner() {
           givingBalance={givingBalance}
           donations={donations}
           causeJarBalances={profile.causeJarBalances}
+          causeGoalAmounts={profile.causeGoalAmounts}
           onSelectCause={handleSelectCause}
+          onSetGoal={handleSetCauseGoal}
           onAddCause={handleAddCause}
           onEditCause={async (projectId, data) => {
             await updateCustomProject(projectId, { ...data });
@@ -394,7 +402,9 @@ function CauseTab({
   givingBalance,
   donations,
   causeJarBalances,
+  causeGoalAmounts,
   onSelectCause,
+  onSetGoal,
   onAddCause,
   onEditCause,
   onDeleteCause,
@@ -408,7 +418,9 @@ function CauseTab({
   givingBalance: number;
   donations: DonationEvent[];
   causeJarBalances: Record<string, number> | undefined;
+  causeGoalAmounts: Record<string, number> | undefined;
   onSelectCause: (p: Project, moveFunds: boolean) => void;
+  onSetGoal: (causeId: string, amount: number) => Promise<void>;
   onAddCause: (title: string, sponsor: string, location: string | undefined, goalAmount: number, donationURL?: string) => Promise<void>;
   onEditCause: (projectId: string, data: { title: string; sponsor: string; location?: string; goalAmount: number; donationURL?: string }) => Promise<void>;
   onDeleteCause: (projectId: string) => Promise<void>;
@@ -437,6 +449,9 @@ function CauseTab({
   const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
   const [deleting, setDeleting] = useState(false);
   const [editingDonationId, setEditingDonationId] = useState<string | null>(null);
+  const [goalSettingProject, setGoalSettingProject] = useState<Project | null>(null);
+  const [goalInputStr, setGoalInputStr] = useState("");
+  const [savingGoal, setSavingGoal] = useState(false);
   const [editDonationAmountStr, setEditDonationAmountStr] = useState("");
   const [deletingDonationId, setDeletingDonationId] = useState<string | null>(null);
   const [donationWorking, setDonationWorking] = useState(false);
@@ -490,6 +505,8 @@ function CauseTab({
       setSwitchTarget(project);
     } else {
       onSelectCause(project, false);
+      setGoalInputStr(causeGoalAmounts?.[project.id] ? String(causeGoalAmounts[project.id]) : "");
+      setGoalSettingProject(project);
     }
   }
 
@@ -583,11 +600,75 @@ function CauseTab({
                 className="w-full text-left px-5 py-4 transition-colors"
                 onMouseEnter={(e) => (e.currentTarget as HTMLElement).style.background = "var(--bg-surface-2)"}
                 onMouseLeave={(e) => (e.currentTarget as HTMLElement).style.background = "transparent"}
-                onClick={() => { onSelectCause(switchTarget, true); setSwitchTarget(null); }}
+                onClick={() => { onSelectCause(switchTarget, true); setSwitchTarget(null); setGoalInputStr(causeGoalAmounts?.[switchTarget.id] ? String(causeGoalAmounts[switchTarget.id]) : ""); setGoalSettingProject(switchTarget); }}
               >
                 <p className="text-sm font-semibold" style={{ color: "var(--text-primary)" }}>→ Move balance to {switchTarget.title}</p>
                 <p className="text-xs mt-0.5" style={{ color: "var(--text-secondary)" }}>Existing savings count toward the new cause</p>
               </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Goal-setting modal */}
+      {goalSettingProject && (
+        <div className="fixed inset-0 bg-black/60 z-50 flex items-end sm:items-center justify-center p-4" onClick={() => setGoalSettingProject(null)}>
+          <div className="rounded-2xl w-full max-w-sm shadow-2xl" style={{ background: "var(--bg-surface-1)", border: "1px solid var(--border-default)" }} onClick={(e) => e.stopPropagation()}>
+            <div className="px-5 pt-5 pb-4 relative" style={{ borderBottom: "1px solid var(--border-default)" }}>
+              <button onClick={() => setGoalSettingProject(null)} className="absolute top-4 right-4 text-xl leading-none" style={{ color: "var(--text-muted)" }}>×</button>
+              <p className="text-lg font-bold pr-6" style={{ color: "var(--text-primary)" }}>Set a saving goal</p>
+              <p className="text-xs mt-1" style={{ color: "var(--text-secondary)" }}>{goalSettingProject.title}</p>
+            </div>
+            <div className="px-5 py-4 space-y-3">
+              <p className="text-sm" style={{ color: "var(--text-secondary)" }}>How much do you want to save toward this cause?</p>
+              <input
+                type="number"
+                min="0"
+                step="1"
+                placeholder="e.g. 25"
+                value={goalInputStr}
+                onChange={(e) => setGoalInputStr(e.target.value)}
+                className="w-full rounded-xl px-4 py-3 text-sm font-semibold focus:outline-none"
+                style={{ background: "var(--bg-surface-2)", border: "1px solid var(--border-default)", color: "var(--text-primary)" }}
+              />
+              {(() => {
+                const dollars = parseFloat(goalInputStr);
+                if (!dollars || dollars <= 0) return null;
+                const { unitName, unitCost, unitDisplay, unitIsGoal } = goalSettingProject;
+                if (unitName && unitCost && !unitIsGoal) {
+                  const count = dollars / unitCost;
+                  const display = count >= 10 ? Math.round(count) : parseFloat(count.toFixed(1));
+                  return <p className="text-xs font-semibold" style={{ color: "#2BBAA4" }}>≈ {display} {unitDisplay ?? unitName.toLowerCase()}</p>;
+                } else if (unitName && unitCost && unitIsGoal) {
+                  const pct = Math.round((dollars / unitCost) * 100);
+                  return <p className="text-xs font-semibold" style={{ color: "#2BBAA4" }}>≈ {pct}% of 1 {unitName}</p>;
+                }
+                return null;
+              })()}
+              <div className="flex gap-2 pt-1">
+                <button
+                  onClick={async () => {
+                    const dollars = parseFloat(goalInputStr);
+                    if (!dollars || dollars <= 0) return;
+                    setSavingGoal(true);
+                    await onSetGoal(goalSettingProject.id, dollars);
+                    setSavingGoal(false);
+                    setGoalSettingProject(null);
+                  }}
+                  disabled={savingGoal || !parseFloat(goalInputStr) || parseFloat(goalInputStr) <= 0}
+                  className="flex-1 py-3 rounded-xl text-sm font-bold transition-colors"
+                  style={{ background: "#2BBAA4", color: "#fff", border: "none", cursor: "pointer", opacity: savingGoal ? 0.6 : 1 }}
+                >
+                  {savingGoal ? "Saving…" : "Save Goal"}
+                </button>
+                <button
+                  onClick={() => setGoalSettingProject(null)}
+                  className="flex-1 py-3 rounded-xl text-sm font-semibold"
+                  style={{ background: "transparent", border: "1px solid var(--border-emphasis)", color: "var(--text-secondary)", cursor: "pointer" }}
+                >
+                  Skip
+                </button>
+              </div>
             </div>
           </div>
         </div>
@@ -622,16 +703,21 @@ function CauseTab({
       )}
 
       {/* Jar preview */}
-      <JarPreview
-        color="#2BBAA4"
-        gradEnd="#1E9485"
-        label={activeProject?.title ?? null}
-        amount={formatCurrency(givingBalance)}
-        fillPct={activeProject && activeProject.goalAmount > 0 ? (givingBalance / activeProject.goalAmount) * 100 : (givingBalance > 0 ? 100 : 0)}
-        emptyPrompt="👇 Pick a cause below"
-        unitDisplay={activeProject?.unitCost ? activeProject.unitDisplay : undefined}
-        unitCount={activeProject?.unitCost ? givingBalance / activeProject.unitCost : undefined}
-      />
+      {(() => {
+        const personalGoal = causeGoalAmounts?.[activeProject?.id ?? ""] ?? activeProject?.goalAmount ?? 0;
+        return (
+          <JarPreview
+            color="#2BBAA4"
+            gradEnd="#1E9485"
+            label={activeProject?.title ?? null}
+            amount={formatCurrency(givingBalance)}
+            fillPct={personalGoal > 0 ? Math.min(100, (givingBalance / personalGoal) * 100) : (givingBalance > 0 ? 100 : 0)}
+            emptyPrompt="👇 Pick a cause below"
+            unitDisplay={activeProject?.unitCost && !activeProject.unitIsGoal ? activeProject.unitDisplay : undefined}
+            unitCount={activeProject?.unitCost && !activeProject.unitIsGoal ? givingBalance / activeProject.unitCost : undefined}
+          />
+        );
+      })()}
 
       {/* Donate / I Donated — below jar */}
       {activeProject && <CauseDonateRow project={activeProject} />}
@@ -750,22 +836,24 @@ function CauseTab({
                       <>
                         <div className="flex items-start justify-between gap-3 mb-1">
                           <p className="font-extrabold text-[#EDF5F0] text-base flex-1 min-w-0">{project.title}</p>
-                          <div className="flex items-center gap-1.5 flex-shrink-0">
-                            {project.goalAmount > 0 && (
-                              <span className="font-bold text-[#2ECC71] text-sm">
-                                ${Math.round(project.goalAmount).toLocaleString()}
-                              </span>
-                            )}
-                            {project.isCustom && (
-                              <>
-                                <button onClick={() => startEdit(project)} className="p-1 text-base" style={{ color: "var(--text-muted)" }} title="Edit">✏️</button>
-                                <button onClick={() => setConfirmDeleteId(project.id)} className="text-[rgba(237,245,240,0.35)] hover:text-red-400 p-1 text-base" title="Delete">🗑️</button>
-                              </>
-                            )}
-                          </div>
+                          {project.isCustom && (
+                            <div className="flex items-center gap-1.5 flex-shrink-0">
+                              <button onClick={() => startEdit(project)} className="p-1 text-base" style={{ color: "var(--text-muted)" }} title="Edit">✏️</button>
+                              <button onClick={() => setConfirmDeleteId(project.id)} className="text-[rgba(237,245,240,0.35)] hover:text-red-400 p-1 text-base" title="Delete">🗑️</button>
+                            </div>
+                          )}
                         </div>
+                        {project.unitName && project.unitCost ? (
+                          <p className="text-sm font-bold text-[#2ECC71] mt-1">
+                            1 {project.unitName} = {project.unitCost < 1 ? `${Math.round(project.unitCost * 100)}¢` : formatCurrency(project.unitCost)}
+                          </p>
+                        ) : project.goalAmount > 0 ? (
+                          <p className="text-sm font-bold text-[#2ECC71] mt-1">
+                            Goal: {formatCurrency(project.goalAmount)}
+                          </p>
+                        ) : null}
                         {project.location && (
-                          <p className="text-sm font-semibold text-[#2ECC71] mt-0.5">Location: {project.location}</p>
+                          <p className="text-sm text-[rgba(237,245,240,0.6)] mt-0.5">Location: {project.location}</p>
                         )}
                         <p className="text-sm text-[rgba(237,245,240,0.6)] mt-0.5">Organization: {project.sponsor}</p>
                         {project.donationURL && (
