@@ -89,10 +89,8 @@ export function SkipModal({ onClose }: Props) {
     // Build share text in new format: "I skipped X to help fund Y of Z. Join the movement at Iskipped.com"
     let impactClause = "";
     if (causeTitle && successProjectUnitName && successProjectUnitCost && !successActiveProject?.unitIsGoal) {
-      const count = skipGive / successProjectUnitCost;
-      const display = count >= 10 ? Math.round(count) : parseFloat(count.toFixed(1));
-      const unitLabel = successActiveProject?.unitDisplay ?? successProjectUnitName.toLowerCase();
-      impactClause = ` to help fund ${display} ${unitLabel} of ${causeTitle}`;
+      const unitsStr = formatUnits(skipGive, successProjectUnitCost, successProjectUnitName);
+      impactClause = ` to help fund ${unitsStr}${successProjectLocation ? ` in ${successProjectLocation}` : ""}`;
     } else if (causeTitle && successProjectUnitName && successProjectUnitCost && successActiveProject?.unitIsGoal) {
       const pct = Math.max(1, Math.round((skipGive / successProjectUnitCost) * 100));
       impactClause = ` to help fund ${pct}% of ${causeTitle}`;
@@ -300,7 +298,8 @@ export function SkipModal({ onClose }: Props) {
                 <p className="text-sm font-semibold" style={{ color: "var(--coral-primary)" }}>
                   🤲 {(() => {
                     if (activeProjectLive?.unitCost && !activeProjectLive.unitIsGoal) {
-                      return formatUnits(skipGiveLive, activeProjectLive.unitCost, activeProjectLive.unitName!);
+                      const units = formatUnits(skipGiveLive, activeProjectLive.unitCost, activeProjectLive.unitName!);
+                      return activeProjectLive.location ? `${units} in ${activeProjectLive.location}` : units;
                     } else if (activeProjectLive && giveGoalAmount > 0) {
                       return `${giveContribPctLive.toFixed(1)}% toward ${activeProjectLive.title}`;
                     } else if (activeProjectLive) {

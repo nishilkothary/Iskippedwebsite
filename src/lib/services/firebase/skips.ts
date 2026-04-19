@@ -60,16 +60,13 @@ export async function logSkip(params: LogSkipParams): Promise<{ skipId: string; 
     savedTowardActiveCause, shareWithCommunity, whatSkipped, notes,
     jarSplit, defaultJarSplit, displayName, photoURL, activeGoalId,
   } = params;
-  const locationSuffix = projectLocation ? ` in ${projectLocation}` : "";
   const effectiveSplitForMessage = jarSplit ?? defaultJarSplit ?? { give: 50, live: 50 };
   const giveAmountForMessage = amount * (effectiveSplitForMessage.give / 100);
-  function lcFirst(s: string) { return s.charAt(0).toLowerCase() + s.slice(1); }
   let causeSuffix = "";
   if (projectTitle && projectUnitName && projectUnitCost && !projectUnitIsGoal) {
-    // Count mode: "to help fund 4 days of A Student's Education in Cambodia"
-    const count = giveAmountForMessage / projectUnitCost;
-    const display = count >= 10 ? Math.round(count) : parseFloat(count.toFixed(1));
-    causeSuffix = ` to help fund ${display} ${projectUnitDisplay ?? projectUnitName.toLowerCase()} of ${projectTitle}`;
+    // Count mode: "to help fund 25 Emergency Meals in Ukraine"
+    const unitsStr = formatUnits(giveAmountForMessage, projectUnitCost, projectUnitName);
+    causeSuffix = ` to help fund ${unitsStr}${projectLocation ? ` in ${projectLocation}` : ""}`;
   } else if (projectTitle && projectUnitName && projectUnitCost && projectUnitIsGoal) {
     // % mode: "to help fund 8% of A Chromebook for a Student to Learn Coding"
     const pct = Math.max(1, Math.round((giveAmountForMessage / projectUnitCost) * 100));
