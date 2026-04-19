@@ -761,36 +761,46 @@ function CauseTab({
       )}
 
       {/* Give impact summary */}
-      {activeProject && (
-        <p className="text-xl font-bold mb-3" style={{ color: "var(--text-primary)" }}>My Active Giving Jar</p>
-      )}
       {activeProject ? (
-        <div className="rounded-2xl p-5" style={{ background: "var(--bg-surface-2)", border: "1px solid var(--border-default)" }}>
-          <p className="text-xs font-semibold uppercase tracking-widest mb-3" style={{ color: "var(--text-muted)" }}>{activeProject.title}</p>
-          {activeProject.unitCost && !activeProject.unitIsGoal ? (
-            <div className="text-center mb-4">
-              <p className="text-4xl font-extrabold" style={{ color: "var(--text-primary)" }}>
-                {givingBalance / activeProject.unitCost >= 10
+        <div className="rounded-2xl p-5 mb-4" style={{ background: "var(--bg-surface-2)", border: "1px solid var(--border-default)" }}>
+          <p className="text-lg font-bold mb-3" style={{ color: "var(--text-primary)" }}>My Active Giving Jar</p>
+          {(() => {
+            const personalGoal = causeGoalAmounts?.[activeProject.id] ?? activeProject.goalAmount ?? 0;
+            const pct = personalGoal > 0 ? Math.round(Math.min(100, (givingBalance / personalGoal) * 100)) : null;
+            const unitCount = activeProject.unitCost && !activeProject.unitIsGoal
+              ? (givingBalance / activeProject.unitCost >= 10
                   ? Math.round(givingBalance / activeProject.unitCost)
-                  : parseFloat((givingBalance / activeProject.unitCost).toFixed(1))}
-              </p>
-              <p className="text-base font-semibold mt-1" style={{ color: "#2BBAA4" }}>
-                {activeProject.unitDisplay ?? activeProject.unitName?.toLowerCase()} funded
-              </p>
-            </div>
-          ) : (
-            <div className="text-center mb-4">
-              <p className="text-3xl font-extrabold" style={{ color: "var(--text-primary)" }}>{formatCurrency(givingBalance)}</p>
-              <p className="text-sm mt-1" style={{ color: "var(--text-muted)" }}>saved toward this cause</p>
-            </div>
-          )}
+                  : parseFloat((givingBalance / activeProject.unitCost).toFixed(1)))
+              : null;
+            const unitLabel = activeProject.unitDisplay ?? activeProject.unitName?.toLowerCase();
+            return (
+              <>
+                {pct !== null ? (
+                  <div className="mb-2">
+                    <span className="text-3xl font-extrabold" style={{ color: "#2BBAA4" }}>{pct}%</span>
+                    <span className="text-sm ml-1.5" style={{ color: "var(--text-muted)" }}>towards goal</span>
+                  </div>
+                ) : (
+                  <div className="mb-2">
+                    <span className="text-3xl font-extrabold" style={{ color: "#2BBAA4" }}>{formatCurrency(givingBalance)}</span>
+                    <span className="text-sm ml-1.5" style={{ color: "var(--text-muted)" }}>saved</span>
+                  </div>
+                )}
+                {unitCount !== null && (
+                  <p className="text-sm font-semibold mb-3" style={{ color: "#2BBAA4" }}>
+                    {unitCount} {unitLabel} funded
+                  </p>
+                )}
+              </>
+            );
+          })()}
+          <p className="text-xs font-semibold uppercase tracking-widest mb-3" style={{ color: "var(--text-muted)" }}>{activeProject.title}</p>
           <CauseDonateRow project={activeProject} />
         </div>
       ) : (
-        <div className="rounded-2xl p-5 text-center" style={{ background: "var(--bg-surface-2)", border: "1px solid var(--border-default)" }}>
-          <p className="text-xs font-semibold uppercase tracking-widest mb-1" style={{ color: "var(--text-muted)" }}>Available to Give</p>
-          <p className="text-3xl font-extrabold" style={{ color: "var(--text-primary)" }}>{formatCurrency(givingBalance)}</p>
-          <p className="text-xs mt-2" style={{ color: "var(--text-muted)" }}>Pick a cause below to start tracking your impact</p>
+        <div className="mb-4 px-1">
+          <p className="text-2xl font-extrabold" style={{ color: "#2BBAA4" }}>{formatCurrency(givingBalance)}</p>
+          <p className="text-xs mt-1" style={{ color: "var(--text-muted)" }}>Available to give — pick a cause below</p>
         </div>
       )}
 
@@ -1470,20 +1480,16 @@ function SplurgeTab({
                       </>
                     ) : (
                       <>
-                        <div className="flex items-start justify-between gap-2 mb-1">
+                        <div className="flex items-start justify-between gap-2 mb-0.5">
                           <p className="font-extrabold text-[#EDF5F0] text-base flex-1 min-w-0">{goal.label}</p>
-                          <div className="flex flex-col items-end gap-1 flex-shrink-0">
-                            {goal.targetAmount > 0 && (
-                              <span className="font-bold text-[#8B5CF6] text-sm">
-                                ${Math.round(goal.targetAmount).toLocaleString()}
-                              </span>
-                            )}
-                            <div className="flex items-center gap-1.5">
-                              <button onClick={() => startEditGoal(goal)} className="text-[rgba(237,245,240,0.35)] hover:text-[#8B5CF6] p-1 text-base" title="Edit">✏️</button>
-                              <button onClick={() => setDeletingGoalId(goal.id)} className="text-[rgba(237,245,240,0.35)] hover:text-red-400 p-1 text-base" title="Delete">🗑️</button>
-                            </div>
+                          <div className="flex items-center gap-1.5 flex-shrink-0">
+                            <button onClick={() => startEditGoal(goal)} className="text-[rgba(237,245,240,0.35)] hover:text-[#8B5CF6] p-1 text-base" title="Edit">✏️</button>
+                            <button onClick={() => setDeletingGoalId(goal.id)} className="text-[rgba(237,245,240,0.35)] hover:text-red-400 p-1 text-base" title="Delete">🗑️</button>
                           </div>
                         </div>
+                        {goal.targetAmount > 0 && (
+                          <p className="text-xs text-[rgba(237,245,240,0.5)] mb-1">My reward costs: {formatCurrency(goal.targetAmount)}</p>
+                        )}
                         <button
                           onClick={() => handleSetActiveGoalWithCheck(goal)}
                           className="mt-3 w-full py-2 text-xs font-semibold text-[#8B5CF6] border border-[#8B5CF6] rounded-xl hover:bg-[rgba(139,92,246,0.15)] transition-colors"
