@@ -91,6 +91,11 @@ function JarsPageInner() {
     await refetch();
   }
 
+  async function handleDeactivateCause() {
+    await setActiveProject(user!.uid, null);
+    updateProfile({ activeProjectId: null });
+  }
+
   async function handleDeleteCause(projectId: string) {
     await deleteCustomProject(projectId);
     if (profile!.activeProjectId === projectId) {
@@ -198,6 +203,7 @@ function JarsPageInner() {
           causeGoalAmounts={profile.causeGoalAmounts}
           onSelectCause={handleSelectCause}
           onSetGoal={handleSetCauseGoal}
+          onDeactivateCause={handleDeactivateCause}
           onAddCause={handleAddCause}
           onEditCause={async (projectId, data) => {
             await updateCustomProject(projectId, { ...data });
@@ -405,6 +411,7 @@ function CauseTab({
   causeGoalAmounts,
   onSelectCause,
   onSetGoal,
+  onDeactivateCause,
   onAddCause,
   onEditCause,
   onDeleteCause,
@@ -421,6 +428,7 @@ function CauseTab({
   causeGoalAmounts: Record<string, number> | undefined;
   onSelectCause: (p: Project, moveFunds: boolean) => void;
   onSetGoal: (causeId: string, amount: number) => Promise<void>;
+  onDeactivateCause: () => Promise<void>;
   onAddCause: (title: string, sponsor: string, location: string | undefined, goalAmount: number, donationURL?: string) => Promise<void>;
   onEditCause: (projectId: string, data: { title: string; sponsor: string; location?: string; goalAmount: number; donationURL?: string }) => Promise<void>;
   onDeleteCause: (projectId: string) => Promise<void>;
@@ -455,6 +463,8 @@ function CauseTab({
   const [editDonationAmountStr, setEditDonationAmountStr] = useState("");
   const [deletingDonationId, setDeletingDonationId] = useState<string | null>(null);
   const [donationWorking, setDonationWorking] = useState(false);
+  const [deactivateConfirm, setDeactivateConfirm] = useState(false);
+  const [deactivating, setDeactivating] = useState(false);
 
   async function handleDelete(projectId: string) {
     setDeleting(true);
@@ -574,6 +584,43 @@ function CauseTab({
 
   return (
     <div className="space-y-5">
+      {/* Deactivate confirm modal */}
+      {deactivateConfirm && (
+        <div className="fixed inset-0 bg-black/60 z-50 flex items-end sm:items-center justify-center p-4" onClick={() => setDeactivateConfirm(false)}>
+          <div className="rounded-2xl w-full max-w-sm shadow-2xl" style={{ background: "var(--bg-surface-1)", border: "1px solid var(--border-default)" }} onClick={(e) => e.stopPropagation()}>
+            <div className="px-5 pt-5 pb-4 relative" style={{ borderBottom: "1px solid var(--border-default)" }}>
+              <button onClick={() => setDeactivateConfirm(false)} className="absolute top-4 right-4 text-xl leading-none" style={{ color: "var(--text-muted)" }}>×</button>
+              <p className="text-lg font-bold pr-6" style={{ color: "var(--text-primary)" }}>Deactivate this jar?</p>
+              <p className="text-xs mt-1.5" style={{ color: "var(--text-secondary)" }}>
+                Your saved balance of <span className="font-semibold" style={{ color: "var(--coral-primary)" }}>{formatCurrency(causeJarBalances?.[activeProject?.id ?? ""] ?? 0)}</span> will stay in your Give jar until you pick a new cause.
+              </p>
+            </div>
+            <div className="px-5 py-4 flex gap-2">
+              <button
+                onClick={async () => {
+                  setDeactivating(true);
+                  await onDeactivateCause();
+                  setDeactivating(false);
+                  setDeactivateConfirm(false);
+                }}
+                disabled={deactivating}
+                className="flex-1 py-3 rounded-xl text-sm font-bold"
+                style={{ background: "var(--coral-primary)", color: "#fff", border: "none", cursor: "pointer", opacity: deactivating ? 0.6 : 1 }}
+              >
+                {deactivating ? "Deactivating…" : "Deactivate"}
+              </button>
+              <button
+                onClick={() => setDeactivateConfirm(false)}
+                className="flex-1 py-3 rounded-xl text-sm font-semibold"
+                style={{ background: "transparent", border: "1px solid var(--border-emphasis)", color: "var(--text-secondary)", cursor: "pointer" }}
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Switch modal */}
       {switchTarget && (
         <div className="fixed inset-0 bg-black/60 z-50 flex items-end sm:items-center justify-center p-4" onClick={() => setSwitchTarget(null)}>
@@ -803,18 +850,18 @@ function CauseTab({
                           <span className="inline-block text-[10px] font-bold px-2 py-0.5 rounded-full" style={{ background: "rgba(232,99,122,0.15)", color: "var(--coral-primary)" }}>
                             ✓ Active
                           </span>
-                          {project.goalAmount > 0 && (
-                            <span className="font-bold text-[#2ECC71] text-sm">
-                              ${Math.round(project.goalAmount).toLocaleString()}
-                            </span>
-                          )}
+                          <button
+                            onClick={() => setDeactivateConfirm(true)}
+                            className="font-bold text-sm"
+                            style={{ color: "#2ECC71", background: "transparent", border: "none", cursor: "pointer", padding: 0 }}
+                            title="Click to deactivate"
+                          >
+                            {formatCurrency(causeJarBalances?.[project.id] ?? 0)} saved
+                          </button>
                         </div>
                         <div className="flex items-start justify-between gap-3">
                           <div className="flex-1 min-w-0">
                             <p className="font-extrabold text-[#EDF5F0] text-base">{project.title}</p>
-                            {project.location && (
-                              <p className="text-sm font-semibold text-[#2ECC71] mt-0.5">Location: {project.location}</p>
-                            )}
                             <p className="text-sm text-[rgba(237,245,240,0.6)] mt-0.5">Organization: {project.sponsor}</p>
                             {project.donationURL && (
                               <a href={project.donationURL} target="_blank" rel="noopener noreferrer" className="text-xs text-[#2ECC71] underline mt-0.5 block">
@@ -852,9 +899,6 @@ function CauseTab({
                             Goal: {formatCurrency(project.goalAmount)}
                           </p>
                         ) : null}
-                        {project.location && (
-                          <p className="text-sm text-[rgba(237,245,240,0.6)] mt-0.5">Location: {project.location}</p>
-                        )}
                         <p className="text-sm text-[rgba(237,245,240,0.6)] mt-0.5">Organization: {project.sponsor}</p>
                         {project.donationURL && (
                           <a href={project.donationURL} target="_blank" rel="noopener noreferrer" className="text-xs text-[#2ECC71] underline mt-0.5 block">

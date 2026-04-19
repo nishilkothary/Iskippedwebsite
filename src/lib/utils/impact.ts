@@ -4,6 +4,7 @@ const PLURAL_MAP: Record<string, string> = {
   "Life-Saving Meal": "Life-Saving Meals",
   "Emergency Meal": "Emergency Meals",
   "Meal for Families": "Meals for Families",
+  "Meal": "Meals",
 };
 
 /**
