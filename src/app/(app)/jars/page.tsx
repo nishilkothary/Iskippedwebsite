@@ -168,6 +168,11 @@ function JarsPageInner() {
     });
   }
 
+  async function handleDeactivateGoal() {
+    await updateSpendingGoals(user!.uid, spendingGoals, null);
+    updateProfile({ activeSpendingGoalId: null });
+  }
+
   async function handleMoveToGive(goalId: string) {
     await transferLiveToGive(user!.uid, spendingBalance, spendingGoals, goalId, activeSpendingGoalId);
     const newGoals = spendingGoals.filter((g) => g.id !== goalId);
@@ -230,6 +235,7 @@ function JarsPageInner() {
           onEditGoal={handleEditGoal}
           onDeleteGoal={handleDeleteGoal}
           onSetActiveGoal={handleSetActiveGoal}
+          onDeactivateGoal={handleDeactivateGoal}
           onCompleteGoal={handleCompleteGoal}
           onMoveToGive={handleMoveToGive}
           onPurchase={async (amount) => {
@@ -1109,6 +1115,7 @@ function SplurgeTab({
   onEditGoal,
   onDeleteGoal,
   onSetActiveGoal,
+  onDeactivateGoal,
   onCompleteGoal,
   onMoveToGive,
   onPurchase,
@@ -1125,6 +1132,7 @@ function SplurgeTab({
   onEditGoal: (goalId: string, updates: Partial<SpendingGoal>) => Promise<void>;
   onDeleteGoal: (goalId: string) => Promise<void>;
   onSetActiveGoal: (goalId: string, moveFunds: boolean) => Promise<void>;
+  onDeactivateGoal: () => Promise<void>;
   onCompleteGoal: (goalId: string) => Promise<void>;
   onMoveToGive: (goalId: string) => Promise<void>;
   onPurchase: (amount: number) => Promise<void>;
@@ -1263,77 +1271,92 @@ function SplurgeTab({
         </div>
       )}
 
-      {/* Jar preview */}
-      <JarPreview
-        color="#8B5CF6"
-        gradEnd="#6D28D9"
-        label={activeGoal?.label ?? null}
-        amount={formatCurrency(spendingBalance)}
-        fillPct={activeGoal ? (spendingBalance / activeGoal.targetAmount) * 100 : 0}
-        emptyPrompt="👇 Pick a goal below"
-      />
-
-      {/* I Bought It — below jar */}
-      {activeGoal && (
-        <div className="mt-3 space-y-2">
-          {activeGoal.shoppingLink && (
-            <a
-              href={activeGoal.shoppingLink}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="flex items-center justify-center gap-1.5 w-full py-2 font-semibold rounded-xl transition-colors text-xs"
-              style={{ border: "1px solid rgba(139,92,246,0.4)", color: "#8B5CF6" }}
-            >
-              🛒 Shop now →
-            </a>
-          )}
-          {purchasingId === activeGoal.id ? (
-            <div className="flex gap-2">
-              <div className="relative flex-1">
-                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-[rgba(237,245,240,0.6)]">$</span>
-                <input
-                  type="number"
-                  placeholder="0.00"
-                  value={purchaseAmountStr}
-                  onChange={(e) => setPurchaseAmountStr(e.target.value)}
-                  className="w-full pl-7 rounded-xl px-3 py-2 text-sm focus:outline-none" style={{ background: "var(--bg-surface-2)", border: "1px solid #8B5CF6", color: "var(--text-primary)" }}
-                  autoFocus
-                />
-              </div>
+      {/* My Reward Jar scoreboard */}
+      <div className="rounded-2xl p-5 mb-4" style={{ background: "var(--bg-surface-1)", border: "1px solid var(--border-default)" }}>
+        <p className="text-xl font-bold mb-3" style={{ color: "var(--text-primary)" }}>My Reward Jar:</p>
+        {activeGoal ? (
+          <div>
+            <div className="flex items-center justify-between mb-2">
               <button
-                onClick={async () => {
-                  const amt = parseFloat(purchaseAmountStr);
-                  if (!amt || amt <= 0) return;
-                  setPurchasing(true);
-                  await onPurchase(amt);
-                  setPurchaseAmountStr("");
-                  setPurchasingId(null);
-                  setPurchasing(false);
-                }}
-                disabled={purchasing || !purchaseAmountStr || parseFloat(purchaseAmountStr) <= 0}
-                className="bg-[#8B5CF6] text-white font-semibold px-4 py-2 rounded-xl text-sm disabled:opacity-50"
+                onClick={onDeactivateGoal}
+                className="text-xs font-bold px-2 py-0.5 rounded-full"
+                style={{ background: "rgba(139,92,246,0.15)", color: "#8B5CF6", border: "none", cursor: "pointer" }}
               >
-                {purchasing ? "…" : "Confirm"}
+                ✓ Active
               </button>
-              <button
-                onClick={() => { setPurchasingId(null); setPurchaseAmountStr(""); }}
-                className="text-[rgba(237,245,240,0.6)] px-3 py-2 rounded-xl text-sm"
-                style={{ border: "1px solid rgba(139,92,246,0.12)" }}
-              >
-                Cancel
-              </button>
+              <span className="text-3xl font-extrabold" style={{ color: "#8B5CF6" }}>
+                {Math.round(Math.min(100, (spendingBalance / activeGoal.targetAmount) * 100))}%
+              </span>
             </div>
-          ) : (
-            <button
-              onClick={() => setPurchasingId(activeGoal.id)}
-              className="w-full py-2 font-semibold rounded-xl hover:opacity-90 transition-colors text-xs"
-              style={{ background: "#8B5CF6", color: "white" }}
-            >
-              🛍️ I Bought It
-            </button>
-          )}
-        </div>
-      )}
+            <p className="text-sm font-semibold" style={{ color: "var(--text-primary)" }}>{activeGoal.label}</p>
+            <p className="text-xs mt-0.5" style={{ color: "var(--text-muted)" }}>My reward costs: {formatCurrency(activeGoal.targetAmount)}</p>
+            <p className="text-xs mt-1 font-semibold" style={{ color: "#8B5CF6" }}>{formatCurrency(spendingBalance)} saved</p>
+            <div className="mt-3 space-y-2">
+              {activeGoal.shoppingLink && (
+                <a
+                  href={activeGoal.shoppingLink}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="flex items-center justify-center gap-1.5 w-full py-2 font-semibold rounded-xl transition-colors text-xs"
+                  style={{ border: "1px solid rgba(139,92,246,0.4)", color: "#8B5CF6" }}
+                >
+                  🛒 Shop now →
+                </a>
+              )}
+              {purchasingId === activeGoal.id ? (
+                <div className="flex gap-2">
+                  <div className="relative flex-1">
+                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-[rgba(237,245,240,0.6)]">$</span>
+                    <input
+                      type="number"
+                      placeholder="0.00"
+                      value={purchaseAmountStr}
+                      onChange={(e) => setPurchaseAmountStr(e.target.value)}
+                      className="w-full pl-7 rounded-xl px-3 py-2 text-sm focus:outline-none" style={{ background: "var(--bg-surface-2)", border: "1px solid #8B5CF6", color: "var(--text-primary)" }}
+                      autoFocus
+                    />
+                  </div>
+                  <button
+                    onClick={async () => {
+                      const amt = parseFloat(purchaseAmountStr);
+                      if (!amt || amt <= 0) return;
+                      setPurchasing(true);
+                      await onPurchase(amt);
+                      setPurchaseAmountStr("");
+                      setPurchasingId(null);
+                      setPurchasing(false);
+                    }}
+                    disabled={purchasing || !purchaseAmountStr || parseFloat(purchaseAmountStr) <= 0}
+                    className="bg-[#8B5CF6] text-white font-semibold px-4 py-2 rounded-xl text-sm disabled:opacity-50"
+                  >
+                    {purchasing ? "…" : "Confirm"}
+                  </button>
+                  <button
+                    onClick={() => { setPurchasingId(null); setPurchaseAmountStr(""); }}
+                    className="text-[rgba(237,245,240,0.6)] px-3 py-2 rounded-xl text-sm"
+                    style={{ border: "1px solid rgba(139,92,246,0.12)" }}
+                  >
+                    Cancel
+                  </button>
+                </div>
+              ) : (
+                <button
+                  onClick={() => setPurchasingId(activeGoal.id)}
+                  className="w-full py-2 font-semibold rounded-xl hover:opacity-90 transition-colors text-xs"
+                  style={{ background: "#8B5CF6", color: "white" }}
+                >
+                  🛍️ I Bought It
+                </button>
+              )}
+            </div>
+          </div>
+        ) : (
+          <div>
+            <p className="text-2xl font-extrabold" style={{ color: "#8B5CF6" }}>{formatCurrency(spendingBalance)}</p>
+            <p className="text-xs mt-1" style={{ color: "var(--text-muted)" }}>Available to spend — pick a reward below</p>
+          </div>
+        )}
+      </div>
 
       <div className="flex items-center justify-between mb-1">
         <p className="text-xl font-bold text-[#EDF5F0]">My Rewards</p>
@@ -1409,21 +1432,15 @@ function SplurgeTab({
                           <span className="inline-block text-[10px] font-bold px-2 py-0.5 rounded-full" style={{ background: "rgba(139,92,246,0.15)", color: "#8B5CF6" }}>
                             ✓ Active
                           </span>
-                          {goal.targetAmount > 0 && (
-                            <span className="font-bold text-[#8B5CF6] text-sm">
-                              ${Math.round(goal.targetAmount).toLocaleString()}
-                            </span>
-                          )}
-                        </div>
-                        <div className="flex items-start justify-between gap-2">
-                          <div className="flex-1 min-w-0">
-                            <p className="font-extrabold text-[#EDF5F0] text-base">{goal.label}</p>
-                          </div>
-                          <div className="flex items-center gap-1.5 flex-shrink-0">
+                          <div className="flex items-center gap-1.5">
                             <button onClick={() => startEditGoal(goal)} className="text-[rgba(237,245,240,0.35)] hover:text-[#8B5CF6] p-1 text-base" title="Edit">✏️</button>
                             <button onClick={() => (setDeletingActiveGoal(true), setConfirmCompleteId(null))} className="text-[rgba(237,245,240,0.35)] hover:text-red-400 p-1 text-base" title="Delete">🗑️</button>
                           </div>
                         </div>
+                        <p className="font-extrabold text-[#EDF5F0] text-base">{goal.label}</p>
+                        {goal.targetAmount > 0 && (
+                          <p className="text-xs mt-0.5 text-[rgba(237,245,240,0.5)]">My reward costs: {formatCurrency(goal.targetAmount)}</p>
+                        )}
                       </>
                     ) : (
                       <>

@@ -106,6 +106,9 @@ export function SkipModal({ onClose }: Props) {
     const showCauseNudge = !successActiveProject && (postLogSkipCount === 1 || postLogSkipCount % 3 === 1);
 
     if (showCauseNudge) {
+      const nudgeCfc = projects.find((p) => p.id === "cfc");
+      const nudgePalestine = projects.find((p) => p.id === "stm-palestine");
+      const nudgeUkraine = projects.find((p) => p.id === "stm-ukraine");
       return (
         <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4" onClick={onClose}>
           <div
@@ -117,9 +120,15 @@ export function SkipModal({ onClose }: Props) {
             <div className="text-6xl mb-3">🌍</div>
             <p className="text-2xl font-bold" style={{ color: "var(--text-primary)" }}>Your skips can change lives</p>
             <p className="font-bold text-lg mt-1" style={{ color: "var(--green-primary)" }}>{formatCurrency(amount)} saved</p>
-            <p className="text-sm mt-3 leading-relaxed" style={{ color: "var(--text-secondary)" }}>
-              Every dollar you save has the power to make a real difference in someone&apos;s life — and having a cause gives you a deeper reason to keep skipping. Pick a cause to start seeing the real impact of every skip you make. You can always change it anytime.
+            <p className="text-sm mt-3" style={{ color: "var(--text-secondary)" }}>
+              You could use {formatCurrency(skipGive)} from this skip to fund:
             </p>
+            <ul className="text-left mt-2 space-y-1" style={{ color: "var(--text-secondary)", fontSize: 13, paddingLeft: 20 }}>
+              {nudgeCfc?.unitCost && <li>{formatUnits(skipGive, nudgeCfc.unitCost, nudgeCfc.unitName!)} of a Student&apos;s Education in Cambodia</li>}
+              {nudgePalestine?.unitCost && <li>{formatUnits(skipGive, nudgePalestine.unitCost, nudgePalestine.unitName!)} in Palestine</li>}
+              {nudgeUkraine?.unitCost && <li>{formatUnits(skipGive, nudgeUkraine.unitCost, nudgeUkraine.unitName!)} in Ukraine</li>}
+            </ul>
+            <p className="text-xs mt-2" style={{ color: "var(--text-muted)" }}>...amongst many other things.</p>
             <button
               onClick={() => { onClose(); router.push("/jars?tab=cause"); }}
               className="mt-5 w-full font-bold py-3 rounded-xl text-sm"
@@ -289,9 +298,17 @@ export function SkipModal({ onClose }: Props) {
               <p className="text-xs font-semibold uppercase tracking-widest mb-2" style={{ color: "var(--text-muted)" }}>This Skip&apos;s Impact</p>
               <div className="space-y-1">
                 <p className="text-sm font-semibold" style={{ color: "var(--coral-primary)" }}>
-                  🤲 {activeProjectLive?.unitCost && !activeProjectLive.unitIsGoal
-                    ? formatUnits(skipGiveLive, activeProjectLive.unitCost, activeProjectLive.unitName!)
-                    : giveGoalAmount > 0 ? `${giveContribPctLive.toFixed(1)}% of goal` : formatCurrency(skipGiveLive)}{activeProjectLive ? ` toward ${activeProjectLive.title}` : ""}
+                  🤲 {(() => {
+                    if (activeProjectLive?.unitCost && !activeProjectLive.unitIsGoal) {
+                      return formatUnits(skipGiveLive, activeProjectLive.unitCost, activeProjectLive.unitName!);
+                    } else if (activeProjectLive && giveGoalAmount > 0) {
+                      return `${giveContribPctLive.toFixed(1)}% toward ${activeProjectLive.title}`;
+                    } else if (activeProjectLive) {
+                      return `${formatCurrency(skipGiveLive)} toward ${activeProjectLive.title}`;
+                    } else {
+                      return formatCurrency(skipGiveLive);
+                    }
+                  })()}
                 </p>
                 <p className="text-sm font-semibold" style={{ color: "#2BBAA4" }}>
                   😊 {liveGoalAmount > 0 ? `${liveContribPctLive.toFixed(1)}% toward ${spendingGoalLabelLive}` : formatCurrency(skipLiveLive)}

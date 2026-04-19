@@ -7,6 +7,7 @@ import { useSkips } from "@/hooks/useSkips";
 import { useProjects } from "@/hooks/useProjects";
 import { useUIStore } from "@/store/uiStore";
 import { formatCurrency } from "@/lib/utils/currency";
+import { formatUnits } from "@/lib/utils/impact";
 import { formatRelativeTime } from "@/lib/utils/dates";
 import { normalizeJarSplit, normalizeSpendingGoals, recalculateTotals } from "@/lib/services/firebase/users";
 import { EditSkipModal } from "@/components/skip/EditSkipModal";
@@ -235,6 +236,10 @@ export default function HomePage() {
   const givingBalance = globalGivingBalance;
   const spendingBalance = globalSpendingBalance;
 
+  const cfcProject = projects.find((p) => p.id === "cfc");
+  const palestineProject = projects.find((p) => p.id === "stm-palestine");
+  const ukraineProject = projects.find((p) => p.id === "stm-ukraine");
+
   const personalGoal = profile.causeGoalAmounts?.[activeProject?.id ?? ""] ?? activeProject?.goalAmount ?? 0;
   const givingFillPct = personalGoal > 0 ? Math.min(100, (givingBalance / personalGoal) * 100) : 0;
   const spendingFillPct = activeGoal
@@ -368,7 +373,45 @@ export default function HomePage() {
       </div>
 
       {/* ── Pick a cause banner ── */}
-      {!profile.activeProjectId && (
+      {!profile.activeProjectId && givingBalance > 0 && (
+        <div style={{
+          ...cardStyle,
+          marginBottom: 20,
+          borderLeft: "4px solid var(--green-primary)",
+        }}>
+          <div style={{ fontSize: 14, fontWeight: 700, color: "var(--text-primary)", marginBottom: 6 }}>
+            🌍 Your skips can make a real difference in people&apos;s lives.
+          </div>
+          <div style={{ fontSize: 13, color: "var(--text-secondary)", marginBottom: 8, lineHeight: 1.6 }}>
+            You could currently fund:
+          </div>
+          <ul style={{ fontSize: 13, color: "var(--text-secondary)", marginBottom: 8, paddingLeft: 18, lineHeight: 1.9 }}>
+            {cfcProject?.unitCost && <li>{formatUnits(givingBalance, cfcProject.unitCost, cfcProject.unitName!)} of a Student&apos;s Education in Cambodia</li>}
+            {palestineProject?.unitCost && <li>{formatUnits(givingBalance, palestineProject.unitCost, palestineProject.unitName!)} in Palestine</li>}
+            {ukraineProject?.unitCost && <li>{formatUnits(givingBalance, ukraineProject.unitCost, ukraineProject.unitName!)} in Ukraine</li>}
+          </ul>
+          <div style={{ fontSize: 12, color: "var(--text-muted)", marginBottom: 14 }}>
+            ...amongst many other things. Pick a cause that matters to you today.
+          </div>
+          <button
+            onClick={() => router.push("/jars?tab=cause")}
+            style={{
+              background: "linear-gradient(135deg, var(--coral-primary), var(--coral-dark))",
+              color: "#fff",
+              fontWeight: 700,
+              fontSize: 13,
+              border: "none",
+              borderRadius: 12,
+              padding: "10px 16px",
+              cursor: "pointer",
+              whiteSpace: "nowrap",
+            }}
+          >
+            Pick a cause →
+          </button>
+        </div>
+      )}
+      {!profile.activeProjectId && givingBalance === 0 && (
         <div style={{
           ...cardStyle,
           marginBottom: 20,
