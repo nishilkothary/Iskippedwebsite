@@ -22,6 +22,7 @@ import {
   setUserCauseGoal,
 } from "@/lib/services/firebase/users";
 import { addCustomProject, updateCustomProject, deleteCustomProject } from "@/lib/services/firebase/projects";
+import { formatUnits } from "@/lib/utils/impact";
 import { SpendingHistoryEvent, Project, SpendingGoal, DonationEvent } from "@/lib/types/models";
 
 type Tab = "cause" | "live";
@@ -767,12 +768,9 @@ function CauseTab({
           {(() => {
             const personalGoal = causeGoalAmounts?.[activeProject.id] ?? activeProject.goalAmount ?? 0;
             const pct = personalGoal > 0 ? Math.round(Math.min(100, (givingBalance / personalGoal) * 100)) : null;
-            const unitCount = activeProject.unitCost && !activeProject.unitIsGoal
-              ? (givingBalance / activeProject.unitCost >= 10
-                  ? Math.round(givingBalance / activeProject.unitCost)
-                  : parseFloat((givingBalance / activeProject.unitCost).toFixed(1)))
+            const unitFormatted = activeProject.unitCost && !activeProject.unitIsGoal && activeProject.unitName
+              ? formatUnits(givingBalance, activeProject.unitCost, activeProject.unitName)
               : null;
-            const unitLabel = activeProject.unitDisplay ?? activeProject.unitName?.toLowerCase();
             return (
               <>
                 {pct !== null ? (
@@ -786,9 +784,9 @@ function CauseTab({
                     <span className="text-sm ml-1.5" style={{ color: "var(--text-muted)" }}>saved</span>
                   </div>
                 )}
-                {unitCount !== null && (
+                {unitFormatted !== null && (
                   <p className="text-sm font-semibold mb-3" style={{ color: "#2BBAA4" }}>
-                    {unitCount} {unitLabel} funded
+                    {unitFormatted} funded
                   </p>
                 )}
               </>
