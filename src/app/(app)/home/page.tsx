@@ -374,33 +374,47 @@ export default function HomePage() {
         </div>
 
         {/* Jars */}
-        <div style={{ display: "flex", justifyContent: "center", gap: 16, margin: "20px 0", flexWrap: "nowrap" }}>
-          <Jar
-            fillPercent={givingFillPct}
-            color="#2BBAA4"
-            gradEnd="#1E9485"
-            label="Give a Little"
-            amount={formatCurrency(givingBalance)}
-            emoji="🤲"
-            causeLabel={activeProject?.title}
-            goalAmount={personalGoal > 0 ? personalGoal : undefined}
-            emptyLabel="Pick your cause"
-            href="/jars?tab=cause"
-            unitDisplay={activeProject?.unitCost && !activeProject.unitIsGoal ? activeProject.unitDisplay : undefined}
-            unitCount={activeProject?.unitCost && !activeProject.unitIsGoal ? givingBalance / activeProject.unitCost : undefined}
-          />
-          <Jar
-            fillPercent={spendingFillPct}
-            color="#8B5CF6"
-            gradEnd="#6D28D9"
-            label="Live a Little"
-            amount={formatCurrency(spendingBalance)}
-            emoji="😊"
-            causeLabel={activeGoal?.label}
-            goalAmount={activeGoal?.targetAmount}
-            emptyLabel="Pick your reward"
-            onClick={() => router.push("/jars?tab=live")}
-          />
+        <div style={{ display: "flex", justifyContent: "center", gap: 16, margin: "20px 0", flexWrap: "nowrap", alignItems: "center" }}>
+          {activeProject ? (
+            <Jar
+              fillPercent={givingFillPct}
+              color="#2BBAA4"
+              gradEnd="#1E9485"
+              label="Give a Little"
+              amount={formatCurrency(givingBalance)}
+              emoji="🤲"
+              causeLabel={activeProject.title}
+              goalAmount={personalGoal > 0 ? personalGoal : undefined}
+              href="/jars?tab=cause"
+            />
+          ) : (
+            <Link href="/jars?tab=cause" style={{ textDecoration: "none", flex: 1, textAlign: "center" }}>
+              <div style={{ fontSize: 11, fontWeight: 600, color: "var(--text-muted)", letterSpacing: 1.5, textTransform: "uppercase", marginBottom: 6 }}>Give a Little</div>
+              <div style={{ fontSize: 30, fontWeight: 800, color: "var(--text-primary)" }}>{formatCurrency(givingBalance)}</div>
+              <div style={{ fontSize: 12, color: "var(--text-muted)", marginTop: 3 }}>Money to Give</div>
+              <div style={{ fontSize: 12, color: "#2BBAA4", fontWeight: 600, marginTop: 6 }}>Pick a cause →</div>
+            </Link>
+          )}
+          {activeGoal ? (
+            <Jar
+              fillPercent={spendingFillPct}
+              color="#8B5CF6"
+              gradEnd="#6D28D9"
+              label="Live a Little"
+              amount={formatCurrency(spendingBalance)}
+              emoji="😊"
+              causeLabel={activeGoal.label}
+              goalAmount={activeGoal.targetAmount}
+              onClick={() => router.push("/jars?tab=live")}
+            />
+          ) : (
+            <div style={{ flex: 1, textAlign: "center", cursor: "pointer" }} onClick={() => router.push("/jars?tab=live")}>
+              <div style={{ fontSize: 11, fontWeight: 600, color: "var(--text-muted)", letterSpacing: 1.5, textTransform: "uppercase", marginBottom: 6 }}>Live a Little</div>
+              <div style={{ fontSize: 30, fontWeight: 800, color: "var(--text-primary)" }}>{formatCurrency(spendingBalance)}</div>
+              <div style={{ fontSize: 12, color: "var(--text-muted)", marginTop: 3 }}>Available</div>
+              <div style={{ fontSize: 12, color: "#8B5CF6", fontWeight: 600, marginTop: 6 }}>Add a reward →</div>
+            </div>
+          )}
         </div>
 
       </div>

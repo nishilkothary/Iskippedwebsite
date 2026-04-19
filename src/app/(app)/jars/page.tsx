@@ -592,7 +592,7 @@ function CauseTab({
               <button onClick={() => setDeactivateConfirm(false)} className="absolute top-4 right-4 text-xl leading-none" style={{ color: "var(--text-muted)" }}>×</button>
               <p className="text-lg font-bold pr-6" style={{ color: "var(--text-primary)" }}>Deactivate this jar?</p>
               <p className="text-xs mt-1.5" style={{ color: "var(--text-secondary)" }}>
-                Your saved balance of <span className="font-semibold" style={{ color: "var(--coral-primary)" }}>{formatCurrency(causeJarBalances?.[activeProject?.id ?? ""] ?? 0)}</span> will stay in your Give jar until you pick a new cause.
+                You have <span className="font-semibold" style={{ color: "var(--coral-primary)" }}>{formatCurrency(givingBalance)}</span> in your Give a Little jar. After deactivating, it stays available until you pick a new cause.
               </p>
             </div>
             <div className="px-5 py-4 flex gap-2">
@@ -665,6 +665,11 @@ function CauseTab({
               <button onClick={() => setGoalSettingProject(null)} className="absolute top-4 right-4 text-xl leading-none" style={{ color: "var(--text-muted)" }}>×</button>
               <p className="text-lg font-bold pr-6" style={{ color: "var(--text-primary)" }}>Set a saving goal</p>
               <p className="text-xs mt-1" style={{ color: "var(--text-secondary)" }}>{goalSettingProject.title}</p>
+              {goalSettingProject.unitName && goalSettingProject.unitCost && (
+                <p className="text-xs mt-0.5 font-semibold" style={{ color: "#2BBAA4" }}>
+                  1 {goalSettingProject.unitName} = {goalSettingProject.unitCost < 1 ? `${Math.round(goalSettingProject.unitCost * 100)}¢` : formatCurrency(goalSettingProject.unitCost)}
+                </p>
+              )}
             </div>
             <div className="px-5 py-4 space-y-3">
               <p className="text-sm" style={{ color: "var(--text-secondary)" }}>How much do you want to save toward this cause?</p>
