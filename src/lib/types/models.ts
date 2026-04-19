@@ -77,7 +77,9 @@ export interface Project {
   donationURL: string | null;
   isCustom: boolean;
   location?: string;
-  impactPer100?: string; // e.g. "121 days of a child's education"
+  unitName?: string;    // singular unit: "Day of Education", "Life-Saving Meal"
+  unitDisplay?: string; // short plural for jar SVG: "days", "meals"
+  unitCost?: number;    // dollars per unit, e.g. 0.822
   createdBy: string | null; // uid for custom causes
   tags: string[];
 }

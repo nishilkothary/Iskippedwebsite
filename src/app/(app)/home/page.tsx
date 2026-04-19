@@ -25,9 +25,11 @@ interface JarProps {
   emptyLabel?: string;
   href?: string;
   onClick?: () => void;
+  unitDisplay?: string;  // e.g. "days", "meals" — shown in jar instead of %
+  unitCount?: number;    // pre-computed count of units funded
 }
 
-function Jar({ fillPercent, color, gradEnd, label, amount, emoji, causeLabel, goalAmount, emptyLabel, href, onClick }: JarProps) {
+function Jar({ fillPercent, color, gradEnd, label, amount, emoji, causeLabel, goalAmount, emptyLabel, href, onClick, unitDisplay, unitCount }: JarProps) {
   const clamp = Math.min(Math.max(fillPercent, 0), 100);
   const w = 160;
   const h = 240;
@@ -140,41 +142,81 @@ function Jar({ fillPercent, color, gradEnd, label, amount, emoji, causeLabel, go
           strokeLinejoin="round"
         />
 
-        {/* Percentage centered in jar body */}
-        <text
-          x={60*scale} y={goalAmount && goalAmount > 0 ? 84*scale : 92*scale}
-          textAnchor="middle"
-          dominantBaseline="middle"
-          fontSize={17*scale}
-          fontWeight="800"
-          fill="rgba(255,255,255,0.9)"
-          style={{ fontFamily: "inherit" }}
-        >
-          {Math.round(clamp)}%
-        </text>
-        <text
-          x={60*scale} y={goalAmount && goalAmount > 0 ? 102*scale : 112*scale}
-          textAnchor="middle"
-          dominantBaseline="middle"
-          fontSize={7*scale}
-          fontWeight="600"
-          fill="rgba(255,255,255,0.55)"
-          style={{ fontFamily: "inherit" }}
-        >
-          {goalAmount && goalAmount > 0 ? "to goal of" : "to goal"}
-        </text>
-        {goalAmount && goalAmount > 0 && (
-          <text
-            x={60*scale} y={114*scale}
-            textAnchor="middle"
-            dominantBaseline="middle"
-            fontSize={7*scale}
-            fontWeight="700"
-            fill="rgba(255,255,255,0.75)"
-            style={{ fontFamily: "inherit" }}
-          >
-            ${Math.round(goalAmount).toLocaleString()}
-          </text>
+        {/* Center display: units or percentage */}
+        {unitDisplay && unitCount !== undefined ? (
+          <>
+            <text
+              x={60*scale} y={84*scale}
+              textAnchor="middle"
+              dominantBaseline="middle"
+              fontSize={15*scale}
+              fontWeight="800"
+              fill="rgba(255,255,255,0.9)"
+              style={{ fontFamily: "inherit" }}
+            >
+              {unitCount >= 10 ? Math.round(unitCount) : parseFloat(unitCount.toFixed(1))}
+            </text>
+            <text
+              x={60*scale} y={102*scale}
+              textAnchor="middle"
+              dominantBaseline="middle"
+              fontSize={7*scale}
+              fontWeight="600"
+              fill="rgba(255,255,255,0.65)"
+              style={{ fontFamily: "inherit" }}
+            >
+              {unitDisplay}
+            </text>
+            <text
+              x={60*scale} y={114*scale}
+              textAnchor="middle"
+              dominantBaseline="middle"
+              fontSize={6*scale}
+              fontWeight="500"
+              fill="rgba(255,255,255,0.4)"
+              style={{ fontFamily: "inherit" }}
+            >
+              funded
+            </text>
+          </>
+        ) : (
+          <>
+            <text
+              x={60*scale} y={goalAmount && goalAmount > 0 ? 84*scale : 92*scale}
+              textAnchor="middle"
+              dominantBaseline="middle"
+              fontSize={17*scale}
+              fontWeight="800"
+              fill="rgba(255,255,255,0.9)"
+              style={{ fontFamily: "inherit" }}
+            >
+              {Math.round(clamp)}%
+            </text>
+            <text
+              x={60*scale} y={goalAmount && goalAmount > 0 ? 102*scale : 112*scale}
+              textAnchor="middle"
+              dominantBaseline="middle"
+              fontSize={7*scale}
+              fontWeight="600"
+              fill="rgba(255,255,255,0.55)"
+              style={{ fontFamily: "inherit" }}
+            >
+              {goalAmount && goalAmount > 0 ? "to goal of" : "to goal"}
+            </text>
+            {goalAmount && goalAmount > 0 && (
+              <text
+                x={60*scale} y={114*scale}
+                textAnchor="middle"
+                dominantBaseline="middle"
+                fontSize={7*scale}
+                fontWeight="700"
+                fill="rgba(255,255,255,0.75)"
+                style={{ fontFamily: "inherit" }}
+              >
+                ${Math.round(goalAmount).toLocaleString()}
+              </text>
+            )}
+          </>
         )}
       </svg>
 
@@ -344,6 +386,8 @@ export default function HomePage() {
             goalAmount={activeProject?.goalAmount}
             emptyLabel="Pick your cause"
             href="/jars?tab=cause"
+            unitDisplay={activeProject?.unitCost ? activeProject.unitDisplay : undefined}
+            unitCount={activeProject?.unitCost ? givingBalance / activeProject.unitCost : undefined}
           />
           <Jar
             fillPercent={spendingFillPct}

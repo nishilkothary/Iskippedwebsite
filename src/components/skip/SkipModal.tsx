@@ -7,6 +7,7 @@ import { useAuthStore } from "@/store/authStore";
 import { SKIP_CATEGORIES } from "@/lib/constants/skipCategories";
 import { formatCurrency } from "@/lib/utils/currency";
 import { normalizeJarSplit, normalizeSpendingGoals } from "@/lib/services/firebase/users";
+import { formatUnits } from "@/lib/utils/impact";
 
 interface Props {
   onClose: () => void;
@@ -32,6 +33,8 @@ export function SkipModal({ onClose }: Props) {
   const [copied, setCopied] = useState(false);
   const [successProjectTitle, setSuccessProjectTitle] = useState<string | null>(null);
   const [successProjectLocation, setSuccessProjectLocation] = useState<string | null>(null);
+  const [successProjectUnitName, setSuccessProjectUnitName] = useState<string | null>(null);
+  const [successProjectUnitCost, setSuccessProjectUnitCost] = useState<number | null>(null);
   const [skipGivePct, setSkipGivePct] = useState(profileSplit.give);
 
   function handleCatSelect(cat: typeof defaultCat) {
@@ -49,6 +52,8 @@ export function SkipModal({ onClose }: Props) {
       projectId,
       projectTitle: selectedProject?.title ?? null,
       projectLocation: selectedProject?.location ?? null,
+      projectUnitName: selectedProject?.unitName ?? null,
+      projectUnitCost: selectedProject?.unitCost ?? null,
       shareWithCommunity,
       whatSkipped: whatSkipped || undefined,
       jarSplit: { give: skipGivePct, live: 100 - skipGivePct },
@@ -56,6 +61,8 @@ export function SkipModal({ onClose }: Props) {
     if (result) {
       setSuccessProjectTitle(selectedProject?.title ?? null);
       setSuccessProjectLocation(selectedProject?.location ?? null);
+      setSuccessProjectUnitName(selectedProject?.unitName ?? null);
+      setSuccessProjectUnitCost(selectedProject?.unitCost ?? null);
       setSuccess(true);
     }
   }
@@ -135,7 +142,11 @@ export function SkipModal({ onClose }: Props) {
           <div className="mt-4 rounded-xl p-4 space-y-2 text-left" style={{ background: "var(--bg-surface-2)", border: "1px solid var(--border-default)" }}>
             <div className="flex items-center justify-between">
               <span className="text-sm" style={{ color: "var(--text-secondary)" }}>🤲 {successActiveProject?.title ?? "No cause selected yet"}</span>
-              <span className="text-sm font-bold" style={{ color: "var(--coral-primary)" }}>+{formatCurrency(skipGive)}</span>
+              <span className="text-sm font-bold" style={{ color: "var(--coral-primary)" }}>
+                {successProjectUnitName && successProjectUnitCost
+                  ? `+${formatUnits(skipGive, successProjectUnitCost, successProjectUnitName)}`
+                  : `+${formatCurrency(skipGive)}`}
+              </span>
             </div>
             <div className="flex items-center justify-between">
               <span className="text-sm" style={{ color: "var(--text-secondary)" }}>😊 {spendingGoalLabel}</span>

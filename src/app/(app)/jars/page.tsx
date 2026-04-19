@@ -252,13 +252,15 @@ export default function JarsPage() {
   );
 }
 
-function JarPreview({ fillPct, color, gradEnd, label, amount, emptyPrompt }: {
+function JarPreview({ fillPct, color, gradEnd, label, amount, emptyPrompt, unitDisplay, unitCount }: {
   fillPct: number;
   color: string;
   gradEnd: string;
   label: string | null;
   amount: string;
   emptyPrompt: string;
+  unitDisplay?: string;
+  unitCount?: number;
 }) {
   const clamp = Math.min(Math.max(fillPct, 0), 100);
   const w = 130;
@@ -317,18 +319,41 @@ function JarPreview({ fillPct, color, gradEnd, label, amount, emptyPrompt }: {
 
         <path d={jarPath} fill="none" stroke="rgba(255,255,255,0.3)" strokeWidth={2*scale} strokeLinejoin="round" />
 
-        <text x={60*scale} y={92*scale} textAnchor="middle" dominantBaseline="middle"
-          fontSize={17*scale} fontWeight="800"
-          fill={clamp > 0 ? "rgba(255,255,255,0.9)" : "rgba(255,255,255,0.2)"}
-          style={{ fontFamily: "inherit" }}>
-          {Math.round(clamp)}%
-        </text>
-        {clamp > 0 && (
-          <text x={60*scale} y={112*scale} textAnchor="middle" dominantBaseline="middle"
-            fontSize={7*scale} fontWeight="600" fill="rgba(255,255,255,0.5)"
-            style={{ fontFamily: "inherit" }}>
-            to goal
-          </text>
+        {unitDisplay && unitCount !== undefined ? (
+          <>
+            <text x={60*scale} y={84*scale} textAnchor="middle" dominantBaseline="middle"
+              fontSize={15*scale} fontWeight="800"
+              fill={clamp > 0 ? "rgba(255,255,255,0.9)" : "rgba(255,255,255,0.2)"}
+              style={{ fontFamily: "inherit" }}>
+              {unitCount >= 10 ? Math.round(unitCount) : parseFloat(unitCount.toFixed(1))}
+            </text>
+            <text x={60*scale} y={102*scale} textAnchor="middle" dominantBaseline="middle"
+              fontSize={7*scale} fontWeight="600" fill="rgba(255,255,255,0.65)"
+              style={{ fontFamily: "inherit" }}>
+              {unitDisplay}
+            </text>
+            <text x={60*scale} y={114*scale} textAnchor="middle" dominantBaseline="middle"
+              fontSize={6*scale} fontWeight="500" fill="rgba(255,255,255,0.4)"
+              style={{ fontFamily: "inherit" }}>
+              funded
+            </text>
+          </>
+        ) : (
+          <>
+            <text x={60*scale} y={92*scale} textAnchor="middle" dominantBaseline="middle"
+              fontSize={17*scale} fontWeight="800"
+              fill={clamp > 0 ? "rgba(255,255,255,0.9)" : "rgba(255,255,255,0.2)"}
+              style={{ fontFamily: "inherit" }}>
+              {Math.round(clamp)}%
+            </text>
+            {clamp > 0 && (
+              <text x={60*scale} y={112*scale} textAnchor="middle" dominantBaseline="middle"
+                fontSize={7*scale} fontWeight="600" fill="rgba(255,255,255,0.5)"
+                style={{ fontFamily: "inherit" }}>
+                to goal
+              </text>
+            )}
+          </>
         )}
       </svg>
 
@@ -604,6 +629,8 @@ function CauseTab({
         amount={formatCurrency(givingBalance)}
         fillPct={activeProject && activeProject.goalAmount > 0 ? (givingBalance / activeProject.goalAmount) * 100 : (givingBalance > 0 ? 100 : 0)}
         emptyPrompt="👇 Pick a cause below"
+        unitDisplay={activeProject?.unitCost ? activeProject.unitDisplay : undefined}
+        unitCount={activeProject?.unitCost ? givingBalance / activeProject.unitCost : undefined}
       />
 
       {/* Donate / I Donated — below jar */}

@@ -18,6 +18,7 @@ import { Skip } from "@/lib/types/models";
 import { getImpactMessage } from "@/lib/constants/impactMessages";
 import { xpForSkip, levelForXp } from "@/lib/utils/xp";
 import { today } from "@/lib/utils/dates";
+import { formatUnits } from "@/lib/utils/impact";
 
 export interface LogSkipParams {
   uid: string;
@@ -28,6 +29,8 @@ export interface LogSkipParams {
   projectId: string | null;
   projectTitle: string | null;
   projectLocation?: string | null;
+  projectUnitName?: string | null;
+  projectUnitCost?: number | null;
   currentTotalSaved: number;
   currentTotalSkips: number;
   currentXp: number;
@@ -48,13 +51,18 @@ export interface LogSkipParams {
 export async function logSkip(params: LogSkipParams): Promise<{ skipId: string; newTotal: number; newXp: number; newLevel: number; newStreak: number }> {
   const {
     uid, category, categoryLabel, categoryEmoji, amount,
-    projectId, projectTitle, projectLocation, currentTotalSaved, currentTotalSkips,
+    projectId, projectTitle, projectLocation, projectUnitName, projectUnitCost,
+    currentTotalSaved, currentTotalSkips,
     currentXp, currentStreak, currentLongestStreak, lastSkipDate,
     savedTowardActiveCause, shareWithCommunity, whatSkipped, notes,
     jarSplit, defaultJarSplit, displayName, photoURL, activeGoalId,
   } = params;
   const locationSuffix = projectLocation ? ` in ${projectLocation}` : "";
-  const causeSuffix = projectTitle ? ` to help fund ${projectTitle}${locationSuffix}` : "";
+  const causeSuffix = projectTitle
+    ? projectUnitName && projectUnitCost
+      ? ` and helped fund ${formatUnits(amount * ((jarSplit ?? defaultJarSplit ?? { give: 50, live: 50 }).give / 100), projectUnitCost, projectUnitName)}${locationSuffix}`
+      : ` to help fund ${projectTitle}${locationSuffix}`
+    : "";
 
   const effectiveSplit = jarSplit ?? defaultJarSplit ?? { give: 50, live: 50 };
   const giveAmount = amount * (effectiveSplit.give / 100);
