@@ -274,7 +274,7 @@ function JarSettings({
   return (
     <div className="p-6 mb-6" style={{ background: "var(--bg-surface-1)", border: "1px solid var(--border-default)", borderRadius: 20 }}>
       <h2 className="text-base font-bold mb-1" style={{ color: "var(--text-primary)" }}>Preferred Jar Split</h2>
-      <p className="text-xs mb-4" style={{ color: "var(--text-secondary)" }}>🤲 Give a Little / 😊 Live a Little</p>
+      <p className="text-xs mb-4" style={{ color: "var(--text-secondary)" }}>🤲 Give a Little / 😊 Save a Little</p>
 
       {/* Mode toggle */}
       <div className="flex rounded-xl p-1 mb-4" style={{ background: "var(--bg-surface-2)" }}>

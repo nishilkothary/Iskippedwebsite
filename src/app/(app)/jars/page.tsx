@@ -189,13 +189,13 @@ function JarsPageInner() {
 
   const tabs: { id: Tab; label: string; emoji: string }[] = [
     { id: "cause", label: "Give a Little", emoji: "🤲" },
-    { id: "live",  label: "Live a Little", emoji: "😊" },
+    { id: "live",  label: "Save a Little", emoji: "😊" },
   ];
 
   return (
     <div className="p-4 md:p-8 max-w-2xl mx-auto pb-20 md:pb-8">
       <h1 className="text-2xl font-bold mb-5" style={{ color: "var(--text-primary)" }}>
-        {activeTab === "cause" ? "🤲 Give a Little" : "😊 Live a Little"}
+        {activeTab === "cause" ? "🤲 Give a Little" : "😊 Save a Little"}
       </h1>
 
       {activeTab === "cause" && (
@@ -1355,12 +1355,12 @@ function SplurgeTab({
       ) : (
         <div className="mb-4 px-1">
           <p className="text-2xl font-extrabold" style={{ color: "#8B5CF6" }}>{formatCurrency(spendingBalance)}</p>
-          <p className="text-xs mt-1" style={{ color: "var(--text-muted)" }}>Available to spend — pick a reward below</p>
+          <p className="text-xs mt-1" style={{ color: "var(--text-muted)" }}>Available to spend — pick a savings goal below</p>
         </div>
       )}
 
       <div className="flex items-center justify-between mb-1">
-        <p className="text-xl font-bold text-[#EDF5F0]">My Rewards</p>
+        <p className="text-xl font-bold text-[#EDF5F0]">I am Saving for...</p>
         <span className="text-sm font-bold text-[#8B5CF6]">{formatCurrency(spendingBalance)} available</span>
       </div>
 
@@ -1389,7 +1389,7 @@ function SplurgeTab({
                       value={editLabel}
                       onChange={(e) => setEditLabel(e.target.value)}
                       className="w-full rounded-xl px-3 py-2 text-sm focus:outline-none" style={{ background: "var(--bg-surface-2)", border: "1px solid var(--border-default)", color: "var(--text-primary)" }}
-                      placeholder="Reward name"
+                      placeholder="Savings goal name"
                       autoFocus
                     />
                     <div className="relative">
@@ -1597,7 +1597,7 @@ function SplurgeTab({
       {/* Add reward */}
       {showAddForm ? (
         <div className="rounded-2xl p-4 space-y-3" style={{ background: "var(--bg-surface-1)", border: "1px solid var(--border-default)" }}>
-          <p className="text-sm font-semibold" style={{ color: "var(--text-primary)" }}>New reward</p>
+          <p className="text-sm font-semibold" style={{ color: "var(--text-primary)" }}>New savings goal</p>
 
           <input
             type="text"
@@ -1632,7 +1632,7 @@ function SplurgeTab({
               disabled={saving || !addLabel.trim() || !addAmount}
               className="flex-1 py-3 bg-[#8B5CF6] text-white font-semibold rounded-xl text-sm disabled:opacity-50"
             >
-              {saving ? "Saving…" : "Add Reward"}
+              {saving ? "Saving…" : "Add Savings Goal"}
             </button>
             <button
               onClick={() => { setShowAddForm(false); setAddLabel(""); setAddAmount(""); setAddLink(""); }}
@@ -1647,7 +1647,7 @@ function SplurgeTab({
           onClick={() => setShowAddForm(true)}
           className="w-full py-2.5 border border-dashed border-[rgba(139,92,246,0.25)] text-white font-bold rounded-xl hover:border-[#8B5CF6] hover:text-[#8B5CF6] transition-colors text-sm"
         >
-          ＋ Add reward
+          ＋ Add a savings goal
         </button>
       )}
 

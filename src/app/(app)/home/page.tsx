@@ -360,7 +360,7 @@ export default function HomePage() {
             fillPercent={spendingFillPct}
             color="#8B5CF6"
             gradEnd="#6D28D9"
-            label="Live a Little"
+            label="Save a Little"
             amount={formatCurrency(spendingBalance)}
             emoji="😊"
             causeLabel={activeGoal?.label}
