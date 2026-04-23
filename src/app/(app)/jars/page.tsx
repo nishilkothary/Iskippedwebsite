@@ -970,7 +970,7 @@ function CauseTab({
               {officialGroups.map((group) => (
                 <div key={group.sponsor}>
                   <p className="text-xl font-bold text-[#EDF5F0] mb-3">{group.sponsor}</p>
-                  <div className="flex gap-3 overflow-x-auto pb-2 -mx-1 px-1 snap-x snap-mandatory [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+                  <div className="flex gap-3 overflow-x-auto pb-2 -mx-1 px-1 snap-x snap-mandatory [scrollbar-width:none] [&::-webkit-scrollbar]:hidden md:flex-wrap md:overflow-x-visible">
                     {group.projects.map(renderCard)}
                   </div>
                 </div>
@@ -978,7 +978,7 @@ function CauseTab({
               {customProjects.length > 0 && (
                 <div>
                   <p className="text-xl font-bold text-[#EDF5F0] mb-3">Your Custom Causes</p>
-                  <div className="flex gap-3 overflow-x-auto pb-2 -mx-1 px-1 snap-x snap-mandatory [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+                  <div className="flex gap-3 overflow-x-auto pb-2 -mx-1 px-1 snap-x snap-mandatory [scrollbar-width:none] [&::-webkit-scrollbar]:hidden md:flex-wrap md:overflow-x-visible">
                     {customProjects.map(renderCard)}
                   </div>
                 </div>
