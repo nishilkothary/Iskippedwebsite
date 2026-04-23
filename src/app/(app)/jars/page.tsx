@@ -792,7 +792,13 @@ function CauseTab({
               </>
             );
           })()}
-          <p className="text-xs font-semibold uppercase tracking-widest mb-3" style={{ color: "var(--text-muted)" }}>{activeProject.title}</p>
+          <p className="text-xs font-semibold uppercase tracking-widest mb-1" style={{ color: "var(--text-muted)" }}>{activeProject.title}</p>
+          {(() => {
+            const goal = causeGoalAmounts?.[activeProject.id] ?? activeProject.goalAmount ?? 0;
+            return goal > 0 ? (
+              <p className="text-xs mb-3" style={{ color: "var(--text-muted)" }}>Goal: {formatCurrency(goal)}</p>
+            ) : <div className="mb-3" />;
+          })()}
           <CauseDonateRow project={activeProject} />
         </div>
       ) : (
@@ -1340,18 +1346,18 @@ function SplurgeTab({
         </div>
       )}
 
-      {/* My Active Reward Jar scoreboard — only when a goal is active */}
+      {/* My Active Savings Jar scoreboard — only when a goal is active */}
       {activeGoal ? (
         <div className="rounded-2xl p-5 mb-4" style={{ background: "var(--bg-surface-1)", border: "1px solid var(--border-default)" }}>
-          <p className="text-lg font-bold mb-3" style={{ color: "var(--text-primary)" }}>My Active Reward Jar</p>
-          <div className="mb-3">
+          <p className="text-lg font-bold mb-3" style={{ color: "var(--text-primary)" }}>My Active Savings Jar</p>
+          <div className="mb-2">
             <span className="text-3xl font-extrabold" style={{ color: "#8B5CF6" }}>
               {Math.round(Math.min(100, (spendingBalance / activeGoal.targetAmount) * 100))}%
             </span>
             <span className="text-sm ml-1.5" style={{ color: "var(--text-muted)" }}>towards goal</span>
           </div>
-          <p className="text-sm font-semibold mb-0.5" style={{ color: "var(--text-primary)" }}>{activeGoal.label}</p>
-          <p className="text-xs mb-3" style={{ color: "var(--text-muted)" }}>My reward costs: {formatCurrency(activeGoal.targetAmount)}</p>
+          <p className="text-xs font-semibold uppercase tracking-widest mb-1" style={{ color: "var(--text-muted)" }}>{activeGoal.label}</p>
+          <p className="text-xs mb-3" style={{ color: "var(--text-muted)" }}>Goal: {formatCurrency(activeGoal.targetAmount)}</p>
           <div className="space-y-2">
             {activeGoal.shoppingLink && (
               <a

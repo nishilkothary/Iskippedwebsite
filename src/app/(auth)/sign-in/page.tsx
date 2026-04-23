@@ -85,7 +85,6 @@ export default function SignInPage() {
       router.replace("/home");
     } catch (e: any) {
       setError(friendlyAuthError(e));
-    } finally {
       setGoogleLoading(false);
     }
   }
@@ -102,7 +101,6 @@ export default function SignInPage() {
       router.replace("/home");
     } catch (e: any) {
       setError(friendlyAuthError(e));
-    } finally {
       setEmailLoading(false);
     }
   }

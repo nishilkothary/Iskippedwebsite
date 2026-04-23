@@ -24,7 +24,7 @@ const FAQ_ITEMS = [
     a: "While we strongly encourage everyone to pick a cause, it's not required. Your Give a Little jar will keep filling up until you choose one.",
   },
   {
-    q: "Can I fund multiple live or give jars at once?",
+    q: "Can I fund multiple save or give jars at once?",
     a: "No — at this time you can save for one thing at a time. You can transfer funds to a new cause/goal by activating a new jar, or mark as donated/purchased to close out that jar and start a new one.",
   },
   {
@@ -313,7 +313,7 @@ function JarSettings({
         </div>
       ) : (
         <div className="mb-5">
-          <p className="text-xs mb-2" style={{ color: "var(--text-muted)" }}>Enter your Give % (0–100). Live % is calculated automatically.</p>
+          <p className="text-xs mb-2" style={{ color: "var(--text-muted)" }}>Enter your Give % (0–100). Save % is calculated automatically.</p>
           <div className="flex items-center gap-3">
             <div className="flex-1">
               <label className="text-xs mb-1 block" style={{ color: "var(--coral-primary)" }}>🤲 Give %</label>
@@ -329,7 +329,7 @@ function JarSettings({
             </div>
             <div className="text-lg font-bold" style={{ color: "var(--text-muted)", paddingTop: 20 }}>/</div>
             <div className="flex-1">
-              <label className="text-xs mb-1 block" style={{ color: "#2BBAA4" }}>😊 Live %</label>
+              <label className="text-xs mb-1 block" style={{ color: "#2BBAA4" }}>😊 Save %</label>
               <div
                 className="w-full rounded-xl px-3 py-2.5 text-sm font-bold"
                 style={{ background: "var(--bg-surface-2)", border: "1px solid var(--border-default)", color: "var(--text-muted)" }}
