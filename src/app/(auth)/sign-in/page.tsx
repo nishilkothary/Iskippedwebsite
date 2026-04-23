@@ -5,9 +5,9 @@ import { signInWithGoogle, signUpWithEmail, signInWithEmail } from "@/lib/servic
 import { useAuthStore } from "@/store/authStore";
 
 const previewSkips = [
-  { emoji: "☕", label: "Morning Latte", amount: "+$5.50", sub: "→ Kenya Connect", delay: "0s" },
-  { emoji: "🥗", label: "Lunch out", amount: "+$13.00", sub: "→ Children First Coalition", delay: "0.15s" },
-  { emoji: "🛍️", label: "Impulse buy", amount: "+$32.00", sub: "→ Kenya Connect", delay: "0.3s" },
+  { emoji: "☕", label: "Morning Latte", amount: "+$5.50", sub: "8 life-saving meals in Palestine", delay: "0s" },
+  { emoji: "🥗", label: "Lunch out", amount: "+$13.00", sub: "10 days of education in Cambodia", delay: "0.15s" },
+  { emoji: "🛍️", label: "Impulse buy", amount: "+$32.00", sub: "23 days of clean water access", delay: "0.3s" },
 ];
 
 function MiniJar({ fillPct }: { fillPct: number }) {
@@ -219,7 +219,7 @@ export default function SignInPage() {
         {/* Hero copy */}
         <div>
           <h2 className="text-5xl font-black text-white leading-tight mb-4">
-            Skip, Live, <span className="text-emerald-300">Give.</span>
+            Skip, Save, <span className="text-emerald-300">Give.</span>
           </h2>
           <p className="text-emerald-100 text-lg leading-relaxed max-w-sm">
             Turn everyday skips into savings for yourself and donations that change lives.
@@ -271,10 +271,10 @@ export default function SignInPage() {
             </p>
           </div>
           <h1 className="text-3xl font-black text-white text-center leading-tight mb-2">
-            Skip, Live, <span className="text-emerald-300">Give.</span>
+            Skip, Save, <span className="text-emerald-300">Give.</span>
           </h1>
           <p className="text-emerald-100 text-sm text-center">
-            Turn everyday skips into real impact.
+            Turn everyday skips into savings for yourself and donations that change lives.
           </p>
           {/* Mini preview cards */}
           <div className="mt-6 space-y-2">
