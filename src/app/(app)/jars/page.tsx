@@ -802,157 +802,186 @@ function CauseTab({
         </div>
       )}
 
-      {/* All causes */}
-      <div>
-        <p className="text-xl font-bold text-[#EDF5F0] mb-3">Featured Causes</p>
-        <div className="space-y-3">
-          {projects.map((project) => {
-            const isActive = activeProject?.id === project.id;
-            const isEditing = editingProjectId === project.id;
-            return (
-              <div
-                key={project.id}
-                className="rounded-2xl p-3"
-                style={{
-                  background: isActive ? "rgba(255,255,255,0.04)" : "var(--bg-surface-1)",
-                  border: isActive ? "2px solid rgba(255,255,255,0.7)" : "1px solid var(--border-default)",
-                }}
-              >
-                {isEditing ? (
-                  <div className="space-y-2">
+      {/* All causes — grouped by org */}
+      {(() => {
+        const officialGroups: { sponsor: string; projects: Project[] }[] = [];
+        const customProjects: Project[] = [];
+        for (const p of projects) {
+          if (p.isCustom) { customProjects.push(p); continue; }
+          const g = officialGroups.find(g => g.sponsor === p.sponsor);
+          if (g) g.projects.push(p);
+          else officialGroups.push({ sponsor: p.sponsor, projects: [p] });
+        }
+
+        const renderCard = (project: Project) => {
+          const isActive = activeProject?.id === project.id;
+          const isEditing = editingProjectId === project.id;
+          return (
+            <div
+              key={project.id}
+              className="w-64 flex-shrink-0 snap-start rounded-2xl p-3"
+              style={{
+                background: isActive ? "rgba(255,255,255,0.04)" : "var(--bg-surface-1)",
+                border: isActive ? "2px solid rgba(255,255,255,0.7)" : "1px solid var(--border-default)",
+              }}
+            >
+              {isEditing ? (
+                <div className="space-y-2">
+                  <input
+                    type="text"
+                    value={editTitle}
+                    onChange={(e) => setEditTitle(e.target.value)}
+                    placeholder="Cause (e.g. A Student's Yearly Education)"
+                    className="w-full rounded-xl px-3 py-2 text-sm focus:outline-none" style={{ background: "var(--bg-surface-2)", border: "1px solid var(--border-default)", color: "var(--text-primary)" }}
+                    autoFocus
+                  />
+                  <input
+                    type="text"
+                    value={editSponsor}
+                    onChange={(e) => setEditSponsor(e.target.value)}
+                    placeholder="Organization (e.g. Caring for Cambodia)"
+                    className="w-full rounded-xl px-3 py-2 text-sm focus:outline-none" style={{ background: "var(--bg-surface-2)", border: "1px solid var(--border-default)", color: "var(--text-primary)" }}
+                  />
+                  <input
+                    type="text"
+                    value={editLocation}
+                    onChange={(e) => setEditLocation(e.target.value)}
+                    placeholder="Location (optional, e.g. Cambodia)"
+                    className="w-full rounded-xl px-3 py-2 text-sm focus:outline-none" style={{ background: "var(--bg-surface-2)", border: "1px solid var(--border-default)", color: "var(--text-primary)" }}
+                  />
+                  <div className="relative">
+                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-[rgba(237,245,240,0.6)]">$</span>
                     <input
-                      type="text"
-                      value={editTitle}
-                      onChange={(e) => setEditTitle(e.target.value)}
-                      placeholder="Cause (e.g. A Student's Yearly Education)"
-                      className="w-full rounded-xl px-3 py-2 text-sm focus:outline-none" style={{ background: "var(--bg-surface-2)", border: "1px solid var(--border-default)", color: "var(--text-primary)" }}
-                      autoFocus
+                      type="number"
+                      value={editGoalStr}
+                      onChange={(e) => setEditGoalStr(e.target.value)}
+                      placeholder="Skipped Amount Needed"
+                      className="w-full pl-7 rounded-xl px-3 py-2 text-sm focus:outline-none" style={{ background: "var(--bg-surface-2)", border: "1px solid var(--border-default)", color: "var(--text-primary)" }}
                     />
-                    <input
-                      type="text"
-                      value={editSponsor}
-                      onChange={(e) => setEditSponsor(e.target.value)}
-                      placeholder="Organization (e.g. Caring for Cambodia)"
-                      className="w-full rounded-xl px-3 py-2 text-sm focus:outline-none" style={{ background: "var(--bg-surface-2)", border: "1px solid var(--border-default)", color: "var(--text-primary)" }}
-                    />
-                    <input
-                      type="text"
-                      value={editLocation}
-                      onChange={(e) => setEditLocation(e.target.value)}
-                      placeholder="Location (optional, e.g. Cambodia)"
-                      className="w-full rounded-xl px-3 py-2 text-sm focus:outline-none" style={{ background: "var(--bg-surface-2)", border: "1px solid var(--border-default)", color: "var(--text-primary)" }}
-                    />
-                    <div className="relative">
-                      <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-[rgba(237,245,240,0.6)]">$</span>
-                      <input
-                        type="number"
-                        value={editGoalStr}
-                        onChange={(e) => setEditGoalStr(e.target.value)}
-                        placeholder="Skipped Amount Needed"
-                        className="w-full pl-7 rounded-xl px-3 py-2 text-sm focus:outline-none" style={{ background: "var(--bg-surface-2)", border: "1px solid var(--border-default)", color: "var(--text-primary)" }}
-                      />
-                    </div>
-                    <input
-                      type="url"
-                      value={editURL}
-                      onChange={(e) => setEditURL(e.target.value)}
-                      placeholder="Donation link (optional)"
-                      className="w-full rounded-xl px-3 py-2 text-sm focus:outline-none" style={{ background: "var(--bg-surface-2)", border: "1px solid var(--border-default)", color: "var(--text-primary)" }}
-                    />
-                    <div className="flex gap-2">
-                      <button
-                        onClick={() => handleEditSave(project.id)}
-                        disabled={editWorking || !editTitle.trim()}
-                        className="flex-1 bg-[#2ECC71] text-[#0B1A14] font-semibold py-2 rounded-xl text-sm disabled:opacity-50"
-                      >
-                        {editWorking ? "Saving…" : "Save"}
-                      </button>
-                      <button
-                        onClick={() => setEditingProjectId(null)}
-                        className="px-4 py-2 border-[rgba(46,204,113,0.12)] text-[rgba(237,245,240,0.6)] font-semibold rounded-xl text-sm"
-                      >
-                        Cancel
-                      </button>
-                    </div>
                   </div>
-                ) : (
-                  <>
-                    {isActive ? (
-                      <>
-                        <div className="flex items-start justify-between gap-3 mb-1">
-                          <p className="font-extrabold text-[#EDF5F0] text-base flex-1 min-w-0">{project.title}</p>
-                          <div className="flex items-center gap-1.5 flex-shrink-0">
-                            {project.isCustom && (
-                              <>
-                                <button onClick={() => startEdit(project)} className="p-1 text-base" style={{ color: "var(--text-muted)" }} title="Edit">✏️</button>
-                                <button onClick={() => setConfirmDeleteId(project.id)} className="text-[rgba(237,245,240,0.35)] hover:text-red-400 p-1 text-base" title="Delete">🗑️</button>
-                              </>
-                            )}
-                            <button
-                              onClick={() => setDeactivateConfirm(true)}
-                              className="inline-block text-[10px] font-bold px-2 py-0.5 rounded-full"
-                              style={{ background: "rgba(232,99,122,0.15)", color: "var(--coral-primary)", border: "none", cursor: "pointer" }}
-                            >
-                              ✓ Active
-                            </button>
-                          </div>
-                        </div>
-                        {project.unitName && project.unitCost ? (
-                          <p className="text-sm font-bold text-[#2ECC71] mt-1">
-                            1 {project.unitName} = {project.unitCost < 1 ? `${Math.round(project.unitCost * 100)}¢` : formatCurrency(project.unitCost)}
-                          </p>
-                        ) : project.goalAmount > 0 ? (
-                          <p className="text-sm font-bold text-[#2ECC71] mt-1">
-                            Goal: {formatCurrency(project.goalAmount)}
-                          </p>
-                        ) : null}
-                        <p className="text-sm text-[rgba(237,245,240,0.6)] mt-0.5">Organization: {project.sponsor}</p>
-                        {project.donationURL && (
-                          <a href={project.donationURL} target="_blank" rel="noopener noreferrer" className="text-xs text-[#2ECC71] underline mt-0.5 block">
-                            ↗ Learn more
-                          </a>
-                        )}
-                      </>
-                    ) : (
-                      <>
-                        <div className="flex items-start justify-between gap-3 mb-1">
-                          <p className="font-extrabold text-[#EDF5F0] text-base flex-1 min-w-0">{project.title}</p>
+                  <input
+                    type="url"
+                    value={editURL}
+                    onChange={(e) => setEditURL(e.target.value)}
+                    placeholder="Donation link (optional)"
+                    className="w-full rounded-xl px-3 py-2 text-sm focus:outline-none" style={{ background: "var(--bg-surface-2)", border: "1px solid var(--border-default)", color: "var(--text-primary)" }}
+                  />
+                  <div className="flex gap-2">
+                    <button
+                      onClick={() => handleEditSave(project.id)}
+                      disabled={editWorking || !editTitle.trim()}
+                      className="flex-1 bg-[#2ECC71] text-[#0B1A14] font-semibold py-2 rounded-xl text-sm disabled:opacity-50"
+                    >
+                      {editWorking ? "Saving…" : "Save"}
+                    </button>
+                    <button
+                      onClick={() => setEditingProjectId(null)}
+                      className="px-4 py-2 border-[rgba(46,204,113,0.12)] text-[rgba(237,245,240,0.6)] font-semibold rounded-xl text-sm"
+                    >
+                      Cancel
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                <>
+                  {isActive ? (
+                    <>
+                      <div className="flex items-start justify-between gap-3 mb-1">
+                        <p className="font-extrabold text-[#EDF5F0] text-base flex-1 min-w-0">{project.title}</p>
+                        <div className="flex items-center gap-1.5 flex-shrink-0">
                           {project.isCustom && (
-                            <div className="flex items-center gap-1.5 flex-shrink-0">
+                            <>
                               <button onClick={() => startEdit(project)} className="p-1 text-base" style={{ color: "var(--text-muted)" }} title="Edit">✏️</button>
                               <button onClick={() => setConfirmDeleteId(project.id)} className="text-[rgba(237,245,240,0.35)] hover:text-red-400 p-1 text-base" title="Delete">🗑️</button>
-                            </div>
+                            </>
                           )}
+                          <button
+                            onClick={() => setDeactivateConfirm(true)}
+                            className="inline-block text-[10px] font-bold px-2 py-0.5 rounded-full"
+                            style={{ background: "rgba(232,99,122,0.15)", color: "var(--coral-primary)", border: "none", cursor: "pointer" }}
+                          >
+                            ✓ Active
+                          </button>
                         </div>
-                        {project.unitName && project.unitCost ? (
-                          <p className="text-sm font-bold text-[#2ECC71] mt-1">
-                            1 {project.unitName} = {project.unitCost < 1 ? `${Math.round(project.unitCost * 100)}¢` : formatCurrency(project.unitCost)}
-                          </p>
-                        ) : project.goalAmount > 0 ? (
-                          <p className="text-sm font-bold text-[#2ECC71] mt-1">
-                            Goal: {formatCurrency(project.goalAmount)}
-                          </p>
-                        ) : null}
-                        <p className="text-sm text-[rgba(237,245,240,0.6)] mt-0.5">Organization: {project.sponsor}</p>
-                        {project.donationURL && (
-                          <a href={project.donationURL} target="_blank" rel="noopener noreferrer" className="text-xs text-[#2ECC71] underline mt-0.5 block">
-                            ↗ Learn more
-                          </a>
+                      </div>
+                      {project.unitName && project.unitCost ? (
+                        <p className="text-sm font-bold text-[#2ECC71] mt-1">
+                          1 {project.unitName} = {project.unitCost < 1 ? `${Math.round(project.unitCost * 100)}¢` : formatCurrency(project.unitCost)}
+                        </p>
+                      ) : project.goalAmount > 0 ? (
+                        <p className="text-sm font-bold text-[#2ECC71] mt-1">
+                          Goal: {formatCurrency(project.goalAmount)}
+                        </p>
+                      ) : null}
+                      {project.donationURL && (
+                        <a href={project.donationURL} target="_blank" rel="noopener noreferrer" className="text-xs text-[#2ECC71] underline mt-0.5 block">
+                          ↗ Learn more
+                        </a>
+                      )}
+                    </>
+                  ) : (
+                    <>
+                      <div className="flex items-start justify-between gap-3 mb-1">
+                        <p className="font-extrabold text-[#EDF5F0] text-base flex-1 min-w-0">{project.title}</p>
+                        {project.isCustom && (
+                          <div className="flex items-center gap-1.5 flex-shrink-0">
+                            <button onClick={() => startEdit(project)} className="p-1 text-base" style={{ color: "var(--text-muted)" }} title="Edit">✏️</button>
+                            <button onClick={() => setConfirmDeleteId(project.id)} className="text-[rgba(237,245,240,0.35)] hover:text-red-400 p-1 text-base" title="Delete">🗑️</button>
+                          </div>
                         )}
-                        <button
-                          onClick={() => handleSetActive(project)}
-                          className="mt-3 w-full py-2 text-xs font-semibold text-[#2ECC71] border border-[#2ECC71] rounded-xl hover:bg-[#162E23] transition-colors"
-                        >
-                          Set as My Jar
-                        </button>
-                      </>
-                    )}
-                  </>
-                )}
-              </div>
-            );
-          })}
-        </div>
+                      </div>
+                      {project.unitName && project.unitCost ? (
+                        <p className="text-sm font-bold text-[#2ECC71] mt-1">
+                          1 {project.unitName} = {project.unitCost < 1 ? `${Math.round(project.unitCost * 100)}¢` : formatCurrency(project.unitCost)}
+                        </p>
+                      ) : project.goalAmount > 0 ? (
+                        <p className="text-sm font-bold text-[#2ECC71] mt-1">
+                          Goal: {formatCurrency(project.goalAmount)}
+                        </p>
+                      ) : null}
+                      {project.donationURL && (
+                        <a href={project.donationURL} target="_blank" rel="noopener noreferrer" className="text-xs text-[#2ECC71] underline mt-0.5 block">
+                          ↗ Learn more
+                        </a>
+                      )}
+                      <button
+                        onClick={() => handleSetActive(project)}
+                        className="mt-3 w-full py-2 text-xs font-semibold text-[#2ECC71] border border-[#2ECC71] rounded-xl hover:bg-[#162E23] transition-colors"
+                      >
+                        Set as My Jar
+                      </button>
+                    </>
+                  )}
+                </>
+              )}
+            </div>
+          );
+        };
+
+        return (
+          <div>
+            <p className="text-xl font-bold text-[#EDF5F0] mb-4">Featured Causes</p>
+            <div className="space-y-5">
+              {officialGroups.map((group) => (
+                <div key={group.sponsor}>
+                  <p className="text-xs font-bold uppercase tracking-widest mb-2" style={{ color: "var(--text-muted)" }}>{group.sponsor}</p>
+                  <div className="flex gap-3 overflow-x-auto pb-2 -mx-1 px-1 snap-x snap-mandatory [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+                    {group.projects.map(renderCard)}
+                  </div>
+                </div>
+              ))}
+              {customProjects.length > 0 && (
+                <div>
+                  <p className="text-xs font-bold uppercase tracking-widest mb-2" style={{ color: "var(--text-muted)" }}>Your Custom Causes</p>
+                  <div className="flex gap-3 overflow-x-auto pb-2 -mx-1 px-1 snap-x snap-mandatory [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+                    {customProjects.map(renderCard)}
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+        );
+      })()}
 
         {/* Add your own cause */}
         {showAddForm ? (
@@ -1100,7 +1129,6 @@ function CauseTab({
         I Skipped connects you with charitable organizations. Donations are processed directly by each organization. I Skipped does not handle or hold any donation funds.
       </p>
 
-      </div>
     </div>
   );
 }
