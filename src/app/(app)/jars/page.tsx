@@ -914,7 +914,7 @@ function CauseTab({
                         </p>
                       ) : null}
                       {project.donationURL && (
-                        <a href={project.donationURL} target="_blank" rel="noopener noreferrer" className="text-xs text-[#2ECC71] underline mt-0.5 block">
+                        <a href={project.donationURL} target="_blank" rel="noopener noreferrer" className="text-xs text-[#2ECC71] underline mt-2 block">
                           ↗ Learn more
                         </a>
                       )}
@@ -940,7 +940,7 @@ function CauseTab({
                         </p>
                       ) : null}
                       {project.donationURL && (
-                        <a href={project.donationURL} target="_blank" rel="noopener noreferrer" className="text-xs text-[#2ECC71] underline mt-0.5 block">
+                        <a href={project.donationURL} target="_blank" rel="noopener noreferrer" className="text-xs text-[#2ECC71] underline mt-2 block">
                           ↗ Learn more
                         </a>
                       )}
@@ -960,11 +960,10 @@ function CauseTab({
 
         return (
           <div>
-            <p className="text-xl font-bold text-[#EDF5F0] mb-4">Featured Causes</p>
             <div className="space-y-5">
               {officialGroups.map((group) => (
                 <div key={group.sponsor}>
-                  <p className="text-xs font-bold uppercase tracking-widest mb-2" style={{ color: "var(--text-muted)" }}>{group.sponsor}</p>
+                  <p className="text-xl font-bold text-[#EDF5F0] mb-3">{group.sponsor}</p>
                   <div className="flex gap-3 overflow-x-auto pb-2 -mx-1 px-1 snap-x snap-mandatory [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
                     {group.projects.map(renderCard)}
                   </div>
@@ -972,7 +971,7 @@ function CauseTab({
               ))}
               {customProjects.length > 0 && (
                 <div>
-                  <p className="text-xs font-bold uppercase tracking-widest mb-2" style={{ color: "var(--text-muted)" }}>Your Custom Causes</p>
+                  <p className="text-xl font-bold text-[#EDF5F0] mb-3">Your Custom Causes</p>
                   <div className="flex gap-3 overflow-x-auto pb-2 -mx-1 px-1 snap-x snap-mandatory [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
                     {customProjects.map(renderCard)}
                   </div>
@@ -1309,6 +1308,38 @@ function SplurgeTab({
         </div>
       )}
 
+      {/* Deactivate goal modal */}
+      {deactivatingGoal && (
+        <div className="fixed inset-0 bg-black/60 z-50 flex items-end sm:items-center justify-center p-4" onClick={() => setDeactivatingGoal(false)}>
+          <div className="rounded-2xl w-full max-w-sm shadow-2xl" style={{ background: "var(--bg-surface-1)", border: "1px solid var(--border-default)" }} onClick={(e) => e.stopPropagation()}>
+            <div className="px-5 pt-5 pb-4 relative" style={{ borderBottom: "1px solid var(--border-default)" }}>
+              <button onClick={() => setDeactivatingGoal(false)} className="absolute top-4 right-4 text-xl leading-none" style={{ color: "var(--text-muted)" }}>×</button>
+              <p className="text-lg font-bold pr-6" style={{ color: "var(--text-primary)" }}>Deactivate this goal?</p>
+              <p className="text-xs mt-1.5" style={{ color: "var(--text-secondary)" }}>
+                Your {formatCurrency(spendingBalance)} balance stays in your savings jar.
+              </p>
+            </div>
+            <div className="px-5 py-4 flex gap-2">
+              <button
+                onClick={async () => { setDeactivating(true); await onDeactivateGoal(); setDeactivating(false); setDeactivatingGoal(false); }}
+                disabled={deactivating}
+                className="flex-1 py-2.5 font-semibold rounded-xl text-sm disabled:opacity-50"
+                style={{ background: "#8B5CF6", color: "white" }}
+              >
+                {deactivating ? "Deactivating…" : "Deactivate"}
+              </button>
+              <button
+                onClick={() => setDeactivatingGoal(false)}
+                className="flex-1 py-2.5 font-semibold rounded-xl text-sm"
+                style={{ border: "1px solid rgba(139,92,246,0.3)", color: "rgba(237,245,240,0.6)" }}
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* My Active Reward Jar scoreboard — only when a goal is active */}
       {activeGoal ? (
         <div className="rounded-2xl p-5 mb-4" style={{ background: "var(--bg-surface-1)", border: "1px solid var(--border-default)" }}>
@@ -1477,32 +1508,6 @@ function SplurgeTab({
                           </div>
                         )}
 
-                        {/* Deactivate confirmation */}
-                        {deactivatingGoal && (
-                          <div className="mt-2 rounded-xl p-3" style={{ background: "rgba(139,92,246,0.08)", border: "1px solid rgba(139,92,246,0.25)" }}>
-                            <p className="text-xs font-semibold text-[#EDF5F0] mb-1">Deactivate &quot;{goal.label}&quot;?</p>
-                            <p className="text-xs text-[rgba(237,245,240,0.6)] mb-2">
-                              Your {formatCurrency(spendingBalance)} balance stays in your reward jar.
-                            </p>
-                            <div className="flex gap-2">
-                              <button
-                                onClick={async () => { setDeactivating(true); await onDeactivateGoal(); setDeactivatingGoal(false); setDeactivating(false); }}
-                                disabled={deactivating}
-                                className="flex-1 font-semibold py-1.5 rounded-xl text-xs disabled:opacity-50"
-                                style={{ background: "#8B5CF6", color: "white", border: "none", cursor: "pointer" }}
-                              >
-                                {deactivating ? "…" : "Deactivate"}
-                              </button>
-                              <button
-                                onClick={() => setDeactivatingGoal(false)}
-                                className="flex-1 font-semibold py-1.5 rounded-xl text-xs"
-                                style={{ border: "1px solid rgba(139,92,246,0.2)", color: "rgba(237,245,240,0.6)", background: "none", cursor: "pointer" }}
-                              >
-                                Cancel
-                              </button>
-                            </div>
-                          </div>
-                        )}
                       </>
                     ) : (
                       <>
