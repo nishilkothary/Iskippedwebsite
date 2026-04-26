@@ -1417,9 +1417,8 @@ function SplurgeTab({
         </div>
       )}
 
-      <div className="flex items-center justify-between mb-1">
+      <div className="mb-1">
         <p className="text-xl font-bold text-[#EDF5F0]">I am Saving for...</p>
-        <span className="text-sm font-bold text-[#8B5CF6]">{formatCurrency(spendingBalance)} available</span>
       </div>
 
       {/* Goal list — all goals */}
@@ -1607,24 +1606,6 @@ function SplurgeTab({
         </div>
       )}
 
-      {/* Prebuilt reward suggestions — shown only when no goals exist */}
-      {goals.length === 0 && !showAddForm && (
-        <div className="space-y-2 mb-1">
-          <p className="text-xs font-semibold uppercase tracking-wide" style={{ color: "var(--text-muted)" }}>Quick start</p>
-          <div className="flex flex-wrap gap-2">
-            {PREBUILT_REWARDS.map((r) => (
-              <button
-                key={r.label}
-                onClick={() => { setAddLabel(r.label); setAddAmount(String(r.targetAmount)); setShowAddForm(true); }}
-                className="px-3 py-1.5 rounded-full text-sm font-semibold transition-colors"
-                style={{ background: "rgba(139,92,246,0.15)", color: "#C4B5FD", border: "1px solid rgba(139,92,246,0.3)" }}
-              >
-                {r.label}
-              </button>
-            ))}
-          </div>
-        </div>
-      )}
 
       {/* Add reward */}
       {showAddForm ? (
