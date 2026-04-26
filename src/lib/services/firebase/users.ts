@@ -25,7 +25,9 @@ export function normalizeSpendingGoals(profile: UserProfile): {
   if (profile.spendingGoals && profile.spendingGoals.length > 0) {
     return {
       goals: profile.spendingGoals,
-      activeId: profile.activeSpendingGoalId ?? profile.spendingGoals[0]?.id ?? null,
+      activeId: profile.activeSpendingGoalId !== undefined
+        ? profile.activeSpendingGoalId
+        : profile.spendingGoals[0]?.id ?? null,
     };
   }
   // Backward compat: migrate legacy spendingGoal
