@@ -21,10 +21,11 @@ service cloud.firestore {
     }
 
     // ─── Users ──────────────────────────────────────────────────────────────
-    // Authenticated users can read any profile (needed for leaderboard, search,
-    // social follows). Only the owner can write their own profile.
+    // Only the owner can read or write their own profile. Cross-user reads
+    // (leaderboard, search, social) have been removed from the app.
+    // Admin user listing requires Firebase Admin SDK (server-side) — not Firestore rules.
     match /users/{uid} {
-      allow read: if isSignedIn();
+      allow read: if isOwner(uid);
       allow create: if isOwner(uid)
         && incomingData().uid == uid
         && incomingData().keys().hasAll(["uid", "displayName", "email",

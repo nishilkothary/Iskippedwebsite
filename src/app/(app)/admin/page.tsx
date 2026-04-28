@@ -2,7 +2,6 @@
 import { useEffect, useState, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import { useAuthStore } from "@/store/authStore";
-import { getAllUsers } from "@/lib/services/firebase/users";
 import { subscribeToGlobalStats, deleteOldCommunityFeedItems } from "@/lib/services/firebase/social";
 import { getRecentSkips } from "@/lib/services/firebase/skips";
 import { UserProfile, Skip, GlobalStats } from "@/lib/types/models";
@@ -32,6 +31,7 @@ export default function AdminPage() {
   const [loadingSkips, setLoadingSkips] = useState<string | null>(null);
   const [clearingFeed, setClearingFeed] = useState(false);
   const [clearFeedMsg, setClearFeedMsg] = useState<string | null>(null);
+  const [usersPermissionDenied, setUsersPermissionDenied] = useState(false);
 
   // Guard: wait for auth, then redirect if not admin
   useEffect(() => {
@@ -44,7 +44,10 @@ export default function AdminPage() {
   useEffect(() => {
     if (!profile || profile.email !== ADMIN_EMAIL) return;
 
-    getAllUsers().then(setUsers);
+    fetch("/api/admin/users", { headers: { "x-caller-email": profile.email } })
+      .then((r) => r.json())
+      .then((data) => { if (data.users) setUsers(data.users); else setUsersPermissionDenied(true); })
+      .catch(() => setUsersPermissionDenied(true));
 
     const unsub = subscribeToGlobalStats(setStats);
     return () => unsub();
@@ -74,9 +77,14 @@ export default function AdminPage() {
     setExpandedUid(uid);
     if (!skipsMap[uid]) {
       setLoadingSkips(uid);
-      const skips = await getRecentSkips(uid, 10);
-      setSkipsMap((prev) => ({ ...prev, [uid]: skips }));
-      setLoadingSkips(null);
+      try {
+        const skips = await getRecentSkips(uid, 10);
+        setSkipsMap((prev) => ({ ...prev, [uid]: skips }));
+      } catch {
+        setSkipsMap((prev) => ({ ...prev, [uid]: [] }));
+      } finally {
+        setLoadingSkips(null);
+      }
     }
   }
 
@@ -205,7 +213,14 @@ export default function AdminPage() {
                 )}
               </>
             ))}
-            {filtered.length === 0 && (
+            {usersPermissionDenied && (
+              <tr>
+                <td colSpan={6} className="px-4 py-8 text-center text-[#9CA3AF]">
+                  User listing requires Firebase Admin SDK (server-side). Set up a server API route with a service account to enable this.
+                </td>
+              </tr>
+            )}
+            {!usersPermissionDenied && filtered.length === 0 && (
               <tr>
                 <td colSpan={6} className="px-4 py-8 text-center text-[#9CA3AF]">
                   No users found.

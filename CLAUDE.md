@@ -55,8 +55,8 @@ Pages: `home`, `jars` (tab-based: cause / live), `community`, `profile`, `dashbo
 
 ### Utilities
 
-- `src/lib/utils/xp.ts` — XP/level math (`xpForSkip`, `levelForXp`, `xpProgress`)
-- `src/lib/utils/dates.ts` — `today()`, `calculateStreak()`, `formatRelativeTime()`
+- `src/lib/utils/xp.ts` — XP/level math (`xpForSkip`, `levelForXp`)
+- `src/lib/utils/dates.ts` — `today()`, `yesterday()`, `formatRelativeTime()`
 - `src/lib/constants/skipCategories.ts` — 8 predefined skip categories with emoji, default amount, color
 
 ### CSS Variables

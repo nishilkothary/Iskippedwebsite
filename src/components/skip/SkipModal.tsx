@@ -228,6 +228,7 @@ export function SkipModal({ onClose }: Props) {
               value={whatSkipped}
               onChange={(e) => setWhatSkipped(e.target.value)}
               placeholder={`e.g. "morning latte at Starbucks"`}
+              maxLength={100}
               className="w-full rounded-xl px-4 py-3 text-sm focus:outline-none"
               style={{
                 background: "var(--bg-surface-2)",
@@ -350,6 +351,7 @@ export function SkipModal({ onClose }: Props) {
                 value={customLabel}
                 onChange={(e) => setCustomLabel(e.target.value)}
                 placeholder="Enter category"
+                maxLength={50}
                 className="w-full rounded-xl px-4 py-3 text-sm focus:outline-none mt-2"
                 style={{
                   background: "var(--bg-surface-2)",

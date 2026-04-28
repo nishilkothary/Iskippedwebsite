@@ -91,14 +91,11 @@ export interface FeedItem {
   uid: string;
   displayName: string;
   photoURL: string | null;
-  type: "skip" | "badge" | "milestone" | "donation";
+  type: "skip" | "donation";
   skipId?: string;
   skipAmount?: number;
   skipCategory?: string;
   skipEmoji?: string;
-  badgeTitle?: string;
-  badgeEmoji?: string;
-  milestoneAmount?: number;
   projectTitle?: string;
   projectLocation?: string | null;
   shareName?: boolean;

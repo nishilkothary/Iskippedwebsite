@@ -208,16 +208,9 @@ export async function switchGoal(
   return balanceTransfer;
 }
 
-export async function followUser(uid: string, targetUid: string): Promise<void> {
-  await setDoc(doc(db, "users", uid, "following", targetUid), {
-    uid: targetUid,
-    followedAt: serverTimestamp(),
-  });
-  await updateDoc(doc(db, "users", uid), { followingCount: increment(1) });
-  await updateDoc(doc(db, "users", targetUid), { followersCount: increment(1) });
-}
 
 export async function recordDonation(uid: string, amount: number, projectId: string, projectTitle: string, date?: string): Promise<void> {
+  if (amount <= 0) throw new Error("Donation amount must be greater than zero");
   const batch = writeBatch(db);
   const donationRef = doc(collection(db, "users", uid, "donations"));
   batch.set(donationRef, {

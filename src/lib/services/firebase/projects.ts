@@ -177,9 +177,12 @@ export async function addCustomProject(
 }
 
 export async function updateCustomProject(
+  uid: string,
   projectId: string,
   data: { title: string; sponsor?: string; location?: string; goalAmount: number; donationURL?: string }
 ): Promise<void> {
+  const snap = await getDoc(doc(db, "projects", projectId));
+  if (!snap.exists() || snap.data().createdBy !== uid) throw new Error("Not authorized");
   await updateDoc(doc(db, "projects", projectId), {
     title: data.title,
     sponsor: data.sponsor || data.title,
@@ -189,7 +192,9 @@ export async function updateCustomProject(
   });
 }
 
-export async function deleteCustomProject(projectId: string): Promise<void> {
+export async function deleteCustomProject(uid: string, projectId: string): Promise<void> {
+  const snap = await getDoc(doc(db, "projects", projectId));
+  if (!snap.exists() || snap.data().createdBy !== uid) throw new Error("Not authorized");
   await deleteDoc(doc(db, "projects", projectId));
 }
 

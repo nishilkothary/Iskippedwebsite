@@ -18,7 +18,6 @@ import {
   normalizeJarSplit,
   normalizeSpendingGoals,
   updateSpendingGoals,
-  subscribeToDonations,
   setUserCauseGoal,
 } from "@/lib/services/firebase/users";
 import { addCustomProject, updateCustomProject, deleteCustomProject } from "@/lib/services/firebase/projects";
@@ -38,20 +37,12 @@ function JarsPageInner() {
   }, [rawTab]);
 
   const { user, profile, updateProfile } = useAuthStore();
-  const { donate, editDonation, deleteDonation } = useSkips();
+  const { donate, editDonation, deleteDonation, donations } = useSkips();
   const { projects, refetch } = useProjects();
   const [spendingHistory, setSpendingHistory] = useState<SpendingHistoryEvent[]>([]);
-  const [donations, setDonations] = useState<DonationEvent[]>([]);
-
   useEffect(() => {
     if (!user) return;
     const unsub = subscribeToSpendingHistory(user.uid, setSpendingHistory);
-    return unsub;
-  }, [user?.uid]);
-
-  useEffect(() => {
-    if (!user) return;
-    const unsub = subscribeToDonations(user.uid, setDonations);
     return unsub;
   }, [user?.uid]);
 
@@ -98,7 +89,7 @@ function JarsPageInner() {
   }
 
   async function handleDeleteCause(projectId: string) {
-    await deleteCustomProject(projectId);
+    await deleteCustomProject(user!.uid, projectId);
     if (profile!.activeProjectId === projectId) {
       const remaining = projects.filter((p) => p.id !== projectId);
       const nextId = remaining[0]?.id ?? null;
@@ -212,7 +203,7 @@ function JarsPageInner() {
           onDeactivateCause={handleDeactivateCause}
           onAddCause={handleAddCause}
           onEditCause={async (projectId, data) => {
-            await updateCustomProject(projectId, { ...data });
+            await updateCustomProject(user!.uid, projectId, { ...data });
             await refetch();
           }}
           onDeleteCause={handleDeleteCause}
@@ -834,6 +825,7 @@ function CauseTab({
                     placeholder="Cause (e.g. A Student's Yearly Education)"
                     className="w-full rounded-xl px-3 py-2 text-sm focus:outline-none" style={{ background: "var(--bg-surface-2)", border: "1px solid var(--border-default)", color: "var(--text-primary)" }}
                     autoFocus
+                    maxLength={100}
                   />
                   <input
                     type="text"
@@ -841,6 +833,7 @@ function CauseTab({
                     onChange={(e) => setEditSponsor(e.target.value)}
                     placeholder="Organization (e.g. Caring for Cambodia)"
                     className="w-full rounded-xl px-3 py-2 text-sm focus:outline-none" style={{ background: "var(--bg-surface-2)", border: "1px solid var(--border-default)", color: "var(--text-primary)" }}
+                    maxLength={100}
                   />
                   <input
                     type="text"
@@ -848,6 +841,7 @@ function CauseTab({
                     onChange={(e) => setEditLocation(e.target.value)}
                     placeholder="Location (optional, e.g. Cambodia)"
                     className="w-full rounded-xl px-3 py-2 text-sm focus:outline-none" style={{ background: "var(--bg-surface-2)", border: "1px solid var(--border-default)", color: "var(--text-primary)" }}
+                    maxLength={100}
                   />
                   <div className="relative">
                     <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-[rgba(237,245,240,0.6)]">$</span>
@@ -865,6 +859,7 @@ function CauseTab({
                     onChange={(e) => setEditURL(e.target.value)}
                     placeholder="Donation link (optional)"
                     className="w-full rounded-xl px-3 py-2 text-sm focus:outline-none" style={{ background: "var(--bg-surface-2)", border: "1px solid var(--border-default)", color: "var(--text-primary)" }}
+                    maxLength={500}
                   />
                   <div className="flex gap-2">
                     <button
@@ -992,6 +987,7 @@ function CauseTab({
               value={customTitle}
               onChange={(e) => setCustomTitle(e.target.value)}
               className="w-full rounded-xl px-3 py-2.5 text-sm focus:outline-none" style={{ background: "var(--bg-surface-2)", border: "1px solid var(--border-default)", color: "var(--text-primary)" }}
+              maxLength={100}
             />
             <input
               type="text"
@@ -999,6 +995,7 @@ function CauseTab({
               value={customSponsor}
               onChange={(e) => setCustomSponsor(e.target.value)}
               className="w-full rounded-xl px-3 py-2.5 text-sm focus:outline-none" style={{ background: "var(--bg-surface-2)", border: "1px solid var(--border-default)", color: "var(--text-primary)" }}
+              maxLength={100}
             />
             <input
               type="text"
@@ -1006,6 +1003,7 @@ function CauseTab({
               value={customLocation}
               onChange={(e) => setCustomLocation(e.target.value)}
               className="w-full rounded-xl px-3 py-2.5 text-sm focus:outline-none" style={{ background: "var(--bg-surface-2)", border: "1px solid var(--border-default)", color: "var(--text-primary)" }}
+              maxLength={100}
             />
             <div className="relative">
               <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-[rgba(237,245,240,0.6)]">$</span>
@@ -1023,6 +1021,7 @@ function CauseTab({
               value={customURL}
               onChange={(e) => setCustomURL(e.target.value)}
               className="w-full rounded-xl px-3 py-2.5 text-sm focus:outline-none" style={{ background: "var(--bg-surface-2)", border: "1px solid var(--border-default)", color: "var(--text-primary)" }}
+              maxLength={500}
             />
             <div className="flex gap-2">
               <button

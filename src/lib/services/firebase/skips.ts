@@ -17,7 +17,7 @@ import { db, rtdb } from "./config";
 import { Skip } from "@/lib/types/models";
 import { getImpactMessage } from "@/lib/constants/impactMessages";
 import { xpForSkip, levelForXp } from "@/lib/utils/xp";
-import { today } from "@/lib/utils/dates";
+import { today, yesterday } from "@/lib/utils/dates";
 import { formatUnits } from "@/lib/utils/impact";
 
 export interface LogSkipParams {
@@ -60,8 +60,12 @@ export async function logSkip(params: LogSkipParams): Promise<{ skipId: string; 
     savedTowardActiveCause, shareWithCommunity, whatSkipped, notes,
     jarSplit, defaultJarSplit, displayName, photoURL, activeGoalId,
   } = params;
-  const effectiveSplitForMessage = jarSplit ?? defaultJarSplit ?? { give: 50, live: 50 };
-  const giveAmountForMessage = amount * (effectiveSplitForMessage.give / 100);
+  // Validate and normalize: clamp give to [0,100], derive live = 100 - give
+  const rawGive = jarSplit?.give ?? defaultJarSplit?.give ?? 50;
+  const clampedGive = Math.min(100, Math.max(0, rawGive));
+  const effectiveSplit = { give: clampedGive, live: 100 - clampedGive };
+
+  const giveAmountForMessage = amount * (effectiveSplit.give / 100);
   let causeSuffix = "";
   if (projectTitle && projectUnitName && projectUnitCost && !projectUnitIsGoal) {
     // Count mode: "to help fund 25 Emergency Meals in Ukraine"
@@ -75,7 +79,6 @@ export async function logSkip(params: LogSkipParams): Promise<{ skipId: string; 
     causeSuffix = ` to help fund ${projectTitle}`;
   }
 
-  const effectiveSplit = jarSplit ?? defaultJarSplit ?? { give: 50, live: 50 };
   const giveAmount = amount * (effectiveSplit.give / 100);
   const liveAmount = amount * (effectiveSplit.live / 100);
 
@@ -90,11 +93,7 @@ export async function logSkip(params: LogSkipParams): Promise<{ skipId: string; 
 
   // Calculate streak
   let newStreak = currentStreak;
-  const yesterdayStr = (() => {
-    const d = new Date();
-    d.setDate(d.getDate() - 1);
-    return d.toISOString().split("T")[0];
-  })();
+  const yesterdayStr = yesterday();
 
   if (lastSkipDate === todayStr) {
     // Already skipped today, no streak change
