@@ -219,10 +219,6 @@ export async function logSkip(params: LogSkipParams): Promise<{ skipId: string; 
   };
 }
 
-function formatAmount(amount: number): string {
-  return `$${amount.toFixed(2)}`;
-}
-
 export function subscribeToSkips(uid: string, callback: (skips: Skip[]) => void): Unsubscribe {
   const q = query(
     collection(db, "users", uid, "skips"),

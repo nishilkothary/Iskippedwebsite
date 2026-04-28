@@ -7,8 +7,6 @@ import {
   updateDoc,
   deleteDoc,
   serverTimestamp,
-  onSnapshot,
-  Unsubscribe,
 } from "firebase/firestore";
 import { db } from "./config";
 import { Project } from "@/lib/types/models";
@@ -195,11 +193,3 @@ export async function deleteCustomProject(projectId: string): Promise<void> {
   await deleteDoc(doc(db, "projects", projectId));
 }
 
-export function subscribeToProjects(callback: (projects: Project[]) => void): Unsubscribe {
-  return onSnapshot(collection(db, "projects"), (snap) => {
-    const custom = snap.docs
-      .map((d) => ({ id: d.id, ...d.data() } as Project))
-      .filter((p) => p.isCustom);
-    callback([...OFFICIAL_PROJECTS, ...custom]);
-  });
-}

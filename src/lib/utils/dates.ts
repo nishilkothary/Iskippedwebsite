@@ -8,16 +8,6 @@ export function yesterday(): string {
   return d.toISOString().split("T")[0];
 }
 
-export function calculateStreak(lastSkipDate: string | null, currentStreak: number): number {
-  if (!lastSkipDate) return 0;
-  const todayStr = today();
-  const yesterdayStr = yesterday();
-  if (lastSkipDate === todayStr || lastSkipDate === yesterdayStr) {
-    return currentStreak;
-  }
-  return 0;
-}
-
 export function formatRelativeTime(date: Date): string {
   const now = new Date();
   const diff = now.getTime() - date.getTime();

@@ -146,18 +146,6 @@ export async function createOrUpdateUser(user: User): Promise<void> {
   }
 }
 
-export async function getUserProfile(uid: string): Promise<UserProfile | null> {
-  const snap = await getDoc(doc(db, "users", uid));
-  return snap.exists() ? (snap.data() as UserProfile) : null;
-}
-
-export async function updateUserStats(
-  uid: string,
-  updates: Partial<UserProfile>
-): Promise<void> {
-  await updateDoc(doc(db, "users", uid), updates);
-}
-
 export async function updateJarSettings(
   uid: string,
   jarSplit: { give: number; live: number },
@@ -229,13 +217,6 @@ export async function followUser(uid: string, targetUid: string): Promise<void> 
   await updateDoc(doc(db, "users", targetUid), { followersCount: increment(1) });
 }
 
-export async function unfollowUser(uid: string, targetUid: string): Promise<void> {
-  const { deleteDoc } = await import("firebase/firestore");
-  await deleteDoc(doc(db, "users", uid, "following", targetUid));
-  await updateDoc(doc(db, "users", uid), { followingCount: increment(-1) });
-  await updateDoc(doc(db, "users", targetUid), { followersCount: increment(-1) });
-}
-
 export async function recordDonation(uid: string, amount: number, projectId: string, projectTitle: string, date?: string): Promise<void> {
   const batch = writeBatch(db);
   const donationRef = doc(collection(db, "users", uid, "donations"));
@@ -301,24 +282,6 @@ export async function deleteDonation(uid: string, donationId: string, amount: nu
   batch.update(doc(db, "users", uid), {
     totalDonated: increment(-amount),
     [`causeJarBalances.${causeId}`]: increment(amount),
-  });
-  await batch.commit();
-}
-
-export async function completePurchase(
-  uid: string,
-  label: string,
-  targetAmount: number,
-  amountSaved: number
-): Promise<void> {
-  const batch = writeBatch(db);
-  batch.set(doc(collection(db, "users", uid, "spendingHistory")), {
-    label, targetAmount, amountSaved,
-    purchasedAt: serverTimestamp(),
-  });
-  batch.update(doc(db, "users", uid), {
-    totalSpent: increment(amountSaved),
-    spendingGoal: null,
   });
   await batch.commit();
 }

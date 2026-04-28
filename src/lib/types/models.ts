@@ -86,14 +86,6 @@ export interface Project {
   tags: string[];
 }
 
-export interface Badge {
-  id: string;
-  title: string;
-  description: string;
-  emoji: string;
-  earnedAt: Timestamp;
-}
-
 export interface FeedItem {
   id: string;
   uid: string;
