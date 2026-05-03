@@ -908,8 +908,8 @@ function CauseTab({
                           Goal: {formatCurrency(project.goalAmount)}
                         </p>
                       ) : null}
-                      {project.donationURL && (
-                        <a href={project.donationURL} target="_blank" rel="noopener noreferrer" className="text-xs text-[#2ECC71] underline mt-2 block">
+                      {(project.learnMoreURL || project.donationURL) && (
+                        <a href={project.learnMoreURL ?? project.donationURL!} target="_blank" rel="noopener noreferrer" className="text-xs text-[#2ECC71] underline mt-2 block">
                           ↗ Learn more
                         </a>
                       )}
@@ -934,8 +934,8 @@ function CauseTab({
                           Goal: {formatCurrency(project.goalAmount)}
                         </p>
                       ) : null}
-                      {project.donationURL && (
-                        <a href={project.donationURL} target="_blank" rel="noopener noreferrer" className="text-xs text-[#2ECC71] underline mt-2 block">
+                      {(project.learnMoreURL || project.donationURL) && (
+                        <a href={project.learnMoreURL ?? project.donationURL!} target="_blank" rel="noopener noreferrer" className="text-xs text-[#2ECC71] underline mt-2 block">
                           ↗ Learn more
                         </a>
                       )}

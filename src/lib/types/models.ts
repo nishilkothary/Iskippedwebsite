@@ -76,6 +76,7 @@ export interface Project {
   totalRaised: number;
   imageURL: string | null;
   donationURL: string | null;
+  learnMoreURL?: string | null;
   isCustom: boolean;
   location?: string;
   unitName?: string;    // singular unit: "Day of Education", "Life-Saving Meal"
