@@ -118,7 +118,7 @@ export const OFFICIAL_PROJECTS: Project[] = [
   },
   {
     id: "mc-tests",
-    title: "A Malaria Rapid Diagnostic Test",
+    title: "Malaria Diagnostic Tests",
     sponsor: "Malaria Consortium",
     description: "Rapid diagnostic tests that detect malaria in minutes, enabling life-saving treatment in remote areas.",
     goalAmount: 0,
@@ -136,7 +136,7 @@ export const OFFICIAL_PROJECTS: Project[] = [
   },
   {
     id: "mc-medication",
-    title: "A Vial of Malaria Medication",
+    title: "Vials of Malaria Medication",
     sponsor: "Malaria Consortium",
     description: "Critical antimalarial medication vials that treat severe malaria cases, especially in young children.",
     goalAmount: 0,
@@ -154,7 +154,7 @@ export const OFFICIAL_PROJECTS: Project[] = [
   },
   {
     id: "mc-nets",
-    title: "A Malaria-Preventing Mosquito Net",
+    title: "Malaria Mosquito Nets",
     sponsor: "Malaria Consortium",
     description: "Long-lasting insecticidal nets that protect families from malaria-carrying mosquitoes while they sleep.",
     goalAmount: 0,
