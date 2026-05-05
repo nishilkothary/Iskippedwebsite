@@ -5,6 +5,7 @@ import { useAuthStore } from "@/store/authStore";
 import { signOut } from "@/lib/services/firebase/auth";
 import { formatCurrency } from "@/lib/utils/currency";
 import { updateJarSettings, normalizeJarSplit, recalculateTotals } from "@/lib/services/firebase/users";
+import { useSkips } from "@/hooks/useSkips";
 
 const FAQ_ITEMS = [
   {
@@ -13,7 +14,7 @@ const FAQ_ITEMS = [
   },
   {
     q: "My balance doesn't look right. What should I do?",
-    a: "Use the Recalculate button at the bottom of the home page. It rebuilds all your totals directly from your logged skip history and should bring everything back in sync.",
+    a: "Use the Recalculate button on your Profile page. It rebuilds all your totals directly from your logged skip history and should bring everything back in sync.",
   },
   {
     q: "Will more causes be added?",
@@ -48,6 +49,7 @@ const FAQ_ITEMS = [
 export default function ProfilePage() {
   const router = useRouter();
   const { user, profile, setUser, setProfile, updateProfile } = useAuthStore();
+  const { recentSkips } = useSkips();
   const [recalcState, setRecalcState] = useState<"idle" | "loading" | "done" | "error">("idle");
   const [recalcResult, setRecalcResult] = useState<{ totalSkips: number; totalSaved: number } | null>(null);
   const [openFaq, setOpenFaq] = useState<number | null>(null);
@@ -55,6 +57,27 @@ export default function ProfilePage() {
   if (!profile || !user) return null;
 
   const currentSplit = normalizeJarSplit(profile.jarSplit as any);
+
+  const weekStart = new Date();
+  weekStart.setDate(weekStart.getDate() - 7);
+  weekStart.setHours(0, 0, 0, 0);
+  const weekSkips = recentSkips.filter((s) => {
+    const d = s.createdAt?.toDate ? s.createdAt.toDate() : new Date(s.date);
+    return d >= weekStart;
+  });
+  const weekGive = weekSkips.reduce((sum, s) => sum + (s.amount * (s.jarSplit?.give ?? currentSplit.give) / 100), 0);
+  const weekLive = weekSkips.reduce((sum, s) => sum + (s.amount * (s.jarSplit?.live ?? currentSplit.live) / 100), 0);
+  const topCat = weekSkips.length > 0
+    ? (() => {
+        const totals: Record<string, { amount: number; emoji: string; label: string }> = {};
+        for (const s of weekSkips) {
+          const key = s.categoryLabel ?? "Other";
+          if (!totals[key]) totals[key] = { amount: 0, emoji: s.categoryEmoji ?? "", label: key };
+          totals[key].amount += s.amount;
+        }
+        return Object.values(totals).sort((a, b) => b.amount - a.amount)[0];
+      })()
+    : null;
 
   const cardStyle = {
     background: "var(--bg-surface-1)",
@@ -134,6 +157,26 @@ export default function ProfilePage() {
               <p className="text-lg mb-1">{s.emoji}</p>
               <p className="text-lg font-bold" style={{ color: "var(--text-primary)" }}>{s.value}</p>
               <p className="text-xs" style={{ color: "var(--text-secondary)" }}>{s.label}</p>
+            </div>
+          ))}
+        </div>
+
+        {/* This Week */}
+        <div className="mt-3 p-5" style={{ ...cardStyle, borderRadius: 20 }}>
+          <p className="text-sm font-semibold mb-4" style={{ color: "var(--text-secondary)", letterSpacing: 0.5 }}>This Week</p>
+          {[
+            { label: "Skips logged", value: String(weekSkips.length), color: "var(--green-primary)" },
+            { label: "Give jar", value: formatCurrency(weekGive), color: "#2BBAA4" },
+            { label: "Live jar", value: formatCurrency(weekLive), color: "#8B5CF6" },
+            { label: "Top category", value: topCat ? `${topCat.emoji} ${topCat.label}` : "—", color: "#E8924A" },
+          ].map((row, i) => (
+            <div key={i} style={{
+              display: "flex", justifyContent: "space-between", alignItems: "center",
+              padding: "10px 0",
+              borderBottom: i < 3 ? "1px solid var(--border-default)" : "none",
+            }}>
+              <span className="text-sm" style={{ color: "var(--text-muted)" }}>{row.label}</span>
+              <span className="text-sm font-bold" style={{ color: row.color }}>{row.value}</span>
             </div>
           ))}
         </div>

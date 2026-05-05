@@ -9,7 +9,7 @@ import { useUIStore } from "@/store/uiStore";
 import { formatCurrency } from "@/lib/utils/currency";
 import { formatUnits } from "@/lib/utils/impact";
 import { formatRelativeTime } from "@/lib/utils/dates";
-import { normalizeJarSplit, normalizeSpendingGoals, recalculateTotals } from "@/lib/services/firebase/users";
+import { normalizeJarSplit, normalizeSpendingGoals } from "@/lib/services/firebase/users";
 import { EditSkipModal } from "@/components/skip/EditSkipModal";
 import { Skip } from "@/lib/types/models";
 
@@ -212,13 +212,11 @@ function Jar({ fillPercent, color, gradEnd, label, amount, emoji, causeLabel, go
 // ─── Home Page ──────────────────────────────────────────────────────────────
 export default function HomePage() {
   const router = useRouter();
-  const { user, profile, updateProfile } = useAuthStore();
+  const { profile } = useAuthStore();
   const { recentSkips } = useSkips();
   const { projects } = useProjects();
   const { setShowSkipPicker } = useUIStore();
   const [editingSkip, setEditingSkip] = useState<Skip | null>(null);
-  const [recalcWorking, setRecalcWorking] = useState(false);
-  const [recalcDone, setRecalcDone] = useState(false);
 
   if (!profile) return null;
 
@@ -246,28 +244,6 @@ export default function HomePage() {
     ? Math.min(100, (spendingBalance / activeGoal.targetAmount) * 100)
     : 0;
 
-  // This week stats
-  const weekStart = new Date();
-  weekStart.setDate(weekStart.getDate() - 7);
-  weekStart.setHours(0, 0, 0, 0);
-  const weekSkips = recentSkips.filter((s) => {
-    const d = s.createdAt?.toDate ? s.createdAt.toDate() : new Date(s.date);
-    return d >= weekStart;
-  });
-  const weekGive = weekSkips.reduce((sum, s) => sum + (s.amount * (s.jarSplit?.give ?? split.give) / 100), 0);
-  const weekLive = weekSkips.reduce((sum, s) => sum + (s.amount * (s.jarSplit?.live ?? split.live) / 100), 0);
-  const topCat = weekSkips.length > 0
-    ? (() => {
-        const totals: Record<string, { amount: number; emoji: string; label: string }> = {};
-        for (const s of weekSkips) {
-          const key = s.categoryLabel ?? "Other";
-          if (!totals[key]) totals[key] = { amount: 0, emoji: s.categoryEmoji ?? "", label: key };
-          totals[key].amount += s.amount;
-        }
-        return Object.values(totals).sort((a, b) => b.amount - a.amount)[0];
-      })()
-    : null;
-
   const firstName = profile.displayName.split(" ")[0];
 
   const cardStyle: React.CSSProperties = {
@@ -293,19 +269,20 @@ export default function HomePage() {
       <div className="flex items-start justify-between mb-8">
         <div>
           <h1 className="text-2xl font-black" style={{ color: "var(--text-primary)" }}>Hey, {firstName} 👋</h1>
-          <p className="mt-0.5 text-sm" style={{ color: "var(--text-muted)" }}>Skip, Live, Give.</p>
+          <p className="mt-0.5 text-sm" style={{ color: "var(--text-muted)" }}>Skip, Save, Give.</p>
         </div>
         {profile.streak > 0 && (
-          <div style={{
-            background: "linear-gradient(135deg, rgba(232,146,74,0.15), rgba(229,92,92,0.1))",
-            border: "1px solid rgba(232,146,74,0.2)",
-            borderRadius: 14,
-            padding: "8px 14px",
-            display: "flex", alignItems: "center", gap: 8,
-            flexShrink: 0, marginTop: 4,
-          }}>
-            <span style={{ fontSize: 20 }}>🔥</span>
-            <span style={{ fontSize: 14, fontWeight: 700, color: "#E8924A" }}>{profile.streak}-day streak</span>
+          <div
+            className="flex items-center gap-1.5 md:gap-2 px-2.5 py-1.5 md:px-3.5 md:py-2"
+            style={{
+              background: "linear-gradient(135deg, rgba(232,146,74,0.15), rgba(229,92,92,0.1))",
+              border: "1px solid rgba(232,146,74,0.2)",
+              borderRadius: 14,
+              flexShrink: 0, marginTop: 4,
+            }}
+          >
+            <span className="text-base md:text-xl">🔥</span>
+            <span className="text-xs md:text-sm" style={{ fontWeight: 700, color: "#E8924A" }}>{profile.streak}-day streak</span>
           </div>
         )}
       </div>
@@ -487,36 +464,8 @@ export default function HomePage() {
         </div>
       )}
 
-      {/* ── Two-column grid: This Week + Recent Skips ── */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-
-        {/* This Week */}
-        <div style={cardStyle}>
-          <div style={{
-            fontSize: 13, fontWeight: 600,
-            color: "var(--text-secondary)",
-            marginBottom: 20, letterSpacing: 0.5,
-          }}>
-            This Week
-          </div>
-          {[
-            { label: "Skips logged", value: String(weekSkips.length), color: "var(--green-primary)" },
-            { label: "Give jar", value: formatCurrency(weekGive), color: "#2BBAA4" },
-            { label: "Live jar", value: formatCurrency(weekLive), color: "#8B5CF6" },
-            { label: "Top category", value: topCat ? `${topCat.emoji} ${topCat.label}` : "—", color: "#E8924A" },
-          ].map((row, i) => (
-            <div key={i} style={{
-              display: "flex", justifyContent: "space-between", alignItems: "center",
-              padding: "10px 0",
-              borderBottom: i < 3 ? rowDivider : "none",
-            }}>
-              <span style={{ fontSize: 13, color: "var(--text-muted)" }}>{row.label}</span>
-              <span style={{ fontSize: 15, fontWeight: 700, color: row.color }}>{row.value}</span>
-            </div>
-          ))}
-        </div>
-
-        {/* Recent Skips */}
+      {/* ── Recent Skips ── */}
+      <div>
         <div style={cardStyle}>
           <div style={{
             display: "flex", justifyContent: "space-between", alignItems: "center",
@@ -590,52 +539,12 @@ export default function HomePage() {
         </div>
       </div>
 
-      {/* Feedback section */}
-      <div className="mt-4" style={{ ...cardStyle, textAlign: "center" }}>
-        <p style={{ fontSize: 14, fontWeight: 700, color: "var(--text-primary)", marginBottom: 6 }}>Have any feedback?</p>
-        <p style={{ fontSize: 13, color: "var(--text-secondary)", lineHeight: 1.6 }}>
-          We are still in beta testing and would love for you to share what you would like to see from Iskipped. Please email{" "}
-          <a href="mailto:iskippedfor@gmail.com" style={{ color: "var(--green-primary)", textDecoration: "underline" }}>
-            iskippedfor@gmail.com
-          </a>{" "}
-          with your feedback!
-        </p>
-      </div>
-
-      {/* Recalculate card */}
-      <div className="mt-4" style={cardStyle}>
-        <p style={{ fontSize: 14, fontWeight: 700, color: "var(--text-primary)", marginBottom: 4 }}>🔄 Recalculate totals</p>
-        <p style={{ fontSize: 12, color: "var(--text-secondary)", marginBottom: 16 }}>
-          If your jar balances look off, this recomputes your totals from your actual logged skips. Donations and purchases are not affected.
-        </p>
-        {recalcDone && (
-          <p style={{ fontSize: 12, fontWeight: 600, color: "var(--green-primary)", marginBottom: 8 }}>✓ Done — balances updated.</p>
-        )}
-        <button
-          onClick={async () => {
-            if (!user || !profile || recalcWorking) return;
-            setRecalcWorking(true);
-            setRecalcDone(false);
-            try {
-              const result = await recalculateTotals(user.uid, normalizeJarSplit(profile.jarSplit as any));
-              updateProfile(result);
-              setRecalcDone(true);
-              setTimeout(() => setRecalcDone(false), 3000);
-            } finally {
-              setRecalcWorking(false);
-            }
-          }}
-          disabled={recalcWorking}
-          style={{
-            width: "100%", padding: "10px 0", fontWeight: 600, fontSize: 14, borderRadius: 12,
-            border: "1px solid var(--border-emphasis)", color: "var(--text-secondary)",
-            background: "transparent", cursor: recalcWorking ? "not-allowed" : "pointer",
-            opacity: recalcWorking ? 0.5 : 1,
-          }}
-        >
-          {recalcWorking ? "Recalculating…" : "Recalculate"}
-        </button>
-      </div>
+      <p className="mt-6 text-center text-xs" style={{ color: "var(--text-muted)", lineHeight: 1.6 }}>
+        We are still in beta — have feedback?{" "}
+        <a href="mailto:iskippedfor@gmail.com" style={{ color: "var(--green-primary)", textDecoration: "underline" }}>
+          iskippedfor@gmail.com
+        </a>
+      </p>
 
       {editingSkip && (
         <EditSkipModal
