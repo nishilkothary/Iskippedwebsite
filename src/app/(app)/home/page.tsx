@@ -265,40 +265,39 @@ export default function HomePage() {
         </p>
       </div>
 
-      {/* Greeting + streak */}
-      <div className="flex items-start justify-between mb-8">
-        <div>
-          <h1 className="text-2xl font-black" style={{ color: "var(--text-primary)" }}>Hey {firstName}.</h1>
-          <p className="mt-0.5 text-sm" style={{ color: "var(--text-muted)" }}>What did you almost buy today?</p>
-        </div>
+      {/* Greeting + streak + CTA */}
+      <div style={{ position: "relative", textAlign: "center", marginBottom: 24 }}>
         {profile.streak > 0 && (
           <div
-            className="flex items-center gap-1.5 md:gap-2 px-2.5 py-1.5 md:px-3.5 md:py-2"
+            className="flex items-center gap-1"
             style={{
+              position: "absolute", top: 0, right: 0,
               background: "linear-gradient(135deg, rgba(232,146,74,0.15), rgba(229,92,92,0.1))",
               border: "1px solid rgba(232,146,74,0.2)",
-              borderRadius: 14,
-              flexShrink: 0, marginTop: 4,
+              borderRadius: 10,
+              padding: "3px 8px",
             }}
           >
-            <span className="text-base md:text-xl">🔥</span>
-            <span className="text-xs md:text-sm" style={{ fontWeight: 700, color: "#E8924A" }}>{profile.streak}-day streak</span>
+            <span style={{ fontSize: 12 }}>🔥</span>
+            <span style={{ fontSize: 11, fontWeight: 700, color: "#E8924A" }}>{profile.streak}</span>
           </div>
         )}
-      </div>
 
-      {/* CTA */}
-      <button
-        onClick={() => setShowSkipPicker(true)}
-        className="w-full font-black py-4 rounded-full text-lg hover:scale-[1.02] active:scale-[0.97] transition-all duration-200 mb-5"
-        style={{
-          background: "linear-gradient(135deg, var(--gold-cta), var(--gold-light))",
-          color: "var(--bg-base)",
-          boxShadow: "0 4px 18px var(--gold-glow)",
-        }}
-      >
-        ✨ Log a Skip
-      </button>
+        <h1 className="text-2xl font-black" style={{ color: "var(--text-primary)" }}>Hey {firstName}.</h1>
+        <p className="mt-1 mb-5 text-sm" style={{ color: "var(--text-muted)" }}>What did you almost buy today?</p>
+
+        <button
+          onClick={() => setShowSkipPicker(true)}
+          className="w-full font-black py-4 rounded-full text-lg hover:scale-[1.02] active:scale-[0.97] transition-all duration-200"
+          style={{
+            background: "linear-gradient(135deg, var(--gold-cta), var(--gold-light))",
+            color: "var(--bg-base)",
+            boxShadow: "0 4px 18px var(--gold-glow)",
+          }}
+        >
+          ✨ Log a Skip
+        </button>
+      </div>
 
       {/* ── Jars card (full width) ── */}
       <div style={{ ...cardStyle, marginBottom: 20 }}>
