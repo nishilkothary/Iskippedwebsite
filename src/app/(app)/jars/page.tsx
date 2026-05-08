@@ -185,10 +185,6 @@ function JarsPageInner() {
 
   return (
     <div className="p-4 md:p-8 max-w-2xl mx-auto pb-20 md:pb-8">
-      <h1 className="text-2xl font-bold mb-5" style={{ color: "var(--text-primary)" }}>
-        {activeTab === "cause" ? "🤲 Give a Little" : "😊 Save a Little"}
-      </h1>
-
       {activeTab === "cause" && (
         <CauseTab
           uid={user.uid}
@@ -755,41 +751,32 @@ function CauseTab({
       {/* Give impact summary */}
       {activeProject ? (
         <div className="rounded-2xl p-5 mb-4" style={{ background: "var(--bg-surface-2)", border: "1px solid var(--border-default)" }}>
-          <p className="text-lg font-bold mb-3" style={{ color: "var(--text-primary)" }}>My Active Giving Jar</p>
           {(() => {
             const personalGoal = causeGoalAmounts?.[activeProject.id] ?? activeProject.goalAmount ?? 0;
             const pct = personalGoal > 0 ? Math.round(Math.min(100, (givingBalance / personalGoal) * 100)) : null;
             const unitFormatted = activeProject.unitCost && !activeProject.unitIsGoal && activeProject.unitName
               ? formatUnits(givingBalance, activeProject.unitCost, activeProject.unitName)
               : null;
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            let sentence: any;
+            if (pct !== null && unitFormatted) {
+              sentence = <>My skips have helped save <span style={{ color: "#2BBAA4" }}>{pct}%</span> towards my goal of <span style={{ color: "#2BBAA4" }}>{formatCurrency(personalGoal)}</span> helping fund <span style={{ color: "#2BBAA4" }}>{unitFormatted}</span></>;
+            } else if (pct !== null) {
+              sentence = <>My skips have helped save <span style={{ color: "#2BBAA4" }}>{pct}%</span> towards my goal of <span style={{ color: "#2BBAA4" }}>{formatCurrency(personalGoal)}</span> helping fund <span style={{ color: "#2BBAA4" }}>{activeProject.title}</span></>;
+            } else if (unitFormatted) {
+              sentence = <>My skips have helped fund <span style={{ color: "#2BBAA4" }}>{unitFormatted}</span></>;
+            } else {
+              sentence = <>My skips have helped save <span style={{ color: "#2BBAA4" }}>{formatCurrency(givingBalance)}</span> for <span style={{ color: "#2BBAA4" }}>{activeProject.title}</span></>;
+            }
             return (
-              <>
-                {pct !== null ? (
-                  <div className="mb-2">
-                    <span className="text-3xl font-extrabold" style={{ color: "#2BBAA4" }}>{pct}%</span>
-                    <span className="text-sm ml-1.5" style={{ color: "var(--text-muted)" }}>towards goal of {formatCurrency(personalGoal)}</span>
-                  </div>
-                ) : (
-                  <div className="mb-2">
-                    <span className="text-3xl font-extrabold" style={{ color: "#2BBAA4" }}>{formatCurrency(givingBalance)}</span>
-                    <span className="text-sm ml-1.5" style={{ color: "var(--text-muted)" }}>saved</span>
-                  </div>
-                )}
-                {unitFormatted !== null && (
-                  <p className="text-sm font-semibold mb-3" style={{ color: "#2BBAA4" }}>
-                    {unitFormatted} funded
-                  </p>
-                )}
-              </>
+              <p className="text-base font-semibold mb-3 leading-snug" style={{ color: "var(--text-primary)" }}>{sentence}</p>
             );
           })()}
-          <p className="text-xs font-semibold uppercase tracking-widest mb-3" style={{ color: "var(--text-muted)" }}>{activeProject.title}</p>
           <CauseDonateRow project={activeProject} />
         </div>
       ) : (
-        <div className="mb-4 px-1">
-          <p className="text-2xl font-extrabold" style={{ color: "#2BBAA4" }}>{formatCurrency(givingBalance)}</p>
-          <p className="text-xs mt-1" style={{ color: "var(--text-muted)" }}>Available to give — pick a cause below</p>
+        <div className="mb-5">
+          <p className="text-xl font-bold" style={{ color: "var(--text-primary)" }}>I want my skips to help fund</p>
         </div>
       )}
 
@@ -1342,14 +1329,11 @@ function SplurgeTab({
       {/* My Active Savings Jar scoreboard — only when a goal is active */}
       {activeGoal ? (
         <div className="rounded-2xl p-5 mb-4" style={{ background: "var(--bg-surface-1)", border: "1px solid var(--border-default)" }}>
-          <p className="text-lg font-bold mb-3" style={{ color: "var(--text-primary)" }}>My Active Savings Jar</p>
-          <div className="mb-2">
-            <span className="text-3xl font-extrabold" style={{ color: "#8B5CF6" }}>
-              {Math.round(Math.min(100, (spendingBalance / activeGoal.targetAmount) * 100))}%
-            </span>
-            <span className="text-sm ml-1.5" style={{ color: "var(--text-muted)" }}>towards goal of {formatCurrency(activeGoal.targetAmount)}</span>
-          </div>
-          <p className="text-xs font-semibold uppercase tracking-widest mb-3" style={{ color: "var(--text-muted)" }}>{activeGoal.label}</p>
+          <p className="text-base font-semibold mb-3 leading-snug" style={{ color: "var(--text-primary)" }}>
+            My skips have helped save{" "}
+            <span style={{ color: "#8B5CF6" }}>{Math.round(Math.min(100, (spendingBalance / activeGoal.targetAmount) * 100))}%</span>{" "}
+            towards <span style={{ color: "#8B5CF6" }}>{activeGoal.label}</span>
+          </p>
           <div className="space-y-2">
             {activeGoal.shoppingLink && (
               <a
@@ -1410,9 +1394,8 @@ function SplurgeTab({
           </div>
         </div>
       ) : (
-        <div className="mb-4 px-1">
-          <p className="text-2xl font-extrabold" style={{ color: "#8B5CF6" }}>{formatCurrency(spendingBalance)}</p>
-          <p className="text-xs mt-1" style={{ color: "var(--text-muted)" }}>Available to spend — pick a savings goal below</p>
+        <div className="mb-5">
+          <p className="text-xl font-bold" style={{ color: "var(--text-primary)" }}>I want my skips to fund</p>
         </div>
       )}
 

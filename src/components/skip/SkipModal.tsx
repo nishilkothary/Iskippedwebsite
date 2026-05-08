@@ -70,32 +70,36 @@ export function SkipModal({ onClose }: Props) {
   }
 
   if (success) {
-    const encouragements = [
-      "That's what we're talking about! 🙌",
-      "Look at you making a difference!",
-      "Small skip, big impact. Keep it up!",
-      "You're on fire! Every skip counts 🔥",
-      "That's the spirit! Way to go!",
-      "Love to see it. Keep skipping!",
-    ];
-    const encouragement = encouragements[Math.floor(Math.random() * encouragements.length)];
     const skipGive = amount * (skipGivePct / 100);
-    const skipLive = amount * ((100 - skipGivePct) / 100);
-    const spendingGoalLabel = profile?.spendingGoal?.label ?? "Live a little";
     const successActiveProject = projects.find((p) => p.id === profile?.activeProjectId) ?? null;
 
+    // Goal progress for "x% towards your reward" line
+    const { goals: successSpendingGoals, activeId: successActiveGoalId } = normalizeSpendingGoals(profile ?? {} as any);
+    const successActiveGoal = successSpendingGoals.find(g => g.id === successActiveGoalId) ?? null;
+    const goalBalance = profile?.goalJarBalances?.[successActiveGoalId ?? ""] ?? 0;
+    const goalPct = successActiveGoal && successActiveGoal.targetAmount > 0
+      ? Math.round(Math.min(100, (goalBalance / successActiveGoal.targetAmount) * 100))
+      : null;
+
+    // Build impact display string (for modal) and share impact clause
     const itemLabel = whatSkipped || customLabel || selectedCat.label.toLowerCase();
     const causeTitle = successProjectTitle ?? null;
-    // Build share text in new format: "I skipped X to help fund Y of Z. Join the movement at Iskipped.com"
+    let impactDisplay = "";
     let impactClause = "";
     if (causeTitle && successProjectUnitName && successProjectUnitCost && !successActiveProject?.unitIsGoal) {
       const unitsStr = formatUnits(skipGive, successProjectUnitCost, successProjectUnitName);
-      impactClause = ` to help fund ${unitsStr}${successProjectLocation ? ` in ${successProjectLocation}` : ""}`;
+      const locationSuffix = successProjectLocation ? ` in ${successProjectLocation}` : "";
+      impactDisplay = `${unitsStr}${locationSuffix}`;
+      impactClause = ` to help fund ${unitsStr}${locationSuffix}`;
     } else if (causeTitle && successProjectUnitName && successProjectUnitCost && successActiveProject?.unitIsGoal) {
       const pct = Math.max(1, Math.round((skipGive / successProjectUnitCost) * 100));
+      impactDisplay = `${pct}% of ${causeTitle}`;
       impactClause = ` to help fund ${pct}% of ${causeTitle}`;
     } else if (causeTitle) {
+      impactDisplay = causeTitle;
       impactClause = ` to help fund ${causeTitle}`;
+    } else {
+      impactDisplay = `${formatCurrency(amount)} saved`;
     }
     const shareText = `I skipped ${itemLabel}${impactClause}. Join the movement at Iskipped.com`;
 
@@ -155,9 +159,15 @@ export function SkipModal({ onClose }: Props) {
         >
           <button onClick={onClose} className="absolute top-4 right-4 text-2xl leading-none" style={{ color: "var(--text-muted)" }}>×</button>
           <div className="text-6xl mb-3">🎉</div>
-          <p className="text-2xl font-bold" style={{ color: "var(--text-primary)" }}>Great job!</p>
-          <p className="font-bold text-lg mt-1" style={{ color: "var(--green-primary)" }}>{formatCurrency(amount)} saved</p>
-          <p className="text-sm mt-2" style={{ color: "var(--text-secondary)" }}>{encouragement}</p>
+          <p className="text-sm uppercase tracking-wide font-semibold mb-1" style={{ color: "var(--text-muted)" }}>Congratulations on funding</p>
+          <p className="text-2xl font-bold leading-tight" style={{ color: "var(--green-primary)" }}>{impactDisplay}</p>
+          {goalPct !== null && successActiveGoal && (
+            <p className="text-sm mt-3 font-semibold" style={{ color: "var(--text-secondary)" }}>
+              You&apos;re <span style={{ color: "var(--gold-cta)" }}>{goalPct}%</span> of the way to{" "}
+              <span style={{ color: "var(--gold-cta)" }}>{successActiveGoal.label}</span>! 🎯
+            </p>
+          )}
+          <p className="font-semibold text-sm mt-2" style={{ color: "var(--text-muted)" }}>{formatCurrency(amount)} saved</p>
 
           <div className="mt-5 text-left">
             <p className="text-xs mb-1 uppercase tracking-wide" style={{ color: "var(--text-muted)" }}>Share</p>
