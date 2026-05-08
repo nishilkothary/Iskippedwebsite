@@ -568,7 +568,7 @@ function CauseTab({
               onClick={() => setDonatingId(project.id)}
               className="w-full py-2 bg-[#2ECC71] text-[#0B1A14] font-semibold rounded-xl hover:bg-[#1DB954] transition-colors text-xs"
             >
-              💸 I Donated
+              {givingBalance > 0 ? `💸 Donate the ${formatCurrency(givingBalance)} In my Jar` : "💸 I Donated"}
             </button>
           )
         }
@@ -1404,12 +1404,6 @@ function SplurgeTab({
         </div>
       )}
 
-      {!activeGoal && (
-        <div className="mb-1">
-          <p className="text-xl font-bold text-[#EDF5F0]">I am Saving for...</p>
-        </div>
-      )}
-
       {/* Goal list — all goals */}
       {goals.length > 0 && (
         <div className="space-y-3 mt-4">
@@ -1596,10 +1590,30 @@ function SplurgeTab({
       )}
 
 
+      {/* Pre-built rewards */}
+      {!showAddForm && (
+        <div>
+          <p className="text-xs font-semibold text-[rgba(237,245,240,0.85)] uppercase tracking-wide mb-2">Popular Rewards</p>
+          <div className="flex gap-2 overflow-x-auto pb-1 -mx-1 px-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+            {PREBUILT_REWARDS.map((r) => (
+              <button
+                key={r.label}
+                onClick={async () => { await onAddGoal({ label: r.label, targetAmount: r.targetAmount, type: "splurge" }); }}
+                className="flex-shrink-0 rounded-xl px-3 py-2.5 text-left transition-colors"
+                style={{ background: "var(--bg-surface-1)", border: "1px solid rgba(139,92,246,0.3)" }}
+              >
+                <div className="text-sm font-semibold" style={{ color: "#8B5CF6" }}>{r.label}</div>
+                <div className="text-xs mt-0.5" style={{ color: "rgba(237,245,240,0.5)" }}>${r.targetAmount}</div>
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
+
       {/* Add reward */}
       {showAddForm ? (
         <div className="rounded-2xl p-4 space-y-3" style={{ background: "var(--bg-surface-1)", border: "1px solid var(--border-default)" }}>
-          <p className="text-sm font-semibold" style={{ color: "var(--text-primary)" }}>New savings goal</p>
+          <p className="text-sm font-semibold" style={{ color: "var(--text-primary)" }}>New reward</p>
 
           <input
             type="text"
@@ -1649,7 +1663,7 @@ function SplurgeTab({
           onClick={() => setShowAddForm(true)}
           className="w-full py-2.5 border border-dashed border-[rgba(139,92,246,0.25)] text-white font-bold rounded-xl hover:border-[#8B5CF6] hover:text-[#8B5CF6] transition-colors text-sm"
         >
-          ＋ Add a savings goal
+          ＋ Add a new reward
         </button>
       )}
 
