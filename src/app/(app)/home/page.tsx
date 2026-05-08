@@ -296,8 +296,6 @@ export default function HomePage() {
         </button>
       </div>
 
-      <InstallPrompt />
-
       {/* ── Jars card (full width) ── */}
       <div style={{ ...cardStyle, marginBottom: 20 }}>
         {/* Total */}
@@ -347,6 +345,8 @@ export default function HomePage() {
 
       </div>
 
+      <InstallPrompt />
+
       {!profile.activeProjectId && givingBalance === 0 && (
         <div style={{
           ...cardStyle,
@@ -381,44 +381,6 @@ export default function HomePage() {
             }}
           >
             Explore causes →
-          </button>
-        </div>
-      )}
-
-      {/* ── Jar prompt ── */}
-      {givingBalance > 0 && (
-        <div style={{
-          ...cardStyle,
-          marginBottom: 20,
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "space-between",
-          gap: 12,
-        }}>
-          <div style={{ flex: 1, minWidth: 0 }}>
-            <div style={{ fontSize: 14, fontWeight: 700, color: "var(--text-primary)" }}>
-              Ready to use what&apos;s in your jar?
-            </div>
-            <div style={{ fontSize: 12, color: "var(--text-muted)", marginTop: 3 }}>
-              Your jar doesn&apos;t need to be full to make a difference.
-            </div>
-          </div>
-          <button
-            onClick={() => router.push("/jars?tab=cause")}
-            style={{
-              background: "linear-gradient(135deg, var(--coral-primary), var(--coral-dark))",
-              color: "#fff",
-              fontWeight: 700,
-              fontSize: 13,
-              border: "none",
-              borderRadius: 12,
-              padding: "10px 16px",
-              cursor: "pointer",
-              flexShrink: 0,
-              whiteSpace: "nowrap",
-            }}
-          >
-            Donate from jar →
           </button>
         </div>
       )}
