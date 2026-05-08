@@ -66,7 +66,7 @@ export function InstallPrompt() {
       <div className="flex items-center gap-2 mb-1 pr-6">
         <span className="text-lg">📲</span>
         <p className="text-sm font-bold" style={{ color: "var(--text-primary)" }}>
-          Add iSkipped to your home screen
+          Add The iSkipped Web App to Your Home Screen
         </p>
       </div>
 
