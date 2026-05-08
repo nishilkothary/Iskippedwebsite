@@ -775,8 +775,11 @@ function CauseTab({
           <CauseDonateRow project={activeProject} />
         </div>
       ) : (
-        <div className="mb-5">
-          <p className="text-xl font-bold" style={{ color: "var(--text-primary)" }}>I want my skips to help fund</p>
+        <div className="mb-6 mt-1">
+          <p className="text-3xl font-extrabold leading-tight" style={{ color: "#2BBAA4" }}>
+            I want my skips<br />to help fund<span style={{ opacity: 0.4 }}>…</span>
+          </p>
+          <p className="text-xs mt-2" style={{ color: "var(--text-muted)" }}>Pick a cause below</p>
         </div>
       )}
 
@@ -1394,8 +1397,11 @@ function SplurgeTab({
           </div>
         </div>
       ) : (
-        <div className="mb-5">
-          <p className="text-xl font-bold" style={{ color: "var(--text-primary)" }}>I want my skips to fund</p>
+        <div className="mb-6 mt-1">
+          <p className="text-3xl font-extrabold leading-tight" style={{ color: "#8B5CF6" }}>
+            I want my skips<br />to fund<span style={{ opacity: 0.4 }}>…</span>
+          </p>
+          <p className="text-xs mt-2" style={{ color: "var(--text-muted)" }}>Pick a savings goal below</p>
         </div>
       )}
 
