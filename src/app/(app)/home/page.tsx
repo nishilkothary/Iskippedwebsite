@@ -67,7 +67,7 @@ function Jar({ fillPercent, color, gradEnd, label, amount, emoji, causeLabel, go
       onClick={onClick}
     >
       <div style={{ textAlign: "center", maxWidth: w, padding: "0 4px", height: 76, overflow: "hidden", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "flex-end" }}>
-        <div style={{ fontSize: 13, fontWeight: causeLabel ? 700 : 600, color: causeLabel ? color : "rgba(255,255,255,0.75)", lineHeight: 1.35, letterSpacing: 0.2, display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", overflow: "hidden", textAlign: "center" }}>
+        <div style={{ fontSize: 13, fontWeight: causeLabel ? 700 : 600, fontStyle: causeLabel ? "normal" : "italic", color: causeLabel ? color : "rgba(255,255,255,0.75)", lineHeight: 1.35, letterSpacing: 0.2, display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", overflow: "hidden", textAlign: "center" }}>
           {causeLabel ?? emptyLabel ?? "👆 Tap to pick a jar"}
         </div>
       </div>
@@ -329,7 +329,7 @@ export default function HomePage() {
             emoji="🤲"
             causeLabel={activeProject?.title}
             goalAmount={personalGoal > 0 ? personalGoal : undefined}
-            emptyLabel="Pick your cause"
+            emptyLabel="Choose who your skips help"
             href="/jars?tab=cause"
           />
           <Jar
@@ -341,7 +341,7 @@ export default function HomePage() {
             emoji="😊"
             causeLabel={activeGoal?.label}
             goalAmount={activeGoal?.targetAmount}
-            emptyLabel="Pick your reward"
+            emptyLabel="Choose what future you gets"
             onClick={() => router.push("/jars?tab=live")}
           />
         </div>
