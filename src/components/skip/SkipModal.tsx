@@ -272,22 +272,36 @@ export function SkipModal({ onClose }: Props) {
             <label className="block text-sm font-medium mb-2" style={{ color: "var(--text-primary)" }}>This skip&apos;s split</label>
             <div className="flex items-center justify-between text-xs mb-1" style={{ color: "var(--text-secondary)" }}>
               <span>🤲 Give <span className="font-bold" style={{ color: "var(--coral-primary)" }}>{skipGivePct}%</span></span>
-              <span>😊 Live <span className="font-bold" style={{ color: "#2BBAA4" }}>{100 - skipGivePct}%</span></span>
+              <span>💰 Save <span className="font-bold" style={{ color: "#2BBAA4" }}>{100 - skipGivePct}%</span></span>
             </div>
-            <input
-              type="range"
-              min={0}
-              max={100}
-              value={skipGivePct}
-              onChange={(e) => setSkipGivePct(Number(e.target.value))}
-              className="w-full h-2 rounded-full appearance-none cursor-pointer"
-              style={{
-                background: `linear-gradient(to right, #E8637A ${skipGivePct}%, #2BBAA4 ${skipGivePct}%)`,
-              }}
-            />
+            <div className="relative">
+              <input
+                type="range"
+                min={0}
+                max={100}
+                value={skipGivePct}
+                onChange={(e) => {
+                  const raw = Number(e.target.value);
+                  const snapped = Math.abs(raw - profileSplit.give) <= 3 ? profileSplit.give : raw;
+                  setSkipGivePct(snapped);
+                }}
+                className="w-full h-2 rounded-full appearance-none cursor-pointer"
+                style={{
+                  background: `linear-gradient(to right, #E8637A ${skipGivePct}%, #2BBAA4 ${skipGivePct}%)`,
+                }}
+              />
+              <div
+                className="absolute top-0 h-full w-0.5 pointer-events-none"
+                style={{
+                  left: `${profileSplit.give}%`,
+                  background: "rgba(255,255,255,0.55)",
+                  transform: "translateX(-50%)",
+                }}
+              />
+            </div>
             <div className="flex justify-between mt-0.5" style={{ fontSize: 10, color: "var(--text-muted)" }}>
               <span>All Give</span>
-              <span>All Live</span>
+              <span>All Save</span>
             </div>
           </div>
 
