@@ -1334,8 +1334,11 @@ function SplurgeTab({
         <div className="rounded-2xl p-5 mb-4" style={{ background: "var(--bg-surface-1)", border: "1px solid var(--border-default)" }}>
           <p className="text-base font-semibold mb-3 leading-snug" style={{ color: "var(--text-primary)" }}>
             My skips have helped save{" "}
-            <span style={{ color: "#8B5CF6" }}>{Math.round(Math.min(100, (spendingBalance / activeGoal.targetAmount) * 100))}%</span>{" "}
-            towards <span style={{ color: "#8B5CF6" }}>{activeGoal.label}</span>
+            <span style={{ color: "#8B5CF6" }}>{Math.round(Math.min(100, (spendingBalance / activeGoal.targetAmount) * 100))}%</span>
+            {" "}and{" "}
+            <span style={{ color: "#8B5CF6" }}>{formatCurrency(spendingBalance)}</span>
+            {" "}towards my{" "}
+            <span style={{ color: "#8B5CF6" }}>{activeGoal.label}</span>
           </p>
           <div className="space-y-2">
             {activeGoal.shoppingLink && (
@@ -1399,15 +1402,17 @@ function SplurgeTab({
       ) : (
         <div className="mb-6 mt-1">
           <p className="text-3xl font-extrabold leading-tight" style={{ color: "#8B5CF6" }}>
-            I want my skips<br />to fund<span style={{ opacity: 0.4 }}>…</span>
+            I want to reward<br />myself for skipping<br />with<span style={{ opacity: 0.4 }}>…</span>
           </p>
           <p className="text-xs mt-2" style={{ color: "var(--text-muted)" }}>Pick a savings goal below</p>
         </div>
       )}
 
-      <div className="mb-1">
-        <p className="text-xl font-bold text-[#EDF5F0]">I am Saving for...</p>
-      </div>
+      {!activeGoal && (
+        <div className="mb-1">
+          <p className="text-xl font-bold text-[#EDF5F0]">I am Saving for...</p>
+        </div>
+      )}
 
       {/* Goal list — all goals */}
       {goals.length > 0 && (
