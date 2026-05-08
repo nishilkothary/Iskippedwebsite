@@ -759,14 +759,12 @@ function CauseTab({
               : null;
             // eslint-disable-next-line @typescript-eslint/no-explicit-any
             let sentence: any;
-            if (pct !== null && unitFormatted) {
-              sentence = <>My skips have helped save <span style={{ color: "#2BBAA4" }}>{pct}%</span> towards my goal of <span style={{ color: "#2BBAA4" }}>{formatCurrency(personalGoal)}</span> helping fund <span style={{ color: "#2BBAA4" }}>{unitFormatted}</span></>;
-            } else if (pct !== null) {
-              sentence = <>My skips have helped save <span style={{ color: "#2BBAA4" }}>{pct}%</span> towards my goal of <span style={{ color: "#2BBAA4" }}>{formatCurrency(personalGoal)}</span> helping fund <span style={{ color: "#2BBAA4" }}>{activeProject.title}</span></>;
-            } else if (unitFormatted) {
+            if (unitFormatted) {
               sentence = <>My skips have helped fund <span style={{ color: "#2BBAA4" }}>{unitFormatted}</span></>;
+            } else if (pct !== null) {
+              sentence = <>My skips have helped fund <span style={{ color: "#2BBAA4" }}>{pct}%</span></>;
             } else {
-              sentence = <>My skips have helped save <span style={{ color: "#2BBAA4" }}>{formatCurrency(givingBalance)}</span> for <span style={{ color: "#2BBAA4" }}>{activeProject.title}</span></>;
+              sentence = <>My skips have helped fund <span style={{ color: "#2BBAA4" }}>{activeProject.title}</span></>;
             }
             return (
               <p className="text-base font-semibold mb-3 leading-snug" style={{ color: "var(--text-primary)" }}>{sentence}</p>
@@ -1333,9 +1331,7 @@ function SplurgeTab({
       {activeGoal ? (
         <div className="rounded-2xl p-5 mb-4" style={{ background: "var(--bg-surface-1)", border: "1px solid var(--border-default)" }}>
           <p className="text-base font-semibold mb-3 leading-snug" style={{ color: "var(--text-primary)" }}>
-            My skips have helped save{" "}
-            <span style={{ color: "#8B5CF6" }}>{Math.round(Math.min(100, (spendingBalance / activeGoal.targetAmount) * 100))}%</span>
-            {" "}and{" "}
+            My skips have helped saved{" "}
             <span style={{ color: "#8B5CF6" }}>{formatCurrency(spendingBalance)}</span>
             {" "}towards my{" "}
             <span style={{ color: "#8B5CF6" }}>{activeGoal.label}</span>

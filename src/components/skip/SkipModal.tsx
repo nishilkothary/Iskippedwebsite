@@ -163,11 +163,10 @@ export function SkipModal({ onClose }: Props) {
           <p className="text-2xl font-bold leading-tight" style={{ color: "var(--green-primary)" }}>{impactDisplay}</p>
           {goalPct !== null && successActiveGoal && (
             <p className="text-sm mt-3 font-semibold" style={{ color: "var(--text-secondary)" }}>
-              You&apos;re <span style={{ color: "var(--gold-cta)" }}>{goalPct}%</span> of the way to{" "}
+              You&apos;re <span style={{ color: "var(--gold-cta)" }}>{goalPct}%</span> closer to your{" "}
               <span style={{ color: "var(--gold-cta)" }}>{successActiveGoal.label}</span>! 🎯
             </p>
           )}
-          <p className="font-semibold text-sm mt-2" style={{ color: "var(--text-muted)" }}>{formatCurrency(amount)} saved</p>
 
           <div className="mt-5 text-left">
             <p className="text-xs mb-1 uppercase tracking-wide" style={{ color: "var(--text-muted)" }}>Share</p>
