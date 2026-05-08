@@ -522,8 +522,7 @@ function CauseTab({
             href={project.donationURL}
             target="_blank"
             rel="noopener noreferrer"
-            className="flex items-center justify-center gap-1.5 w-full py-2 font-semibold rounded-xl transition-colors text-xs"
-            style={{ border: "1px solid var(--border-emphasis)", color: "var(--green-primary)" }}
+            className="flex items-center justify-center gap-1.5 w-full py-2 bg-[#2ECC71] text-[#0B1A14] font-semibold rounded-xl hover:bg-[#1DB954] transition-colors text-xs"
           >
             {givingBalance > 0 ? `💸 Donate the ${formatCurrency(givingBalance)} In my Jar` : "🌍 Donate →"}
           </a>
@@ -566,7 +565,8 @@ function CauseTab({
           ) : (
             <button
               onClick={() => setDonatingId(project.id)}
-              className="w-full py-2 bg-[#2ECC71] text-[#0B1A14] font-semibold rounded-xl hover:bg-[#1DB954] transition-colors text-xs"
+              className="w-full py-2 font-semibold rounded-xl text-xs"
+              style={{ border: "1px solid rgba(46,204,113,0.3)", color: "rgba(237,245,240,0.6)" }}
             >
               Log Donation
             </button>
@@ -762,7 +762,7 @@ function CauseTab({
             if (unitFormatted) {
               sentence = <>My skips have helped fund <span style={{ color: "#2BBAA4" }}>{unitFormatted}</span></>;
             } else if (pct !== null) {
-              sentence = <>My skips have helped fund <span style={{ color: "#2BBAA4" }}>{pct}%</span></>;
+              sentence = <>My skips have helped fund <span style={{ color: "#2BBAA4" }}>{pct}%</span> toward <span style={{ color: "#2BBAA4" }}>{activeProject.title}</span></>;
             } else {
               sentence = <>My skips have helped fund <span style={{ color: "#2BBAA4" }}>{activeProject.title}</span></>;
             }
@@ -1390,7 +1390,7 @@ function SplurgeTab({
                 className="w-full py-2 font-semibold rounded-xl hover:opacity-90 transition-colors text-xs"
                 style={{ background: "#8B5CF6", color: "white" }}
               >
-                🛍️ I Bought It
+                Log My Purchase
               </button>
             )}
           </div>
