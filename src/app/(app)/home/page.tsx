@@ -268,8 +268,8 @@ export default function HomePage() {
       {/* Greeting + streak */}
       <div className="flex items-start justify-between mb-8">
         <div>
-          <h1 className="text-2xl font-black" style={{ color: "var(--text-primary)" }}>Hey, {firstName} 👋</h1>
-          <p className="mt-0.5 text-sm" style={{ color: "var(--text-muted)" }}>Skip, Save, Give.</p>
+          <h1 className="text-2xl font-black" style={{ color: "var(--text-primary)" }}>Hey {firstName}.</h1>
+          <p className="mt-0.5 text-sm" style={{ color: "var(--text-muted)" }}>What did you almost buy today?</p>
         </div>
         {profile.streak > 0 && (
           <div

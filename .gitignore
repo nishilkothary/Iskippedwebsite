@@ -39,3 +39,10 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# Claude agents — secrets and ephemeral outputs
+.claude/agents/charity-finder/credentials.json
+.claude/agents/charity-finder/token.json
+.claude/agents/charity-finder/gmail_token.json
+.claude/agents/charity-finder/.tmp/
+.claude/agents/charity-finder/tools/__pycache__/
