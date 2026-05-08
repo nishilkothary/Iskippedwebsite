@@ -209,7 +209,7 @@ export function SkipModal({ onClose }: Props) {
   const activeProjectLive = projects.find((p) => p.id === profile?.activeProjectId) ?? null;
   const { goals: spendingGoals, activeId: activeSpendingGoalId } = normalizeSpendingGoals(profile ?? {} as any);
   const activeGoalLive = spendingGoals.find((g) => g.id === activeSpendingGoalId) ?? null;
-  const spendingGoalLabelLive = activeGoalLive?.label ?? "Live a little";
+  const spendingGoalLabelLive = activeGoalLive?.label ?? "Reward Jar";
   const giveGoalAmount = activeProjectLive?.goalAmount ?? 0;
   const giveContribPctLive = giveGoalAmount > 0 ? (skipGiveLive / giveGoalAmount) * 100 : 0;
   const liveGoalAmount = activeGoalLive?.targetAmount ?? 0;
@@ -280,8 +280,8 @@ export function SkipModal({ onClose }: Props) {
           <div>
             <label className="block text-sm font-medium mb-2" style={{ color: "var(--text-primary)" }}>This skip&apos;s split</label>
             <div className="flex items-center justify-between text-xs mb-1" style={{ color: "var(--text-secondary)" }}>
-              <span>🤲 Give <span className="font-bold" style={{ color: "var(--coral-primary)" }}>{skipGivePct}%</span></span>
-              <span>💰 Save <span className="font-bold" style={{ color: "#2BBAA4" }}>{100 - skipGivePct}%</span></span>
+              <span>🤲 Giving <span className="font-bold" style={{ color: "var(--coral-primary)" }}>{skipGivePct}%</span></span>
+              <span>💰 Reward <span className="font-bold" style={{ color: "#2BBAA4" }}>{100 - skipGivePct}%</span></span>
             </div>
             <div className="relative">
               <input
@@ -309,8 +309,8 @@ export function SkipModal({ onClose }: Props) {
               />
             </div>
             <div className="flex justify-between mt-0.5" style={{ fontSize: 10, color: "var(--text-muted)" }}>
-              <span>All Give</span>
-              <span>All Save</span>
+              <span>All Giving</span>
+              <span>All Reward</span>
             </div>
           </div>
 

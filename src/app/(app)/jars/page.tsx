@@ -179,8 +179,8 @@ function JarsPageInner() {
   }
 
   const tabs: { id: Tab; label: string; emoji: string }[] = [
-    { id: "cause", label: "Give a Little", emoji: "🤲" },
-    { id: "live",  label: "Save a Little", emoji: "😊" },
+    { id: "cause", label: "Giving Jar", emoji: "🤲" },
+    { id: "live",  label: "Reward Jar", emoji: "😊" },
   ];
 
   return (
@@ -525,7 +525,7 @@ function CauseTab({
             className="flex items-center justify-center gap-1.5 w-full py-2 font-semibold rounded-xl transition-colors text-xs"
             style={{ border: "1px solid var(--border-emphasis)", color: "var(--green-primary)" }}
           >
-            🌍 Donate →
+            {givingBalance > 0 ? `💸 Donate the ${formatCurrency(givingBalance)} In my Jar` : "🌍 Donate →"}
           </a>
         )}
         {donatingId === project.id ? (
@@ -568,7 +568,7 @@ function CauseTab({
               onClick={() => setDonatingId(project.id)}
               className="w-full py-2 bg-[#2ECC71] text-[#0B1A14] font-semibold rounded-xl hover:bg-[#1DB954] transition-colors text-xs"
             >
-              {givingBalance > 0 ? `💸 Donate the ${formatCurrency(givingBalance)} In my Jar` : "💸 I Donated"}
+              Log Donation
             </button>
           )
         }
@@ -586,7 +586,7 @@ function CauseTab({
               <button onClick={() => setDeactivateConfirm(false)} className="absolute top-4 right-4 text-xl leading-none" style={{ color: "var(--text-muted)" }}>×</button>
               <p className="text-lg font-bold pr-6" style={{ color: "var(--text-primary)" }}>Deactivate this jar?</p>
               <p className="text-xs mt-1.5" style={{ color: "var(--text-secondary)" }}>
-                You have <span className="font-semibold" style={{ color: "var(--coral-primary)" }}>{formatCurrency(givingBalance)}</span> in your Give a Little jar. After deactivating, it stays available until you pick a new cause.
+                You have <span className="font-semibold" style={{ color: "var(--coral-primary)" }}>{formatCurrency(givingBalance)}</span> in your Giving Jar. After deactivating, it stays available until you pick a new cause.
               </p>
             </div>
             <div className="px-5 py-4 flex gap-2">

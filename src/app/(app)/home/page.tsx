@@ -320,7 +320,7 @@ export default function HomePage() {
             fillPercent={givingFillPct}
             color="#2BBAA4"
             gradEnd="#1E9485"
-            label="Give a Little"
+            label="Giving Jar"
             amount={formatCurrency(givingBalance)}
             emoji="🤲"
             causeLabel={activeProject?.title}
@@ -332,7 +332,7 @@ export default function HomePage() {
             fillPercent={spendingFillPct}
             color="#8B5CF6"
             gradEnd="#6D28D9"
-            label="Save a Little"
+            label="Reward Jar"
             amount={formatCurrency(spendingBalance)}
             emoji="😊"
             causeLabel={activeGoal?.label}

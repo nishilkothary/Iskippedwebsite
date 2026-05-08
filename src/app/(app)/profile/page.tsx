@@ -22,7 +22,7 @@ const FAQ_ITEMS = [
   },
   {
     q: "Do I have to select a donation jar?",
-    a: "While we strongly encourage everyone to pick a cause, it's not required. Your Give a Little jar will keep filling up until you choose one.",
+    a: "While we strongly encourage everyone to pick a cause, it's not required. Your Giving Jar will keep filling up until you choose one.",
   },
   {
     q: "Can I fund multiple save or give jars at once?",
@@ -317,7 +317,7 @@ function JarSettings({
   return (
     <div className="p-6 mb-6" style={{ background: "var(--bg-surface-1)", border: "1px solid var(--border-default)", borderRadius: 20 }}>
       <h2 className="text-base font-bold mb-1" style={{ color: "var(--text-primary)" }}>Preferred Jar Split</h2>
-      <p className="text-xs mb-4" style={{ color: "var(--text-secondary)" }}>🤲 Give a Little / 😊 Save a Little</p>
+      <p className="text-xs mb-4" style={{ color: "var(--text-secondary)" }}>🤲 Giving Jar / 😊 Reward Jar</p>
 
       {/* Mode toggle */}
       <div className="flex rounded-xl p-1 mb-4" style={{ background: "var(--bg-surface-2)" }}>
@@ -359,7 +359,7 @@ function JarSettings({
           <p className="text-xs mb-2" style={{ color: "var(--text-muted)" }}>Enter your Give % (0–100). Save % is calculated automatically.</p>
           <div className="flex items-center gap-3">
             <div className="flex-1">
-              <label className="text-xs mb-1 block" style={{ color: "var(--coral-primary)" }}>🤲 Give %</label>
+              <label className="text-xs mb-1 block" style={{ color: "var(--coral-primary)" }}>🤲 Giving %</label>
               <input
                 type="number"
                 min={0}
@@ -372,7 +372,7 @@ function JarSettings({
             </div>
             <div className="text-lg font-bold" style={{ color: "var(--text-muted)", paddingTop: 20 }}>/</div>
             <div className="flex-1">
-              <label className="text-xs mb-1 block" style={{ color: "#2BBAA4" }}>😊 Save %</label>
+              <label className="text-xs mb-1 block" style={{ color: "#2BBAA4" }}>😊 Reward %</label>
               <div
                 className="w-full rounded-xl px-3 py-2.5 text-sm font-bold"
                 style={{ background: "var(--bg-surface-2)", border: "1px solid var(--border-default)", color: "var(--text-muted)" }}
