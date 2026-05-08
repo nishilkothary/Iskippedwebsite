@@ -8,6 +8,7 @@ import { useProjects } from "@/hooks/useProjects";
 import { useUIStore } from "@/store/uiStore";
 import { formatCurrency } from "@/lib/utils/currency";
 import { formatRelativeTime } from "@/lib/utils/dates";
+import { InstallPrompt } from "@/components/InstallPrompt";
 import { normalizeJarSplit, normalizeSpendingGoals } from "@/lib/services/firebase/users";
 import { EditSkipModal } from "@/components/skip/EditSkipModal";
 import { Skip } from "@/lib/types/models";
@@ -294,6 +295,8 @@ export default function HomePage() {
           ✨ Log a Skip
         </button>
       </div>
+
+      <InstallPrompt />
 
       {/* ── Jars card (full width) ── */}
       <div style={{ ...cardStyle, marginBottom: 20 }}>
