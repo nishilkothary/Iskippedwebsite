@@ -176,7 +176,7 @@ export function SkipModal({ onClose }: Props) {
             <p className="text-2xl font-bold leading-tight" style={{ color: "var(--green-primary)" }}>{impactDisplay}</p>
             {goalPctDisplay !== null && successActiveGoal && (
               <p className="text-sm mt-3 font-semibold" style={{ color: "var(--text-secondary)" }}>
-                Your Generosity has brought you{" "}
+                Your Skip has also brought you{" "}
                 <span style={{ color: "var(--gold-cta)" }}>{goalPctDisplay}%</span> closer to your{" "}
                 <span style={{ color: "var(--gold-cta)" }}>{successActiveGoal.label}</span> reward!
               </p>
