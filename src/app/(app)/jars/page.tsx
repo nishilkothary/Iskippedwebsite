@@ -394,6 +394,14 @@ function makeJarPath(scale: number) {
   ].join(" ");
 }
 
+function getCategoryAbbr(project: Project): { abbr: string; color: string } {
+  if (project.tags?.includes("education")) return { abbr: "EDU", color: "#2ECC71" };
+  if (project.tags?.includes("food"))      return { abbr: "MEAL", color: "#F59E0B" };
+  if (project.tags?.includes("health"))    return { abbr: "CARE", color: "#3B82F6" };
+  if (project.isCustom) return { abbr: project.title.slice(0, 3).toUpperCase(), color: "#8B5CF6" };
+  return { abbr: "GIVE", color: "#2ECC71" };
+}
+
 /* ── Cause Tab ── */
 function CauseTab({
   uid,
@@ -459,6 +467,7 @@ function CauseTab({
   const [donationWorking, setDonationWorking] = useState(false);
   const [deactivateConfirm, setDeactivateConfirm] = useState(false);
   const [deactivating, setDeactivating] = useState(false);
+  const [selectedCategory, setSelectedCategory] = useState("All");
 
   async function handleDelete(projectId: string) {
     setDeleting(true);
@@ -748,293 +757,248 @@ function CauseTab({
         </div>
       )}
 
-      {/* Give impact summary */}
+      {/* Page heading */}
+      <div className="mb-4">
+        <h1 className="text-4xl font-extrabold leading-tight" style={{ color: "#2ECC71" }}>Impactful You</h1>
+        <p className="text-sm mt-1" style={{ color: "var(--text-secondary)" }}>
+          Every Skip can become Real World Impact. Pick a Giving Jar. Fill up as you Skip. Donate when you are Ready.
+        </p>
+      </div>
+
+      {/* Scoreboard (active cause) OR Featured Cause (no active cause) */}
       {activeProject ? (
-        <div className="rounded-2xl p-5 mb-4" style={{ background: "var(--bg-surface-2)", border: "1px solid var(--border-default)" }}>
-          {(() => {
-            const personalGoal = causeGoalAmounts?.[activeProject.id] ?? activeProject.goalAmount ?? 0;
-            const pct = personalGoal > 0 ? Math.round(Math.min(100, (givingBalance / personalGoal) * 100)) : null;
-            const unitFormatted = activeProject.unitCost && !activeProject.unitIsGoal && activeProject.unitName
-              ? formatUnits(givingBalance, activeProject.unitCost, activeProject.unitName)
-              : null;
-            // eslint-disable-next-line @typescript-eslint/no-explicit-any
-            let sentence: any;
-            if (unitFormatted) {
-              sentence = <>My skips have helped fund <span style={{ color: "#2BBAA4" }}>{unitFormatted}</span></>;
-            } else if (pct !== null) {
-              sentence = <>My skips have helped fund <span style={{ color: "#2BBAA4" }}>{pct}%</span> toward <span style={{ color: "#2BBAA4" }}>{activeProject.title}</span></>;
-            } else {
-              sentence = <>My skips have helped fund <span style={{ color: "#2BBAA4" }}>{activeProject.title}</span></>;
-            }
-            return (
-              <p className="text-base font-semibold mb-3 leading-snug" style={{ color: "var(--text-primary)" }}>{sentence}</p>
-            );
-          })()}
-          <CauseDonateRow project={activeProject} />
-        </div>
-      ) : (
-        <div className="mb-6 mt-1">
-          <p className="text-3xl font-extrabold leading-tight" style={{ color: "#2BBAA4" }}>
-            I want my skips<br />to help fund<span style={{ opacity: 0.4 }}>…</span>
-          </p>
-          <p className="text-xs mt-2" style={{ color: "var(--text-muted)" }}>Pick a cause below</p>
-        </div>
-      )}
-
-      {/* All causes — grouped by org */}
-      {(() => {
-        const officialGroups: { sponsor: string; projects: Project[] }[] = [];
-        const customProjects: Project[] = [];
-        for (const p of projects) {
-          if (p.isCustom) { customProjects.push(p); continue; }
-          const g = officialGroups.find(g => g.sponsor === p.sponsor);
-          if (g) g.projects.push(p);
-          else officialGroups.push({ sponsor: p.sponsor, projects: [p] });
-        }
-
-        const renderCard = (project: Project) => {
-          const isActive = activeProject?.id === project.id;
-          const isEditing = editingProjectId === project.id;
+        /* Scoreboard */
+        (() => {
+          const balance = causeJarBalances?.[activeProject.id] ?? givingBalance;
+          const personalGoal = causeGoalAmounts?.[activeProject.id] ?? activeProject.goalAmount ?? 0;
+          const isUnitCost = !!(activeProject.unitCost && !activeProject.unitIsGoal && activeProject.unitDisplay);
+          const unitsFunded = isUnitCost ? Math.floor(balance / activeProject.unitCost!) : 0;
+          const pct = personalGoal > 0 ? Math.min(100, Math.round((balance / personalGoal) * 100)) : null;
+          const milestone = personalGoal > 0 ? getNextMilestone(personalGoal, balance) : null;
+          const isEditing = editingProjectId === activeProject.id;
           return (
-            <div
-              key={project.id}
-              className="w-64 flex-shrink-0 snap-start rounded-2xl p-3"
-              style={{
-                background: isActive ? "rgba(255,255,255,0.04)" : "var(--bg-surface-1)",
-                border: isActive ? "2px solid rgba(255,255,255,0.7)" : "1px solid var(--border-default)",
-              }}
-            >
+            <div className="rounded-2xl p-5 mb-2" style={{ background: "var(--bg-surface-2)", border: "1px solid var(--border-default)" }}>
+              <div className="flex items-center gap-2 mb-3">
+                <button
+                  onClick={() => setDeactivateConfirm(true)}
+                  className="inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-full"
+                  style={{ background: "rgba(46,204,113,0.15)", color: "#2ECC71", border: "none", cursor: "pointer" }}
+                >
+                  ✓ Active
+                </button>
+                {activeProject.isCustom && (
+                  <>
+                    <button onClick={() => startEdit(activeProject)} className="p-1 text-sm" style={{ color: "var(--text-muted)" }} title="Edit">✏️</button>
+                    <button onClick={() => setConfirmDeleteId(activeProject.id)} className="text-[rgba(237,245,240,0.35)] hover:text-red-400 p-1 text-sm" title="Delete">🗑️</button>
+                  </>
+                )}
+              </div>
               {isEditing ? (
                 <div className="space-y-2">
-                  <input
-                    type="text"
-                    value={editTitle}
-                    onChange={(e) => setEditTitle(e.target.value)}
-                    placeholder="Cause (e.g. A Student's Yearly Education)"
-                    className="w-full rounded-xl px-3 py-2 text-sm focus:outline-none" style={{ background: "var(--bg-surface-2)", border: "1px solid var(--border-default)", color: "var(--text-primary)" }}
-                    autoFocus
-                    maxLength={100}
-                  />
-                  <input
-                    type="text"
-                    value={editSponsor}
-                    onChange={(e) => setEditSponsor(e.target.value)}
-                    placeholder="Organization (e.g. Caring for Cambodia)"
-                    className="w-full rounded-xl px-3 py-2 text-sm focus:outline-none" style={{ background: "var(--bg-surface-2)", border: "1px solid var(--border-default)", color: "var(--text-primary)" }}
-                    maxLength={100}
-                  />
-                  <input
-                    type="text"
-                    value={editLocation}
-                    onChange={(e) => setEditLocation(e.target.value)}
-                    placeholder="Location (optional, e.g. Cambodia)"
-                    className="w-full rounded-xl px-3 py-2 text-sm focus:outline-none" style={{ background: "var(--bg-surface-2)", border: "1px solid var(--border-default)", color: "var(--text-primary)" }}
-                    maxLength={100}
-                  />
+                  <input type="text" value={editTitle} onChange={(e) => setEditTitle(e.target.value)} placeholder="Cause title" className="w-full rounded-xl px-3 py-2 text-sm focus:outline-none" style={{ background: "var(--bg-surface-1)", border: "1px solid var(--border-default)", color: "var(--text-primary)" }} autoFocus maxLength={100} />
+                  <input type="text" value={editSponsor} onChange={(e) => setEditSponsor(e.target.value)} placeholder="Organization" className="w-full rounded-xl px-3 py-2 text-sm focus:outline-none" style={{ background: "var(--bg-surface-1)", border: "1px solid var(--border-default)", color: "var(--text-primary)" }} maxLength={100} />
+                  <input type="text" value={editLocation} onChange={(e) => setEditLocation(e.target.value)} placeholder="Location (optional)" className="w-full rounded-xl px-3 py-2 text-sm focus:outline-none" style={{ background: "var(--bg-surface-1)", border: "1px solid var(--border-default)", color: "var(--text-primary)" }} maxLength={100} />
                   <div className="relative">
                     <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-[rgba(237,245,240,0.6)]">$</span>
-                    <input
-                      type="number"
-                      value={editGoalStr}
-                      onChange={(e) => setEditGoalStr(e.target.value)}
-                      placeholder="Skipped Amount Needed"
-                      className="w-full pl-7 rounded-xl px-3 py-2 text-sm focus:outline-none" style={{ background: "var(--bg-surface-2)", border: "1px solid var(--border-default)", color: "var(--text-primary)" }}
-                    />
+                    <input type="number" value={editGoalStr} onChange={(e) => setEditGoalStr(e.target.value)} placeholder="Goal amount" className="w-full pl-7 rounded-xl px-3 py-2 text-sm focus:outline-none" style={{ background: "var(--bg-surface-1)", border: "1px solid var(--border-default)", color: "var(--text-primary)" }} />
                   </div>
-                  <input
-                    type="url"
-                    value={editURL}
-                    onChange={(e) => setEditURL(e.target.value)}
-                    placeholder="Donation link (optional)"
-                    className="w-full rounded-xl px-3 py-2 text-sm focus:outline-none" style={{ background: "var(--bg-surface-2)", border: "1px solid var(--border-default)", color: "var(--text-primary)" }}
-                    maxLength={500}
-                  />
+                  <input type="url" value={editURL} onChange={(e) => setEditURL(e.target.value)} placeholder="Donation link (optional)" className="w-full rounded-xl px-3 py-2 text-sm focus:outline-none" style={{ background: "var(--bg-surface-1)", border: "1px solid var(--border-default)", color: "var(--text-primary)" }} maxLength={500} />
                   <div className="flex gap-2">
-                    <button
-                      onClick={() => handleEditSave(project.id)}
-                      disabled={editWorking || !editTitle.trim()}
-                      className="flex-1 bg-[#2ECC71] text-[#0B1A14] font-semibold py-2 rounded-xl text-sm disabled:opacity-50"
-                    >
-                      {editWorking ? "Saving…" : "Save"}
-                    </button>
-                    <button
-                      onClick={() => setEditingProjectId(null)}
-                      className="px-4 py-2 border-[rgba(46,204,113,0.12)] text-[rgba(237,245,240,0.6)] font-semibold rounded-xl text-sm"
-                    >
-                      Cancel
-                    </button>
+                    <button onClick={() => handleEditSave(activeProject.id)} disabled={editWorking || !editTitle.trim()} className="flex-1 bg-[#2ECC71] text-[#0B1A14] font-semibold py-2 rounded-xl text-sm disabled:opacity-50">{editWorking ? "Saving…" : "Save"}</button>
+                    <button onClick={() => setEditingProjectId(null)} className="px-4 py-2 font-semibold rounded-xl text-sm" style={{ border: "1px solid var(--border-default)", color: "var(--text-secondary)" }}>Cancel</button>
                   </div>
                 </div>
               ) : (
                 <>
-                  {isActive ? (
+                  <p className="text-xs mb-0.5" style={{ color: "var(--text-muted)" }}>Your Giving Jar</p>
+                  <p className="text-2xl font-bold" style={{ color: "var(--text-primary)" }}>{activeProject.title}</p>
+                  <p className="text-xs mt-0.5" style={{ color: "var(--text-muted)" }}>by {activeProject.sponsor}</p>
+                  <p className="text-sm mt-2" style={{ color: "var(--text-secondary)" }}>
+                    <span className="font-semibold" style={{ color: "var(--text-primary)" }}>{formatCurrency(balance)}</span> saved toward this cause
+                  </p>
+                  {isUnitCost ? (
+                    <p className="text-sm font-bold mt-1" style={{ color: "#2ECC71" }}>{unitsFunded} {activeProject.unitDisplay} funded</p>
+                  ) : pct !== null ? (
+                    <p className="text-sm font-bold mt-1" style={{ color: "#2ECC71" }}>{pct}% Funded</p>
+                  ) : null}
+                  {personalGoal > 0 && (
                     <>
-                      <div className="flex items-start justify-between gap-3 mb-1">
-                        <p className="font-extrabold text-[#EDF5F0] text-base flex-1 min-w-0">{project.title}</p>
-                        <div className="flex items-center gap-1.5 flex-shrink-0">
-                          {project.isCustom && (
-                            <>
-                              <button onClick={() => startEdit(project)} className="p-1 text-base" style={{ color: "var(--text-muted)" }} title="Edit">✏️</button>
-                              <button onClick={() => setConfirmDeleteId(project.id)} className="text-[rgba(237,245,240,0.35)] hover:text-red-400 p-1 text-base" title="Delete">🗑️</button>
-                            </>
-                          )}
-                          <button
-                            onClick={() => setDeactivateConfirm(true)}
-                            className="inline-block text-[10px] font-bold px-2 py-0.5 rounded-full"
-                            style={{ background: "rgba(232,99,122,0.15)", color: "var(--coral-primary)", border: "none", cursor: "pointer" }}
-                          >
-                            ✓ Active
-                          </button>
-                        </div>
+                      <div className="mt-3 h-2 rounded-full overflow-hidden" style={{ background: "var(--bg-surface-1)" }}>
+                        <div className="h-full rounded-full" style={{ width: `${Math.min(100, pct ?? 0)}%`, background: "#2ECC71" }} />
                       </div>
-                      {project.unitName && project.unitCost ? (
-                        <p className="text-sm font-bold text-[#2ECC71] mt-1">
-                          1 {project.unitName} = {project.unitCost < 1 ? `${Math.round(project.unitCost * 100)}¢` : formatCurrency(project.unitCost)}
+                      {milestone && (
+                        <p className="text-xs mt-1.5" style={{ color: "var(--text-secondary)" }}>
+                          Next milestone: <span className="font-semibold" style={{ color: "var(--text-primary)" }}>{formatCurrency(milestone.value)}</span>
+                          {" · "}skip <span className="font-semibold" style={{ color: "#2ECC71" }}>{formatCurrency(milestone.need)}</span> more to hit it
                         </p>
-                      ) : project.goalAmount > 0 ? (
-                        <p className="text-sm font-bold text-[#2ECC71] mt-1">
-                          Goal: {formatCurrency(project.goalAmount)}
-                        </p>
-                      ) : null}
-                      {(project.learnMoreURL || project.donationURL) && (
-                        <a href={project.learnMoreURL ?? project.donationURL!} target="_blank" rel="noopener noreferrer" className="text-xs text-[#2ECC71] underline mt-2 block">
-                          ↗ Learn more
-                        </a>
                       )}
-                    </>
-                  ) : (
-                    <>
-                      <div className="flex items-start justify-between gap-3 mb-1">
-                        <p className="font-extrabold text-[#EDF5F0] text-base flex-1 min-w-0">{project.title}</p>
-                        {project.isCustom && (
-                          <div className="flex items-center gap-1.5 flex-shrink-0">
-                            <button onClick={() => startEdit(project)} className="p-1 text-base" style={{ color: "var(--text-muted)" }} title="Edit">✏️</button>
-                            <button onClick={() => setConfirmDeleteId(project.id)} className="text-[rgba(237,245,240,0.35)] hover:text-red-400 p-1 text-base" title="Delete">🗑️</button>
-                          </div>
-                        )}
-                      </div>
-                      {project.unitName && project.unitCost ? (
-                        <p className="text-sm font-bold text-[#2ECC71] mt-1">
-                          1 {project.unitName} = {project.unitCost < 1 ? `${Math.round(project.unitCost * 100)}¢` : formatCurrency(project.unitCost)}
-                        </p>
-                      ) : project.goalAmount > 0 ? (
-                        <p className="text-sm font-bold text-[#2ECC71] mt-1">
-                          Goal: {formatCurrency(project.goalAmount)}
-                        </p>
-                      ) : null}
-                      {(project.learnMoreURL || project.donationURL) && (
-                        <a href={project.learnMoreURL ?? project.donationURL!} target="_blank" rel="noopener noreferrer" className="text-xs text-[#2ECC71] underline mt-2 block">
-                          ↗ Learn more
-                        </a>
-                      )}
-                      <button
-                        onClick={() => handleSetActive(project)}
-                        className="mt-3 w-full py-2 text-xs font-semibold text-[#2ECC71] border border-[#2ECC71] rounded-xl hover:bg-[#162E23] transition-colors"
-                      >
-                        Set as My Jar
-                      </button>
                     </>
                   )}
+                  <CauseDonateRow project={activeProject} />
                 </>
               )}
             </div>
           );
-        };
-
-        return (
-          <div>
-            <div className="space-y-5">
-              {officialGroups.map((group) => (
-                <div key={group.sponsor}>
-                  <p className="text-xl font-bold text-[#EDF5F0] mb-3">{group.sponsor}</p>
-                  <div className="flex gap-3 overflow-x-auto pb-2 -mx-1 px-1 snap-x snap-mandatory [scrollbar-width:none] [&::-webkit-scrollbar]:hidden md:flex-wrap md:overflow-x-visible">
-                    {group.projects.map(renderCard)}
-                  </div>
-                </div>
-              ))}
-              {customProjects.length > 0 && (
-                <div>
-                  <p className="text-xl font-bold text-[#EDF5F0] mb-3">Your Custom Causes</p>
-                  <div className="flex gap-3 overflow-x-auto pb-2 -mx-1 px-1 snap-x snap-mandatory [scrollbar-width:none] [&::-webkit-scrollbar]:hidden md:flex-wrap md:overflow-x-visible">
-                    {customProjects.map(renderCard)}
-                  </div>
-                </div>
-              )}
+        })()
+      ) : (
+        /* Featured Cause */
+        (() => {
+          const featured = projects.find(p => p.id === "cfc") ?? projects.find(p => !p.isCustom);
+          if (!featured) return null;
+          const { abbr, color } = getCategoryAbbr(featured);
+          return (
+            <div className="rounded-2xl overflow-hidden mb-2" style={{ background: "var(--bg-surface-1)", border: "1px solid var(--border-default)" }}>
+              <div className="flex items-center justify-center h-28 w-full" style={{ background: "var(--bg-surface-2)" }}>
+                {featured.imageURL
+                  ? <img src={featured.imageURL} className="w-full h-full object-cover" alt={featured.title} />
+                  : <span className="text-2xl font-extrabold" style={{ color }}>{abbr}</span>
+                }
+              </div>
+              <div className="p-4">
+                <p className="text-[10px] font-bold uppercase tracking-wide mb-1" style={{ color: "#2ECC71" }}>This Month&apos;s Featured Cause</p>
+                <p className="text-xl font-bold" style={{ color: "var(--text-primary)" }}>{featured.title}</p>
+                <p className="text-xs mt-0.5" style={{ color: "var(--text-muted)" }}>by {featured.sponsor}</p>
+                {featured.description && <p className="text-xs mt-1.5 line-clamp-2" style={{ color: "var(--text-secondary)" }}>{featured.description}</p>}
+                {featured.unitCost && !featured.unitIsGoal && featured.unitName && (
+                  <p className="text-xs mt-1.5 font-semibold" style={{ color: "#2ECC71" }}>{formatCurrency(featured.unitCost)} = 1 {featured.unitName}</p>
+                )}
+                <button
+                  onClick={() => handleSetActive(featured)}
+                  className="mt-3 w-full py-2.5 text-sm font-semibold rounded-xl"
+                  style={{ background: "#2ECC71", color: "#0B1A14" }}
+                >
+                  Make this my Giving Jar
+                </button>
+                {(featured.learnMoreURL || featured.donationURL) && (
+                  <a href={featured.learnMoreURL ?? featured.donationURL!} target="_blank" rel="noopener noreferrer" className="block text-center text-xs mt-2" style={{ color: "#2ECC71" }}>
+                    Learn More →
+                  </a>
+                )}
+              </div>
             </div>
+          );
+        })()
+      )}
+
+      {/* Category filter tabs */}
+      <div className="flex gap-2 overflow-x-auto pb-1 -mx-1 px-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+        {["All", "Education", "Meals", "Health", "Emergency", "My Custom"].map(cat => (
+          <button
+            key={cat}
+            onClick={() => setSelectedCategory(cat)}
+            className="flex-shrink-0 px-3 py-1.5 rounded-full text-xs font-semibold transition-colors"
+            style={selectedCategory === cat
+              ? { background: "#2ECC71", color: "#0B1A14" }
+              : { border: "1px solid rgba(46,204,113,0.3)", color: "var(--text-secondary)" }
+            }
+          >
+            {cat}
+          </button>
+        ))}
+      </div>
+
+      {/* Cause card grid */}
+      {(() => {
+        const tagMap: Record<string, string> = {
+          Education: "education", Meals: "food", Health: "health", Emergency: "emergency",
+        };
+        const filteredProjects = projects.filter(p => {
+          if (selectedCategory === "My Custom") return p.isCustom;
+          if (selectedCategory === "All") return !p.isCustom;
+          return p.tags?.includes(tagMap[selectedCategory]);
+        });
+        return (
+          <div className="grid grid-cols-2 gap-3">
+            {filteredProjects.map(project => {
+              const isActive = activeProject?.id === project.id;
+              const isEditing = editingProjectId === project.id;
+              const { abbr, color } = getCategoryAbbr(project);
+              return (
+                <div
+                  key={project.id}
+                  className="rounded-2xl overflow-hidden"
+                  style={{ background: "var(--bg-surface-1)", border: isActive ? "2px solid #2ECC71" : "1px solid var(--border-default)" }}
+                >
+                  {isEditing ? (
+                    <div className="p-3 space-y-2">
+                      <input type="text" value={editTitle} onChange={(e) => setEditTitle(e.target.value)} placeholder="Cause title" className="w-full rounded-xl px-3 py-2 text-sm focus:outline-none" style={{ background: "var(--bg-surface-2)", border: "1px solid var(--border-default)", color: "var(--text-primary)" }} autoFocus maxLength={100} />
+                      <input type="text" value={editSponsor} onChange={(e) => setEditSponsor(e.target.value)} placeholder="Organization" className="w-full rounded-xl px-3 py-2 text-sm focus:outline-none" style={{ background: "var(--bg-surface-2)", border: "1px solid var(--border-default)", color: "var(--text-primary)" }} maxLength={100} />
+                      <div className="relative">
+                        <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-[rgba(237,245,240,0.6)]">$</span>
+                        <input type="number" value={editGoalStr} onChange={(e) => setEditGoalStr(e.target.value)} placeholder="Goal amount" className="w-full pl-7 rounded-xl px-3 py-2 text-sm focus:outline-none" style={{ background: "var(--bg-surface-2)", border: "1px solid var(--border-default)", color: "var(--text-primary)" }} />
+                      </div>
+                      <input type="url" value={editURL} onChange={(e) => setEditURL(e.target.value)} placeholder="Donation link (optional)" className="w-full rounded-xl px-3 py-2 text-sm focus:outline-none" style={{ background: "var(--bg-surface-2)", border: "1px solid var(--border-default)", color: "var(--text-primary)" }} maxLength={500} />
+                      <div className="flex gap-2">
+                        <button onClick={() => handleEditSave(project.id)} disabled={editWorking || !editTitle.trim()} className="flex-1 bg-[#2ECC71] text-[#0B1A14] font-semibold py-2 rounded-xl text-xs disabled:opacity-50">{editWorking ? "Saving…" : "Save"}</button>
+                        <button onClick={() => setEditingProjectId(null)} className="px-3 py-2 rounded-xl text-xs" style={{ border: "1px solid var(--border-default)", color: "var(--text-secondary)" }}>Cancel</button>
+                      </div>
+                    </div>
+                  ) : (
+                    <>
+                      <div className="flex items-center justify-center h-24 w-full" style={{ background: "var(--bg-surface-2)" }}>
+                        {project.imageURL
+                          ? <img src={project.imageURL} className="w-full h-full object-cover" alt={project.title} />
+                          : <span className="text-sm font-extrabold" style={{ color }}>{abbr}</span>
+                        }
+                      </div>
+                      <div className="p-3">
+                        {isActive && <span className="text-[10px] font-bold px-2 py-0.5 rounded-full mb-1 inline-block" style={{ background: "rgba(46,204,113,0.15)", color: "#2ECC71" }}>✓ Active</span>}
+                        <p className="text-sm font-bold leading-snug" style={{ color: "var(--text-primary)" }}>{project.title}</p>
+                        <p className="text-xs mt-0.5" style={{ color: "var(--text-muted)" }}>by {project.sponsor}</p>
+                        {project.description && <p className="text-xs mt-1 line-clamp-2" style={{ color: "var(--text-secondary)" }}>{project.description}</p>}
+                        {project.unitCost && !project.unitIsGoal && project.unitName && (
+                          <p className="text-xs mt-1 font-semibold" style={{ color: "#2ECC71" }}>{formatCurrency(project.unitCost)} = 1 {project.unitName}</p>
+                        )}
+                        <button
+                          onClick={() => handleSetActive(project)}
+                          className="mt-2 w-full py-2 text-xs font-semibold rounded-xl transition-colors"
+                          style={isActive
+                            ? { background: "rgba(46,204,113,0.15)", color: "#2ECC71" }
+                            : { background: "#2ECC71", color: "#0B1A14" }
+                          }
+                        >
+                          {isActive ? "✓ Your Giving Jar" : "Choose Cause"}
+                        </button>
+                        {project.isCustom && (
+                          <div className="flex gap-1 mt-1.5 justify-end">
+                            <button onClick={() => startEdit(project)} className="text-[rgba(237,245,240,0.35)] hover:text-[#2ECC71] p-1 text-sm">✏️</button>
+                            <button onClick={() => setConfirmDeleteId(project.id)} className="text-[rgba(237,245,240,0.35)] hover:text-red-400 p-1 text-sm">🗑️</button>
+                          </div>
+                        )}
+                      </div>
+                    </>
+                  )}
+                </div>
+              );
+            })}
           </div>
         );
       })()}
 
-        {/* Add your own cause */}
-        {showAddForm ? (
+      {/* Add cause form — only in My Custom tab */}
+      {selectedCategory === "My Custom" && (
+        showAddForm ? (
           <div className="mt-3 rounded-2xl p-4 space-y-3" style={{ background: "var(--bg-surface-1)", border: "1px solid var(--border-default)" }}>
             <p className="text-sm font-semibold" style={{ color: "var(--text-primary)" }}>Add your own cause</p>
-            <input
-              type="text"
-              placeholder="Cause (e.g. A Student's Yearly Education)"
-              value={customTitle}
-              onChange={(e) => setCustomTitle(e.target.value)}
-              className="w-full rounded-xl px-3 py-2.5 text-sm focus:outline-none" style={{ background: "var(--bg-surface-2)", border: "1px solid var(--border-default)", color: "var(--text-primary)" }}
-              maxLength={100}
-            />
-            <input
-              type="text"
-              placeholder="Organization (e.g. Caring for Cambodia)"
-              value={customSponsor}
-              onChange={(e) => setCustomSponsor(e.target.value)}
-              className="w-full rounded-xl px-3 py-2.5 text-sm focus:outline-none" style={{ background: "var(--bg-surface-2)", border: "1px solid var(--border-default)", color: "var(--text-primary)" }}
-              maxLength={100}
-            />
-            <input
-              type="text"
-              placeholder="Location (optional, e.g. Cambodia)"
-              value={customLocation}
-              onChange={(e) => setCustomLocation(e.target.value)}
-              className="w-full rounded-xl px-3 py-2.5 text-sm focus:outline-none" style={{ background: "var(--bg-surface-2)", border: "1px solid var(--border-default)", color: "var(--text-primary)" }}
-              maxLength={100}
-            />
+            <input type="text" placeholder="Cause (e.g. A Student's Yearly Education)" value={customTitle} onChange={(e) => setCustomTitle(e.target.value)} className="w-full rounded-xl px-3 py-2.5 text-sm focus:outline-none" style={{ background: "var(--bg-surface-2)", border: "1px solid var(--border-default)", color: "var(--text-primary)" }} maxLength={100} />
+            <input type="text" placeholder="Organization (e.g. Caring for Cambodia)" value={customSponsor} onChange={(e) => setCustomSponsor(e.target.value)} className="w-full rounded-xl px-3 py-2.5 text-sm focus:outline-none" style={{ background: "var(--bg-surface-2)", border: "1px solid var(--border-default)", color: "var(--text-primary)" }} maxLength={100} />
+            <input type="text" placeholder="Location (optional, e.g. Cambodia)" value={customLocation} onChange={(e) => setCustomLocation(e.target.value)} className="w-full rounded-xl px-3 py-2.5 text-sm focus:outline-none" style={{ background: "var(--bg-surface-2)", border: "1px solid var(--border-default)", color: "var(--text-primary)" }} maxLength={100} />
             <div className="relative">
               <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-[rgba(237,245,240,0.6)]">$</span>
-              <input
-                type="number"
-                placeholder="Skipped Amount Needed"
-                value={customGoalStr}
-                onChange={(e) => setCustomGoalStr(e.target.value)}
-                className="w-full pl-7 rounded-xl px-3 py-2.5 text-sm focus:outline-none" style={{ background: "var(--bg-surface-2)", border: "1px solid var(--border-default)", color: "var(--text-primary)" }}
-              />
+              <input type="number" placeholder="Skipped Amount Needed" value={customGoalStr} onChange={(e) => setCustomGoalStr(e.target.value)} className="w-full pl-7 rounded-xl px-3 py-2.5 text-sm focus:outline-none" style={{ background: "var(--bg-surface-2)", border: "1px solid var(--border-default)", color: "var(--text-primary)" }} />
             </div>
-            <input
-              type="url"
-              placeholder="Donation link (optional)"
-              value={customURL}
-              onChange={(e) => setCustomURL(e.target.value)}
-              className="w-full rounded-xl px-3 py-2.5 text-sm focus:outline-none" style={{ background: "var(--bg-surface-2)", border: "1px solid var(--border-default)", color: "var(--text-primary)" }}
-              maxLength={500}
-            />
+            <input type="url" placeholder="Donation link (optional)" value={customURL} onChange={(e) => setCustomURL(e.target.value)} className="w-full rounded-xl px-3 py-2.5 text-sm focus:outline-none" style={{ background: "var(--bg-surface-2)", border: "1px solid var(--border-default)", color: "var(--text-primary)" }} maxLength={500} />
             <div className="flex gap-2">
-              <button
-                onClick={handleAddCause}
-                disabled={addingCause || !customTitle.trim()}
-                className="flex-1 bg-[#2ECC71] text-[#0B1A14] font-semibold py-2.5 rounded-xl text-sm disabled:opacity-50"
-              >
-                {addingCause ? "Saving…" : "Save"}
-              </button>
-              <button
-                onClick={() => { setShowAddForm(false); setCustomTitle(""); setCustomSponsor(""); setCustomLocation(""); setCustomGoalStr(""); setCustomURL(""); }}
-                className="px-4 py-2.5 border-[rgba(46,204,113,0.12)] text-[rgba(237,245,240,0.6)] font-semibold rounded-xl text-sm hover:text-[#EDF5F0] transition-colors"
-              >
-                Cancel
-              </button>
+              <button onClick={handleAddCause} disabled={addingCause || !customTitle.trim()} className="flex-1 bg-[#2ECC71] text-[#0B1A14] font-semibold py-2.5 rounded-xl text-sm disabled:opacity-50">{addingCause ? "Saving…" : "Save"}</button>
+              <button onClick={() => { setShowAddForm(false); setCustomTitle(""); setCustomSponsor(""); setCustomLocation(""); setCustomGoalStr(""); setCustomURL(""); }} className="px-4 py-2.5 font-semibold rounded-xl text-sm hover:text-[#EDF5F0] transition-colors" style={{ border: "1px solid var(--border-default)", color: "var(--text-secondary)" }}>Cancel</button>
             </div>
           </div>
         ) : (
-          <button
-            onClick={() => setShowAddForm(true)}
-            className="mt-3 w-full py-2.5 border border-dashed border-[rgba(46,204,113,0.25)] text-white font-bold rounded-xl hover:border-[#2ECC71] hover:text-[#2ECC71] transition-colors text-sm"
-          >
+          <button onClick={() => setShowAddForm(true)} className="mt-3 w-full py-2.5 border border-dashed border-[rgba(46,204,113,0.25)] text-white font-bold rounded-xl hover:border-[#2ECC71] hover:text-[#2ECC71] transition-colors text-sm">
             ＋ Add your own cause
           </button>
-        )}
+        )
+      )}
 
         {/* Donation history */}
         <div className="mt-4">
