@@ -37,7 +37,6 @@ export const OFFICIAL_PROJECTS: Project[] = [
     goalAmount: 250,
     totalRaised: 0,
     imageURL: "/causes/KC Chromebook.jpg",
-    imagePosition: "bottom",
     donationURL: "https://www.kenyaconnect.org/donate",
     isCustom: false,
     location: "Kenya",
