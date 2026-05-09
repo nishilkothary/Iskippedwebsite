@@ -37,6 +37,7 @@ export function SkipModal({ onClose }: Props) {
   const [successProjectUnitCost, setSuccessProjectUnitCost] = useState<number | null>(null);
   const [skipGivePct, setSkipGivePct] = useState(profileSplit.give);
   const [successOverflowCount, setSuccessOverflowCount] = useState<number | undefined>(undefined);
+  const [successJarBalance, setSuccessJarBalance] = useState(0);
 
   function handleCatSelect(cat: typeof defaultCat) {
     setSelectedCat(cat);
@@ -48,10 +49,13 @@ export function SkipModal({ onClose }: Props) {
 
     // Pre-compute jar-full state synchronously using same formula as jars page
     const personalGoal = profile?.causeGoalAmounts?.[projectId ?? ""] ?? selectedProject?.goalAmount ?? 0;
-    const currentJarBal = profile?.causeJarBalances?.[projectId ?? ""] ?? 0;
+    // Mirror jars page: globalGivingBalance = totalGiveAllocated - totalDonated
+    const giveTotal = profile?.totalGiveAllocated ?? (profile?.totalSaved ?? 0) * (profileSplit.give / 100);
+    const currentJarBal = Math.max(0, giveTotal - (profile?.totalDonated ?? 0));
     const giveAmt = amount * (skipGivePct / 100);
+    const expectedJarBal = currentJarBal + giveAmt;
     const willBeFull = projectId != null && personalGoal > 0 && giveAmt > 0
-      && (currentJarBal + giveAmt) >= personalGoal;
+      && expectedJarBal >= personalGoal;
     const nextOverflowCount = willBeFull
       ? (profile?.causeJarOverflowCounts?.[projectId ?? ""] ?? 0) + 1
       : 0;
@@ -78,7 +82,10 @@ export function SkipModal({ onClose }: Props) {
       setSuccessProjectLocation(selectedProject?.location ?? null);
       setSuccessProjectUnitName(selectedProject?.unitName ?? null);
       setSuccessProjectUnitCost(selectedProject?.unitCost ?? null);
-      if (willBeFull) setSuccessOverflowCount(nextOverflowCount);
+      if (willBeFull) {
+        setSuccessOverflowCount(nextOverflowCount);
+        setSuccessJarBalance(expectedJarBal);
+      }
       setSuccess(true);
     }
   }
@@ -125,7 +132,6 @@ export function SkipModal({ onClose }: Props) {
     const showJarFull = successActiveProject != null && overflowCount >= 1 && (overflowCount === 1 || (overflowCount - 1) % 3 === 0);
 
     if (showJarFull && successActiveProject) {
-      const jarBalance = profile?.causeJarBalances?.[successActiveProject.id] ?? 0;
       return (
         <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4" onClick={onClose}>
           <div
@@ -142,7 +148,7 @@ export function SkipModal({ onClose }: Props) {
               It&apos;s time to empty your jar and send it over!
             </p>
             <p className="text-sm mt-2 font-semibold" style={{ color: "#2ECC71" }}>
-              {formatCurrency(jarBalance)} ready to donate
+              {formatCurrency(successJarBalance)} ready to donate
             </p>
             <button
               onClick={() => { onClose(); router.push("/jars?tab=cause"); }}
