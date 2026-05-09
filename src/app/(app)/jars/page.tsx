@@ -1189,6 +1189,7 @@ function SplurgeTab({
 
   const [completing, setCompleting] = useState(false);
   const [deletingActiveGoal, setDeletingActiveGoal] = useState(false);
+  const [deletingGoalId, setDeletingGoalId] = useState<string | null>(null);
   const [movingToGive, setMovingToGive] = useState(false);
 
   const [editingHistoryId, setEditingHistoryId] = useState<string | null>(null);
@@ -1527,24 +1528,110 @@ function SplurgeTab({
         </div>
       )}
 
+      {/* Edit form for inactive goals */}
+      {editingGoalId && editingGoalId !== activeGoalId && (() => {
+        const goal = goals.find((g) => g.id === editingGoalId);
+        if (!goal) return null;
+        return (
+          <div className="rounded-2xl p-4 space-y-3" style={{ background: "var(--bg-surface-1)", border: "1px solid var(--border-default)" }}>
+            <p className="text-sm font-semibold" style={{ color: "var(--text-primary)" }}>Edit reward</p>
+            <input
+              type="text"
+              value={editLabel}
+              onChange={(e) => setEditLabel(e.target.value)}
+              className="w-full rounded-xl px-3 py-2 text-sm focus:outline-none"
+              style={{ background: "var(--bg-surface-2)", border: "1px solid var(--border-default)", color: "var(--text-primary)" }}
+              placeholder="Savings goal name"
+              autoFocus
+            />
+            <div className="relative">
+              <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-[rgba(237,245,240,0.6)]">$</span>
+              <input
+                type="number"
+                value={editAmount}
+                onChange={(e) => setEditAmount(e.target.value)}
+                className="w-full pl-7 rounded-xl px-3 py-2 text-sm focus:outline-none"
+                style={{ background: "var(--bg-surface-2)", border: "1px solid var(--border-default)", color: "var(--text-primary)" }}
+                placeholder="Target amount"
+              />
+            </div>
+            <input
+              type="url"
+              value={editLink}
+              onChange={(e) => setEditLink(e.target.value)}
+              className="w-full rounded-xl px-3 py-2 text-sm focus:outline-none"
+              style={{ background: "var(--bg-surface-2)", border: "1px solid var(--border-default)", color: "var(--text-primary)" }}
+              placeholder="Shopping link (optional)"
+            />
+            <div className="flex gap-2">
+              <button
+                onClick={() => handleEditGoalSave(goal.id, goal.type)}
+                disabled={editWorking}
+                className="flex-1 bg-[#8B5CF6] text-white font-semibold py-2 rounded-xl text-sm disabled:opacity-50"
+              >
+                {editWorking ? "Saving…" : "Save"}
+              </button>
+              <button
+                onClick={() => setEditingGoalId(null)}
+                className="px-4 py-2 text-[rgba(237,245,240,0.6)] font-semibold rounded-xl text-sm"
+                style={{ border: "1px solid rgba(139,92,246,0.12)" }}
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
+        );
+      })()}
+
       {/* Pick A Reward */}
-      {!showAddForm && (
+      {!showAddForm && !editingGoalId && (
         <div>
           <p className="text-lg font-bold mb-0.5" style={{ color: "var(--text-primary)" }}>Pick A Reward</p>
           <p className="text-xs mb-3" style={{ color: "var(--text-secondary)" }}>Rewards For Your Skips:</p>
           <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
             {/* Inactive saved goals */}
             {goals.filter((g) => g.id !== activeGoalId).map((goal) => (
-              <button
+              <div
                 key={goal.id}
-                onClick={() => handleSetActiveGoalWithCheck(goal)}
-                className="rounded-2xl p-4 text-left transition-all hover:scale-[1.02] active:scale-[0.98]"
-                style={{ background: "var(--bg-surface-1)", border: "1px solid rgba(139,92,246,0.3)" }}
+                className="rounded-2xl p-4 text-left transition-all hover:scale-[1.02] active:scale-[0.98] cursor-pointer relative"
+                style={{ background: "var(--bg-surface-1)", border: deletingGoalId === goal.id ? "1px solid rgba(239,68,68,0.4)" : "1px solid rgba(139,92,246,0.3)" }}
               >
-                <div className="text-sm font-bold mb-1" style={{ color: "#8B5CF6" }}>{goal.label}</div>
-                <div className="text-lg font-extrabold" style={{ color: "var(--text-primary)" }}>${goal.targetAmount}</div>
-                <div className="text-xs mt-1" style={{ color: "var(--text-muted)" }}>tap to activate</div>
-              </button>
+                {/* Icon row */}
+                <div className="absolute top-2 right-2 flex gap-0.5" onClick={(e) => e.stopPropagation()}>
+                  <button
+                    onClick={() => { startEditGoal(goal); setDeletingGoalId(null); }}
+                    className="text-[rgba(237,245,240,0.3)] hover:text-[#8B5CF6] p-1 text-sm leading-none"
+                    title="Edit"
+                  >✏️</button>
+                  <button
+                    onClick={() => setDeletingGoalId(deletingGoalId === goal.id ? null : goal.id)}
+                    className="text-[rgba(237,245,240,0.3)] hover:text-red-400 p-1 text-sm leading-none"
+                    title="Delete"
+                  >🗑️</button>
+                </div>
+                {deletingGoalId === goal.id ? (
+                  <div onClick={(e) => e.stopPropagation()}>
+                    <p className="text-xs text-red-400 mb-2 pr-12">Delete &quot;{goal.label}&quot;?</p>
+                    <div className="flex gap-1.5">
+                      <button
+                        onClick={() => { onDeleteGoal(goal.id); setDeletingGoalId(null); }}
+                        className="flex-1 bg-red-500 text-white font-semibold py-1.5 rounded-lg text-xs"
+                      >Delete</button>
+                      <button
+                        onClick={() => setDeletingGoalId(null)}
+                        className="flex-1 text-[rgba(237,245,240,0.6)] font-semibold py-1.5 rounded-lg text-xs"
+                        style={{ border: "1px solid rgba(139,92,246,0.12)" }}
+                      >Cancel</button>
+                    </div>
+                  </div>
+                ) : (
+                  <div onClick={() => handleSetActiveGoalWithCheck(goal)}>
+                    <div className="text-sm font-bold mb-1 pr-12" style={{ color: "#8B5CF6" }}>{goal.label}</div>
+                    <div className="text-lg font-extrabold" style={{ color: "var(--text-primary)" }}>${goal.targetAmount}</div>
+                    <div className="text-xs mt-1" style={{ color: "var(--text-muted)" }}>tap to activate</div>
+                  </div>
+                )}
+              </div>
             ))}
             {/* Prebuilt templates not already saved */}
             {PREBUILT_REWARDS.filter((r) => !goals.some((g) => g.label === r.label)).map((r) => (
