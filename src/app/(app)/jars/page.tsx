@@ -468,6 +468,7 @@ function CauseTab({
   const [deactivateConfirm, setDeactivateConfirm] = useState(false);
   const [deactivating, setDeactivating] = useState(false);
   const [selectedCategory, setSelectedCategory] = useState("All");
+  const [detailProject, setDetailProject] = useState<Project | null>(null);
 
   async function handleDelete(projectId: string) {
     setDeleting(true);
@@ -757,11 +758,53 @@ function CauseTab({
         </div>
       )}
 
+      {/* Cause detail modal */}
+      {detailProject && (() => {
+        const dp = detailProject;
+        const isActive = activeProject?.id === dp.id;
+        const { abbr, color } = getCategoryAbbr(dp);
+        return (
+          <div className="fixed inset-0 bg-black/60 z-50 flex items-end sm:items-center justify-center p-4" onClick={() => setDetailProject(null)}>
+            <div className="rounded-2xl w-full max-w-sm shadow-2xl overflow-hidden" style={{ background: "var(--bg-surface-1)", border: "1px solid var(--border-default)" }} onClick={(e) => e.stopPropagation()}>
+              <div className="relative flex items-center justify-center h-40 w-full" style={{ background: "var(--bg-surface-2)" }}>
+                {dp.imageURL
+                  ? <img src={dp.imageURL} className="w-full h-full object-cover" alt={dp.title} />
+                  : <span className="text-3xl font-extrabold" style={{ color }}>{abbr}</span>
+                }
+                <button onClick={() => setDetailProject(null)} className="absolute top-3 right-3 text-xl leading-none w-8 h-8 flex items-center justify-center rounded-full" style={{ background: "rgba(0,0,0,0.4)", color: "#fff" }}>×</button>
+              </div>
+              <div className="px-5 py-4">
+                <p className="text-xl font-bold" style={{ color: "var(--text-primary)" }}>{dp.title}</p>
+                <p className="text-xs mt-0.5" style={{ color: "var(--text-muted)" }}>by {dp.sponsor}</p>
+                {dp.description && <p className="text-sm mt-2 leading-relaxed" style={{ color: "var(--text-secondary)" }}>{dp.description}</p>}
+                {dp.unitCost && !dp.unitIsGoal && dp.unitName ? (
+                  <p className="text-sm mt-2 font-semibold" style={{ color: "#2ECC71" }}>{formatCurrency(dp.unitCost)} = 1 {dp.unitName}</p>
+                ) : dp.goalAmount > 0 ? (
+                  <p className="text-sm mt-2 font-semibold" style={{ color: "#2ECC71" }}>Goal: {formatCurrency(dp.goalAmount)}</p>
+                ) : null}
+                <button
+                  onClick={() => { handleSetActive(dp); setDetailProject(null); }}
+                  className="mt-4 w-full py-3 text-sm font-semibold rounded-xl"
+                  style={isActive ? { background: "rgba(46,204,113,0.15)", color: "#2ECC71" } : { background: "#2ECC71", color: "#0B1A14" }}
+                >
+                  {isActive ? "✓ Your Giving Jar" : "Make this my Giving Jar"}
+                </button>
+                {(dp.learnMoreURL || dp.donationURL) && (
+                  <a href={dp.learnMoreURL ?? dp.donationURL!} target="_blank" rel="noopener noreferrer" className="block text-center text-sm mt-3 font-semibold" style={{ color: "#2ECC71" }}>
+                    Learn More →
+                  </a>
+                )}
+              </div>
+            </div>
+          </div>
+        );
+      })()}
+
       {/* Page heading */}
       <div className="mb-4">
         <h1 className="text-4xl font-extrabold leading-tight" style={{ color: "#2ECC71" }}>Impactful You</h1>
         <p className="text-sm mt-1" style={{ color: "var(--text-secondary)" }}>
-          Every Skip can become Real World Impact. Pick a Giving Jar. Fill up as you Skip. Donate when you are Ready.
+          Pick a Giving Jar. Fill up as you Skip. Donate when you are Ready.
         </p>
       </div>
 
@@ -769,7 +812,7 @@ function CauseTab({
       {activeProject ? (
         /* Scoreboard */
         (() => {
-          const balance = causeJarBalances?.[activeProject.id] ?? givingBalance;
+          const balance = givingBalance;
           const personalGoal = causeGoalAmounts?.[activeProject.id] ?? activeProject.goalAmount ?? 0;
           const isUnitCost = !!(activeProject.unitCost && !activeProject.unitIsGoal && activeProject.unitDisplay);
           const unitsFunded = isUnitCost ? Math.floor(balance / activeProject.unitCost!) : 0;
@@ -881,7 +924,7 @@ function CauseTab({
       )}
 
       {/* Category filter tabs */}
-      <div className="flex gap-2 overflow-x-auto pb-1 -mx-1 px-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+      <div className="flex gap-2 overflow-x-auto pb-1 -mx-1 px-1 mt-6 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
         {["All", "Education", "Meals", "Health", "Emergency", "My Custom"].map(cat => (
           <button
             key={cat}
@@ -916,11 +959,12 @@ function CauseTab({
               return (
                 <div
                   key={project.id}
-                  className="rounded-2xl overflow-hidden"
+                  className="rounded-2xl overflow-hidden cursor-pointer"
                   style={{ background: "var(--bg-surface-1)", border: isActive ? "2px solid #2ECC71" : "1px solid var(--border-default)" }}
+                  onClick={() => !isEditing && setDetailProject(project)}
                 >
                   {isEditing ? (
-                    <div className="p-3 space-y-2">
+                    <div className="p-3 space-y-2" onClick={(e) => e.stopPropagation()}>
                       <input type="text" value={editTitle} onChange={(e) => setEditTitle(e.target.value)} placeholder="Cause title" className="w-full rounded-xl px-3 py-2 text-sm focus:outline-none" style={{ background: "var(--bg-surface-2)", border: "1px solid var(--border-default)", color: "var(--text-primary)" }} autoFocus maxLength={100} />
                       <input type="text" value={editSponsor} onChange={(e) => setEditSponsor(e.target.value)} placeholder="Organization" className="w-full rounded-xl px-3 py-2 text-sm focus:outline-none" style={{ background: "var(--bg-surface-2)", border: "1px solid var(--border-default)", color: "var(--text-primary)" }} maxLength={100} />
                       <div className="relative">
@@ -945,12 +989,13 @@ function CauseTab({
                         {isActive && <span className="text-[10px] font-bold px-2 py-0.5 rounded-full mb-1 inline-block" style={{ background: "rgba(46,204,113,0.15)", color: "#2ECC71" }}>✓ Active</span>}
                         <p className="text-sm font-bold leading-snug" style={{ color: "var(--text-primary)" }}>{project.title}</p>
                         <p className="text-xs mt-0.5" style={{ color: "var(--text-muted)" }}>by {project.sponsor}</p>
-                        {project.description && <p className="text-xs mt-1 line-clamp-2" style={{ color: "var(--text-secondary)" }}>{project.description}</p>}
-                        {project.unitCost && !project.unitIsGoal && project.unitName && (
+                        {project.unitCost && !project.unitIsGoal && project.unitName ? (
                           <p className="text-xs mt-1 font-semibold" style={{ color: "#2ECC71" }}>{formatCurrency(project.unitCost)} = 1 {project.unitName}</p>
-                        )}
+                        ) : project.goalAmount > 0 ? (
+                          <p className="text-xs mt-1 font-semibold" style={{ color: "#2ECC71" }}>Goal: {formatCurrency(project.goalAmount)}</p>
+                        ) : null}
                         <button
-                          onClick={() => handleSetActive(project)}
+                          onClick={(e) => { e.stopPropagation(); handleSetActive(project); }}
                           className="mt-2 w-full py-2 text-xs font-semibold rounded-xl transition-colors"
                           style={isActive
                             ? { background: "rgba(46,204,113,0.15)", color: "#2ECC71" }
@@ -960,7 +1005,7 @@ function CauseTab({
                           {isActive ? "✓ Your Giving Jar" : "Choose Cause"}
                         </button>
                         {project.isCustom && (
-                          <div className="flex gap-1 mt-1.5 justify-end">
+                          <div className="flex gap-1 mt-1.5 justify-end" onClick={(e) => e.stopPropagation()}>
                             <button onClick={() => startEdit(project)} className="text-[rgba(237,245,240,0.35)] hover:text-[#2ECC71] p-1 text-sm">✏️</button>
                             <button onClick={() => setConfirmDeleteId(project.id)} className="text-[rgba(237,245,240,0.35)] hover:text-red-400 p-1 text-sm">🗑️</button>
                           </div>
@@ -1090,9 +1135,9 @@ const PREBUILT_REWARDS = [
 ];
 
 function pickMilestoneStep(targetAmount: number): number {
-  const tenPct = targetAmount * 0.1;
-  return [10, 50, 100].reduce((best, m) =>
-    Math.abs(m - tenPct) < Math.abs(best - tenPct) ? m : best
+  const oneFifth = targetAmount * 0.2;
+  return [10, 25, 50, 100].reduce((best, m) =>
+    Math.abs(m - oneFifth) < Math.abs(best - oneFifth) ? m : best
   );
 }
 
