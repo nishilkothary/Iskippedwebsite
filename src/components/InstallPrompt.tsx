@@ -3,119 +3,141 @@ import { useEffect, useState } from "react";
 
 type Platform = "ios" | "android" | null;
 
-const DISMISSED_KEY = "iskipped_install_dismissed";
-
 export function InstallPrompt() {
   const [platform, setPlatform] = useState<Platform>(null);
-  const [dismissed, setDismissed] = useState(true);
+  const [open, setOpen] = useState(false);
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const [deferredPrompt, setDeferredPrompt] = useState<any>(null);
 
   useEffect(() => {
-    if (localStorage.getItem(DISMISSED_KEY)) return;
-
     const ua = navigator.userAgent;
     const isIOS = /iPhone|iPad|iPod/i.test(ua) && !(navigator as any).standalone;
     const isAndroid = /Android/i.test(ua);
 
     if (isIOS) {
       setPlatform("ios");
-      setDismissed(false);
     } else if (isAndroid) {
-      // Android: wait for the browser's install prompt event
       const handler = (e: Event) => {
         e.preventDefault();
         setDeferredPrompt(e);
         setPlatform("android");
-        setDismissed(false);
       };
       window.addEventListener("beforeinstallprompt", handler as EventListener);
       return () => window.removeEventListener("beforeinstallprompt", handler as EventListener);
     }
   }, []);
 
-  function dismiss() {
-    localStorage.setItem(DISMISSED_KEY, "1");
-    setDismissed(true);
-  }
-
   async function handleAndroidInstall() {
     if (!deferredPrompt) return;
     deferredPrompt.prompt();
-    const { outcome } = await deferredPrompt.userChoice;
-    if (outcome === "accepted") dismiss();
+    await deferredPrompt.userChoice;
     setDeferredPrompt(null);
+    setOpen(false);
   }
 
-  if (dismissed || !platform) return null;
+  if (!platform) return null;
 
   return (
-    <div
-      className="rounded-2xl p-4 mb-5 relative"
-      style={{ background: "var(--bg-surface-1)", border: "1px solid rgba(46,204,113,0.25)" }}
-    >
+    <>
       <button
-        onClick={dismiss}
-        className="absolute top-3 right-3 text-lg leading-none"
-        style={{ color: "var(--text-muted)" }}
-        aria-label="Dismiss"
+        onClick={() => setOpen(true)}
+        className="mt-4 w-full text-center text-xs"
+        style={{ color: "var(--green-primary)", background: "none", border: "none", cursor: "pointer" }}
       >
-        ×
+        📲 Add to your home screen →
       </button>
 
-      <div className="flex items-center gap-2 mb-1 pr-6">
-        <span className="text-lg">📲</span>
-        <p className="text-sm font-bold" style={{ color: "var(--text-primary)" }}>
-          Add The iSkipped Web App to Your Home Screen
-        </p>
-      </div>
-
-      {platform === "ios" ? (
-        <>
-          <p className="text-xs mb-3" style={{ color: "var(--text-secondary)" }}>
-            Get the full app experience — no App Store needed.
-          </p>
-          <div className="space-y-1.5">
-            <div className="flex items-center gap-2 text-xs" style={{ color: "var(--text-secondary)" }}>
-              <span
-                className="flex-shrink-0 w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-bold"
-                style={{ background: "rgba(46,204,113,0.15)", color: "var(--green-primary)" }}
+      {open && (
+        <div
+          className="fixed inset-0 bg-black/60 z-50 flex items-end sm:items-center justify-center p-4"
+          onClick={() => setOpen(false)}
+        >
+          <div
+            className="rounded-2xl w-full max-w-sm shadow-2xl"
+            style={{ background: "var(--bg-surface-1)", border: "1px solid var(--border-default)" }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="px-5 pt-5 pb-4 relative" style={{ borderBottom: "1px solid var(--border-default)" }}>
+              <button
+                onClick={() => setOpen(false)}
+                className="absolute top-4 right-4 text-xl leading-none"
+                style={{ color: "var(--text-muted)", background: "none", border: "none", cursor: "pointer" }}
               >
-                1
-              </span>
-              Tap the <span className="font-semibold mx-0.5" style={{ color: "var(--text-primary)" }}>Share</span> button
-              <span
-                className="inline-flex items-center justify-center rounded px-1"
-                style={{ background: "rgba(255,255,255,0.08)", fontSize: 11 }}
-              >
-                ⎋
-              </span>
-              at the bottom of Safari
+                ×
+              </button>
+              <p className="text-base font-bold pr-6" style={{ color: "var(--text-primary)" }}>
+                Add The iSkipped Web App to Your Home Screen
+              </p>
+              <p className="text-xs mt-1" style={{ color: "var(--text-secondary)" }}>
+                Get quick access — no App Store needed.
+              </p>
             </div>
-            <div className="flex items-center gap-2 text-xs" style={{ color: "var(--text-secondary)" }}>
-              <span
-                className="flex-shrink-0 w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-bold"
-                style={{ background: "rgba(46,204,113,0.15)", color: "var(--green-primary)" }}
+
+            <div className="px-5 py-4 space-y-4">
+              {platform === "ios" ? (
+                <div className="space-y-3">
+                  <div className="flex items-start gap-3">
+                    <span
+                      className="flex-shrink-0 w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold"
+                      style={{ background: "rgba(46,204,113,0.15)", color: "var(--green-primary)" }}
+                    >
+                      1
+                    </span>
+                    <p className="text-sm pt-0.5" style={{ color: "var(--text-secondary)" }}>
+                      Tap the <span className="font-semibold" style={{ color: "var(--text-primary)" }}>Share</span> button{" "}
+                      <span
+                        className="inline-flex items-center justify-center rounded px-1 text-xs"
+                        style={{ background: "rgba(255,255,255,0.08)" }}
+                      >
+                        ⎋
+                      </span>{" "}
+                      at the bottom of Safari
+                    </p>
+                  </div>
+                  <div className="flex items-start gap-3">
+                    <span
+                      className="flex-shrink-0 w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold"
+                      style={{ background: "rgba(46,204,113,0.15)", color: "var(--green-primary)" }}
+                    >
+                      2
+                    </span>
+                    <p className="text-sm pt-0.5" style={{ color: "var(--text-secondary)" }}>
+                      Scroll down and tap{" "}
+                      <span className="font-semibold" style={{ color: "var(--text-primary)" }}>Add to Home Screen</span>
+                    </p>
+                  </div>
+                  <div className="flex items-start gap-3">
+                    <span
+                      className="flex-shrink-0 w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold"
+                      style={{ background: "rgba(46,204,113,0.15)", color: "var(--green-primary)" }}
+                    >
+                      3
+                    </span>
+                    <p className="text-sm pt-0.5" style={{ color: "var(--text-secondary)" }}>
+                      Tap <span className="font-semibold" style={{ color: "var(--text-primary)" }}>Add</span> in the top right
+                    </p>
+                  </div>
+                </div>
+              ) : (
+                <button
+                  onClick={handleAndroidInstall}
+                  className="w-full py-3 bg-[#2ECC71] text-[#0B1A14] font-semibold rounded-xl text-sm hover:bg-[#1DB954] transition-colors"
+                >
+                  Install App
+                </button>
+              )}
+
+              <button
+                onClick={() => setOpen(false)}
+                className="w-full py-2.5 text-sm font-semibold rounded-xl"
+                style={{ border: "1px solid var(--border-default)", color: "var(--text-secondary)", background: "none", cursor: "pointer" }}
               >
-                2
-              </span>
-              Scroll down and tap <span className="font-semibold ml-0.5" style={{ color: "var(--text-primary)" }}>Add to Home Screen</span>
+                Got it
+              </button>
             </div>
           </div>
-        </>
-      ) : (
-        <>
-          <p className="text-xs mb-3" style={{ color: "var(--text-secondary)" }}>
-            Install iSkipped for quick access — no App Store needed.
-          </p>
-          <button
-            onClick={handleAndroidInstall}
-            className="w-full py-2 bg-[#2ECC71] text-[#0B1A14] font-semibold rounded-xl text-sm hover:bg-[#1DB954] transition-colors"
-          >
-            Install App
-          </button>
-        </>
+        </div>
       )}
-    </div>
+    </>
   );
 }

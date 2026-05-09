@@ -345,8 +345,6 @@ export default function HomePage() {
 
       </div>
 
-      <InstallPrompt />
-
       {!profile.activeProjectId && givingBalance === 0 && (
         <div style={{
           ...cardStyle,
@@ -460,7 +458,9 @@ export default function HomePage() {
         </div>
       </div>
 
-      <p className="mt-6 text-center text-xs" style={{ color: "var(--text-muted)", lineHeight: 1.6 }}>
+      <InstallPrompt />
+
+      <p className="mt-4 text-center text-xs" style={{ color: "var(--text-muted)", lineHeight: 1.6 }}>
         We are still in beta — have feedback?{" "}
         <a href="mailto:iskippedfor@gmail.com" style={{ color: "var(--green-primary)", textDecoration: "underline" }}>
           iskippedfor@gmail.com
