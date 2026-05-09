@@ -829,8 +829,16 @@ function CauseTab({
           const pct = personalGoal > 0 ? Math.min(100, Math.round((balance / personalGoal) * 100)) : null;
           const milestone = personalGoal > 0 ? getNextMilestone(personalGoal, balance) : null;
           const isEditing = editingProjectId === activeProject.id;
+          const { img: scoreboardImg } = getCategoryFallback(activeProject);
+          const scoreboardPhoto = activeProject.imageURL ?? scoreboardImg;
           return (
-            <div className="rounded-2xl p-5 mb-2" style={{ background: "var(--bg-surface-2)", border: "1px solid var(--border-default)" }}>
+            <div className="rounded-2xl overflow-hidden mb-2" style={{ background: "var(--bg-surface-2)", border: "1px solid var(--border-default)" }}>
+              {scoreboardPhoto && !isEditing && (
+                <div className="h-32 sm:h-40 w-full" style={{ background: "var(--bg-surface-1)" }}>
+                  <img src={scoreboardPhoto} className="w-full h-full object-cover" alt={activeProject.title} />
+                </div>
+              )}
+              <div className="p-5">
               <div className="flex items-center gap-2 mb-3">
                 <button
                   onClick={() => setDeactivateConfirm(true)}
@@ -890,6 +898,7 @@ function CauseTab({
                   <CauseDonateRow project={activeProject} />
                 </>
               )}
+              </div>
             </div>
           );
         })()
@@ -901,7 +910,7 @@ function CauseTab({
           const { img: fallbackImg, abbr, color } = getCategoryFallback(featured);
           return (
             <div className="rounded-2xl overflow-hidden mb-2 cursor-pointer" style={{ background: "var(--bg-surface-1)", border: "1px solid var(--border-default)" }} onClick={() => setDetailProject(featured)}>
-              <div className="flex items-center justify-center h-28 w-full" style={{ background: "var(--bg-surface-2)" }}>
+              <div className="flex items-center justify-center h-28 sm:h-48 w-full" style={{ background: "var(--bg-surface-2)" }}>
                 {featured.imageURL
                   ? <img src={featured.imageURL} className="w-full h-full object-cover" alt={featured.title} />
                   : fallbackImg
