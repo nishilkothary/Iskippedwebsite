@@ -78,8 +78,8 @@ function JarsPageInner() {
     updateProfile({ causeGoalAmounts: { ...profile!.causeGoalAmounts, [causeId]: amount } });
   }
 
-  async function handleAddCause(title: string, sponsor: string, location: string | undefined, goalAmount: number, donationURL?: string) {
-    await addCustomProject(user!.uid, { title, sponsor, location, goalAmount, donationURL });
+  async function handleAddCause(title: string, sponsor: string, location: string | undefined, goalAmount: number, donationURL?: string, description?: string, tags?: string[], imageURL?: string) {
+    await addCustomProject(user!.uid, { title, sponsor, location, goalAmount, donationURL, description, tags, imageURL });
     await refetch();
   }
 
@@ -431,7 +431,7 @@ function CauseTab({
   onSelectCause: (p: Project, moveFunds: boolean) => void;
   onSetGoal: (causeId: string, amount: number) => Promise<void>;
   onDeactivateCause: () => Promise<void>;
-  onAddCause: (title: string, sponsor: string, location: string | undefined, goalAmount: number, donationURL?: string) => Promise<void>;
+  onAddCause: (title: string, sponsor: string, location: string | undefined, goalAmount: number, donationURL?: string, description?: string, tags?: string[], imageURL?: string) => Promise<void>;
   onEditCause: (projectId: string, data: { title: string; sponsor: string; location?: string; goalAmount: number; donationURL?: string }) => Promise<void>;
   onDeleteCause: (projectId: string) => Promise<void>;
   onDonate: (amount: number) => Promise<void>;
@@ -447,6 +447,9 @@ function CauseTab({
   const [customLocation, setCustomLocation] = useState("");
   const [customGoalStr, setCustomGoalStr] = useState("");
   const [customURL, setCustomURL] = useState("");
+  const [customDescription, setCustomDescription] = useState("");
+  const [customCategory, setCustomCategory] = useState("education");
+  const [customImageURL, setCustomImageURL] = useState("");
   const [addingCause, setAddingCause] = useState(false);
   const [switchTarget, setSwitchTarget] = useState<Project | null>(null);
   const [editingProjectId, setEditingProjectId] = useState<string | null>(null);
@@ -503,13 +506,18 @@ function CauseTab({
   async function handleAddCause() {
     if (!customTitle.trim()) return;
     const goalAmount = parseFloat(customGoalStr) || 0;
+    const categoryTagMap: Record<string, string> = { education: "education", meals: "food", health: "health", emergency: "emergency" };
+    const tags = [categoryTagMap[customCategory] ?? customCategory, "custom"];
     setAddingCause(true);
-    await onAddCause(customTitle.trim(), customSponsor.trim(), customLocation.trim() || undefined, goalAmount, customURL.trim() || undefined);
+    await onAddCause(customTitle.trim(), customSponsor.trim(), customLocation.trim() || undefined, goalAmount, customURL.trim() || undefined, customDescription.trim() || undefined, tags, customImageURL.trim() || undefined);
     setCustomTitle("");
     setCustomSponsor("");
     setCustomLocation("");
     setCustomGoalStr("");
     setCustomURL("");
+    setCustomDescription("");
+    setCustomCategory("education");
+    setCustomImageURL("");
     setShowAddForm(false);
     setAddingCause(false);
   }
@@ -1024,14 +1032,26 @@ function CauseTab({
             <input type="text" placeholder="Cause (e.g. A Student's Yearly Education)" value={customTitle} onChange={(e) => setCustomTitle(e.target.value)} className="w-full rounded-xl px-3 py-2.5 text-sm focus:outline-none" style={{ background: "var(--bg-surface-2)", border: "1px solid var(--border-default)", color: "var(--text-primary)" }} maxLength={100} />
             <input type="text" placeholder="Organization (e.g. Caring for Cambodia)" value={customSponsor} onChange={(e) => setCustomSponsor(e.target.value)} className="w-full rounded-xl px-3 py-2.5 text-sm focus:outline-none" style={{ background: "var(--bg-surface-2)", border: "1px solid var(--border-default)", color: "var(--text-primary)" }} maxLength={100} />
             <input type="text" placeholder="Location (optional, e.g. Cambodia)" value={customLocation} onChange={(e) => setCustomLocation(e.target.value)} className="w-full rounded-xl px-3 py-2.5 text-sm focus:outline-none" style={{ background: "var(--bg-surface-2)", border: "1px solid var(--border-default)", color: "var(--text-primary)" }} maxLength={100} />
+            <textarea placeholder="Description (optional)" value={customDescription} onChange={(e) => setCustomDescription(e.target.value)} rows={3} className="w-full rounded-xl px-3 py-2.5 text-sm focus:outline-none resize-none" style={{ background: "var(--bg-surface-2)", border: "1px solid var(--border-default)", color: "var(--text-primary)" }} maxLength={300} />
+            <div>
+              <p className="text-xs mb-1.5" style={{ color: "var(--text-muted)" }}>Category</p>
+              <div className="flex gap-2 flex-wrap">
+                {(["education", "meals", "health", "emergency"] as const).map(cat => (
+                  <button key={cat} type="button" onClick={() => setCustomCategory(cat)} className="px-3 py-1 rounded-full text-xs font-semibold capitalize transition-colors" style={customCategory === cat ? { background: "#2ECC71", color: "#0B1A14" } : { border: "1px solid rgba(46,204,113,0.3)", color: "var(--text-secondary)" }}>
+                    {cat}
+                  </button>
+                ))}
+              </div>
+            </div>
             <div className="relative">
               <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-[rgba(237,245,240,0.6)]">$</span>
               <input type="number" placeholder="Skipped Amount Needed" value={customGoalStr} onChange={(e) => setCustomGoalStr(e.target.value)} className="w-full pl-7 rounded-xl px-3 py-2.5 text-sm focus:outline-none" style={{ background: "var(--bg-surface-2)", border: "1px solid var(--border-default)", color: "var(--text-primary)" }} />
             </div>
             <input type="url" placeholder="Donation link (optional)" value={customURL} onChange={(e) => setCustomURL(e.target.value)} className="w-full rounded-xl px-3 py-2.5 text-sm focus:outline-none" style={{ background: "var(--bg-surface-2)", border: "1px solid var(--border-default)", color: "var(--text-primary)" }} maxLength={500} />
+            <input type="url" placeholder="Image URL (optional)" value={customImageURL} onChange={(e) => setCustomImageURL(e.target.value)} className="w-full rounded-xl px-3 py-2.5 text-sm focus:outline-none" style={{ background: "var(--bg-surface-2)", border: "1px solid var(--border-default)", color: "var(--text-primary)" }} maxLength={500} />
             <div className="flex gap-2">
               <button onClick={handleAddCause} disabled={addingCause || !customTitle.trim()} className="flex-1 bg-[#2ECC71] text-[#0B1A14] font-semibold py-2.5 rounded-xl text-sm disabled:opacity-50">{addingCause ? "Saving…" : "Save"}</button>
-              <button onClick={() => { setShowAddForm(false); setCustomTitle(""); setCustomSponsor(""); setCustomLocation(""); setCustomGoalStr(""); setCustomURL(""); }} className="px-4 py-2.5 font-semibold rounded-xl text-sm hover:text-[#EDF5F0] transition-colors" style={{ border: "1px solid var(--border-default)", color: "var(--text-secondary)" }}>Cancel</button>
+              <button onClick={() => { setShowAddForm(false); setCustomTitle(""); setCustomSponsor(""); setCustomLocation(""); setCustomGoalStr(""); setCustomURL(""); setCustomDescription(""); setCustomCategory("education"); setCustomImageURL(""); }} className="px-4 py-2.5 font-semibold rounded-xl text-sm hover:text-[#EDF5F0] transition-colors" style={{ border: "1px solid var(--border-default)", color: "var(--text-secondary)" }}>Cancel</button>
             </div>
           </div>
         ) : (

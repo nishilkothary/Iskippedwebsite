@@ -31,7 +31,7 @@ export const OFFICIAL_PROJECTS: Project[] = [
   },
   {
     id: "kc",
-    title: "A Chromebook for a Student to Learn Coding",
+    title: "A Chromebook for A Student In Kenya",
     sponsor: "Kenya Connect",
     description: "Help equip students in remote Kenyan villages with a Chromebook, unlocking digital learning and new opportunities.",
     goalAmount: 250,
@@ -208,7 +208,7 @@ export async function getProject(id: string): Promise<Project | null> {
 
 export async function addCustomProject(
   uid: string,
-  data: { title: string; sponsor?: string; location?: string; goalAmount: number; description?: string; donationURL?: string }
+  data: { title: string; sponsor?: string; location?: string; goalAmount: number; description?: string; donationURL?: string; tags?: string[]; imageURL?: string }
 ): Promise<string> {
   const ref = await addDoc(collection(db, "projects"), {
     title: data.title,
@@ -217,11 +217,11 @@ export async function addCustomProject(
     description: data.description || "",
     goalAmount: data.goalAmount,
     totalRaised: 0,
-    imageURL: null,
+    imageURL: data.imageURL || null,
     donationURL: data.donationURL || null,
     isCustom: true,
     createdBy: uid,
-    tags: ["custom"],
+    tags: data.tags?.length ? data.tags : ["custom"],
     createdAt: serverTimestamp(),
   });
   return ref.id;
