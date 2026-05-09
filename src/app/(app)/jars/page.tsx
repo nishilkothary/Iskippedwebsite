@@ -993,7 +993,7 @@ function CauseTab({
                     </div>
                   ) : (
                     <>
-                      <div className="flex items-center justify-center h-24 w-full" style={{ background: "var(--bg-surface-2)" }}>
+                      <div className="flex items-center justify-center h-24 sm:h-36 w-full" style={{ background: "var(--bg-surface-2)" }}>
                         {project.imageURL
                           ? <img src={project.imageURL} className="w-full h-full object-cover" style={{ objectPosition: project.imagePosition ?? "center" }} alt={project.title} />
                           : fallbackImg
