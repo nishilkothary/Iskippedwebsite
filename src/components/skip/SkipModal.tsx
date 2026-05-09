@@ -150,54 +150,64 @@ export function SkipModal({ onClose }: Props) {
       );
     }
 
+    const causeImageURL = successActiveProject?.imageURL ?? null;
     return (
       <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4" onClick={onClose}>
         <div
-          className="rounded-2xl p-8 text-center max-w-sm w-full shadow-2xl relative"
+          className="rounded-2xl overflow-hidden text-center max-w-sm w-full shadow-2xl relative"
           style={{ background: "var(--bg-surface-1)", border: "1px solid var(--border-default)" }}
           onClick={(e) => e.stopPropagation()}
         >
-          <button onClick={onClose} className="absolute top-4 right-4 text-2xl leading-none" style={{ color: "var(--text-muted)" }}>×</button>
-          <div className="text-6xl mb-3">🎉</div>
-          <p className="text-sm uppercase tracking-wide font-semibold mb-1" style={{ color: "var(--text-muted)" }}>Congratulations on funding</p>
-          <p className="text-2xl font-bold leading-tight" style={{ color: "var(--green-primary)" }}>{impactDisplay}</p>
-          {goalPct !== null && successActiveGoal && (
-            <p className="text-sm mt-3 font-semibold" style={{ color: "var(--text-secondary)" }}>
-              You&apos;re <span style={{ color: "var(--gold-cta)" }}>{goalPct}%</span> closer to your{" "}
-              <span style={{ color: "var(--gold-cta)" }}>{successActiveGoal.label}</span>! 🎯
-            </p>
+          {causeImageURL ? (
+            <div className="relative">
+              <img src={causeImageURL} className="w-full h-40 object-cover" alt={successProjectTitle ?? ""} />
+              <button onClick={onClose} className="absolute top-3 right-3 text-xl leading-none w-8 h-8 flex items-center justify-center rounded-full" style={{ background: "rgba(0,0,0,0.4)", color: "#fff" }}>×</button>
+            </div>
+          ) : (
+            <button onClick={onClose} className="absolute top-4 right-4 text-2xl leading-none" style={{ color: "var(--text-muted)" }}>×</button>
           )}
+          <div className="px-8 pb-8" style={{ paddingTop: causeImageURL ? 20 : 0 }}>
+            {!causeImageURL && <div className="text-6xl mb-3">🎉</div>}
+            <p className="text-sm uppercase tracking-wide font-semibold mb-1" style={{ color: "var(--text-muted)" }}>Congratulations on funding</p>
+            <p className="text-2xl font-bold leading-tight" style={{ color: "var(--green-primary)" }}>{impactDisplay}</p>
+            {goalPct !== null && successActiveGoal && (
+              <p className="text-sm mt-3 font-semibold" style={{ color: "var(--text-secondary)" }}>
+                You&apos;re <span style={{ color: "var(--gold-cta)" }}>{goalPct}%</span> closer to your{" "}
+                <span style={{ color: "var(--gold-cta)" }}>{successActiveGoal.label}</span>! 🎯
+              </p>
+            )}
 
-          <div className="mt-5 text-left">
-            <p className="text-xs mb-1 uppercase tracking-wide" style={{ color: "var(--text-muted)" }}>Share</p>
-            <textarea
-              readOnly
-              value={shareText}
-              onFocus={(e) => e.target.select()}
-              rows={5}
-              className="w-full rounded-xl px-3 py-2 text-sm resize-none focus:outline-none"
-              style={{
-                background: "var(--bg-surface-2)",
-                border: "1px solid var(--border-default)",
-                color: "var(--text-primary)",
-              }}
-            />
-            <button
-              onClick={() => {
-                navigator.clipboard.writeText(shareText).then(() => {
-                  setCopied(true);
-                  setTimeout(() => setCopied(false), 2000);
-                });
-              }}
-              className="mt-2 w-full font-semibold py-2 rounded-xl text-sm transition-colors"
-              style={{
-                border: "1px solid var(--border-emphasis)",
-                color: "var(--green-primary)",
-                background: "transparent",
-              }}
-            >
-              {copied ? "Copied!" : "Copy text"}
-            </button>
+            <div className="mt-5 text-left">
+              <p className="text-xs mb-1 uppercase tracking-wide" style={{ color: "var(--text-muted)" }}>Share</p>
+              <textarea
+                readOnly
+                value={shareText}
+                onFocus={(e) => e.target.select()}
+                rows={5}
+                className="w-full rounded-xl px-3 py-2 text-sm resize-none focus:outline-none"
+                style={{
+                  background: "var(--bg-surface-2)",
+                  border: "1px solid var(--border-default)",
+                  color: "var(--text-primary)",
+                }}
+              />
+              <button
+                onClick={() => {
+                  navigator.clipboard.writeText(shareText).then(() => {
+                    setCopied(true);
+                    setTimeout(() => setCopied(false), 2000);
+                  });
+                }}
+                className="mt-2 w-full font-semibold py-2 rounded-xl text-sm transition-colors"
+                style={{
+                  border: "1px solid var(--border-emphasis)",
+                  color: "var(--green-primary)",
+                  background: "transparent",
+                }}
+              >
+                {copied ? "Copied!" : "Copy text"}
+              </button>
+            </div>
           </div>
         </div>
       </div>
