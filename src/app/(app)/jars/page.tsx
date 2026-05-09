@@ -834,7 +834,7 @@ function CauseTab({
           return (
             <div className="rounded-2xl overflow-hidden mb-2" style={{ background: "var(--bg-surface-2)", border: "1px solid var(--border-default)" }}>
               {scoreboardPhoto && !isEditing && (
-                <div className="h-32 sm:h-40 w-full" style={{ background: "var(--bg-surface-1)" }}>
+                <div className="h-32 sm:h-48 w-full" style={{ background: "var(--bg-surface-1)" }}>
                   <img src={scoreboardPhoto} className="w-full h-full object-cover" style={{ objectPosition: activeProject.imagePosition ?? "center" }} alt={activeProject.title} />
                 </div>
               )}

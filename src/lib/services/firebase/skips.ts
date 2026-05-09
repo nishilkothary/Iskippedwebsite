@@ -48,9 +48,12 @@ export interface LogSkipParams {
   activeGoalId?: string | null;
   displayName?: string;
   photoURL?: string | null;
+  causeGoalAmount?: number;
+  causeJarBalance?: number;
+  causeJarOverflowCount?: number;
 }
 
-export async function logSkip(params: LogSkipParams): Promise<{ skipId: string; newTotal: number; newXp: number; newLevel: number; newStreak: number }> {
+export async function logSkip(params: LogSkipParams): Promise<{ skipId: string; newTotal: number; newXp: number; newLevel: number; newStreak: number; giveJarOverflowCount?: number }> {
   const {
     uid, category, categoryLabel, categoryEmoji, amount,
     projectId, projectTitle, projectLocation,
@@ -105,6 +108,15 @@ export async function logSkip(params: LogSkipParams): Promise<{ skipId: string; 
 
   const newLongestStreak = Math.max(currentLongestStreak, newStreak);
 
+  // Overflow count: tracks skips taken while give jar is at/above goal
+  let newOverflowCount: number | undefined;
+  if (projectId && (params.causeGoalAmount ?? 0) > 0 && giveAmount > 0) {
+    const newJarBal = (params.causeJarBalance ?? 0) + giveAmount;
+    if (newJarBal >= params.causeGoalAmount!) {
+      newOverflowCount = (params.causeJarOverflowCount ?? 0) + 1;
+    }
+  }
+
   // Batch write
   const batch = writeBatch(db);
 
@@ -140,6 +152,7 @@ export async function logSkip(params: LogSkipParams): Promise<{ skipId: string; 
     totalLiveAllocated: increment(liveAmount),
     ...(projectId    ? { [`causeJarBalances.${projectId}`]:   increment(giveAmount)  } : {}),
     ...(activeGoalId ? { [`goalJarBalances.${activeGoalId}`]: increment(liveAmount) } : {}),
+    ...(newOverflowCount !== undefined && projectId ? { [`causeJarOverflowCounts.${projectId}`]: newOverflowCount } : {}),
   });
 
   // 3. Fan-out to feed
@@ -215,6 +228,7 @@ export async function logSkip(params: LogSkipParams): Promise<{ skipId: string; 
     newXp,
     newLevel,
     newStreak,
+    giveJarOverflowCount: newOverflowCount,
   };
 }
 

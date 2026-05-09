@@ -224,6 +224,7 @@ export async function recordDonation(uid: string, amount: number, projectId: str
     totalDonated: increment(amount),
     savedTowardActiveCause: 0,
     [`causeJarBalances.${projectId}`]: increment(-amount),
+    [`causeJarOverflowCounts.${projectId}`]: 0,
   });
   const projectRef = doc(db, "projects", projectId);
   const projectSnap = await getDoc(projectRef);

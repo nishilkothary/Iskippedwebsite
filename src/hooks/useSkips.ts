@@ -29,7 +29,7 @@ export function useSkips() {
     return unsub;
   }, [user?.uid]);
 
-  async function log(params: Omit<LogSkipParams, "uid" | "currentTotalSaved" | "currentTotalSkips" | "currentXp" | "currentStreak" | "currentLongestStreak" | "lastSkipDate" | "savedTowardActiveCause" | "defaultJarSplit" | "activeGoalId">) {
+  async function log(params: Omit<LogSkipParams, "uid" | "currentTotalSaved" | "currentTotalSkips" | "currentXp" | "currentStreak" | "currentLongestStreak" | "lastSkipDate" | "savedTowardActiveCause" | "defaultJarSplit" | "activeGoalId" | "causeJarBalance" | "causeJarOverflowCount">) {
     if (!user || !profile) return null;
     setLogging(true);
     const defaultJarSplit = normalizeJarSplit(profile.jarSplit as any);
@@ -37,6 +37,8 @@ export function useSkips() {
     const activeGoalId = normalizeSpendingGoals(profile).activeId;
     const giveAmount = params.amount * (effectiveSplit.give / 100);
     const liveAmount = params.amount * (effectiveSplit.live / 100);
+    const causeJarBalance = profile.causeJarBalances?.[params.projectId ?? ""] ?? 0;
+    const causeJarOverflowCount = profile.causeJarOverflowCounts?.[params.projectId ?? ""] ?? 0;
     try {
       const result = await logSkip({
         ...params,
@@ -52,6 +54,8 @@ export function useSkips() {
         displayName: user.displayName || profile.displayName,
         photoURL: user.photoURL || profile.photoURL || undefined,
         activeGoalId,
+        causeJarBalance,
+        causeJarOverflowCount,
       });
       if (result) {
         updateProfile({
@@ -65,6 +69,9 @@ export function useSkips() {
           goalJarBalances: activeGoalId
             ? { ...profile.goalJarBalances, [activeGoalId]: (profile.goalJarBalances?.[activeGoalId] ?? 0) + liveAmount }
             : profile.goalJarBalances,
+          ...(result.giveJarOverflowCount !== undefined && params.projectId
+            ? { causeJarOverflowCounts: { ...(profile.causeJarOverflowCounts ?? {}), [params.projectId]: result.giveJarOverflowCount } }
+            : {}),
         });
       }
       return result;
@@ -82,6 +89,7 @@ export function useSkips() {
       totalDonated: profile.totalDonated + amount,
       causeStats: { ...profile.causeStats, [projectId]: { donated: prevDonated + amount } },
       causeJarBalances: { ...profile.causeJarBalances, [projectId]: Math.max(0, prevJarBal - amount) },
+      causeJarOverflowCounts: { ...(profile.causeJarOverflowCounts ?? {}), [projectId]: 0 },
     });
   }
 

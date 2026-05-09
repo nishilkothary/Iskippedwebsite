@@ -44,6 +44,7 @@ export function SkipModal({ onClose }: Props) {
 
   async function handleSubmit() {
     const selectedProject = projects.find((p) => p.id === projectId);
+    const causeGoalAmount = profile?.causeGoalAmounts?.[projectId ?? ""] ?? selectedProject?.goalAmount ?? 0;
     const result = await log({
       category: selectedCat.id,
       categoryLabel: customLabel || selectedCat.label,
@@ -59,6 +60,7 @@ export function SkipModal({ onClose }: Props) {
       shareWithCommunity,
       whatSkipped: whatSkipped || undefined,
       jarSplit: { give: skipGivePct, live: 100 - skipGivePct },
+      causeGoalAmount,
     });
     if (result) {
       setSuccessProjectTitle(selectedProject?.title ?? null);
@@ -106,6 +108,49 @@ export function SkipModal({ onClose }: Props) {
       impactDisplay = `${formatCurrency(amount)} saved`;
     }
     const shareText = `I skipped ${itemLabel}${impactClause}. Join the movement at Iskipped.com`;
+
+    // Show jar-full celebration when give jar hits/exceeds goal (first time, then every 3rd skip)
+    const overflowCount = profile?.causeJarOverflowCounts?.[projectId ?? ""] ?? 0;
+    const showJarFull = successActiveProject != null && overflowCount >= 1 && (overflowCount === 1 || (overflowCount - 1) % 3 === 0);
+
+    if (showJarFull && successActiveProject) {
+      const jarBalance = profile?.causeJarBalances?.[successActiveProject.id] ?? 0;
+      return (
+        <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4" onClick={onClose}>
+          <div
+            className="rounded-2xl p-8 text-center max-w-sm w-full shadow-2xl relative"
+            style={{ background: "var(--bg-surface-1)", border: "1px solid var(--border-default)" }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <button onClick={onClose} className="absolute top-4 right-4 text-2xl leading-none" style={{ color: "var(--text-muted)" }}>×</button>
+            <div className="text-6xl mb-3">🫙</div>
+            <p className="text-2xl font-bold" style={{ color: "var(--text-primary)" }}>Giving Jar Full!</p>
+            <p className="font-bold text-lg mt-1" style={{ color: "#2ECC71" }}>Congratulations!</p>
+            <p className="text-sm mt-3" style={{ color: "var(--text-secondary)" }}>
+              You&apos;ve funded 100% of your <strong style={{ color: "var(--text-primary)" }}>{successActiveProject.title}</strong> giving jar.
+              It&apos;s time to empty your jar and send it over!
+            </p>
+            <p className="text-sm mt-2 font-semibold" style={{ color: "#2ECC71" }}>
+              {formatCurrency(jarBalance)} ready to donate
+            </p>
+            <button
+              onClick={() => { onClose(); router.push("/jars?tab=cause"); }}
+              className="mt-5 w-full font-bold py-3 rounded-xl text-sm"
+              style={{ background: "#2ECC71", color: "#0B1A14", border: "none", cursor: "pointer", fontSize: 15 }}
+            >
+              Donate Now →
+            </button>
+            <button
+              onClick={onClose}
+              className="mt-2 w-full py-2 text-sm"
+              style={{ background: "none", border: "none", cursor: "pointer", color: "var(--text-muted)" }}
+            >
+              Maybe later
+            </button>
+          </div>
+        </div>
+      );
+    }
 
     // Show cause nudge INSTEAD of great job on skip #1 and every 3rd skip (until cause is chosen)
     const postLogSkipCount = (profile?.totalSkips ?? 0) + 1;
