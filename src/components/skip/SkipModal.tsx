@@ -36,7 +36,6 @@ export function SkipModal({ onClose }: Props) {
   const [successProjectUnitName, setSuccessProjectUnitName] = useState<string | null>(null);
   const [successProjectUnitCost, setSuccessProjectUnitCost] = useState<number | null>(null);
   const [skipGivePct, setSkipGivePct] = useState(profileSplit.give);
-  const [successGoalBalance, setSuccessGoalBalance] = useState(0);
   const [successOverflowCount, setSuccessOverflowCount] = useState<number | undefined>(undefined);
 
   function handleCatSelect(cat: typeof defaultCat) {
@@ -46,7 +45,17 @@ export function SkipModal({ onClose }: Props) {
 
   async function handleSubmit() {
     const selectedProject = projects.find((p) => p.id === projectId);
-    const causeGoalAmount = profile?.causeGoalAmounts?.[projectId ?? ""] ?? selectedProject?.goalAmount ?? 0;
+
+    // Pre-compute jar-full state synchronously using same formula as jars page
+    const personalGoal = profile?.causeGoalAmounts?.[projectId ?? ""] ?? selectedProject?.goalAmount ?? 0;
+    const currentJarBal = profile?.causeJarBalances?.[projectId ?? ""] ?? 0;
+    const giveAmt = amount * (skipGivePct / 100);
+    const willBeFull = projectId != null && personalGoal > 0 && giveAmt > 0
+      && (currentJarBal + giveAmt) >= personalGoal;
+    const nextOverflowCount = willBeFull
+      ? (profile?.causeJarOverflowCounts?.[projectId ?? ""] ?? 0) + 1
+      : 0;
+
     const result = await log({
       category: selectedCat.id,
       categoryLabel: customLabel || selectedCat.label,
@@ -62,18 +71,14 @@ export function SkipModal({ onClose }: Props) {
       shareWithCommunity,
       whatSkipped: whatSkipped || undefined,
       jarSplit: { give: skipGivePct, live: 100 - skipGivePct },
-      causeGoalAmount,
+      causeGoalAmount: personalGoal,
     });
     if (result) {
       setSuccessProjectTitle(selectedProject?.title ?? null);
       setSuccessProjectLocation(selectedProject?.location ?? null);
       setSuccessProjectUnitName(selectedProject?.unitName ?? null);
       setSuccessProjectUnitCost(selectedProject?.unitCost ?? null);
-      // Capture directly from result to avoid Zustand timing issues
-      setSuccessOverflowCount(result.giveJarOverflowCount);
-      const { activeId: aGoalId } = normalizeSpendingGoals(profile ?? {} as any);
-      const liveAmt = amount * ((100 - skipGivePct) / 100);
-      setSuccessGoalBalance((profile?.goalJarBalances?.[aGoalId ?? ""] ?? 0) + liveAmt);
+      if (willBeFull) setSuccessOverflowCount(nextOverflowCount);
       setSuccess(true);
     }
   }
@@ -85,9 +90,10 @@ export function SkipModal({ onClose }: Props) {
     // Goal progress for "x% towards your reward" line
     const { goals: successSpendingGoals, activeId: successActiveGoalId } = normalizeSpendingGoals(profile ?? {} as any);
     const successActiveGoal = successSpendingGoals.find(g => g.id === successActiveGoalId) ?? null;
+    const liveAmt = amount - skipGive; // live portion of this skip
     const goalPctDisplay: string | null = (() => {
       if (!successActiveGoal || successActiveGoal.targetAmount <= 0) return null;
-      const raw = Math.min(100, (successGoalBalance / successActiveGoal.targetAmount) * 100);
+      const raw = Math.min(100, (liveAmt / successActiveGoal.targetAmount) * 100);
       if (raw < 1) return raw < 0.1 ? "0.1" : raw.toFixed(1);
       return String(Math.round(raw));
     })();
