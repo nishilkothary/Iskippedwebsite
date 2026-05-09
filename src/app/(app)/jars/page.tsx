@@ -1120,10 +1120,24 @@ function CauseTab({
 }
 
 const PREBUILT_REWARDS = [
-  { label: "Concert Tickets", targetAmount: 150 },
-  { label: "Vacation Fund", targetAmount: 1000 },
-  { label: "New Kicks", targetAmount: 120 },
+  { label: "Concert Tickets", targetAmount: 150,  tagline: "~8 takeout skips", color: "#8B5CF6" },
+  { label: "New Kicks",       targetAmount: 120,  tagline: "~6 coffee skips",  color: "#2ECC71" },
+  { label: "Vacation Fund",   targetAmount: 1000, tagline: "long-term goal",   color: "#F59E0B" },
 ];
+
+function pickMilestoneStep(targetAmount: number): number {
+  const tenPct = targetAmount * 0.1;
+  return [10, 50, 100].reduce((best, m) =>
+    Math.abs(m - tenPct) < Math.abs(best - tenPct) ? m : best
+  );
+}
+
+function getNextMilestone(targetAmount: number, balance: number): { value: number; need: number } | null {
+  if (balance >= targetAmount) return null;
+  const step = pickMilestoneStep(targetAmount);
+  const next = Math.min(Math.ceil((balance + 0.01) / step) * step, targetAmount);
+  return { value: next, need: Math.max(0, next - balance) };
+}
 
 /* ── Splurge Tab ── */
 function SplurgeTab({
@@ -1257,6 +1271,12 @@ function SplurgeTab({
 
   return (
     <div className="space-y-4">
+      {/* Page heading */}
+      <div className="mb-2">
+        <h1 className="text-4xl font-extrabold leading-tight" style={{ color: "#8B5CF6" }}>Future You</h1>
+        <p className="text-sm mt-1" style={{ color: "var(--text-secondary)" }}>Turn Skip Spending Into Something You Actually Want</p>
+      </div>
+
       {/* Switch modal */}
       {switchTarget && (
         <div className="fixed inset-0 bg-black/60 z-50 flex items-end sm:items-center justify-center p-4" onClick={() => setSwitchTarget(null)}>
@@ -1327,27 +1347,34 @@ function SplurgeTab({
         </div>
       )}
 
-      {/* My Active Savings Jar scoreboard — only when a goal is active */}
-      {activeGoal ? (
-        <div className="rounded-2xl p-5 mb-4" style={{ background: "var(--bg-surface-1)", border: "1px solid var(--border-default)" }}>
-          <p className="text-base font-semibold mb-3 leading-snug" style={{ color: "var(--text-primary)" }}>
-            My skips have helped saved{" "}
-            <span style={{ color: "#8B5CF6" }}>{formatCurrency(spendingBalance)}</span>
-            {" "}towards my{" "}
-            <span style={{ color: "#8B5CF6" }}>{activeGoal.label}</span>
-          </p>
-          <div className="space-y-2">
-            {activeGoal.shoppingLink && (
-              <a
-                href={activeGoal.shoppingLink}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="flex items-center justify-center gap-1.5 w-full py-2 font-semibold rounded-xl transition-colors text-xs"
-                style={{ border: "1px solid rgba(139,92,246,0.4)", color: "#8B5CF6" }}
-              >
-                🛒 Shop now →
-              </a>
+      {/* Active goal summary card */}
+      {activeGoal ? (() => {
+        const pct = activeGoal.targetAmount > 0
+          ? Math.min(100, Math.round((spendingBalance / activeGoal.targetAmount) * 100))
+          : 0;
+        const milestone = activeGoal.targetAmount > 0
+          ? getNextMilestone(activeGoal.targetAmount, spendingBalance)
+          : null;
+        return (
+          <div className="rounded-2xl p-5 mb-4" style={{ background: "var(--bg-surface-1)", border: "1px solid var(--border-default)" }}>
+            <p className="text-xs font-semibold uppercase tracking-wide mb-2" style={{ color: "var(--text-muted)" }}>Your Reward Jar</p>
+            <p className="text-2xl font-extrabold mb-1" style={{ color: "var(--text-primary)" }}>{activeGoal.label}</p>
+            <p className="text-sm mb-1" style={{ color: "var(--text-secondary)" }}>
+              {formatCurrency(spendingBalance)} saved of {formatCurrency(activeGoal.targetAmount)} Goal
+            </p>
+            <p className="text-sm font-bold mb-3" style={{ color: "#8B5CF6" }}>{pct}% Funded</p>
+            {/* Progress bar */}
+            <div className="w-full rounded-full mb-3 overflow-hidden" style={{ background: "var(--bg-surface-2)", height: 8 }}>
+              <div className="h-full rounded-full transition-all" style={{ width: `${pct}%`, background: "#8B5CF6" }} />
+            </div>
+            {/* Milestone */}
+            {milestone && (
+              <p className="text-xs mb-4" style={{ color: "var(--text-muted)" }}>
+                <span className="font-semibold" style={{ color: "var(--text-secondary)" }}>Next milestone: {formatCurrency(milestone.value)}</span>
+                {"  ·  "}Skip {formatCurrency(milestone.need)} more to hit it
+              </p>
             )}
+            {/* Buttons */}
             {purchasingId === activeGoal.id ? (
               <div className="flex gap-2">
                 <div className="relative flex-1">
@@ -1385,22 +1412,41 @@ function SplurgeTab({
                 </button>
               </div>
             ) : (
-              <button
-                onClick={() => setPurchasingId(activeGoal.id)}
-                className="w-full py-2 font-semibold rounded-xl hover:opacity-90 transition-colors text-xs"
-                style={{ background: "#8B5CF6", color: "white" }}
-              >
-                Log My Purchase
-              </button>
+              <div className="flex gap-2">
+                {activeGoal.shoppingLink ? (
+                  <a
+                    href={activeGoal.shoppingLink}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="flex-1 flex items-center justify-center py-2.5 font-semibold rounded-xl text-sm transition-colors"
+                    style={{ border: "1px solid rgba(139,92,246,0.4)", color: "#8B5CF6" }}
+                  >
+                    Purchase
+                  </a>
+                ) : (
+                  <button
+                    onClick={() => { setPurchasingId(activeGoal.id); setPurchaseAmountStr(""); }}
+                    className="flex-1 py-2.5 font-semibold rounded-xl text-sm transition-colors"
+                    style={{ border: "1px solid rgba(139,92,246,0.4)", color: "#8B5CF6" }}
+                  >
+                    Purchase
+                  </button>
+                )}
+                <button
+                  onClick={() => { setPurchasingId(activeGoal.id); setPurchaseAmountStr(String(activeGoal.targetAmount)); }}
+                  className="flex-1 py-2.5 font-semibold rounded-xl text-sm transition-colors"
+                  style={{ background: "var(--bg-surface-2)", color: "var(--text-primary)", border: "1px solid var(--border-default)" }}
+                >
+                  I Bought It
+                </button>
+              </div>
             )}
           </div>
-        </div>
-      ) : (
-        <div className="mb-6 mt-1">
-          <p className="text-3xl font-extrabold leading-tight" style={{ color: "#8B5CF6" }}>
-            I want to reward<br />myself for skipping<br />with<span style={{ opacity: 0.4 }}>…</span>
-          </p>
-          <p className="text-xs mt-2" style={{ color: "var(--text-muted)" }}>Pick a savings goal below</p>
+        );
+      })() : (
+        <div className="rounded-2xl p-5 mb-4" style={{ background: "var(--bg-surface-1)", border: "1px dashed rgba(139,92,246,0.3)" }}>
+          <p className="text-sm font-semibold mb-1" style={{ color: "#8B5CF6" }}>Your Reward Jar</p>
+          <p className="text-xs" style={{ color: "var(--text-muted)" }}>Pick a reward below to start tracking your savings goal.</p>
         </div>
       )}
 
@@ -1590,22 +1636,33 @@ function SplurgeTab({
       )}
 
 
-      {/* Pre-built rewards */}
+      {/* Pick A Reward */}
       {!showAddForm && (
         <div>
-          <p className="text-xs font-semibold text-[rgba(237,245,240,0.85)] uppercase tracking-wide mb-2">Popular Rewards</p>
-          <div className="flex gap-2 overflow-x-auto pb-1 -mx-1 px-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+          <p className="text-lg font-bold mb-0.5" style={{ color: "var(--text-primary)" }}>Pick A Reward</p>
+          <p className="text-xs mb-3" style={{ color: "var(--text-secondary)" }}>Rewards For Your Skips:</p>
+          <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
             {PREBUILT_REWARDS.map((r) => (
               <button
                 key={r.label}
                 onClick={async () => { await onAddGoal({ label: r.label, targetAmount: r.targetAmount, type: "splurge" }); }}
-                className="flex-shrink-0 rounded-xl px-3 py-2.5 text-left transition-colors"
-                style={{ background: "var(--bg-surface-1)", border: "1px solid rgba(139,92,246,0.3)" }}
+                className="rounded-2xl p-4 text-left transition-all hover:scale-[1.02] active:scale-[0.98]"
+                style={{ background: "var(--bg-surface-1)", border: `1px solid ${r.color}33` }}
               >
-                <div className="text-sm font-semibold" style={{ color: "#8B5CF6" }}>{r.label}</div>
-                <div className="text-xs mt-0.5" style={{ color: "rgba(237,245,240,0.5)" }}>${r.targetAmount}</div>
+                <div className="text-sm font-bold mb-1" style={{ color: r.color }}>{r.label}</div>
+                <div className="text-lg font-extrabold" style={{ color: "var(--text-primary)" }}>${r.targetAmount}</div>
+                <div className="text-xs mt-1" style={{ color: "var(--text-muted)" }}>{r.tagline}</div>
               </button>
             ))}
+            <button
+              onClick={() => setShowAddForm(true)}
+              className="rounded-2xl p-4 text-left transition-all hover:scale-[1.02] active:scale-[0.98]"
+              style={{ background: "var(--bg-surface-1)", border: "1px dashed rgba(139,92,246,0.4)" }}
+            >
+              <div className="text-2xl font-bold mb-1" style={{ color: "#8B5CF6" }}>+</div>
+              <div className="text-sm font-bold" style={{ color: "var(--text-primary)" }}>Custom</div>
+              <div className="text-xs mt-1" style={{ color: "var(--text-muted)" }}>Set your own goal</div>
+            </button>
           </div>
         </div>
       )}
