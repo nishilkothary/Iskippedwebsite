@@ -891,12 +891,6 @@ function CauseTab({
                       <div className="mt-3 h-2 rounded-full overflow-hidden" style={{ background: "var(--bg-surface-1)" }}>
                         <div className="h-full rounded-full" style={{ width: `${Math.min(100, pct ?? 0)}%`, background: "#2ECC71" }} />
                       </div>
-                      {milestone && (
-                        <p className="text-xs mt-1.5" style={{ color: "var(--text-secondary)" }}>
-                          Next milestone: <span className="font-semibold" style={{ color: "var(--text-primary)" }}>{formatCurrency(milestone.value)}</span>
-                          {" · "}skip <span className="font-semibold" style={{ color: "#2ECC71" }}>{formatCurrency(milestone.need)}</span> more to hit it
-                        </p>
-                      )}
                     </>
                   )}
                   <CauseDonateRow project={activeProject} />
@@ -1462,12 +1456,6 @@ function SplurgeTab({
                 <div className="w-full rounded-full mb-3 overflow-hidden" style={{ background: "var(--bg-surface-2)", height: 8 }}>
                   <div className="h-full rounded-full transition-all" style={{ width: `${pct}%`, background: "#8B5CF6" }} />
                 </div>
-                {milestone && (
-                  <p className="text-xs mb-4" style={{ color: "var(--text-muted)" }}>
-                    <span className="font-semibold" style={{ color: "var(--text-secondary)" }}>Next milestone: {formatCurrency(milestone.value)}</span>
-                    {"  ·  "}Skip {formatCurrency(milestone.need)} more to hit it
-                  </p>
-                )}
                 {purchasingId === activeGoal.id ? (
                   <div className="flex gap-2">
                     <div className="relative flex-1">
