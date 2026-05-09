@@ -36,6 +36,8 @@ export function SkipModal({ onClose }: Props) {
   const [successProjectUnitName, setSuccessProjectUnitName] = useState<string | null>(null);
   const [successProjectUnitCost, setSuccessProjectUnitCost] = useState<number | null>(null);
   const [skipGivePct, setSkipGivePct] = useState(profileSplit.give);
+  const [successGoalBalance, setSuccessGoalBalance] = useState(0);
+  const [successOverflowCount, setSuccessOverflowCount] = useState<number | undefined>(undefined);
 
   function handleCatSelect(cat: typeof defaultCat) {
     setSelectedCat(cat);
@@ -67,6 +69,11 @@ export function SkipModal({ onClose }: Props) {
       setSuccessProjectLocation(selectedProject?.location ?? null);
       setSuccessProjectUnitName(selectedProject?.unitName ?? null);
       setSuccessProjectUnitCost(selectedProject?.unitCost ?? null);
+      // Capture directly from result to avoid Zustand timing issues
+      setSuccessOverflowCount(result.giveJarOverflowCount);
+      const { activeId: aGoalId } = normalizeSpendingGoals(profile ?? {} as any);
+      const liveAmt = amount * ((100 - skipGivePct) / 100);
+      setSuccessGoalBalance((profile?.goalJarBalances?.[aGoalId ?? ""] ?? 0) + liveAmt);
       setSuccess(true);
     }
   }
@@ -78,13 +85,11 @@ export function SkipModal({ onClose }: Props) {
     // Goal progress for "x% towards your reward" line
     const { goals: successSpendingGoals, activeId: successActiveGoalId } = normalizeSpendingGoals(profile ?? {} as any);
     const successActiveGoal = successSpendingGoals.find(g => g.id === successActiveGoalId) ?? null;
-    const goalBalance = profile?.goalJarBalances?.[successActiveGoalId ?? ""] ?? 0;
     const goalPctDisplay: string | null = (() => {
       if (!successActiveGoal || successActiveGoal.targetAmount <= 0) return null;
-      const raw = Math.min(100, (goalBalance / successActiveGoal.targetAmount) * 100);
-      const rounded = Math.round(raw);
-      if (rounded === 0) return Math.max(0.1, Math.ceil(raw * 10) / 10).toFixed(1);
-      return String(rounded);
+      const raw = Math.min(100, (successGoalBalance / successActiveGoal.targetAmount) * 100);
+      if (raw < 1) return raw < 0.1 ? "0.1" : raw.toFixed(1);
+      return String(Math.round(raw));
     })();
 
     // Build impact display string (for modal) and share impact clause
@@ -110,7 +115,7 @@ export function SkipModal({ onClose }: Props) {
     const shareText = `I skipped ${itemLabel}${impactClause}. Join the movement at Iskipped.com`;
 
     // Show jar-full celebration when give jar hits/exceeds goal (first time, then every 3rd skip)
-    const overflowCount = profile?.causeJarOverflowCounts?.[projectId ?? ""] ?? 0;
+    const overflowCount = successOverflowCount ?? 0;
     const showJarFull = successActiveProject != null && overflowCount >= 1 && (overflowCount === 1 || (overflowCount - 1) % 3 === 0);
 
     if (showJarFull && successActiveProject) {
@@ -227,7 +232,7 @@ export function SkipModal({ onClose }: Props) {
               </p>
             )}
 
-            <div className="mt-5 text-left">
+            <div className="mt-8 text-left">
               <p className="text-xs mb-1 uppercase tracking-wide" style={{ color: "var(--text-muted)" }}>Challenge Your Friends to Start Skipping!</p>
               <textarea
                 readOnly
