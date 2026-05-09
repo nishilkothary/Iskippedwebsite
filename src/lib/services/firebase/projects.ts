@@ -36,7 +36,7 @@ export const OFFICIAL_PROJECTS: Project[] = [
     description: "Help equip students in remote Kenyan villages with a Chromebook, unlocking digital learning and new opportunities.",
     goalAmount: 250,
     totalRaised: 0,
-    imageURL: null,
+    imageURL: "/causes/KC Chromebook.jpg",
     donationURL: "https://www.kenyaconnect.org/donate",
     isCustom: false,
     location: "Kenya",
