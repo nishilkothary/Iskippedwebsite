@@ -394,12 +394,12 @@ function makeJarPath(scale: number) {
   ].join(" ");
 }
 
-function getCategoryAbbr(project: Project): { abbr: string; color: string } {
-  if (project.tags?.includes("education")) return { abbr: "EDU", color: "#2ECC71" };
-  if (project.tags?.includes("food"))      return { abbr: "MEAL", color: "#F59E0B" };
-  if (project.tags?.includes("health"))    return { abbr: "CARE", color: "#3B82F6" };
-  if (project.isCustom) return { abbr: project.title.slice(0, 3).toUpperCase(), color: "#8B5CF6" };
-  return { abbr: "GIVE", color: "#2ECC71" };
+function getCategoryFallback(project: Project): { img: string | null; abbr: string; color: string } {
+  if (project.tags?.includes("education")) return { img: "/categories/education.png", abbr: "EDU", color: "#2ECC71" };
+  if (project.tags?.includes("food"))      return { img: "/categories/meal.png",      abbr: "MEAL", color: "#F59E0B" };
+  if (project.tags?.includes("health"))    return { img: "/categories/health.png",    abbr: "CARE", color: "#3B82F6" };
+  if (project.isCustom) return { img: null, abbr: project.title.slice(0, 3).toUpperCase(), color: "#8B5CF6" };
+  return { img: null, abbr: "GIVE", color: "#2ECC71" };
 }
 
 /* ── Cause Tab ── */
@@ -770,14 +770,16 @@ function CauseTab({
       {detailProject && (() => {
         const dp = detailProject;
         const isActive = activeProject?.id === dp.id;
-        const { abbr, color } = getCategoryAbbr(dp);
+        const { img: fallbackImg, abbr, color } = getCategoryFallback(dp);
         return (
           <div className="fixed inset-0 bg-black/60 z-50 flex items-end sm:items-center justify-center p-4" onClick={() => setDetailProject(null)}>
             <div className="rounded-2xl w-full max-w-sm shadow-2xl overflow-hidden" style={{ background: "var(--bg-surface-1)", border: "1px solid var(--border-default)" }} onClick={(e) => e.stopPropagation()}>
               <div className="relative flex items-center justify-center h-40 w-full" style={{ background: "var(--bg-surface-2)" }}>
                 {dp.imageURL
                   ? <img src={dp.imageURL} className="w-full h-full object-cover" alt={dp.title} />
-                  : <span className="text-3xl font-extrabold" style={{ color }}>{abbr}</span>
+                  : fallbackImg
+                    ? <img src={fallbackImg} className="w-full h-full object-cover" alt={dp.title} />
+                    : <span className="text-3xl font-extrabold" style={{ color }}>{abbr}</span>
                 }
                 <button onClick={() => setDetailProject(null)} className="absolute top-3 right-3 text-xl leading-none w-8 h-8 flex items-center justify-center rounded-full" style={{ background: "rgba(0,0,0,0.4)", color: "#fff" }}>×</button>
               </div>
@@ -896,13 +898,15 @@ function CauseTab({
         (() => {
           const featured = projects.find(p => p.id === "cfc") ?? projects.find(p => !p.isCustom);
           if (!featured) return null;
-          const { abbr, color } = getCategoryAbbr(featured);
+          const { img: fallbackImg, abbr, color } = getCategoryFallback(featured);
           return (
             <div className="rounded-2xl overflow-hidden mb-2 cursor-pointer" style={{ background: "var(--bg-surface-1)", border: "1px solid var(--border-default)" }} onClick={() => setDetailProject(featured)}>
               <div className="flex items-center justify-center h-28 w-full" style={{ background: "var(--bg-surface-2)" }}>
                 {featured.imageURL
                   ? <img src={featured.imageURL} className="w-full h-full object-cover" alt={featured.title} />
-                  : <span className="text-2xl font-extrabold" style={{ color }}>{abbr}</span>
+                  : fallbackImg
+                    ? <img src={fallbackImg} className="w-full h-full object-cover" alt={featured.title} />
+                    : <span className="text-2xl font-extrabold" style={{ color }}>{abbr}</span>
                 }
               </div>
               <div className="p-4">
@@ -928,7 +932,7 @@ function CauseTab({
 
       {/* Category filter tabs */}
       <div className="flex gap-2 overflow-x-auto pb-1 -mx-1 px-1 mt-6 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
-        {["All", "Education", "Meals", "Health", "Emergency", "My Custom"].map(cat => (
+        {["All", "Education", "Meals", "Health", "My Custom"].map(cat => (
           <button
             key={cat}
             onClick={() => setSelectedCategory(cat)}
@@ -946,7 +950,7 @@ function CauseTab({
       {/* Cause card grid */}
       {(() => {
         const tagMap: Record<string, string> = {
-          Education: "education", Meals: "food", Health: "health", Emergency: "emergency",
+          Education: "education", Meals: "food", Health: "health",
         };
         const filteredProjects = projects.filter(p => {
           if (selectedCategory === "My Custom") return p.isCustom;
@@ -958,7 +962,7 @@ function CauseTab({
             {filteredProjects.map(project => {
               const isActive = activeProject?.id === project.id;
               const isEditing = editingProjectId === project.id;
-              const { abbr, color } = getCategoryAbbr(project);
+              const { img: fallbackImg, abbr, color } = getCategoryFallback(project);
               return (
                 <div
                   key={project.id}
@@ -985,7 +989,9 @@ function CauseTab({
                       <div className="flex items-center justify-center h-24 w-full" style={{ background: "var(--bg-surface-2)" }}>
                         {project.imageURL
                           ? <img src={project.imageURL} className="w-full h-full object-cover" alt={project.title} />
-                          : <span className="text-sm font-extrabold" style={{ color }}>{abbr}</span>
+                          : fallbackImg
+                            ? <img src={fallbackImg} className="w-full h-full object-cover" alt={project.title} />
+                            : <span className="text-sm font-extrabold" style={{ color }}>{abbr}</span>
                         }
                       </div>
                       <div className="p-3">
