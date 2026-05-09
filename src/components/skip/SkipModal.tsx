@@ -183,7 +183,7 @@ export function SkipModal({ onClose }: Props) {
             )}
 
             <div className="mt-5 text-left">
-              <p className="text-xs mb-1 uppercase tracking-wide" style={{ color: "var(--text-muted)" }}>Share</p>
+              <p className="text-xs mb-1 uppercase tracking-wide" style={{ color: "var(--text-muted)" }}>Challenge Your Friends and Family to Start Skipping!</p>
               <textarea
                 readOnly
                 value={shareText}
