@@ -875,7 +875,11 @@ function CauseTab({
                   <p className="text-2xl font-bold" style={{ color: "var(--text-primary)" }}>{activeProject.title}</p>
                   <p className="text-xs mt-0.5" style={{ color: "var(--text-muted)" }}>by {activeProject.sponsor}</p>
                   <p className="text-sm mt-2" style={{ color: "var(--text-secondary)" }}>
-                    <span className="font-semibold" style={{ color: "var(--text-primary)" }}>{formatCurrency(balance)}</span> saved toward this cause
+                    <span className="font-semibold" style={{ color: "var(--text-primary)" }}>{formatCurrency(balance)}</span>
+                    {personalGoal > 0
+                      ? <> saved towards Goal of <span className="font-semibold" style={{ color: "var(--text-primary)" }}>{formatCurrency(personalGoal)}</span></>
+                      : " saved towards this cause"
+                    }
                   </p>
                   {isUnitCost ? (
                     <p className="text-sm font-bold mt-1" style={{ color: "#2ECC71" }}>{unitsFunded} {activeProject.unitDisplay} funded</p>

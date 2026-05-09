@@ -77,9 +77,13 @@ export function SkipModal({ onClose }: Props) {
     const { goals: successSpendingGoals, activeId: successActiveGoalId } = normalizeSpendingGoals(profile ?? {} as any);
     const successActiveGoal = successSpendingGoals.find(g => g.id === successActiveGoalId) ?? null;
     const goalBalance = profile?.goalJarBalances?.[successActiveGoalId ?? ""] ?? 0;
-    const goalPct = successActiveGoal && successActiveGoal.targetAmount > 0
-      ? Math.round(Math.min(100, (goalBalance / successActiveGoal.targetAmount) * 100))
-      : null;
+    const goalPctDisplay: string | null = (() => {
+      if (!successActiveGoal || successActiveGoal.targetAmount <= 0) return null;
+      const raw = Math.min(100, (goalBalance / successActiveGoal.targetAmount) * 100);
+      const rounded = Math.round(raw);
+      if (rounded === 0) return Math.max(0.1, Math.ceil(raw * 10) / 10).toFixed(1);
+      return String(rounded);
+    })();
 
     // Build impact display string (for modal) and share impact clause
     const itemLabel = whatSkipped || customLabel || selectedCat.label.toLowerCase();
@@ -168,12 +172,13 @@ export function SkipModal({ onClose }: Props) {
           )}
           <div className="px-8 pb-8" style={{ paddingTop: causeImageURL ? 20 : 0 }}>
             {!causeImageURL && <div className="text-6xl mb-3">🎉</div>}
-            <p className="text-sm uppercase tracking-wide font-semibold mb-1" style={{ color: "var(--text-muted)" }}>Congratulations on funding</p>
+            <p className="text-sm uppercase tracking-wide font-semibold mb-1" style={{ color: "var(--text-muted)" }}>Thank you for Funding</p>
             <p className="text-2xl font-bold leading-tight" style={{ color: "var(--green-primary)" }}>{impactDisplay}</p>
-            {goalPct !== null && successActiveGoal && (
+            {goalPctDisplay !== null && successActiveGoal && (
               <p className="text-sm mt-3 font-semibold" style={{ color: "var(--text-secondary)" }}>
-                You&apos;re <span style={{ color: "var(--gold-cta)" }}>{goalPct}%</span> closer to your{" "}
-                <span style={{ color: "var(--gold-cta)" }}>{successActiveGoal.label}</span>! 🎯
+                Your Generosity has brought you{" "}
+                <span style={{ color: "var(--gold-cta)" }}>{goalPctDisplay}%</span> closer to your{" "}
+                <span style={{ color: "var(--gold-cta)" }}>{successActiveGoal.label}</span> reward!
               </p>
             )}
 
