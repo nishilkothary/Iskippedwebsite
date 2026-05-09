@@ -19,7 +19,7 @@ export const OFFICIAL_PROJECTS: Project[] = [
     description: "Your savings fund a full year of quality education for a child in Cambodia, including tuition, uniforms, and school supplies.",
     goalAmount: 300,
     totalRaised: 0,
-    imageURL: null,
+    imageURL: "/causes/cfc.jpg",
     donationURL: "https://www.caringforcambodia.org/donate",
     isCustom: false,
     location: "Cambodia",

@@ -777,8 +777,8 @@ function CauseTab({
                 <p className="text-xl font-bold" style={{ color: "var(--text-primary)" }}>{dp.title}</p>
                 <p className="text-xs mt-0.5" style={{ color: "var(--text-muted)" }}>by {dp.sponsor}</p>
                 {dp.description && <p className="text-sm mt-2 leading-relaxed" style={{ color: "var(--text-secondary)" }}>{dp.description}</p>}
-                {dp.unitCost && !dp.unitIsGoal && dp.unitName ? (
-                  <p className="text-sm mt-2 font-semibold" style={{ color: "#2ECC71" }}>{formatCurrency(dp.unitCost)} = 1 {dp.unitName}</p>
+                {dp.unitName ? (
+                  <p className="text-sm mt-2 font-semibold" style={{ color: "#2ECC71" }}>{formatCurrency(dp.unitIsGoal ? dp.goalAmount : dp.unitCost!)} = 1 {dp.unitName}</p>
                 ) : dp.goalAmount > 0 ? (
                   <p className="text-sm mt-2 font-semibold" style={{ color: "#2ECC71" }}>Goal: {formatCurrency(dp.goalAmount)}</p>
                 ) : null}
@@ -890,7 +890,7 @@ function CauseTab({
           if (!featured) return null;
           const { abbr, color } = getCategoryAbbr(featured);
           return (
-            <div className="rounded-2xl overflow-hidden mb-2" style={{ background: "var(--bg-surface-1)", border: "1px solid var(--border-default)" }}>
+            <div className="rounded-2xl overflow-hidden mb-2 cursor-pointer" style={{ background: "var(--bg-surface-1)", border: "1px solid var(--border-default)" }} onClick={() => setDetailProject(featured)}>
               <div className="flex items-center justify-center h-28 w-full" style={{ background: "var(--bg-surface-2)" }}>
                 {featured.imageURL
                   ? <img src={featured.imageURL} className="w-full h-full object-cover" alt={featured.title} />
@@ -902,21 +902,16 @@ function CauseTab({
                 <p className="text-xl font-bold" style={{ color: "var(--text-primary)" }}>{featured.title}</p>
                 <p className="text-xs mt-0.5" style={{ color: "var(--text-muted)" }}>by {featured.sponsor}</p>
                 {featured.description && <p className="text-xs mt-1.5 line-clamp-2" style={{ color: "var(--text-secondary)" }}>{featured.description}</p>}
-                {featured.unitCost && !featured.unitIsGoal && featured.unitName && (
-                  <p className="text-xs mt-1.5 font-semibold" style={{ color: "#2ECC71" }}>{formatCurrency(featured.unitCost)} = 1 {featured.unitName}</p>
+                {featured.unitName && (
+                  <p className="text-xs mt-1.5 font-semibold" style={{ color: "#2ECC71" }}>{formatCurrency(featured.unitIsGoal ? featured.goalAmount : featured.unitCost!)} = 1 {featured.unitName}</p>
                 )}
                 <button
-                  onClick={() => handleSetActive(featured)}
+                  onClick={(e) => { e.stopPropagation(); handleSetActive(featured); }}
                   className="mt-3 w-full py-2.5 text-sm font-semibold rounded-xl"
                   style={{ background: "#2ECC71", color: "#0B1A14" }}
                 >
                   Make this my Giving Jar
                 </button>
-                {(featured.learnMoreURL || featured.donationURL) && (
-                  <a href={featured.learnMoreURL ?? featured.donationURL!} target="_blank" rel="noopener noreferrer" className="block text-center text-xs mt-2" style={{ color: "#2ECC71" }}>
-                    Learn More →
-                  </a>
-                )}
               </div>
             </div>
           );
@@ -989,8 +984,9 @@ function CauseTab({
                         {isActive && <span className="text-[10px] font-bold px-2 py-0.5 rounded-full mb-1 inline-block" style={{ background: "rgba(46,204,113,0.15)", color: "#2ECC71" }}>✓ Active</span>}
                         <p className="text-sm font-bold leading-snug" style={{ color: "var(--text-primary)" }}>{project.title}</p>
                         <p className="text-xs mt-0.5" style={{ color: "var(--text-muted)" }}>by {project.sponsor}</p>
-                        {project.unitCost && !project.unitIsGoal && project.unitName ? (
-                          <p className="text-xs mt-1 font-semibold" style={{ color: "#2ECC71" }}>{formatCurrency(project.unitCost)} = 1 {project.unitName}</p>
+                        {project.description && <p className="text-xs mt-1 line-clamp-2" style={{ color: "var(--text-secondary)" }}>{project.description}</p>}
+                        {project.unitName ? (
+                          <p className="text-xs mt-1 font-semibold" style={{ color: "#2ECC71" }}>{formatCurrency(project.unitIsGoal ? project.goalAmount : project.unitCost!)} = 1 {project.unitName}</p>
                         ) : project.goalAmount > 0 ? (
                           <p className="text-xs mt-1 font-semibold" style={{ color: "#2ECC71" }}>Goal: {formatCurrency(project.goalAmount)}</p>
                         ) : null}
