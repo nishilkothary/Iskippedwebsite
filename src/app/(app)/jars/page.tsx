@@ -776,7 +776,7 @@ function CauseTab({
             <div className="rounded-2xl w-full max-w-sm shadow-2xl overflow-hidden" style={{ background: "var(--bg-surface-1)", border: "1px solid var(--border-default)" }} onClick={(e) => e.stopPropagation()}>
               <div className="relative flex items-center justify-center h-40 w-full" style={{ background: "var(--bg-surface-2)" }}>
                 {dp.imageURL
-                  ? <img src={dp.imageURL} className="w-full h-full object-cover" alt={dp.title} />
+                  ? <img src={dp.imageURL} className="w-full h-full object-cover" style={{ objectPosition: dp.imagePosition ?? "center" }} alt={dp.title} />
                   : fallbackImg
                     ? <img src={fallbackImg} className="w-full h-full object-cover" alt={dp.title} />
                     : <span className="text-3xl font-extrabold" style={{ color }}>{abbr}</span>
@@ -835,7 +835,7 @@ function CauseTab({
             <div className="rounded-2xl overflow-hidden mb-2" style={{ background: "var(--bg-surface-2)", border: "1px solid var(--border-default)" }}>
               {scoreboardPhoto && !isEditing && (
                 <div className="h-32 sm:h-40 w-full" style={{ background: "var(--bg-surface-1)" }}>
-                  <img src={scoreboardPhoto} className="w-full h-full object-cover" alt={activeProject.title} />
+                  <img src={scoreboardPhoto} className="w-full h-full object-cover" style={{ objectPosition: activeProject.imagePosition ?? "center" }} alt={activeProject.title} />
                 </div>
               )}
               <div className="p-5">
@@ -910,7 +910,7 @@ function CauseTab({
             <div className="rounded-2xl overflow-hidden mb-2 cursor-pointer" style={{ background: "var(--bg-surface-1)", border: "1px solid var(--border-default)" }} onClick={() => setDetailProject(featured)}>
               <div className="flex items-center justify-center h-28 sm:h-48 w-full" style={{ background: "var(--bg-surface-2)" }}>
                 {featured.imageURL
-                  ? <img src={featured.imageURL} className="w-full h-full object-cover" alt={featured.title} />
+                  ? <img src={featured.imageURL} className="w-full h-full object-cover" style={{ objectPosition: featured.imagePosition ?? "center" }} alt={featured.title} />
                   : fallbackImg
                     ? <img src={fallbackImg} className="w-full h-full object-cover" alt={featured.title} />
                     : <span className="text-2xl font-extrabold" style={{ color }}>{abbr}</span>
@@ -995,7 +995,7 @@ function CauseTab({
                     <>
                       <div className="flex items-center justify-center h-24 w-full" style={{ background: "var(--bg-surface-2)" }}>
                         {project.imageURL
-                          ? <img src={project.imageURL} className="w-full h-full object-cover" alt={project.title} />
+                          ? <img src={project.imageURL} className="w-full h-full object-cover" style={{ objectPosition: project.imagePosition ?? "center" }} alt={project.title} />
                           : fallbackImg
                             ? <img src={fallbackImg} className="w-full h-full object-cover" alt={project.title} />
                             : <span className="text-sm font-extrabold" style={{ color }}>{abbr}</span>

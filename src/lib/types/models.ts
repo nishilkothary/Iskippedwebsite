@@ -85,6 +85,7 @@ export interface Project {
   unitIsGoal?: boolean; // true = 1 unit IS the full goal (e.g. Chromebook $250 = 1 unit); shows % mode
   createdBy: string | null; // uid for custom causes
   tags: string[];
+  imagePosition?: string; // CSS object-position for the cause image, e.g. "bottom", "center 70%"
 }
 
 export interface FeedItem {
