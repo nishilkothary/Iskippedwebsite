@@ -1228,6 +1228,7 @@ function SplurgeTab({
   const [completing, setCompleting] = useState(false);
   const [deletingActiveGoal, setDeletingActiveGoal] = useState(false);
   const [deletingGoalId, setDeletingGoalId] = useState<string | null>(null);
+  const [dismissedPrebuilts, setDismissedPrebuilts] = useState<string[]>([]);
   const [movingToGive, setMovingToGive] = useState(false);
 
   const [editingHistoryId, setEditingHistoryId] = useState<string | null>(null);
@@ -1587,14 +1588,13 @@ function SplurgeTab({
       })() : (
         <div className="rounded-2xl p-5 mb-4" style={{ background: "var(--bg-surface-1)", border: "1px dashed rgba(139,92,246,0.3)" }}>
           <p className="text-sm font-semibold mb-1" style={{ color: "#8B5CF6" }}>Your Reward Jar</p>
-          <p className="text-xs mb-3" style={{ color: "var(--text-muted)" }}>Pick a reward below to start saving toward something you actually want.</p>
-          <button
-            onClick={() => pickRewardRef.current?.scrollIntoView({ behavior: "smooth", block: "start" })}
-            className="w-full py-2.5 text-sm font-semibold rounded-xl"
-            style={{ background: "#8B5CF6", color: "#fff", border: "none", cursor: "pointer" }}
-          >
-            Choose a Reward →
-          </button>
+          {spendingBalance > 0 ? (
+            <p className="text-xs" style={{ color: "var(--text-muted)" }}>
+              Current Reward Jar Balance: <span className="font-semibold" style={{ color: "#8B5CF6" }}>{formatCurrency(spendingBalance)}</span>
+            </p>
+          ) : (
+            <p className="text-xs" style={{ color: "var(--text-muted)" }}>Pick a reward below to start saving toward something you actually want.</p>
+          )}
         </div>
       )}
 
@@ -1704,21 +1704,26 @@ function SplurgeTab({
               </div>
             ))}
             {/* Prebuilt templates not already saved — styled as inactive goal cards */}
-            {PREBUILT_REWARDS.filter((r) => !goals.some((g) => g.label === r.label)).map((r) => (
+            {PREBUILT_REWARDS.filter((r) => !goals.some((g) => g.label === r.label) && !dismissedPrebuilts.includes(r.label)).map((r) => (
               <div
                 key={r.label}
                 className="rounded-2xl p-4 text-left transition-all hover:scale-[1.02] active:scale-[0.98] relative"
                 style={{ background: "var(--bg-surface-1)", border: "1px solid rgba(139,92,246,0.3)" }}
               >
-                <div className="absolute top-2 right-2" onClick={(e) => e.stopPropagation()}>
+                <div className="absolute top-2 right-2 flex gap-0.5" onClick={(e) => e.stopPropagation()}>
                   <button
                     onClick={() => editPrebuilt(r)}
                     className="text-[rgba(237,245,240,0.3)] hover:text-[#8B5CF6] p-1 text-sm leading-none"
                     title="Edit"
                   >✏️</button>
+                  <button
+                    onClick={() => setDismissedPrebuilts((prev) => [...prev, r.label])}
+                    className="text-[rgba(237,245,240,0.3)] hover:text-red-400 p-1 text-sm leading-none"
+                    title="Remove"
+                  >🗑️</button>
                 </div>
                 <div onClick={() => activatePrebuilt(r)} className="cursor-pointer">
-                  <div className="text-sm font-bold mb-1 pr-8" style={{ color: "#8B5CF6" }}>{r.label}</div>
+                  <div className="text-sm font-bold mb-1 pr-12" style={{ color: "#8B5CF6" }}>{r.label}</div>
                   <div className="text-lg font-extrabold" style={{ color: "var(--text-primary)" }}>${r.targetAmount}</div>
                   <div className="text-xs mt-1" style={{ color: "var(--text-muted)" }}>tap to activate</div>
                 </div>

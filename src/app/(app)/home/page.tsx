@@ -247,13 +247,13 @@ export default function HomePage() {
     if (!activeProject) return "";
     if (activeProject.unitIsGoal && activeProject.goalAmount) {
       const pct = Math.round((10 / activeProject.goalAmount) * 100);
-      return `💡 Your next $10 gets you ${pct}% closer`;
+      return `A $10 Skip today funds ${pct}% of ${activeProject.unitName ?? "goal"}`;
     }
     if (activeProject.unitCost && activeProject.unitDisplay) {
       const units = Math.floor(10 / activeProject.unitCost);
-      return `💡 Your next $10 funds ${units} ${activeProject.unitDisplay}`;
+      return `A $10 Skip today funds ${units} more ${activeProject.unitDisplay}`;
     }
-    return `💡 Every skip makes a difference`;
+    return `Every skip makes a difference`;
   })();
 
   const cardStyle: React.CSSProperties = {
@@ -343,15 +343,11 @@ export default function HomePage() {
                 {activeProject.title}
               </p>
             )}
-            {activeProject.description && (
-              <p style={{
-                fontSize: 12, color: "var(--text-secondary)", margin: "0 0 8px",
-                display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical",
-                overflow: "hidden", lineHeight: 1.5,
-              }}>
-                {activeProject.description}
-              </p>
-            )}
+            <p style={{
+              fontSize: 12, color: "var(--text-secondary)", margin: "0 0 8px", lineHeight: 1.5,
+            }}>
+              There is no better reason to skip today than to help fund {activeProject.title}.
+            </p>
             <p style={{ fontSize: 12, fontWeight: 700, color: "#2BBAA4", margin: 0 }}>
               {motivationalLine}
             </p>
