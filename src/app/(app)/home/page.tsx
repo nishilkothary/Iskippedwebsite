@@ -275,24 +275,8 @@ export default function HomePage() {
         </p>
       </div>
 
-      {/* Greeting + streak + CTA */}
-      <div style={{ position: "relative", textAlign: "center", marginBottom: 24 }}>
-        {profile.streak > 0 && (
-          <div
-            className="flex items-center gap-1"
-            style={{
-              position: "absolute", top: 0, right: 0,
-              background: "linear-gradient(135deg, rgba(232,146,74,0.15), rgba(229,92,92,0.1))",
-              border: "1px solid rgba(232,146,74,0.2)",
-              borderRadius: 10,
-              padding: "3px 8px",
-            }}
-          >
-            <span style={{ fontSize: 12 }}>🔥</span>
-            <span style={{ fontSize: 11, fontWeight: 700, color: "#E8924A" }}>{profile.streak}</span>
-          </div>
-        )}
-
+      {/* Greeting + CTA */}
+      <div style={{ textAlign: "center", marginBottom: 24 }}>
         <h1 className="text-2xl font-black" style={{ color: "var(--text-primary)" }}>Hey {firstName}.</h1>
         <p className="mt-1 mb-5 text-sm" style={{ color: "var(--text-muted)" }}>What did you almost buy today?</p>
 
@@ -350,7 +334,22 @@ export default function HomePage() {
       )}
 
       {/* ── Jars card (full width) ── */}
-      <div style={{ ...cardStyle, marginBottom: 20 }}>
+      <div style={{ ...cardStyle, marginBottom: 20, position: "relative" }}>
+        {profile.streak > 0 && (
+          <div
+            className="flex items-center gap-1"
+            style={{
+              position: "absolute", top: 14, right: 16,
+              background: "linear-gradient(135deg, rgba(232,146,74,0.15), rgba(229,92,92,0.1))",
+              border: "1px solid rgba(232,146,74,0.2)",
+              borderRadius: 10,
+              padding: "3px 8px",
+            }}
+          >
+            <span style={{ fontSize: 12 }}>🔥</span>
+            <span style={{ fontSize: 11, fontWeight: 700, color: "#E8924A" }}>{profile.streak}</span>
+          </div>
+        )}
         {/* Total */}
         <div style={{ textAlign: "center", marginBottom: 8 }}>
           <div style={{
