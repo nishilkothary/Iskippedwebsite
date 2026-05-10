@@ -31,7 +31,6 @@ function JarsPageInner() {
   const rawTab = searchParams.get("tab");
   const initialTab: Tab = rawTab === "live" || rawTab === "cause" ? rawTab : "cause";
   const [activeTab, setActiveTab] = useState<Tab>(initialTab);
-  const pickRewardRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     setActiveTab(rawTab === "live" ? "live" : "cause");
@@ -1243,6 +1242,7 @@ function SplurgeTab({
   const [deactivatingGoal, setDeactivatingGoal] = useState(false);
   const [deactivating, setDeactivating] = useState(false);
 
+  const pickRewardRef = useRef<HTMLDivElement>(null);
   const [pendingActivationLabel, setPendingActivationLabel] = useState<string | null>(null);
   const [pendingEditLabel, setPendingEditLabel] = useState<string | null>(null);
 
