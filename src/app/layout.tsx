@@ -12,6 +12,10 @@ const geistSans = Geist({
 export const metadata: Metadata = {
   title: "I Skip — Save money, change lives",
   description: "Track what you skip and donate your savings to causes you care about.",
+  other: {
+    "apple-mobile-web-app-title": "iSkipped",
+    "apple-mobile-web-app-capable": "yes",
+  },
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {

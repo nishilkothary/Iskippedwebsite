@@ -243,6 +243,19 @@ export default function HomePage() {
 
   const firstName = profile.displayName.split(" ")[0];
 
+  const motivationalLine = (() => {
+    if (!activeProject) return "";
+    if (activeProject.unitIsGoal && activeProject.goalAmount) {
+      const pct = Math.round((10 / activeProject.goalAmount) * 100);
+      return `💡 Your next $10 gets you ${pct}% closer`;
+    }
+    if (activeProject.unitCost && activeProject.unitDisplay) {
+      const units = Math.floor(10 / activeProject.unitCost);
+      return `💡 Your next $10 funds ${units} ${activeProject.unitDisplay}`;
+    }
+    return `💡 Every skip makes a difference`;
+  })();
+
   const cardStyle: React.CSSProperties = {
     background: "var(--bg-surface-1)",
     border: "1px solid var(--border-default)",
@@ -296,46 +309,51 @@ export default function HomePage() {
         </button>
       </div>
 
-      {/* ── Cause card ── */}
-      {activeProject && activeProject.imageURL && (
+      {/* ── Cause card (My Skip Motivator) ── */}
+      {activeProject && (
         <div
           style={{ ...cardStyle, marginBottom: 20, overflow: "hidden", padding: 0, cursor: "pointer" }}
           onClick={() => router.push("/jars?tab=cause")}
         >
-          <div style={{ position: "relative", height: 140, overflow: "hidden" }}>
-            <img
-              src={activeProject.imageURL}
-              alt={activeProject.title}
-              style={{
-                width: "100%", height: "100%", objectFit: "cover",
-                objectPosition: activeProject.imagePosition ?? "center",
-              }}
-            />
-            <div style={{
-              position: "absolute", inset: 0,
-              background: "linear-gradient(to bottom, transparent 30%, rgba(0,0,0,0.65))",
-            }} />
-            <p style={{
-              position: "absolute", bottom: 12, left: 16, right: 16,
-              fontSize: 15, fontWeight: 800, color: "#fff", lineHeight: 1.3, margin: 0,
-            }}>
-              {activeProject.title}
-            </p>
-          </div>
-          <div style={{ padding: "14px 16px" }}>
-            <div style={{ height: 6, borderRadius: 99, background: "var(--bg-surface-2)", overflow: "hidden", marginBottom: 8 }}>
+          {activeProject.imageURL && (
+            <div style={{ position: "relative", height: 140, overflow: "hidden" }}>
+              <img
+                src={activeProject.imageURL}
+                alt={activeProject.title}
+                style={{
+                  width: "100%", height: "100%", objectFit: "cover",
+                  objectPosition: activeProject.imagePosition ?? "center",
+                }}
+              />
               <div style={{
-                height: "100%", borderRadius: 99, background: "#2BBAA4",
-                width: `${Math.min(100, givingFillPct)}%`,
-                transition: "width 0.8s ease",
+                position: "absolute", inset: 0,
+                background: "linear-gradient(to bottom, transparent 30%, rgba(0,0,0,0.65))",
               }} />
+              <p style={{
+                position: "absolute", bottom: 12, left: 16, right: 16,
+                fontSize: 15, fontWeight: 800, color: "#fff", lineHeight: 1.3, margin: 0,
+              }}>
+                {activeProject.title}
+              </p>
             </div>
-            <p style={{ fontSize: 12, fontWeight: 600, color: "var(--text-secondary)", margin: 0 }}>
-              {givingFillPct >= 100
-                ? "🎉 Your giving jar is full — ready to donate!"
-                : personalGoal > 0
-                ? `${formatCurrency(Math.max(0, personalGoal - givingBalance))} more fully funds this`
-                : `${Math.round(givingFillPct)}% saved toward this cause`}
+          )}
+          <div style={{ padding: "14px 16px" }}>
+            {!activeProject.imageURL && (
+              <p style={{ fontSize: 14, fontWeight: 800, color: "var(--text-primary)", margin: "0 0 6px" }}>
+                {activeProject.title}
+              </p>
+            )}
+            {activeProject.description && (
+              <p style={{
+                fontSize: 12, color: "var(--text-secondary)", margin: "0 0 8px",
+                display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical",
+                overflow: "hidden", lineHeight: 1.5,
+              }}>
+                {activeProject.description}
+              </p>
+            )}
+            <p style={{ fontSize: 12, fontWeight: 700, color: "#2BBAA4", margin: 0 }}>
+              {motivationalLine}
             </p>
           </div>
         </div>
