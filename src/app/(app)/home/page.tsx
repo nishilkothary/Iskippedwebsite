@@ -338,7 +338,7 @@ export default function HomePage() {
               </p>
             )}
             <p style={{
-              fontSize: 16, fontWeight: 800, color: "var(--text-primary)", margin: "0 0 8px", lineHeight: 1.3,
+              fontSize: 14, fontWeight: 600, color: "var(--text-primary)", margin: "0 0 8px", lineHeight: 1.4,
             }}>
               There is no better reason to skip today than to help fund {activeProject.title}.
             </p>
