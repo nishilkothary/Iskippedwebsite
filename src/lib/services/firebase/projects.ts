@@ -212,7 +212,7 @@ export async function addCustomProject(
 ): Promise<string> {
   const ref = await addDoc(collection(db, "projects"), {
     title: data.title,
-    sponsor: data.sponsor || data.title,
+    sponsor: data.sponsor || "",
     location: data.location || null,
     description: data.description || "",
     goalAmount: data.goalAmount,

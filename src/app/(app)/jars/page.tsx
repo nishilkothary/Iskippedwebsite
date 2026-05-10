@@ -784,7 +784,7 @@ function CauseTab({
               </div>
               <div className="px-5 py-4">
                 <p className="text-xl font-bold" style={{ color: "var(--text-primary)" }}>{dp.title}</p>
-                <p className="text-xs mt-0.5" style={{ color: "var(--text-muted)" }}>by {dp.sponsor}</p>
+                {dp.sponsor && <p className="text-xs mt-0.5" style={{ color: "var(--text-muted)" }}>by {dp.sponsor}</p>}
                 {dp.description && <p className="text-sm mt-2 leading-relaxed" style={{ color: "var(--text-secondary)" }}>{dp.description}</p>}
                 {dp.unitName ? (
                   <p className="text-sm mt-2 font-semibold" style={{ color: "#2ECC71" }}>{formatCurrency(dp.unitIsGoal ? dp.goalAmount : dp.unitCost!)} = 1 {dp.unitName}</p>
@@ -867,7 +867,7 @@ function CauseTab({
                 <>
                   <p className="text-xs mb-0.5" style={{ color: "var(--text-muted)" }}>Your Giving Jar</p>
                   <p className="text-2xl font-bold" style={{ color: "var(--text-primary)" }}>{activeProject.title}</p>
-                  <p className="text-xs mt-0.5" style={{ color: "var(--text-muted)" }}>by {activeProject.sponsor}</p>
+                  {activeProject.sponsor && <p className="text-xs mt-0.5" style={{ color: "var(--text-muted)" }}>by {activeProject.sponsor}</p>}
                   <p className="text-sm mt-2" style={{ color: "var(--text-secondary)" }}>
                     <span className="font-semibold" style={{ color: "var(--text-primary)" }}>{formatCurrency(balance)}</span>
                     {personalGoal > 0
@@ -913,7 +913,7 @@ function CauseTab({
               <div className="p-4">
                 <p className="text-[10px] font-bold uppercase tracking-wide mb-1" style={{ color: "#2ECC71" }}>This Month&apos;s Featured Cause</p>
                 <p className="text-xl font-bold" style={{ color: "var(--text-primary)" }}>{featured.title}</p>
-                <p className="text-xs mt-0.5" style={{ color: "var(--text-muted)" }}>by {featured.sponsor}</p>
+                {featured.sponsor && <p className="text-xs mt-0.5" style={{ color: "var(--text-muted)" }}>by {featured.sponsor}</p>}
                 {featured.description && <p className="text-xs mt-1.5 line-clamp-2" style={{ color: "var(--text-secondary)" }}>{featured.description}</p>}
                 {featured.unitName && (
                   <p className="text-xs mt-1.5 font-semibold" style={{ color: "#2ECC71" }}>{formatCurrency(featured.unitIsGoal ? featured.goalAmount : featured.unitCost!)} = 1 {featured.unitName}</p>
@@ -998,7 +998,7 @@ function CauseTab({
                       <div className="p-3">
                         {isActive && <span className="text-[10px] font-bold px-2 py-0.5 rounded-full mb-1 inline-block" style={{ background: "rgba(46,204,113,0.15)", color: "#2ECC71" }}>✓ Active</span>}
                         <p className="text-sm font-bold leading-snug" style={{ color: "var(--text-primary)" }}>{project.title}</p>
-                        <p className="text-xs mt-0.5" style={{ color: "var(--text-muted)" }}>by {project.sponsor}</p>
+                        {project.sponsor && <p className="text-xs mt-0.5" style={{ color: "var(--text-muted)" }}>by {project.sponsor}</p>}
                         {project.description && <p className="text-xs mt-1 line-clamp-2" style={{ color: "var(--text-secondary)" }}>{project.description}</p>}
                         {project.unitName ? (
                           <p className="text-xs mt-1 font-semibold" style={{ color: "#2ECC71" }}>{formatCurrency(project.unitIsGoal ? project.goalAmount : project.unitCost!)} = 1 {project.unitName}</p>
