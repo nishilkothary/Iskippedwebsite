@@ -110,7 +110,13 @@ export function SkipModal({ onClose }: Props) {
     const causeTitle = successProjectTitle ?? null;
     let impactDisplay = "";
     let impactClause = "";
-    if (causeTitle && successProjectUnitName && successProjectUnitCost && !successActiveProject?.unitIsGoal) {
+    if (successActiveProject?.isCustom) {
+      const pct = (successActiveProject.goalAmount ?? 0) > 0
+        ? Math.max(1, Math.round((skipGive / successActiveProject.goalAmount!) * 100))
+        : 0;
+      impactDisplay = `${pct}% Towards Goal`;
+      impactClause = ` to help save towards my cause`;
+    } else if (causeTitle && successProjectUnitName && successProjectUnitCost && !successActiveProject?.unitIsGoal) {
       const unitsStr = formatUnits(skipGive, successProjectUnitCost, successProjectUnitName);
       const locationSuffix = successProjectLocation ? ` in ${successProjectLocation}` : "";
       impactDisplay = `${unitsStr}${locationSuffix}`;
@@ -125,7 +131,7 @@ export function SkipModal({ onClose }: Props) {
     } else {
       impactDisplay = `${formatCurrency(amount)} saved`;
     }
-    const shareText = `I skipped ${itemLabel}${impactClause}. Join the movement at Iskipped.com`;
+    const shareText = `I skipped ${itemLabel}${impactClause}. Join the movement at https://iskipped.com`;
 
     // Show jar-full celebration when give jar hits/exceeds goal (first time, then every 3rd skip)
     const overflowCount = successOverflowCount ?? 0;

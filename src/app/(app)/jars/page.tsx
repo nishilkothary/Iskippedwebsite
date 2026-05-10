@@ -506,8 +506,7 @@ function CauseTab({
   async function handleAddCause() {
     if (!customTitle.trim()) return;
     const goalAmount = parseFloat(customGoalStr) || 0;
-    const categoryTagMap: Record<string, string> = { education: "education", meals: "food", health: "health", emergency: "emergency" };
-    const tags = [categoryTagMap[customCategory] ?? customCategory, "custom"];
+    const tags = ["custom"];
     setAddingCause(true);
     await onAddCause(customTitle.trim(), customSponsor.trim(), customLocation.trim() || undefined, goalAmount, customURL.trim() || undefined, customDescription.trim() || undefined, tags, customImageURL.trim() || undefined);
     setCustomTitle("");
@@ -847,12 +846,7 @@ function CauseTab({
                 >
                   ✓ Active
                 </button>
-                {activeProject.isCustom && (
-                  <>
-                    <button onClick={() => startEdit(activeProject)} className="p-1 text-sm" style={{ color: "var(--text-muted)" }} title="Edit">✏️</button>
-                    <button onClick={() => setConfirmDeleteId(activeProject.id)} className="text-[rgba(237,245,240,0.35)] hover:text-red-400 p-1 text-sm" title="Delete">🗑️</button>
-                  </>
-                )}
+                <button onClick={() => startEdit(activeProject)} className="p-1 text-sm" style={{ color: "var(--text-muted)" }} title="Edit">✏️</button>
               </div>
               {isEditing ? (
                 <div className="space-y-2">
@@ -1042,20 +1036,10 @@ function CauseTab({
         showAddForm ? (
           <div className="mt-3 rounded-2xl p-4 space-y-3" style={{ background: "var(--bg-surface-1)", border: "1px solid var(--border-default)" }}>
             <p className="text-sm font-semibold" style={{ color: "var(--text-primary)" }}>Add your own cause</p>
-            <input type="text" placeholder="Cause (e.g. A Student's Yearly Education)" value={customTitle} onChange={(e) => setCustomTitle(e.target.value)} className="w-full rounded-xl px-3 py-2.5 text-sm focus:outline-none" style={{ background: "var(--bg-surface-2)", border: "1px solid var(--border-default)", color: "var(--text-primary)" }} maxLength={100} />
+            <input type="text" placeholder="My Skips Fund" value={customTitle} onChange={(e) => setCustomTitle(e.target.value)} className="w-full rounded-xl px-3 py-2.5 text-sm focus:outline-none" style={{ background: "var(--bg-surface-2)", border: "1px solid var(--border-default)", color: "var(--text-primary)" }} maxLength={100} />
             <input type="text" placeholder="Organization (e.g. Caring for Cambodia)" value={customSponsor} onChange={(e) => setCustomSponsor(e.target.value)} className="w-full rounded-xl px-3 py-2.5 text-sm focus:outline-none" style={{ background: "var(--bg-surface-2)", border: "1px solid var(--border-default)", color: "var(--text-primary)" }} maxLength={100} />
             <input type="text" placeholder="Location (optional, e.g. Cambodia)" value={customLocation} onChange={(e) => setCustomLocation(e.target.value)} className="w-full rounded-xl px-3 py-2.5 text-sm focus:outline-none" style={{ background: "var(--bg-surface-2)", border: "1px solid var(--border-default)", color: "var(--text-primary)" }} maxLength={100} />
             <textarea placeholder="Description (optional)" value={customDescription} onChange={(e) => setCustomDescription(e.target.value)} rows={3} className="w-full rounded-xl px-3 py-2.5 text-sm focus:outline-none resize-none" style={{ background: "var(--bg-surface-2)", border: "1px solid var(--border-default)", color: "var(--text-primary)" }} maxLength={300} />
-            <div>
-              <p className="text-xs mb-1.5" style={{ color: "var(--text-muted)" }}>Category</p>
-              <div className="flex gap-2 flex-wrap">
-                {(["education", "meals", "health", "emergency"] as const).map(cat => (
-                  <button key={cat} type="button" onClick={() => setCustomCategory(cat)} className="px-3 py-1 rounded-full text-xs font-semibold capitalize transition-colors" style={customCategory === cat ? { background: "#2ECC71", color: "#0B1A14" } : { border: "1px solid rgba(46,204,113,0.3)", color: "var(--text-secondary)" }}>
-                    {cat}
-                  </button>
-                ))}
-              </div>
-            </div>
             <div className="relative">
               <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-[rgba(237,245,240,0.6)]">$</span>
               <input type="number" placeholder="Skipped Amount Needed" value={customGoalStr} onChange={(e) => setCustomGoalStr(e.target.value)} className="w-full pl-7 rounded-xl px-3 py-2.5 text-sm focus:outline-none" style={{ background: "var(--bg-surface-2)", border: "1px solid var(--border-default)", color: "var(--text-primary)" }} />
@@ -1660,11 +1644,13 @@ function SplurgeTab({
           <p className="text-xs mb-3" style={{ color: "var(--text-secondary)" }}>Rewards For Your Skips:</p>
           <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
             {/* Inactive saved goals */}
-            {goals.filter((g) => g.id !== activeGoalId).map((goal) => (
+            {goals.map((goal) => {
+              const isActiveGoal = goal.id === activeGoalId;
+              return (
               <div
                 key={goal.id}
-                className="rounded-2xl p-4 text-left transition-all hover:scale-[1.02] active:scale-[0.98] cursor-pointer relative"
-                style={{ background: "var(--bg-surface-1)", border: deletingGoalId === goal.id ? "1px solid rgba(239,68,68,0.4)" : "1px solid rgba(139,92,246,0.3)" }}
+                className="rounded-2xl p-4 text-left transition-all hover:scale-[1.02] active:scale-[0.98] relative"
+                style={{ background: "var(--bg-surface-1)", border: deletingGoalId === goal.id ? "1px solid rgba(239,68,68,0.4)" : isActiveGoal ? "2px solid #8B5CF6" : "1px solid rgba(139,92,246,0.3)" }}
               >
                 {/* Icon row */}
                 <div className="absolute top-2 right-2 flex gap-0.5" onClick={(e) => e.stopPropagation()}>
@@ -1695,14 +1681,18 @@ function SplurgeTab({
                     </div>
                   </div>
                 ) : (
-                  <div onClick={() => handleSetActiveGoalWithCheck(goal)}>
+                  <div onClick={() => !isActiveGoal && handleSetActiveGoalWithCheck(goal)} className={isActiveGoal ? "" : "cursor-pointer"}>
+                    {isActiveGoal && (
+                      <span className="text-[10px] font-bold px-2 py-0.5 rounded-full mb-1.5 inline-block" style={{ background: "rgba(139,92,246,0.15)", color: "#8B5CF6" }}>✓ Active</span>
+                    )}
                     <div className="text-sm font-bold mb-1 pr-12" style={{ color: "#8B5CF6" }}>{goal.label}</div>
                     <div className="text-lg font-extrabold" style={{ color: "var(--text-primary)" }}>${goal.targetAmount}</div>
-                    <div className="text-xs mt-1" style={{ color: "var(--text-muted)" }}>tap to activate</div>
+                    {!isActiveGoal && <div className="text-xs mt-1" style={{ color: "var(--text-muted)" }}>tap to activate</div>}
                   </div>
                 )}
               </div>
-            ))}
+              );
+            })}
             {/* Prebuilt templates not already saved — styled as inactive goal cards */}
             {PREBUILT_REWARDS.filter((r) => !goals.some((g) => g.label === r.label) && !dismissedPrebuilts.includes(r.label)).map((r) => (
               <div

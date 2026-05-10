@@ -316,7 +316,7 @@ export default function HomePage() {
           onClick={() => router.push("/jars?tab=cause")}
         >
           {activeProject.imageURL && (
-            <div style={{ position: "relative", height: 140, overflow: "hidden" }}>
+            <div className="relative overflow-hidden h-36 md:h-52">
               <img
                 src={activeProject.imageURL}
                 alt={activeProject.title}
@@ -329,12 +329,6 @@ export default function HomePage() {
                 position: "absolute", inset: 0,
                 background: "linear-gradient(to bottom, transparent 30%, rgba(0,0,0,0.65))",
               }} />
-              <p style={{
-                position: "absolute", bottom: 12, left: 16, right: 16,
-                fontSize: 15, fontWeight: 800, color: "#fff", lineHeight: 1.3, margin: 0,
-              }}>
-                {activeProject.title}
-              </p>
             </div>
           )}
           <div style={{ padding: "14px 16px" }}>
@@ -344,7 +338,7 @@ export default function HomePage() {
               </p>
             )}
             <p style={{
-              fontSize: 12, color: "var(--text-secondary)", margin: "0 0 8px", lineHeight: 1.5,
+              fontSize: 16, fontWeight: 800, color: "var(--text-primary)", margin: "0 0 8px", lineHeight: 1.3,
             }}>
               There is no better reason to skip today than to help fund {activeProject.title}.
             </p>
