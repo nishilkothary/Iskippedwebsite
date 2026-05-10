@@ -144,7 +144,7 @@ export function SkipModal({ onClose }: Props) {
             <p className="text-2xl font-bold" style={{ color: "var(--text-primary)" }}>Giving Jar Full!</p>
             <p className="font-bold text-lg mt-1" style={{ color: "#2ECC71" }}>Congratulations!</p>
             <p className="text-sm mt-3" style={{ color: "var(--text-secondary)" }}>
-              You&apos;ve funded 100% of your <strong style={{ color: "var(--text-primary)" }}>{successActiveProject.title}</strong> giving jar.
+              You&apos;ve funded 100% of your <strong style={{ color: "var(--text-primary)" }}>{successActiveProject.title}</strong>{" "}giving jar.
               It&apos;s time to empty your jar and send it over!
             </p>
             <p className="text-sm mt-2 font-semibold" style={{ color: "#2ECC71" }}>
