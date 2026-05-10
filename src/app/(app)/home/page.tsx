@@ -294,44 +294,51 @@ export default function HomePage() {
       </div>
 
       {/* ── Cause card (My Skip Motivator) ── */}
-      {activeProject && (
-        <div
-          style={{ ...cardStyle, marginBottom: 20, overflow: "hidden", padding: 0, cursor: "pointer" }}
-          onClick={() => router.push("/jars?tab=cause")}
-        >
-          {activeProject.imageURL && (
-            <div className="relative overflow-hidden h-36 md:h-52">
-              <img
-                src={activeProject.imageURL}
-                alt={activeProject.title}
-                style={{
-                  width: "100%", height: "100%", objectFit: "cover",
-                  objectPosition: activeProject.imagePosition ?? "center",
-                }}
-              />
-              <div style={{
-                position: "absolute", inset: 0,
-                background: "linear-gradient(to bottom, transparent 30%, rgba(0,0,0,0.65))",
-              }} />
-            </div>
-          )}
-          <div style={{ padding: "14px 16px" }}>
-            {!activeProject.imageURL && (
-              <p style={{ fontSize: 14, fontWeight: 800, color: "var(--text-primary)", margin: "0 0 6px" }}>
-                {activeProject.title}
-              </p>
+      {activeProject && (() => {
+        const motivatorImg = activeProject.imageURL
+          ?? (activeProject.tags?.includes("education") ? "/categories/education.png"
+            : activeProject.tags?.includes("food") ? "/categories/meal.png"
+            : activeProject.tags?.includes("health") ? "/categories/health.png"
+            : null);
+        return (
+          <div
+            style={{ ...cardStyle, marginBottom: 20, overflow: "hidden", padding: 0, cursor: "pointer" }}
+            onClick={() => router.push("/jars?tab=cause")}
+          >
+            {motivatorImg && (
+              <div className="relative overflow-hidden h-36 md:h-52">
+                <img
+                  src={motivatorImg}
+                  alt={activeProject.title}
+                  style={{
+                    width: "100%", height: "100%", objectFit: "cover",
+                    objectPosition: activeProject.imagePosition ?? "center",
+                  }}
+                />
+                <div style={{
+                  position: "absolute", inset: 0,
+                  background: "linear-gradient(to bottom, transparent 30%, rgba(0,0,0,0.65))",
+                }} />
+              </div>
             )}
-            <p style={{
-              fontSize: 14, fontWeight: 600, color: "var(--text-primary)", margin: "0 0 8px", lineHeight: 1.4,
-            }}>
-              There is no better reason to skip today than to help fund {activeProject.title}.
-            </p>
-            <p style={{ fontSize: 12, fontWeight: 700, color: "#2BBAA4", margin: 0 }}>
-              {motivationalLine}
-            </p>
+            <div style={{ padding: "14px 16px" }}>
+              {!motivatorImg && (
+                <p style={{ fontSize: 14, fontWeight: 800, color: "var(--text-primary)", margin: "0 0 6px" }}>
+                  {activeProject.title}
+                </p>
+              )}
+              <p style={{
+                fontSize: 14, fontWeight: 600, color: "var(--text-primary)", margin: "0 0 8px", lineHeight: 1.4,
+              }}>
+                There is no better reason to skip today than to help fund {activeProject.title}.
+              </p>
+              <p style={{ fontSize: 12, fontWeight: 700, color: "#2BBAA4", margin: 0 }}>
+                {motivationalLine}
+              </p>
+            </div>
           </div>
-        </div>
-      )}
+        );
+      })()}
 
       {/* ── Jars card (full width) ── */}
       <div style={{ ...cardStyle, marginBottom: 20, position: "relative" }}>
