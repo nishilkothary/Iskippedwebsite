@@ -838,7 +838,7 @@ function CauseTab({
                 </div>
               )}
               <div className="p-5">
-              <div className="flex items-center gap-2 mb-3">
+              <div className="flex items-center justify-between mb-3">
                 <button
                   onClick={() => setDeactivateConfirm(true)}
                   className="inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-full"
@@ -846,7 +846,7 @@ function CauseTab({
                 >
                   ✓ Active
                 </button>
-                <button onClick={() => startEdit(activeProject)} className="p-1 text-sm" style={{ color: "var(--text-muted)" }} title="Edit">✏️</button>
+                <button onClick={() => startEdit(activeProject)} className="p-1 text-base" style={{ color: "var(--text-muted)" }} title="Edit">✏️</button>
               </div>
               {isEditing ? (
                 <div className="space-y-2">
