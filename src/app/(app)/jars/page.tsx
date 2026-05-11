@@ -1,5 +1,5 @@
 "use client";
-import { useEffect, useState, useRef, Suspense } from "react";
+import { useEffect, useState, Suspense } from "react";
 import { useSearchParams } from "next/navigation";
 import { useAuthStore } from "@/store/authStore";
 import { useSkips } from "@/hooks/useSkips";
@@ -1098,11 +1098,6 @@ function CauseTab({
   );
 }
 
-const PREBUILT_REWARDS = [
-  { label: "Concert Tickets", targetAmount: 150,  tagline: "~8 takeout skips", color: "#8B5CF6" },
-  { label: "New Kicks",       targetAmount: 120,  tagline: "~6 coffee skips",  color: "#2ECC71" },
-  { label: "Vacation Fund",   targetAmount: 1000, tagline: "long-term goal",   color: "#F59E0B" },
-];
 
 function pickMilestoneStep(targetAmount: number): number {
   const oneFifth = targetAmount * 0.2;
@@ -1169,7 +1164,6 @@ function SplurgeTab({
   const [completing, setCompleting] = useState(false);
   const [deletingActiveGoal, setDeletingActiveGoal] = useState(false);
   const [deletingGoalId, setDeletingGoalId] = useState<string | null>(null);
-  const [dismissedPrebuilts, setDismissedPrebuilts] = useState<string[]>([]);
   const [movingToGive, setMovingToGive] = useState(false);
 
   const [editingHistoryId, setEditingHistoryId] = useState<string | null>(null);
@@ -1184,45 +1178,7 @@ function SplurgeTab({
   const [deactivatingGoal, setDeactivatingGoal] = useState(false);
   const [deactivating, setDeactivating] = useState(false);
 
-  const pickRewardRef = useRef<HTMLDivElement>(null);
-  const [pendingActivationLabel, setPendingActivationLabel] = useState<string | null>(null);
-  const [pendingEditLabel, setPendingEditLabel] = useState<string | null>(null);
-
   const activeGoal = activeGoalProp;
-
-  useEffect(() => {
-    if (!pendingActivationLabel) return;
-    const goal = goals.find((g) => g.label === pendingActivationLabel);
-    if (goal) {
-      setPendingActivationLabel(null);
-      handleSetActiveGoalWithCheck(goal);
-    }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [goals, pendingActivationLabel]);
-
-  useEffect(() => {
-    if (!pendingEditLabel) return;
-    const goal = goals.find((g) => g.label === pendingEditLabel);
-    if (goal) {
-      setPendingEditLabel(null);
-      startEditGoal(goal);
-    }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [goals, pendingEditLabel]);
-
-  async function activatePrebuilt(r: { label: string; targetAmount: number }) {
-    const existing = goals.find((g) => g.label === r.label);
-    if (existing) { handleSetActiveGoalWithCheck(existing); return; }
-    setPendingActivationLabel(r.label);
-    await onAddGoal({ label: r.label, targetAmount: r.targetAmount, type: "splurge" });
-  }
-
-  async function editPrebuilt(r: { label: string; targetAmount: number }) {
-    const existing = goals.find((g) => g.label === r.label);
-    if (existing) { startEditGoal(existing); return; }
-    setPendingEditLabel(r.label);
-    await onAddGoal({ label: r.label, targetAmount: r.targetAmount, type: "splurge" });
-  }
 
   function handleSetActiveGoalWithCheck(goal: SpendingGoal) {
     if (activeGoalId && activeGoalId !== goal.id) {
@@ -1596,7 +1552,7 @@ function SplurgeTab({
 
       {/* Pick A Reward */}
       {!showAddForm && !editingGoalId && (
-        <div ref={pickRewardRef}>
+        <div>
           <p className="text-lg font-bold mb-0.5" style={{ color: "var(--text-primary)" }}>Pick A Reward</p>
           <p className="text-xs mb-3" style={{ color: "var(--text-secondary)" }}>Rewards For Your Skips:</p>
           <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
@@ -1650,32 +1606,6 @@ function SplurgeTab({
               </div>
               );
             })}
-            {/* Prebuilt templates not already saved — styled as inactive goal cards */}
-            {PREBUILT_REWARDS.filter((r) => !goals.some((g) => g.label === r.label) && !dismissedPrebuilts.includes(r.label)).map((r) => (
-              <div
-                key={r.label}
-                className="rounded-2xl p-4 text-left transition-all hover:scale-[1.02] active:scale-[0.98] relative"
-                style={{ background: "var(--bg-surface-1)", border: "1px solid rgba(139,92,246,0.3)" }}
-              >
-                <div className="absolute top-2 right-2 flex gap-0.5" onClick={(e) => e.stopPropagation()}>
-                  <button
-                    onClick={() => editPrebuilt(r)}
-                    className="text-[rgba(237,245,240,0.3)] hover:text-[#8B5CF6] p-1 text-sm leading-none"
-                    title="Edit"
-                  >✏️</button>
-                  <button
-                    onClick={() => setDismissedPrebuilts((prev) => [...prev, r.label])}
-                    className="text-[rgba(237,245,240,0.3)] hover:text-red-400 p-1 text-sm leading-none"
-                    title="Remove"
-                  >🗑️</button>
-                </div>
-                <div onClick={() => activatePrebuilt(r)} className="cursor-pointer">
-                  <div className="text-sm font-bold mb-1 pr-12" style={{ color: "#8B5CF6" }}>{r.label}</div>
-                  <div className="text-lg font-extrabold" style={{ color: "var(--text-primary)" }}>${r.targetAmount}</div>
-                  <div className="text-xs mt-1" style={{ color: "var(--text-muted)" }}>tap to activate</div>
-                </div>
-              </div>
-            ))}
             {/* Custom card */}
             <button
               onClick={() => setShowAddForm(true)}
