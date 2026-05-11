@@ -12,11 +12,6 @@ const geistSans = Geist({
 export const metadata: Metadata = {
   title: "I Skip — Save money, change lives",
   description: "Track what you skip and donate your savings to causes you care about.",
-  icons: {
-    icon: "/icon.svg",
-    apple: "/icon.svg",
-    shortcut: "/favicon.ico",
-  },
   openGraph: {
     title: "I Skip — Save money, change lives",
     description: "Track what you skip and donate your savings to causes you care about.",
