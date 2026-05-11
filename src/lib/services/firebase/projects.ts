@@ -230,7 +230,7 @@ export async function addCustomProject(
 export async function updateCustomProject(
   uid: string,
   projectId: string,
-  data: { title: string; sponsor?: string; location?: string; goalAmount: number; donationURL?: string }
+  data: { title: string; sponsor?: string; location?: string; goalAmount: number; donationURL?: string; description?: string }
 ): Promise<void> {
   const snap = await getDoc(doc(db, "projects", projectId));
   if (!snap.exists() || snap.data().createdBy !== uid) throw new Error("Not authorized");
@@ -240,6 +240,7 @@ export async function updateCustomProject(
     location: data.location || null,
     goalAmount: data.goalAmount,
     donationURL: data.donationURL || null,
+    description: data.description || "",
   });
 }
 

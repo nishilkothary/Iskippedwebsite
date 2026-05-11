@@ -20,7 +20,6 @@ export const metadata: Metadata = {
   openGraph: {
     title: "I Skip — Save money, change lives",
     description: "Track what you skip and donate your savings to causes you care about.",
-    images: [{ url: "/logo.png" }],
   },
   other: {
     "apple-mobile-web-app-title": "iSkipped",

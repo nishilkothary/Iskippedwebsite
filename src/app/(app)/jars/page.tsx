@@ -78,8 +78,8 @@ function JarsPageInner() {
     updateProfile({ causeGoalAmounts: { ...profile!.causeGoalAmounts, [causeId]: amount } });
   }
 
-  async function handleAddCause(title: string, sponsor: string, location: string | undefined, goalAmount: number, donationURL?: string, description?: string, tags?: string[], imageURL?: string) {
-    await addCustomProject(user!.uid, { title, sponsor, location, goalAmount, donationURL, description, tags, imageURL });
+  async function handleAddCause(title: string, sponsor: string, location: string | undefined, goalAmount: number, donationURL?: string, description?: string, tags?: string[]) {
+    await addCustomProject(user!.uid, { title, sponsor, location, goalAmount, donationURL, description, tags });
     await refetch();
   }
 
@@ -93,7 +93,7 @@ function JarsPageInner() {
     if (profile!.activeProjectId === projectId) {
       const remaining = projects.filter((p) => p.id !== projectId);
       const nextId = remaining[0]?.id ?? null;
-      await setActiveProject(user!.uid, nextId ?? "");
+      await setActiveProject(user!.uid, nextId);
       updateProfile({ activeProjectId: nextId });
     }
     await refetch();
@@ -199,7 +199,7 @@ function JarsPageInner() {
           onDeactivateCause={handleDeactivateCause}
           onAddCause={handleAddCause}
           onEditCause={async (projectId, data) => {
-            await updateCustomProject(user!.uid, projectId, { ...data });
+            await updateCustomProject(user!.uid, projectId, data);
             await refetch();
           }}
           onDeleteCause={handleDeleteCause}
@@ -431,8 +431,8 @@ function CauseTab({
   onSelectCause: (p: Project, moveFunds: boolean) => void;
   onSetGoal: (causeId: string, amount: number) => Promise<void>;
   onDeactivateCause: () => Promise<void>;
-  onAddCause: (title: string, sponsor: string, location: string | undefined, goalAmount: number, donationURL?: string, description?: string, tags?: string[], imageURL?: string) => Promise<void>;
-  onEditCause: (projectId: string, data: { title: string; sponsor: string; location?: string; goalAmount: number; donationURL?: string }) => Promise<void>;
+  onAddCause: (title: string, sponsor: string, location: string | undefined, goalAmount: number, donationURL?: string, description?: string, tags?: string[]) => Promise<void>;
+  onEditCause: (projectId: string, data: { title: string; sponsor: string; location?: string; goalAmount: number; donationURL?: string; description?: string }) => Promise<void>;
   onDeleteCause: (projectId: string) => Promise<void>;
   onDonate: (amount: number) => Promise<void>;
   onEditDonation: (donation: DonationEvent, newAmount: number) => Promise<void>;
@@ -449,16 +449,9 @@ function CauseTab({
   const [customURL, setCustomURL] = useState("");
   const [customDescription, setCustomDescription] = useState("");
   const [customCategory, setCustomCategory] = useState("education");
-  const [customImageURL, setCustomImageURL] = useState("");
   const [addingCause, setAddingCause] = useState(false);
+  const [editingCustomId, setEditingCustomId] = useState<string | null>(null);
   const [switchTarget, setSwitchTarget] = useState<Project | null>(null);
-  const [editingProjectId, setEditingProjectId] = useState<string | null>(null);
-  const [editTitle, setEditTitle] = useState("");
-  const [editSponsor, setEditSponsor] = useState("");
-  const [editLocation, setEditLocation] = useState("");
-  const [editGoalStr, setEditGoalStr] = useState("");
-  const [editURL, setEditURL] = useState("");
-  const [editWorking, setEditWorking] = useState(false);
   const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
   const [deleting, setDeleting] = useState(false);
   const [editingDonationId, setEditingDonationId] = useState<string | null>(null);
@@ -475,40 +468,27 @@ function CauseTab({
 
   async function handleDelete(projectId: string) {
     setDeleting(true);
-    await onDeleteCause(projectId);
-    setConfirmDeleteId(null);
-    setDeleting(false);
+    try {
+      await onDeleteCause(projectId);
+      setConfirmDeleteId(null);
+    } finally {
+      setDeleting(false);
+    }
   }
 
   function startEdit(project: Project) {
-    setEditingProjectId(project.id);
-    setEditTitle(project.title);
-    setEditSponsor(project.sponsor);
-    setEditLocation(project.location ?? "");
-    setEditGoalStr(project.goalAmount > 0 ? String(project.goalAmount) : "");
-    setEditURL(project.donationURL ?? "");
+    setEditingCustomId(project.id);
+    setCustomTitle(project.title);
+    setCustomSponsor(project.sponsor ?? "");
+    setCustomLocation(project.location ?? "");
+    setCustomDescription(project.description ?? "");
+    setCustomGoalStr(project.goalAmount > 0 ? String(project.goalAmount) : "");
+    setCustomURL(project.donationURL ?? "");
+    setSelectedCategory("My Custom");
+    setShowAddForm(true);
   }
 
-  async function handleEditSave(projectId: string) {
-    if (!editTitle.trim()) return;
-    setEditWorking(true);
-    await onEditCause(projectId, {
-      title: editTitle.trim(),
-      sponsor: editSponsor.trim(),
-      location: editLocation.trim() || undefined,
-      goalAmount: parseFloat(editGoalStr) || 0,
-      donationURL: editURL.trim() || undefined,
-    });
-    setEditingProjectId(null);
-    setEditWorking(false);
-  }
-
-  async function handleAddCause() {
-    if (!customTitle.trim()) return;
-    const goalAmount = parseFloat(customGoalStr) || 0;
-    const tags = ["custom"];
-    setAddingCause(true);
-    await onAddCause(customTitle.trim(), customSponsor.trim(), customLocation.trim() || undefined, goalAmount, customURL.trim() || undefined, customDescription.trim() || undefined, tags, customImageURL.trim() || undefined);
+  function resetForm() {
     setCustomTitle("");
     setCustomSponsor("");
     setCustomLocation("");
@@ -516,8 +496,27 @@ function CauseTab({
     setCustomURL("");
     setCustomDescription("");
     setCustomCategory("education");
-    setCustomImageURL("");
+    setEditingCustomId(null);
     setShowAddForm(false);
+  }
+
+  async function handleAddCause() {
+    if (!customTitle.trim() || parseFloat(customGoalStr) <= 0) return;
+    const goalAmount = parseFloat(customGoalStr);
+    setAddingCause(true);
+    if (editingCustomId) {
+      await onEditCause(editingCustomId, {
+        title: customTitle.trim(),
+        sponsor: customSponsor.trim(),
+        location: customLocation.trim() || undefined,
+        goalAmount,
+        donationURL: customURL.trim() || undefined,
+        description: customDescription.trim() || undefined,
+      });
+    } else {
+      await onAddCause(customTitle.trim(), customSponsor.trim(), customLocation.trim() || undefined, goalAmount, customURL.trim() || undefined, customDescription.trim() || undefined, ["custom"]);
+    }
+    resetForm();
     setAddingCause(false);
   }
 
@@ -526,7 +525,7 @@ function CauseTab({
       setSwitchTarget(project);
     } else {
       onSelectCause(project, false);
-      setGoalInputStr(causeGoalAmounts?.[project.id] ? String(causeGoalAmounts[project.id]) : "");
+      setGoalInputStr("");
       setGoalSettingProject(project);
     }
   }
@@ -658,7 +657,7 @@ function CauseTab({
                 className="w-full text-left px-5 py-4 transition-colors"
                 onMouseEnter={(e) => (e.currentTarget as HTMLElement).style.background = "var(--bg-surface-2)"}
                 onMouseLeave={(e) => (e.currentTarget as HTMLElement).style.background = "transparent"}
-                onClick={() => { onSelectCause(switchTarget, true); setSwitchTarget(null); setGoalInputStr(causeGoalAmounts?.[switchTarget.id] ? String(causeGoalAmounts[switchTarget.id]) : ""); setGoalSettingProject(switchTarget); }}
+                onClick={() => { onSelectCause(switchTarget, true); setSwitchTarget(null); setGoalInputStr(""); setGoalSettingProject(switchTarget); }}
               >
                 <p className="text-sm font-semibold" style={{ color: "var(--text-primary)" }}>→ Move balance to {switchTarget.title}</p>
                 <p className="text-xs mt-0.5" style={{ color: "var(--text-secondary)" }}>Existing savings count toward the new cause</p>
@@ -827,12 +826,11 @@ function CauseTab({
           const unitsFunded = isUnitCost ? Math.floor(balance / activeProject.unitCost!) : 0;
           const pct = personalGoal > 0 ? Math.min(100, Math.round((balance / personalGoal) * 100)) : null;
           const milestone = personalGoal > 0 ? getNextMilestone(personalGoal, balance) : null;
-          const isEditing = editingProjectId === activeProject.id;
           const { img: scoreboardImg } = getCategoryFallback(activeProject);
           const scoreboardPhoto = activeProject.imageURL ?? scoreboardImg;
           return (
             <div className="rounded-2xl overflow-hidden mb-2" style={{ background: "var(--bg-surface-2)", border: "1px solid var(--border-default)" }}>
-              {scoreboardPhoto && !isEditing && (
+              {scoreboardPhoto && (
                 <div className="h-32 sm:h-48 w-full" style={{ background: "var(--bg-surface-1)" }}>
                   <img src={scoreboardPhoto} className="w-full h-full object-cover" style={{ objectPosition: activeProject.imagePosition ?? "center" }} alt={activeProject.title} />
                 </div>
@@ -846,50 +844,29 @@ function CauseTab({
                 >
                   ✓ Active
                 </button>
-                <button onClick={() => startEdit(activeProject)} className="p-1 text-base" style={{ color: "var(--text-muted)" }} title="Edit">✏️</button>
+                {activeProject.isCustom && <button onClick={() => startEdit(activeProject)} className="p-1 text-base" style={{ color: "var(--text-muted)" }} title="Edit">✏️</button>}
               </div>
-              {isEditing ? (
-                <div className="space-y-2">
-                  <input type="text" value={editTitle} onChange={(e) => setEditTitle(e.target.value)} placeholder="Cause title" className="w-full rounded-xl px-3 py-2 text-sm focus:outline-none" style={{ background: "var(--bg-surface-1)", border: "1px solid var(--border-default)", color: "var(--text-primary)" }} autoFocus maxLength={100} />
-                  <input type="text" value={editSponsor} onChange={(e) => setEditSponsor(e.target.value)} placeholder="Organization" className="w-full rounded-xl px-3 py-2 text-sm focus:outline-none" style={{ background: "var(--bg-surface-1)", border: "1px solid var(--border-default)", color: "var(--text-primary)" }} maxLength={100} />
-                  <input type="text" value={editLocation} onChange={(e) => setEditLocation(e.target.value)} placeholder="Location (optional)" className="w-full rounded-xl px-3 py-2 text-sm focus:outline-none" style={{ background: "var(--bg-surface-1)", border: "1px solid var(--border-default)", color: "var(--text-primary)" }} maxLength={100} />
-                  <div className="relative">
-                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-[rgba(237,245,240,0.6)]">$</span>
-                    <input type="number" value={editGoalStr} onChange={(e) => setEditGoalStr(e.target.value)} placeholder="Goal amount" className="w-full pl-7 rounded-xl px-3 py-2 text-sm focus:outline-none" style={{ background: "var(--bg-surface-1)", border: "1px solid var(--border-default)", color: "var(--text-primary)" }} />
-                  </div>
-                  <input type="url" value={editURL} onChange={(e) => setEditURL(e.target.value)} placeholder="Donation link (optional)" className="w-full rounded-xl px-3 py-2 text-sm focus:outline-none" style={{ background: "var(--bg-surface-1)", border: "1px solid var(--border-default)", color: "var(--text-primary)" }} maxLength={500} />
-                  <div className="flex gap-2">
-                    <button onClick={() => handleEditSave(activeProject.id)} disabled={editWorking || !editTitle.trim()} className="flex-1 bg-[#2ECC71] text-[#0B1A14] font-semibold py-2 rounded-xl text-sm disabled:opacity-50">{editWorking ? "Saving…" : "Save"}</button>
-                    <button onClick={() => setEditingProjectId(null)} className="px-4 py-2 font-semibold rounded-xl text-sm" style={{ border: "1px solid var(--border-default)", color: "var(--text-secondary)" }}>Cancel</button>
-                  </div>
+              <p className="text-xs mb-0.5" style={{ color: "var(--text-muted)" }}>Your Giving Jar</p>
+              <p className="text-2xl font-bold" style={{ color: "var(--text-primary)" }}>{activeProject.title}</p>
+              {activeProject.sponsor && <p className="text-xs mt-0.5" style={{ color: "var(--text-muted)" }}>by {activeProject.sponsor}</p>}
+              <p className="text-sm mt-2" style={{ color: "var(--text-secondary)" }}>
+                <span className="font-semibold" style={{ color: "var(--text-primary)" }}>{formatCurrency(balance)}</span>
+                {personalGoal > 0
+                  ? <> saved towards Goal of <span className="font-semibold" style={{ color: "var(--text-primary)" }}>{formatCurrency(personalGoal)}</span></>
+                  : " saved towards this cause"
+                }
+              </p>
+              {isUnitCost ? (
+                <p className="text-sm font-bold mt-1" style={{ color: "#2ECC71" }}>{unitsFunded} {activeProject.unitDisplay} funded</p>
+              ) : pct !== null ? (
+                <p className="text-sm font-bold mt-1" style={{ color: "#2ECC71" }}>{pct}% Funded</p>
+              ) : null}
+              {personalGoal > 0 && (
+                <div className="mt-3 h-2 rounded-full overflow-hidden" style={{ background: "var(--bg-surface-1)" }}>
+                  <div className="h-full rounded-full" style={{ width: `${Math.min(100, pct ?? 0)}%`, background: "#2ECC71" }} />
                 </div>
-              ) : (
-                <>
-                  <p className="text-xs mb-0.5" style={{ color: "var(--text-muted)" }}>Your Giving Jar</p>
-                  <p className="text-2xl font-bold" style={{ color: "var(--text-primary)" }}>{activeProject.title}</p>
-                  {activeProject.sponsor && <p className="text-xs mt-0.5" style={{ color: "var(--text-muted)" }}>by {activeProject.sponsor}</p>}
-                  <p className="text-sm mt-2" style={{ color: "var(--text-secondary)" }}>
-                    <span className="font-semibold" style={{ color: "var(--text-primary)" }}>{formatCurrency(balance)}</span>
-                    {personalGoal > 0
-                      ? <> saved towards Goal of <span className="font-semibold" style={{ color: "var(--text-primary)" }}>{formatCurrency(personalGoal)}</span></>
-                      : " saved towards this cause"
-                    }
-                  </p>
-                  {isUnitCost ? (
-                    <p className="text-sm font-bold mt-1" style={{ color: "#2ECC71" }}>{unitsFunded} {activeProject.unitDisplay} funded</p>
-                  ) : pct !== null ? (
-                    <p className="text-sm font-bold mt-1" style={{ color: "#2ECC71" }}>{pct}% Funded</p>
-                  ) : null}
-                  {personalGoal > 0 && (
-                    <>
-                      <div className="mt-3 h-2 rounded-full overflow-hidden" style={{ background: "var(--bg-surface-1)" }}>
-                        <div className="h-full rounded-full" style={{ width: `${Math.min(100, pct ?? 0)}%`, background: "#2ECC71" }} />
-                      </div>
-                    </>
-                  )}
-                  <CauseDonateRow project={activeProject} />
-                </>
               )}
+              <CauseDonateRow project={activeProject} />
               </div>
             </div>
           );
@@ -962,68 +939,49 @@ function CauseTab({
           <div className="grid grid-cols-2 gap-3">
             {filteredProjects.map(project => {
               const isActive = activeProject?.id === project.id;
-              const isEditing = editingProjectId === project.id;
               const { img: fallbackImg, abbr, color } = getCategoryFallback(project);
               return (
                 <div
                   key={project.id}
                   className="rounded-2xl overflow-hidden cursor-pointer"
                   style={{ background: "var(--bg-surface-1)", border: isActive ? "2px solid #2ECC71" : "1px solid var(--border-default)" }}
-                  onClick={() => !isEditing && setDetailProject(project)}
+                  onClick={() => setDetailProject(project)}
                 >
-                  {isEditing ? (
-                    <div className="p-3 space-y-2" onClick={(e) => e.stopPropagation()}>
-                      <input type="text" value={editTitle} onChange={(e) => setEditTitle(e.target.value)} placeholder="Cause title" className="w-full rounded-xl px-3 py-2 text-sm focus:outline-none" style={{ background: "var(--bg-surface-2)", border: "1px solid var(--border-default)", color: "var(--text-primary)" }} autoFocus maxLength={100} />
-                      <input type="text" value={editSponsor} onChange={(e) => setEditSponsor(e.target.value)} placeholder="Organization" className="w-full rounded-xl px-3 py-2 text-sm focus:outline-none" style={{ background: "var(--bg-surface-2)", border: "1px solid var(--border-default)", color: "var(--text-primary)" }} maxLength={100} />
-                      <div className="relative">
-                        <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-[rgba(237,245,240,0.6)]">$</span>
-                        <input type="number" value={editGoalStr} onChange={(e) => setEditGoalStr(e.target.value)} placeholder="Goal amount" className="w-full pl-7 rounded-xl px-3 py-2 text-sm focus:outline-none" style={{ background: "var(--bg-surface-2)", border: "1px solid var(--border-default)", color: "var(--text-primary)" }} />
+                  <div className="flex items-center justify-center h-24 sm:h-36 w-full" style={{ background: "var(--bg-surface-2)" }}>
+                    {project.imageURL
+                      ? <img src={project.imageURL} className="w-full h-full object-cover" style={{ objectPosition: project.imagePosition ?? "center" }} alt={project.title} />
+                      : fallbackImg
+                        ? <img src={fallbackImg} className="w-full h-full object-cover" alt={project.title} />
+                        : <span className="text-sm font-extrabold" style={{ color }}>{abbr}</span>
+                    }
+                  </div>
+                  <div className="p-3">
+                    {isActive && <span className="text-[10px] font-bold px-2 py-0.5 rounded-full mb-1 inline-block" style={{ background: "rgba(46,204,113,0.15)", color: "#2ECC71" }}>✓ Active</span>}
+                    <p className="text-sm font-bold leading-snug" style={{ color: "var(--text-primary)" }}>{project.title}</p>
+                    {project.sponsor && <p className="text-xs mt-0.5" style={{ color: "var(--text-muted)" }}>by {project.sponsor}</p>}
+                    {project.description && <p className="text-xs mt-1 line-clamp-2" style={{ color: "var(--text-secondary)" }}>{project.description}</p>}
+                    {project.unitName ? (
+                      <p className="text-xs mt-1 font-semibold" style={{ color: "#2ECC71" }}>{formatCurrency(project.unitIsGoal ? project.goalAmount : project.unitCost!)} = 1 {project.unitName}</p>
+                    ) : project.goalAmount > 0 ? (
+                      <p className="text-xs mt-1 font-semibold" style={{ color: "#2ECC71" }}>Goal: {formatCurrency(project.goalAmount)}</p>
+                    ) : null}
+                    <button
+                      onClick={(e) => { e.stopPropagation(); handleSetActive(project); }}
+                      className="mt-2 w-full py-2 text-xs font-semibold rounded-xl transition-colors"
+                      style={isActive
+                        ? { background: "rgba(46,204,113,0.15)", color: "#2ECC71" }
+                        : { background: "#2ECC71", color: "#0B1A14" }
+                      }
+                    >
+                      {isActive ? "✓ Your Giving Jar" : "Choose Cause"}
+                    </button>
+                    {project.isCustom && (
+                      <div className="flex gap-1 mt-1.5 justify-end" onClick={(e) => e.stopPropagation()}>
+                        <button onClick={() => startEdit(project)} className="text-[rgba(237,245,240,0.35)] hover:text-[#2ECC71] p-1 text-sm">✏️</button>
+                        <button onClick={() => setConfirmDeleteId(project.id)} className="text-[rgba(237,245,240,0.35)] hover:text-red-400 p-1 text-sm">🗑️</button>
                       </div>
-                      <input type="url" value={editURL} onChange={(e) => setEditURL(e.target.value)} placeholder="Donation link (optional)" className="w-full rounded-xl px-3 py-2 text-sm focus:outline-none" style={{ background: "var(--bg-surface-2)", border: "1px solid var(--border-default)", color: "var(--text-primary)" }} maxLength={500} />
-                      <div className="flex gap-2">
-                        <button onClick={() => handleEditSave(project.id)} disabled={editWorking || !editTitle.trim()} className="flex-1 bg-[#2ECC71] text-[#0B1A14] font-semibold py-2 rounded-xl text-xs disabled:opacity-50">{editWorking ? "Saving…" : "Save"}</button>
-                        <button onClick={() => setEditingProjectId(null)} className="px-3 py-2 rounded-xl text-xs" style={{ border: "1px solid var(--border-default)", color: "var(--text-secondary)" }}>Cancel</button>
-                      </div>
-                    </div>
-                  ) : (
-                    <>
-                      <div className="flex items-center justify-center h-24 sm:h-36 w-full" style={{ background: "var(--bg-surface-2)" }}>
-                        {project.imageURL
-                          ? <img src={project.imageURL} className="w-full h-full object-cover" style={{ objectPosition: project.imagePosition ?? "center" }} alt={project.title} />
-                          : fallbackImg
-                            ? <img src={fallbackImg} className="w-full h-full object-cover" alt={project.title} />
-                            : <span className="text-sm font-extrabold" style={{ color }}>{abbr}</span>
-                        }
-                      </div>
-                      <div className="p-3">
-                        {isActive && <span className="text-[10px] font-bold px-2 py-0.5 rounded-full mb-1 inline-block" style={{ background: "rgba(46,204,113,0.15)", color: "#2ECC71" }}>✓ Active</span>}
-                        <p className="text-sm font-bold leading-snug" style={{ color: "var(--text-primary)" }}>{project.title}</p>
-                        {project.sponsor && <p className="text-xs mt-0.5" style={{ color: "var(--text-muted)" }}>by {project.sponsor}</p>}
-                        {project.description && <p className="text-xs mt-1 line-clamp-2" style={{ color: "var(--text-secondary)" }}>{project.description}</p>}
-                        {project.unitName ? (
-                          <p className="text-xs mt-1 font-semibold" style={{ color: "#2ECC71" }}>{formatCurrency(project.unitIsGoal ? project.goalAmount : project.unitCost!)} = 1 {project.unitName}</p>
-                        ) : project.goalAmount > 0 ? (
-                          <p className="text-xs mt-1 font-semibold" style={{ color: "#2ECC71" }}>Goal: {formatCurrency(project.goalAmount)}</p>
-                        ) : null}
-                        <button
-                          onClick={(e) => { e.stopPropagation(); handleSetActive(project); }}
-                          className="mt-2 w-full py-2 text-xs font-semibold rounded-xl transition-colors"
-                          style={isActive
-                            ? { background: "rgba(46,204,113,0.15)", color: "#2ECC71" }
-                            : { background: "#2ECC71", color: "#0B1A14" }
-                          }
-                        >
-                          {isActive ? "✓ Your Giving Jar" : "Choose Cause"}
-                        </button>
-                        {project.isCustom && (
-                          <div className="flex gap-1 mt-1.5 justify-end" onClick={(e) => e.stopPropagation()}>
-                            <button onClick={() => startEdit(project)} className="text-[rgba(237,245,240,0.35)] hover:text-[#2ECC71] p-1 text-sm">✏️</button>
-                            <button onClick={() => setConfirmDeleteId(project.id)} className="text-[rgba(237,245,240,0.35)] hover:text-red-400 p-1 text-sm">🗑️</button>
-                          </div>
-                        )}
-                      </div>
-                    </>
-                  )}
+                    )}
+                  </div>
                 </div>
               );
             })}
@@ -1031,24 +989,23 @@ function CauseTab({
         );
       })()}
 
-      {/* Add cause form — only in My Custom tab */}
+      {/* Add / Edit cause form — only in My Custom tab */}
       {selectedCategory === "My Custom" && (
         showAddForm ? (
           <div className="mt-3 rounded-2xl p-4 space-y-3" style={{ background: "var(--bg-surface-1)", border: "1px solid var(--border-default)" }}>
-            <p className="text-sm font-semibold" style={{ color: "var(--text-primary)" }}>Add your own cause</p>
-            <input type="text" placeholder="My Skips Fund" value={customTitle} onChange={(e) => setCustomTitle(e.target.value)} className="w-full rounded-xl px-3 py-2.5 text-sm focus:outline-none" style={{ background: "var(--bg-surface-2)", border: "1px solid var(--border-default)", color: "var(--text-primary)" }} maxLength={100} />
-            <input type="text" placeholder="Organization (e.g. Caring for Cambodia)" value={customSponsor} onChange={(e) => setCustomSponsor(e.target.value)} className="w-full rounded-xl px-3 py-2.5 text-sm focus:outline-none" style={{ background: "var(--bg-surface-2)", border: "1px solid var(--border-default)", color: "var(--text-primary)" }} maxLength={100} />
+            <p className="text-sm font-semibold" style={{ color: "var(--text-primary)" }}>{editingCustomId ? "Edit your cause" : "Add your own cause"}</p>
+            <input type="text" placeholder="My Skips Fund *" value={customTitle} onChange={(e) => setCustomTitle(e.target.value)} className="w-full rounded-xl px-3 py-2.5 text-sm focus:outline-none" style={{ background: "var(--bg-surface-2)", border: "1px solid var(--border-default)", color: "var(--text-primary)" }} maxLength={100} autoFocus />
+            <input type="text" placeholder="Organization (optional)" value={customSponsor} onChange={(e) => setCustomSponsor(e.target.value)} className="w-full rounded-xl px-3 py-2.5 text-sm focus:outline-none" style={{ background: "var(--bg-surface-2)", border: "1px solid var(--border-default)", color: "var(--text-primary)" }} maxLength={100} />
             <input type="text" placeholder="Location (optional, e.g. Cambodia)" value={customLocation} onChange={(e) => setCustomLocation(e.target.value)} className="w-full rounded-xl px-3 py-2.5 text-sm focus:outline-none" style={{ background: "var(--bg-surface-2)", border: "1px solid var(--border-default)", color: "var(--text-primary)" }} maxLength={100} />
             <textarea placeholder="Description (optional)" value={customDescription} onChange={(e) => setCustomDescription(e.target.value)} rows={3} className="w-full rounded-xl px-3 py-2.5 text-sm focus:outline-none resize-none" style={{ background: "var(--bg-surface-2)", border: "1px solid var(--border-default)", color: "var(--text-primary)" }} maxLength={300} />
             <div className="relative">
               <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-[rgba(237,245,240,0.6)]">$</span>
-              <input type="number" placeholder="Skipped Amount Needed" value={customGoalStr} onChange={(e) => setCustomGoalStr(e.target.value)} className="w-full pl-7 rounded-xl px-3 py-2.5 text-sm focus:outline-none" style={{ background: "var(--bg-surface-2)", border: "1px solid var(--border-default)", color: "var(--text-primary)" }} />
+              <input type="number" placeholder="Skipped Amount Needed *" value={customGoalStr} onChange={(e) => setCustomGoalStr(e.target.value)} className="w-full pl-7 rounded-xl px-3 py-2.5 text-sm focus:outline-none" style={{ background: "var(--bg-surface-2)", border: "1px solid var(--border-default)", color: "var(--text-primary)" }} />
             </div>
             <input type="url" placeholder="Donation link (optional)" value={customURL} onChange={(e) => setCustomURL(e.target.value)} className="w-full rounded-xl px-3 py-2.5 text-sm focus:outline-none" style={{ background: "var(--bg-surface-2)", border: "1px solid var(--border-default)", color: "var(--text-primary)" }} maxLength={500} />
-            <input type="url" placeholder="Image URL (optional)" value={customImageURL} onChange={(e) => setCustomImageURL(e.target.value)} className="w-full rounded-xl px-3 py-2.5 text-sm focus:outline-none" style={{ background: "var(--bg-surface-2)", border: "1px solid var(--border-default)", color: "var(--text-primary)" }} maxLength={500} />
             <div className="flex gap-2">
-              <button onClick={handleAddCause} disabled={addingCause || !customTitle.trim()} className="flex-1 bg-[#2ECC71] text-[#0B1A14] font-semibold py-2.5 rounded-xl text-sm disabled:opacity-50">{addingCause ? "Saving…" : "Save"}</button>
-              <button onClick={() => { setShowAddForm(false); setCustomTitle(""); setCustomSponsor(""); setCustomLocation(""); setCustomGoalStr(""); setCustomURL(""); setCustomDescription(""); setCustomCategory("education"); setCustomImageURL(""); }} className="px-4 py-2.5 font-semibold rounded-xl text-sm hover:text-[#EDF5F0] transition-colors" style={{ border: "1px solid var(--border-default)", color: "var(--text-secondary)" }}>Cancel</button>
+              <button onClick={handleAddCause} disabled={addingCause || !customTitle.trim() || !customGoalStr || parseFloat(customGoalStr) <= 0} className="flex-1 bg-[#2ECC71] text-[#0B1A14] font-semibold py-2.5 rounded-xl text-sm disabled:opacity-50">{addingCause ? "Saving…" : "Save"}</button>
+              <button onClick={resetForm} className="px-4 py-2.5 font-semibold rounded-xl text-sm hover:text-[#EDF5F0] transition-colors" style={{ border: "1px solid var(--border-default)", color: "var(--text-secondary)" }}>Cancel</button>
             </div>
           </div>
         ) : (

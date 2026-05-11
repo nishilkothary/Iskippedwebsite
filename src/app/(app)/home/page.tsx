@@ -300,19 +300,21 @@ export default function HomePage() {
             : activeProject.tags?.includes("food") ? "/categories/meal.png"
             : activeProject.tags?.includes("health") ? "/categories/health.png"
             : null);
+        const isPlaceholderImg = !activeProject.imageURL && !!motivatorImg;
         return (
           <div
             style={{ ...cardStyle, marginBottom: 20, overflow: "hidden", padding: 0, cursor: "pointer" }}
             onClick={() => router.push("/jars?tab=cause")}
           >
             {motivatorImg && (
-              <div className="relative overflow-hidden h-36 md:h-52">
+              <div className="relative overflow-hidden h-36 md:h-52" style={{ background: "var(--bg-surface-2)" }}>
                 <img
                   src={motivatorImg}
                   alt={activeProject.title}
                   style={{
-                    width: "100%", height: "100%", objectFit: "cover",
-                    objectPosition: activeProject.imagePosition ?? "center",
+                    width: "100%", height: "100%",
+                    objectFit: isPlaceholderImg ? "contain" : "cover",
+                    objectPosition: isPlaceholderImg ? "center" : (activeProject.imagePosition ?? "center"),
                   }}
                 />
                 <div style={{
