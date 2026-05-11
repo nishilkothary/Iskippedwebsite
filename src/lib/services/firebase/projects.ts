@@ -54,7 +54,7 @@ export const OFFICIAL_PROJECTS: Project[] = [
     description: "Your savings help bring a mobile library to schools in rural Kenya, giving students access to books and learning resources.",
     goalAmount: 166.67,
     totalRaised: 0,
-    imageURL: null,
+    imageURL: "/causes/KC Mobile Library.jpg",
     donationURL: "https://www.kenyaconnect.org/donate",
     isCustom: false,
     location: "Kenya",
