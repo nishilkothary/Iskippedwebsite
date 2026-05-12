@@ -600,7 +600,7 @@ function CauseTab({
             rel="noopener noreferrer"
             className="flex items-center justify-center gap-1.5 w-full py-2 bg-[#2ECC71] text-[#0B1A14] font-semibold rounded-xl hover:bg-[#1DB954] transition-colors text-xs"
           >
-            {givingBalance > 0 ? `💸 Donate the ${formatCurrency(givingBalance)} In my Jar` : "🌍 Donate →"}
+            {givingBalance > 0 ? "Donate my Jar" : "Donate"}
           </a>
         )}
         {donatingId === project.id ? (
