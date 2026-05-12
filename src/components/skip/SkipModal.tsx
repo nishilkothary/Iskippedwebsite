@@ -110,6 +110,7 @@ export function SkipModal({ onClose }: Props) {
     const causeTitle = successProjectTitle ?? null;
     let impactDisplay = "";
     let impactClause = "";
+    const hasCauseImpact = !!successActiveProject && !!causeTitle;
     if (successActiveProject?.isCustom) {
       const pct = (successActiveProject.goalAmount ?? 0) > 0
         ? Math.max(1, Math.round((skipGive / successActiveProject.goalAmount!) * 100))
@@ -240,9 +241,11 @@ export function SkipModal({ onClose }: Props) {
           )}
           <div className="px-8 pb-8" style={{ paddingTop: causeImageURL ? 20 : 0 }}>
             {!causeImageURL && <div className="text-6xl mb-3">🎉</div>}
-            <p className="text-sm uppercase tracking-wide font-semibold mb-1" style={{ color: "var(--text-muted)" }}>Thank you for Funding</p>
+            {hasCauseImpact && (
+              <p className="text-sm uppercase tracking-wide font-semibold mb-1" style={{ color: "var(--text-muted)" }}>Thank you for Funding</p>
+            )}
             <p className="text-2xl font-bold leading-tight" style={{ color: "var(--green-primary)" }}>{impactDisplay}</p>
-            {goalPctDisplay !== null && successActiveGoal && (
+            {hasCauseImpact && goalPctDisplay !== null && successActiveGoal && (
               <p className="text-sm mt-3 font-semibold" style={{ color: "var(--text-secondary)" }}>
                 Your Skip has also brought you{" "}
                 <span style={{ color: "var(--gold-cta)" }}>{goalPctDisplay}%</span> closer to your{" "}

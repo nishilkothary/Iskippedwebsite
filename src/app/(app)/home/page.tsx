@@ -38,7 +38,13 @@ function Jar({ fillPercent, color, gradEnd, label, amount, emoji, causeLabel, go
   const fillH = (clamp / 100) * 120 * scale;
   const jarH = 170 * scale;
   const yStart = jarH - fillH;
-  const uid = label.replace(/\s/g, "");
+  const uid = `${label}-${color}-${Math.round(clamp)}`.replace(/\W/g, "");
+  const hasAmount = amount !== "$0.00";
+  const showCenter = !!causeLabel || hasAmount;
+  const centerValue = causeLabel ? `${Math.round(clamp)}%` : amount;
+  const centerLabel = causeLabel
+    ? goalAmount && goalAmount > 0 ? "to goal" : "saved"
+    : "ready";
 
   // Jar outline path (scaled)
   const jarPath = [
@@ -77,10 +83,25 @@ function Jar({ fillPercent, color, gradEnd, label, amount, emoji, causeLabel, go
             <stop offset="0%" stopColor={gradEnd} />
             <stop offset="100%" stopColor={color} />
           </linearGradient>
+          <linearGradient id={`glass-${uid}`} x1="0" y1="0" x2="1" y2="1">
+            <stop offset="0%" stopColor="rgba(255,255,255,0.18)" />
+            <stop offset="45%" stopColor="rgba(255,255,255,0.04)" />
+            <stop offset="100%" stopColor="rgba(255,255,255,0.1)" />
+          </linearGradient>
+          <linearGradient id={`shine-${uid}`} x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0%" stopColor="rgba(255,255,255,0.55)" />
+            <stop offset="100%" stopColor="rgba(255,255,255,0)" />
+          </linearGradient>
+          <filter id={`soft-${uid}`} x="-20%" y="-20%" width="140%" height="140%">
+            <feDropShadow dx="0" dy={3*scale} stdDeviation={4*scale} floodColor={color} floodOpacity="0.25" />
+          </filter>
           <clipPath id={`jc-${uid}`}>
             <path d={jarPath} />
           </clipPath>
         </defs>
+
+        <ellipse cx={60*scale} cy={169*scale} rx={38*scale} ry={7*scale} fill="rgba(0,0,0,0.22)" />
+        <path d={jarPath} fill={`url(#glass-${uid})`} />
 
         {/* Fill (clipped to jar shape) */}
         <g clipPath={`url(#jc-${uid})`}>
@@ -89,6 +110,7 @@ function Jar({ fillPercent, color, gradEnd, label, amount, emoji, causeLabel, go
             width={90*scale} height={fillH + 15*scale}
             fill={`url(#gf-${uid})`}
             rx={4*scale}
+            filter={`url(#soft-${uid})`}
           >
             <animate
               attributeName="y"
@@ -118,8 +140,10 @@ function Jar({ fillPercent, color, gradEnd, label, amount, emoji, causeLabel, go
           {clamp > 5 && (
             <path
               d={`M${15*scale},${yStart} Q${35*scale},${yStart-4*scale} ${60*scale},${yStart} T${105*scale},${yStart}`}
-              fill="rgba(255,255,255,0.12)"
-              stroke="none"
+              fill="none"
+              stroke="rgba(255,255,255,0.28)"
+              strokeWidth={2*scale}
+              strokeLinecap="round"
             >
               <animate
                 attributeName="d"
@@ -136,26 +160,40 @@ function Jar({ fillPercent, color, gradEnd, label, amount, emoji, causeLabel, go
 
         {/* Jar outline */}
         <path
+          d={`M${45*scale},${16*scale} L${45*scale},${28*scale} M${75*scale},${16*scale} L${75*scale},${28*scale}`}
+          stroke="rgba(255,255,255,0.28)"
+          strokeWidth={1.5*scale}
+          strokeLinecap="round"
+        />
+        <path
           d={jarPath}
           fill="none"
-          stroke="rgba(255,255,255,0.25)"
-          strokeWidth={2.5*scale}
+          stroke="rgba(255,255,255,0.38)"
+          strokeWidth={2.4*scale}
           strokeLinejoin="round"
         />
+        <path
+          d={`M${36*scale},${46*scale} Q${28*scale},${82*scale} ${35*scale},${139*scale}`}
+          fill="none"
+          stroke={`url(#shine-${uid})`}
+          strokeWidth={4*scale}
+          strokeLinecap="round"
+          opacity="0.85"
+        />
 
-        {/* Center display: only shown when a cause/goal is active */}
-        {causeLabel && (
+        {/* Center display */}
+        {showCenter && (
           <>
             <text
               x={60*scale} y={goalAmount && goalAmount > 0 ? 84*scale : 92*scale}
               textAnchor="middle"
               dominantBaseline="middle"
-              fontSize={17*scale}
+              fontSize={(!causeLabel && centerValue.length > 4 ? 13 : 17)*scale}
               fontWeight="800"
               fill="rgba(255,255,255,0.9)"
               style={{ fontFamily: "inherit" }}
             >
-              {Math.round(clamp)}%
+              {centerValue}
             </text>
             <text
               x={60*scale} y={goalAmount && goalAmount > 0 ? 102*scale : 112*scale}
@@ -166,9 +204,9 @@ function Jar({ fillPercent, color, gradEnd, label, amount, emoji, causeLabel, go
               fill="rgba(255,255,255,0.55)"
               style={{ fontFamily: "inherit" }}
             >
-              {goalAmount && goalAmount > 0 ? "to goal of" : "saved"}
+              {centerLabel}
             </text>
-            {goalAmount && goalAmount > 0 && (
+            {causeLabel && goalAmount && goalAmount > 0 && (
               <text
                 x={60*scale} y={114*scale}
                 textAnchor="middle"
@@ -242,19 +280,6 @@ export default function HomePage() {
     : 0;
 
   const firstName = profile.displayName.split(" ")[0];
-
-  const motivationalLine = (() => {
-    if (!activeProject) return "";
-    if (activeProject.unitIsGoal && activeProject.goalAmount) {
-      const pct = Math.round((10 / activeProject.goalAmount) * 100);
-      return `A $10 Skip today funds ${pct}% of ${activeProject.unitName ?? "goal"}`;
-    }
-    if (activeProject.unitCost && activeProject.unitDisplay) {
-      const units = Math.floor(10 / activeProject.unitCost);
-      return `A $10 Skip today funds ${units} more ${activeProject.unitDisplay}`;
-    }
-    return `Every skip makes a difference`;
-  })();
 
   const cardStyle: React.CSSProperties = {
     background: "var(--bg-surface-1)",
@@ -333,9 +358,6 @@ export default function HomePage() {
                 fontSize: 14, fontWeight: 600, color: "var(--text-primary)", margin: "0 0 8px", lineHeight: 1.4,
               }}>
                 There is no better reason to skip today than to help fund {activeProject.title}.
-              </p>
-              <p style={{ fontSize: 12, fontWeight: 700, color: "#2BBAA4", margin: 0 }}>
-                {motivationalLine}
               </p>
             </div>
           </div>

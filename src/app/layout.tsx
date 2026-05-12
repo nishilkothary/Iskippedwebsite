@@ -9,11 +9,23 @@ const geistSans = Geist({
   subsets: ["latin"],
 });
 
+function getMetadataBase() {
+  const rawUrl =
+    process.env.NEXT_PUBLIC_SITE_URL ||
+    process.env.VERCEL_PROJECT_PRODUCTION_URL ||
+    process.env.VERCEL_URL ||
+    "http://localhost:3000";
+
+  const url = rawUrl.startsWith("http") ? rawUrl : `https://${rawUrl}`;
+  return new URL(url);
+}
+
 export const metadata: Metadata = {
-  title: "I Skip — Save money, change lives",
+  metadataBase: getMetadataBase(),
+  title: "Iskipped - Save money, change lives",
   description: "Track what you skip and donate your savings to causes you care about.",
   openGraph: {
-    title: "I Skip — Save money, change lives",
+    title: "Iskipped - Save money, change lives",
     description: "Track what you skip and donate your savings to causes you care about.",
   },
   other: {
