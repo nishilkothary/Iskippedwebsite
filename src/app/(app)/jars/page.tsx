@@ -888,7 +888,7 @@ function CauseTab({
           const { img: scoreboardImg } = getCategoryFallback(activeProject);
           const scoreboardPhoto = activeProject.imageURL ?? scoreboardImg;
           const impactLine = isUnitCost
-            ? `${formatCurrency(balance)} saved = ${unitsFunded} ${activeProject.unitDisplay} funded`
+            ? `${formatCurrency(balance)} saved and ${unitsFunded} ${activeProject.unitDisplay} funded`
             : null;
           return (
             <div className="rounded-2xl overflow-hidden mb-2" style={{ background: "var(--bg-surface-2)", border: "1px solid var(--border-default)" }}>
