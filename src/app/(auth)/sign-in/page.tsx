@@ -10,6 +10,13 @@ const previewSkips = [
   { emoji: "🛍️", label: "Impulse buy", amount: "+$32.00", sub: "23 days of clean water access", delay: "0.3s" },
 ];
 
+const trustPills = [
+  "No bank account",
+  "No credit card",
+  "Donate directly to charities",
+  "You stay in control",
+];
+
 function MiniJar({ fillPct }: { fillPct: number }) {
   const [display, setDisplay] = useState(0);
   useEffect(() => {
@@ -287,6 +294,16 @@ export default function SignInPage() {
           <p className="text-emerald-100 text-lg leading-relaxed max-w-sm">
             Turn everyday skips into savings for yourself and donations that change lives.
           </p>
+          <div className="mt-5 grid grid-cols-2 gap-2 max-w-md">
+            {trustPills.map((pill) => (
+              <div
+                key={pill}
+                className="rounded-xl border border-white/15 bg-white/10 px-3 py-2 text-xs font-bold text-emerald-50"
+              >
+                {pill}
+              </div>
+            ))}
+          </div>
         </div>
 
         {/* Skip preview cards */}
@@ -333,12 +350,22 @@ export default function SignInPage() {
               i<span className="text-[#2ECC71]">skipped</span>
             </p>
           </div>
-          <h1 className="text-3xl font-black text-white text-center leading-tight mb-2">
+          <h1 className="text-2xl font-black text-white text-center leading-tight mb-2">
             Skip, Save, <span className="text-emerald-300">Give.</span>
           </h1>
           <p className="text-emerald-100 text-sm text-center">
             Turn everyday skips into savings for yourself and donations that change lives.
           </p>
+          <div className="mt-5 grid grid-cols-2 gap-2">
+            {trustPills.map((pill) => (
+              <div
+                key={pill}
+                className="flex min-h-10 items-center justify-center rounded-xl border border-white/15 bg-white/10 px-2 py-2 text-center text-[10px] font-bold leading-tight text-emerald-50"
+              >
+                {pill}
+              </div>
+            ))}
+          </div>
           {/* Mini preview cards */}
           <div className="mt-6 space-y-2">
             {previewSkips.slice(0, 2).map((skip, i) => (
