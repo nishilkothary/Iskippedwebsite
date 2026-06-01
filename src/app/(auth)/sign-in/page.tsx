@@ -1,6 +1,7 @@
 "use client";
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 import { signInWithGoogle, signUpWithEmail, signInWithEmail, resetPassword } from "@/lib/services/firebase/auth";
 import { useAuthStore } from "@/store/authStore";
 
@@ -266,7 +267,15 @@ export default function SignInPage() {
       )}
 
       <p className="mt-5 text-xs text-[#9CA3AF] text-center">
-        By continuing, you agree to our terms of service.
+        By continuing, you agree to our{" "}
+        <Link href="/terms" className="underline hover:text-white transition-colors">
+          terms of service
+        </Link>{" "}
+        and{" "}
+        <Link href="/privacy" className="underline hover:text-white transition-colors">
+          privacy policy
+        </Link>
+        .
       </p>
     </div>
   );
