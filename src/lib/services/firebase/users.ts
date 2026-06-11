@@ -13,6 +13,7 @@ import {
   onSnapshot,
   Unsubscribe,
   getDocs,
+  arrayUnion,
 } from "firebase/firestore";
 import { User } from "firebase/auth";
 import { db } from "./config";
@@ -131,6 +132,7 @@ export async function createOrUpdateUser(user: User): Promise<void> {
       xp: 0,
       level: 1,
       activeProjectId: null,
+      joinedProjectIds: [],
       savedTowardActiveCause: 0,
       totalDonated: 0,
       totalSpent: 0,
@@ -158,6 +160,13 @@ export async function setActiveProject(uid: string, projectId: string | null): P
   await updateDoc(doc(db, "users", uid), { activeProjectId: projectId });
 }
 
+export async function joinProject(uid: string, projectId: string, makeActive: boolean): Promise<void> {
+  await updateDoc(doc(db, "users", uid), {
+    joinedProjectIds: arrayUnion(projectId),
+    ...(makeActive ? { activeProjectId: projectId } : {}),
+  });
+}
+
 export async function setUserCauseGoal(uid: string, causeId: string, amount: number): Promise<void> {
   await updateDoc(doc(db, "users", uid), { [`causeGoalAmounts.${causeId}`]: amount });
 }
@@ -168,7 +177,7 @@ export async function switchCause(
   newCauseId: string,
   moveFunds: boolean
 ): Promise<Record<string, number> | null> {
-  const updates: Record<string, unknown> = { activeProjectId: newCauseId };
+  const updates: Record<string, unknown> = { activeProjectId: newCauseId, joinedProjectIds: arrayUnion(newCauseId) };
   let balanceTransfer: Record<string, number> | null = null;
   if (moveFunds && oldCauseId) {
     const snap = await getDoc(doc(db, "users", uid));
@@ -319,6 +328,14 @@ export async function deleteSpendingHistory(
   if (goalId) updates[`goalJarBalances.${goalId}`] = increment(amountSaved);
   batch.update(doc(db, "users", uid), updates);
   await batch.commit();
+}
+
+export async function resetActiveProjectIfRemoved(uid: string, activeProjectId: string): Promise<void> {
+  const { OFFICIAL_PROJECTS } = await import("./projects");
+  if (OFFICIAL_PROJECTS.some((p) => p.id === activeProjectId)) return;
+  const snap = await getDoc(doc(db, "projects", activeProjectId));
+  if (snap.exists()) return;
+  await updateDoc(doc(db, "users", uid), { activeProjectId: null });
 }
 
 export async function getAllUsers(): Promise<UserProfile[]> {
