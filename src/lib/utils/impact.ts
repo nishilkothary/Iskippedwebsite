@@ -1,6 +1,7 @@
 // Pluralized forms for known unit names
 const PLURAL_MAP: Record<string, string> = {
   "Day of Education": "Days of Education",
+  "Day of Educational Support": "Days of Educational Support",
   "Life-Saving Meal": "Life-Saving Meals",
   "Emergency Meal": "Emergency Meals",
   "Meal for Families": "Meals for Families",
