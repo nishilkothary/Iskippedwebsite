@@ -184,6 +184,24 @@ export const OFFICIAL_PROJECTS: Project[] = [
     createdBy: null,
     tags: ["education", "kenya"],
   },
+  {
+    id: "pop-education",
+    title: "Educational Opportunities For a Student",
+    sponsor: "Pencils of Promise",
+    description: "Pencils of Promise partners with communities in Ghana, Guatemala, and Laos to build schools, train teachers, and support student wellbeing — giving every child access to the quality education they deserve.",
+    goalAmount: 0,
+    totalRaised: 0,
+    imageURL: "/causes/Pencils of Promose.jpg",
+    donationURL: "https://pencilsofpromise.org/ways-to-support/",
+    learnMoreURL: "https://pencilsofpromise.org/about/",
+    isCustom: false,
+    location: "Ghana, Guatemala, and Laos",
+    unitName: "Day of Educational Support",
+    unitDisplay: "days",
+    unitCost: parseFloat((100 / 365).toFixed(4)), // ~$0.2740
+    createdBy: null,
+    tags: ["official", "education"],
+  },
 ];
 
 export async function getAllProjects(): Promise<Project[]> {
@@ -198,6 +216,14 @@ export async function getAllProjects(): Promise<Project[]> {
   }
 }
 
+export function isChallengeProject(project: Project): boolean {
+  return project.projectKind === "challenge" || project.tags?.includes("challenge");
+}
+
+export function isCauseProject(project: Project): boolean {
+  return !isChallengeProject(project);
+}
+
 export async function getProject(id: string): Promise<Project | null> {
   // Check official projects first
   const official = OFFICIAL_PROJECTS.find((p) => p.id === id);
@@ -208,10 +234,28 @@ export async function getProject(id: string): Promise<Project | null> {
 
 export async function addCustomProject(
   uid: string,
-  data: { title: string; sponsor?: string; location?: string; goalAmount: number; description?: string; donationURL?: string; tags?: string[]; imageURL?: string }
+  data: {
+    title: string;
+    projectKind?: "cause" | "challenge";
+    parentProjectId?: string | null;
+    sponsor?: string;
+    location?: string;
+    goalAmount: number;
+    description?: string;
+    donationURL?: string;
+    tags?: string[];
+    imageURL?: string;
+    unitName?: string;
+    unitDisplay?: string;
+    unitCost?: number;
+    skipMilestones?: { level1: number; level2: number; level3: number };
+    visibility?: "public" | "unlisted" | "password";
+  }
 ): Promise<string> {
   const ref = await addDoc(collection(db, "projects"), {
     title: data.title,
+    projectKind: data.projectKind || "cause",
+    parentProjectId: data.parentProjectId || null,
     sponsor: data.sponsor || "",
     location: data.location || null,
     description: data.description || "",
@@ -219,6 +263,11 @@ export async function addCustomProject(
     totalRaised: 0,
     imageURL: data.imageURL || null,
     donationURL: data.donationURL || null,
+    unitName: data.unitName || null,
+    unitDisplay: data.unitDisplay || null,
+    unitCost: data.unitCost || null,
+    skipMilestones: data.skipMilestones || null,
+    visibility: data.visibility || "public",
     isCustom: true,
     createdBy: uid,
     tags: data.tags?.length ? data.tags : ["custom"],
@@ -249,4 +298,3 @@ export async function deleteCustomProject(uid: string, projectId: string): Promi
   if (!snap.exists() || snap.data().createdBy !== uid) throw new Error("Not authorized");
   await deleteDoc(doc(db, "projects", projectId));
 }
-
