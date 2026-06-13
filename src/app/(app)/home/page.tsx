@@ -1,17 +1,19 @@
-"use client";
+﻿"use client";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useAuthStore } from "@/store/authStore";
 import { useSkips } from "@/hooks/useSkips";
 import { useProjects } from "@/hooks/useProjects";
 import { useUIStore } from "@/store/uiStore";
 import { formatCurrency } from "@/lib/utils/currency";
-import { formatRelativeTime } from "@/lib/utils/dates";
+import { formatRelativeTime, today, getChallengeCountdown, parkedJarCount } from "@/lib/utils/dates";
 import { InstallPrompt } from "@/components/InstallPrompt";
 import { normalizeJarSplit, normalizeSpendingGoals } from "@/lib/services/firebase/users";
+import { isChallengeProject, subscribeToProject } from "@/lib/services/firebase/projects";
+import { subscribeToCommunityFeed, subscribeToGlobalStats } from "@/lib/services/firebase/social";
 import { EditSkipModal } from "@/components/skip/EditSkipModal";
-import { Skip } from "@/lib/types/models";
+import { FeedItem, GlobalStats, Project, Skip } from "@/lib/types/models";
 
 // ─── SVG Jar ───────────────────────────────────────────────────────────────
 interface JarProps {
@@ -26,11 +28,15 @@ interface JarProps {
   emptyLabel?: string;
   href?: string;
   onClick?: () => void;
+  actionLabel?: string;
+  actionOnClick?: () => void;
+  actionColor?: string;
   unitDisplay?: string;  // e.g. "days", "meals" — shown in jar instead of %
   unitCount?: number;    // pre-computed count of units funded
+  centerLabelOverride?: string; // overrides the default "to goal" / "saved" center label
 }
 
-function Jar({ fillPercent, color, gradEnd, label, amount, emoji, causeLabel, goalAmount, emptyLabel, href, onClick, unitDisplay, unitCount }: JarProps) {
+function Jar({ fillPercent, color, gradEnd, label, amount, emoji, causeLabel, goalAmount, emptyLabel, href, onClick, actionLabel, actionOnClick, actionColor, unitDisplay, unitCount, centerLabelOverride }: JarProps) {
   const clamp = Math.min(Math.max(fillPercent, 0), 100);
   const w = 160;
   const h = 240;
@@ -42,9 +48,16 @@ function Jar({ fillPercent, color, gradEnd, label, amount, emoji, causeLabel, go
   const hasAmount = amount !== "$0.00";
   const showCenter = !!causeLabel || hasAmount;
   const centerValue = causeLabel ? `${Math.round(clamp)}%` : amount;
-  const centerLabel = causeLabel
+  const centerLabel = centerLabelOverride ?? (causeLabel
     ? goalAmount && goalAmount > 0 ? "to goal" : "saved"
-    : "ready";
+    : "ready");
+  const centerLabelLines = centerLabel.split("\n");
+  const centerMultiLine = centerLabelLines.length > 1;
+  const hasGoalDisplay = !!(causeLabel && goalAmount && goalAmount > 0);
+  const cvY = centerMultiLine ? (hasGoalDisplay ? 76 : 84) : (hasGoalDisplay ? 84 : 92);
+  const labelY0 = centerMultiLine ? (hasGoalDisplay ? 93 : 100) : (hasGoalDisplay ? 102 : 112);
+  const labelY1 = labelY0 + 10;
+  const goalY = centerMultiLine ? 116 : 114;
 
   // Jar outline path (scaled)
   const jarPath = [
@@ -185,7 +198,7 @@ function Jar({ fillPercent, color, gradEnd, label, amount, emoji, causeLabel, go
         {showCenter && (
           <>
             <text
-              x={60*scale} y={goalAmount && goalAmount > 0 ? 84*scale : 92*scale}
+              x={60*scale} y={cvY*scale}
               textAnchor="middle"
               dominantBaseline="middle"
               fontSize={(!causeLabel && centerValue.length > 4 ? 13 : 17)*scale}
@@ -196,7 +209,7 @@ function Jar({ fillPercent, color, gradEnd, label, amount, emoji, causeLabel, go
               {centerValue}
             </text>
             <text
-              x={60*scale} y={goalAmount && goalAmount > 0 ? 102*scale : 112*scale}
+              x={60*scale} y={labelY0*scale}
               textAnchor="middle"
               dominantBaseline="middle"
               fontSize={7*scale}
@@ -204,11 +217,24 @@ function Jar({ fillPercent, color, gradEnd, label, amount, emoji, causeLabel, go
               fill="rgba(255,255,255,0.55)"
               style={{ fontFamily: "inherit" }}
             >
-              {centerLabel}
+              {centerLabelLines[0]}
             </text>
-            {causeLabel && goalAmount && goalAmount > 0 && (
+            {centerMultiLine && (
               <text
-                x={60*scale} y={114*scale}
+                x={60*scale} y={labelY1*scale}
+                textAnchor="middle"
+                dominantBaseline="middle"
+                fontSize={7*scale}
+                fontWeight="600"
+                fill="rgba(255,255,255,0.55)"
+                style={{ fontFamily: "inherit" }}
+              >
+                {centerLabelLines[1]}
+              </text>
+            )}
+            {hasGoalDisplay && (
+              <text
+                x={60*scale} y={goalY*scale}
                 textAnchor="middle"
                 dominantBaseline="middle"
                 fontSize={7*scale}
@@ -216,7 +242,7 @@ function Jar({ fillPercent, color, gradEnd, label, amount, emoji, causeLabel, go
                 fill="rgba(255,255,255,0.75)"
                 style={{ fontFamily: "inherit" }}
               >
-                ${Math.round(goalAmount).toLocaleString()}
+                ${Math.round(goalAmount!).toLocaleString()}
               </text>
             )}
           </>
@@ -238,6 +264,30 @@ function Jar({ fillPercent, color, gradEnd, label, amount, emoji, causeLabel, go
         }}>
           {amount}
         </div>
+        {actionLabel && (
+          <button
+            type="button"
+            onClick={(event) => {
+              event.stopPropagation();
+              actionOnClick?.();
+            }}
+            style={{
+              marginTop: 8,
+              border: `1px solid ${actionColor ?? color}`,
+              background: "rgba(237,245,240,0.04)",
+              color: actionColor ?? color,
+              borderRadius: 999,
+              padding: "7px 12px",
+              fontSize: 11,
+              fontWeight: 900,
+              lineHeight: 1,
+              whiteSpace: "nowrap",
+              boxShadow: `0 8px 18px ${(actionColor ?? color)}22`,
+            }}
+          >
+            {actionLabel}
+          </button>
+        )}
       </div>
     </div>
   );
@@ -248,6 +298,62 @@ function Jar({ fillPercent, color, gradEnd, label, amount, emoji, causeLabel, go
 
 
 // ─── Home Page ──────────────────────────────────────────────────────────────
+function getCommunityGoal(project: Project): number {
+  return project.goalAmount || project.unitCost || 100;
+}
+
+function getCommunityRaised(project: Project, savedForProject: number): number {
+  return Math.max(0, savedForProject || project.totalRaised || 0);
+}
+
+function formatCommunityUnitCount(amount: number, unitCost: number): string {
+  if (!Number.isFinite(amount) || !Number.isFinite(unitCost) || unitCost <= 0) return "0";
+  return Math.floor(amount / unitCost).toLocaleString();
+}
+
+function formatFeedMessage(message: string): string {
+  return message
+    .replace(/help fund/gi, "help pledge")
+    .replace(/funding/gi, "pledging")
+    .replace(/funded/gi, "pledged");
+}
+
+function formatFeedName(name: string): string {
+  return name.trim().toLowerCase() === "anonymous" ? "A friend" : name;
+}
+
+function getFeedSkipLabel(item: Pick<FeedItem, "message" | "skipLabel"> & { skipLabel?: string }): string {
+  if (item.skipLabel) return item.skipLabel;
+  return formatFeedMessage(item.message)
+    .replace(/^skipped\s+/i, "")
+    .replace(/\s+to help pledge.*$/i, "")
+    .trim();
+}
+
+function getFeedActionLine(item: Pick<FeedItem, "displayName" | "message" | "skipLabel"> & { skipLabel?: string }): string {
+  return `${formatFeedName(item.displayName)} skipped ${getFeedSkipLabel(item)}`;
+}
+
+function previousDateKey(dateKey: string): string {
+  const date = new Date(`${dateKey}T00:00:00.000Z`);
+  date.setUTCDate(date.getUTCDate() - 1);
+  return date.toISOString().slice(0, 10);
+}
+
+function getConsecutiveSkipStreak(skips: Skip[]): number {
+  const dates = new Set(skips.map((skip) => skip.date).filter(Boolean));
+  const todayKey = today();
+  if (!dates.has(todayKey)) return 0;
+
+  let streak = 0;
+  let cursor = previousDateKey(todayKey);
+  while (dates.has(cursor)) {
+    streak += 1;
+    cursor = previousDateKey(cursor);
+  }
+  return streak;
+}
+
 export default function HomePage() {
   const router = useRouter();
   const { profile } = useAuthStore();
@@ -255,6 +361,53 @@ export default function HomePage() {
   const { projects } = useProjects();
   const { setShowSkipPicker } = useUIStore();
   const [editingSkip, setEditingSkip] = useState<Skip | null>(null);
+  const [communityFeed, setCommunityFeed] = useState<FeedItem[]>([]);
+  const [globalStats, setGlobalStats] = useState<GlobalStats | null>(null);
+  const [liveFeedIndex, setLiveFeedIndex] = useState(0);
+  const [liveChallengeTotalRaised, setLiveChallengeTotalRaised] = useState<number>(0);
+
+  useEffect(() => {
+    return subscribeToCommunityFeed(setCommunityFeed);
+  }, []);
+
+  useEffect(() => {
+    const unsubscribe = subscribeToGlobalStats(setGlobalStats);
+    return unsubscribe;
+  }, []);
+
+  useEffect(() => {
+    const active = projects.find((project) => project.id === profile?.activeProjectId) ?? null;
+    const challengeItems = active && isChallengeProject(active)
+      ? communityFeed.filter((item) => item.projectTitle === active.title)
+      : [];
+    const feedCount = challengeItems.length > 0
+      ? challengeItems.length
+      : communityFeed.length > 0
+        ? communityFeed.length
+        : recentSkips.length;
+
+    if (feedCount <= 1) {
+      setLiveFeedIndex(0);
+      return;
+    }
+
+    const timer = window.setInterval(() => {
+      setLiveFeedIndex((index) => (index + 1) % Math.min(feedCount, 5));
+    }, 4500);
+
+    return () => window.clearInterval(timer);
+  }, [communityFeed, profile?.activeProjectId, projects, recentSkips.length]);
+
+  useEffect(() => {
+    const activeProjectId = profile?.activeProjectId;
+    if (!activeProjectId) { setLiveChallengeTotalRaised(0); return; }
+    const proj = projects.find((p) => p.id === activeProjectId);
+    if (!proj || !isChallengeProject(proj)) { setLiveChallengeTotalRaised(0); return; }
+    setLiveChallengeTotalRaised(proj.totalRaised ?? 0);
+    return subscribeToProject(activeProjectId, (p) => {
+      setLiveChallengeTotalRaised(p?.totalRaised ?? 0);
+    });
+  }, [profile?.activeProjectId, projects]);
 
   if (!profile) return null;
 
@@ -273,11 +426,101 @@ export default function HomePage() {
   const spendingBalance = globalSpendingBalance;
 
 
-  const personalGoal = profile.causeGoalAmounts?.[activeProject?.id ?? ""] ?? activeProject?.goalAmount ?? 0;
+  const isActiveChallenge = activeProject ? isChallengeProject(activeProject) : false;
+  const challengeContribution = activeProject && isActiveChallenge
+    ? profile.causeJarBalances?.[activeProject.id] ?? 0
+    : 0;
+  // Show at least the user's own giving balance as floor — all of it can be donated to the challenge
+  const displayedGroupTotal = isActiveChallenge
+    ? Math.max(liveChallengeTotalRaised, givingBalance)
+    : 0;
+  const communityGoal = activeProject && isActiveChallenge ? getCommunityGoal(activeProject) : 0;
+  const personalGoal = !isActiveChallenge
+    ? profile.causeGoalAmounts?.[activeProject?.id ?? ""] ?? activeProject?.goalAmount ?? 0
+    : 0;
   const givingFillPct = personalGoal > 0 ? Math.min(100, (givingBalance / personalGoal) * 100) : 0;
+  const destinationFillPct = isActiveChallenge && communityGoal > 0
+    ? Math.min(100, (givingBalance / communityGoal) * 100)
+    : givingFillPct;
+  const destinationGoalAmount = isActiveChallenge
+    ? communityGoal
+    : personalGoal > 0
+      ? personalGoal
+      : undefined;
+  const destinationAmount = givingBalance;
+  const destinationHref = isActiveChallenge && activeProject ? `/challenges/${activeProject.id}` : "/jars?tab=cause";
+  const destinationLabel = "Giving Jar";
+  const destinationEmptyLabel = "Skip to grow your giving jar";
+  const challengeSkips = activeProject && isActiveChallenge
+    ? recentSkips.filter((skip) => skip.projectId === activeProject.id)
+    : [];
+  const challengeMilestones = activeProject?.skipMilestones
+    ? [activeProject.skipMilestones.level1, activeProject.skipMilestones.level2, activeProject.skipMilestones.level3]
+        .filter((value) => Number.isFinite(value) && value > 0)
+        .sort((a, b) => a - b)
+    : [1, 3, 7];
+  const hasCommunityUnit = !!(activeProject?.unitCost && activeProject.unitCost > 0);
+  const communityImpactLabel = hasCommunityUnit ? "Units Funded" : "Community $";
+  const communityImpactValue = hasCommunityUnit && activeProject
+    ? `${formatCommunityUnitCount(displayedGroupTotal, activeProject.unitCost ?? 0)} ${activeProject.unitDisplay || activeProject.unitName || "units"}`
+    : formatCurrency(displayedGroupTotal);
+  const challengeDonated = activeProject && isActiveChallenge
+    ? profile.causeStats?.[activeProject.id]?.donated ?? 0
+    : 0;
+  const challengeLevelPalette = [
+    { accent: "#2ECC71", border: "rgba(46,204,113,0.55)", bg: "linear-gradient(145deg, rgba(46,204,113,0.2), rgba(46,204,113,0.05))" },
+    { accent: "#2BB2FF", border: "rgba(43,178,255,0.55)", bg: "linear-gradient(145deg, rgba(43,178,255,0.2), rgba(43,178,255,0.05))" },
+    { accent: "#9B5CFF", border: "rgba(155,92,255,0.55)", bg: "linear-gradient(145deg, rgba(155,92,255,0.2), rgba(155,92,255,0.05))" },
+  ];
+  const challengeLevelCards = challengeMilestones.slice(0, 3).map((milestone, index) => ({
+    milestone,
+    level: index + 1,
+    isComplete: challengeSkips.length >= milestone,
+    palette: challengeLevelPalette[index % challengeLevelPalette.length],
+  }));
+  const challengeFeedItems = activeProject && isActiveChallenge
+    ? communityFeed.filter((item) => item.projectTitle === activeProject.title).slice(0, 3)
+    : [];
+  const challengeCommunitySkipCount = challengeFeedItems.length > 0 ? challengeFeedItems.length : challengeSkips.length;
+  const todaySkipCount = activeProject && isActiveChallenge
+    ? communityFeed.filter((item) =>
+        (item.projectTitle === activeProject.title || item.projectId === activeProject.id)
+        && item.createdAt?.toDate?.()?.toDateString() === new Date().toDateString()
+      ).length
+    : 0;
+  const nextMilestoneIndex = challengeMilestones.findIndex((m) => challengeSkips.length < m);
+  const nextMilestone = nextMilestoneIndex >= 0 ? challengeMilestones[nextMilestoneIndex] : null;
+  const allMilestonesComplete = challengeMilestones.length > 0 && nextMilestone === null;
+  const socialFeedItems = activeProject && isActiveChallenge
+    ? (communityFeed.filter((item) => item.projectTitle === activeProject.title).length > 0
+        ? communityFeed.filter((item) => item.projectTitle === activeProject.title)
+        : communityFeed)
+    : communityFeed;
+  const liveTotalSkips = globalStats?.totalSkips ?? communityFeed.length;
+  const liveFeedFallbacks = recentSkips.slice(0, 3).map((skip) => ({
+    id: skip.id,
+    displayName: "You",
+    message: `skipped ${skip.whatSkipped || skip.categoryLabel}`,
+    skipAmount: skip.amount,
+    skipEmoji: skip.categoryEmoji,
+    skipLabel: skip.whatSkipped || skip.categoryLabel,
+    projectTitle: undefined,
+    createdAt: skip.createdAt,
+  }));
+  const liveFeed = socialFeedItems.length > 0
+    ? socialFeedItems.slice(0, 5)
+    : liveFeedFallbacks;
+  const featuredFeedIndex = liveFeed.length > 0 ? liveFeedIndex % liveFeed.length : 0;
+  const featuredFeedItem = liveFeed.length > 0 ? liveFeed[featuredFeedIndex] : null;
   const spendingFillPct = activeGoal
     ? Math.min(100, (spendingBalance / activeGoal.targetAmount) * 100)
     : 0;
+  const displayedStreak = getConsecutiveSkipStreak(recentSkips);
+  const activeCountdown = activeProject && isActiveChallenge ? getChallengeCountdown(activeProject) : null;
+
+  const parkedJars = Object.entries(profile.causeJarBalances ?? {})
+    .filter(([id, bal]) => id !== profile.activeProjectId && bal > 0)
+    .map(([id, bal]) => ({ id, balance: bal as number, project: projects.find((p) => p.id === id) ?? null }));
 
   const firstName = profile.displayName.split(" ")[0];
 
@@ -303,7 +546,7 @@ export default function HomePage() {
       {/* Greeting + CTA */}
       <div style={{ textAlign: "center", marginBottom: 24 }}>
         <h1 className="text-2xl font-black" style={{ color: "var(--text-primary)" }}>Hey {firstName}.</h1>
-        <p className="mt-1 mb-5 text-sm" style={{ color: "var(--text-muted)" }}>What did you almost buy today?</p>
+        <p className="mt-1 mb-5 text-sm" style={{ color: "var(--text-muted)" }}>What expense did you skip today?</p>
 
         <button
           onClick={() => setShowSkipPicker(true)}
@@ -314,59 +557,57 @@ export default function HomePage() {
             boxShadow: "0 4px 18px var(--gold-glow)",
           }}
         >
-          ✨ Log a Skip
+          Log a Skip
         </button>
       </div>
 
-      {/* ── Cause card (My Skip Motivator) ── */}
-      {activeProject && (() => {
-        const motivatorImg = activeProject.imageURL
-          ?? (activeProject.tags?.includes("education") ? "/categories/education.png"
-            : activeProject.tags?.includes("food") ? "/categories/meal.png"
-            : activeProject.tags?.includes("health") ? "/categories/health.png"
-            : null);
-        const isPlaceholderImg = !activeProject.imageURL && !!motivatorImg;
-        return (
-          <div
-            style={{ ...cardStyle, marginBottom: 20, overflow: "hidden", padding: 0, cursor: "pointer" }}
-            onClick={() => router.push("/jars?tab=cause")}
-          >
-            {motivatorImg && (
-              <div className="relative overflow-hidden h-36 md:h-52" style={{ background: "var(--bg-surface-2)" }}>
-                <img
-                  src={motivatorImg}
-                  alt={activeProject.title}
-                  style={{
-                    width: "100%", height: "100%",
-                    objectFit: isPlaceholderImg ? "contain" : "cover",
-                    objectPosition: isPlaceholderImg ? "center" : (activeProject.imagePosition ?? "center"),
-                  }}
-                />
-                <div style={{
-                  position: "absolute", inset: 0,
-                  background: "linear-gradient(to bottom, transparent 30%, rgba(0,0,0,0.65))",
-                }} />
-              </div>
-            )}
-            <div style={{ padding: "14px 16px" }}>
-              {!motivatorImg && (
-                <p style={{ fontSize: 14, fontWeight: 800, color: "var(--text-primary)", margin: "0 0 6px" }}>
-                  {activeProject.title}
-                </p>
-              )}
-              <p style={{
-                fontSize: 14, fontWeight: 600, color: "var(--text-primary)", margin: "0 0 8px", lineHeight: 1.4,
-              }}>
-                There is no better reason to skip today than to help fund {activeProject.title}.
-              </p>
-            </div>
+      {/* ── Parked Jar Banners ── */}
+      {parkedJars.slice(0, 3).map(({ id, balance, project }) => (
+        <div
+          key={id}
+          onClick={() => router.push("/jars/resolve")}
+          style={{
+            display: "flex",
+            alignItems: "center",
+            gap: 12,
+            background: "var(--bg-surface-1)",
+            border: "1px solid rgba(46,204,113,0.3)",
+            borderLeft: "3px solid var(--green-primary)",
+            borderRadius: 14,
+            padding: "12px 14px",
+            marginBottom: 10,
+            cursor: "pointer",
+          }}
+        >
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <p style={{ fontSize: 13, fontWeight: 800, color: "var(--text-primary)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+              You saved {formatCurrency(balance)} for {project?.title ?? "a cause"}
+            </p>
+            <p style={{ fontSize: 11, color: "var(--text-muted)", marginTop: 2 }}>Time to send it.</p>
           </div>
-        );
-      })()}
+          <button
+            onClick={(event) => {
+              event.stopPropagation();
+              if (project?.donationURL) window.open(project.donationURL, "_blank", "noopener,noreferrer");
+              else router.push("/jars/resolve");
+            }}
+            style={{ background: "var(--green-primary)", color: "white", borderRadius: 999, padding: "6px 14px", fontSize: 12, fontWeight: 800, whiteSpace: "nowrap", flexShrink: 0 }}
+          >
+            Donate
+          </button>
+          <button
+            onClick={(event) => { event.stopPropagation(); router.push("/jars/resolve"); }}
+            style={{ color: "var(--text-muted)", fontSize: 13, fontWeight: 700, flexShrink: 0, padding: "0 4px" }}
+          >
+            ···
+          </button>
+        </div>
+      ))}
 
+      {/* ── Cause card (My Skip Motivator) ── */}
       {/* ── Jars card (full width) ── */}
       <div style={{ ...cardStyle, marginBottom: 20, position: "relative" }}>
-        {profile.streak > 0 && (
+        {displayedStreak > 0 && (
           <div
             className="flex items-center gap-1"
             style={{
@@ -378,7 +619,7 @@ export default function HomePage() {
             }}
           >
             <span style={{ fontSize: 12 }}>🔥</span>
-            <span style={{ fontSize: 11, fontWeight: 700, color: "#E8924A" }}>{profile.streak}</span>
+            <span style={{ fontSize: 11, fontWeight: 700, color: "#E8924A" }}>{displayedStreak}</span>
           </div>
         )}
         {/* Total */}
@@ -401,16 +642,25 @@ export default function HomePage() {
         {/* Jars */}
         <div style={{ display: "flex", justifyContent: "center", gap: 16, margin: "20px 0", flexWrap: "nowrap" }}>
           <Jar
-            fillPercent={givingFillPct}
+            fillPercent={destinationFillPct}
             color="#2BBAA4"
             gradEnd="#1E9485"
-            label="Giving Jar"
-            amount={formatCurrency(givingBalance)}
+            label={destinationLabel}
+            amount={formatCurrency(destinationAmount)}
             emoji="🤲"
             causeLabel={activeProject?.title}
-            goalAmount={personalGoal > 0 ? personalGoal : undefined}
-            emptyLabel="Choose who your skips help"
-            href="/jars?tab=cause"
+            goalAmount={destinationGoalAmount}
+            emptyLabel={destinationEmptyLabel}
+            centerLabelOverride={isActiveChallenge && destinationGoalAmount ? "contributed\nto group goal" : undefined}
+            onClick={() => router.push(destinationHref)}
+            actionLabel="Donate my Jar"
+            actionOnClick={() => {
+              if (activeProject?.donationURL) {
+                window.open(activeProject.donationURL, "_blank", "noopener,noreferrer");
+                return;
+              }
+              router.push("/jars?tab=cause");
+            }}
           />
           <Jar
             fillPercent={spendingFillPct}
@@ -423,10 +673,359 @@ export default function HomePage() {
             goalAmount={activeGoal?.targetAmount}
             emptyLabel="Choose what future you gets"
             onClick={() => router.push("/jars?tab=live")}
+            actionLabel="Use Reward Jar"
+            actionOnClick={() => router.push("/jars?tab=live")}
+            actionColor="#A78BFA"
           />
         </div>
 
       </div>
+
+      {(!activeProject || !isActiveChallenge) && (
+      <div style={{
+        ...cardStyle,
+        marginBottom: 20,
+        padding: 18,
+        background: "linear-gradient(145deg, rgba(46,204,113,0.13), rgba(12,35,26,0.98) 48%, rgba(43,186,164,0.08))",
+        border: "1px solid rgba(46,204,113,0.24)",
+        boxShadow: "0 18px 42px rgba(0,0,0,0.18)",
+        overflow: "hidden",
+      }}>
+        <div style={{ display: "flex", justifyContent: "space-between", gap: 14, alignItems: "flex-start", marginBottom: 14 }}>
+          <div>
+            <p style={{ fontSize: 11, fontWeight: 900, letterSpacing: 1.4, textTransform: "uppercase", color: "var(--green-primary)", marginBottom: 4 }}>
+              iSkipped Community
+            </p>
+            <p style={{ fontSize: 28, fontWeight: 900, color: "var(--text-primary)", lineHeight: 1.05 }}>
+              {liveTotalSkips > 0 ? `${liveTotalSkips.toLocaleString()} skips` : "Live skips"}
+            </p>
+            <p style={{ fontSize: 12, fontWeight: 700, color: "var(--text-muted)", marginTop: 6 }}>
+              Recent activity from people building their jars
+            </p>
+          </div>
+          <button
+            type="button"
+            onClick={() => router.push("/community")}
+            style={{
+            background: "rgba(46,204,113,0.12)",
+            border: "1px solid rgba(46,204,113,0.25)",
+            borderRadius: 999,
+            color: "var(--green-primary)",
+            fontSize: 11,
+            fontWeight: 900,
+            padding: "6px 10px",
+            whiteSpace: "nowrap",
+            cursor: "pointer",
+          }}
+          >
+            See more
+          </button>
+        </div>
+
+        <div style={{ display: "grid", gap: 10 }}>
+          {featuredFeedItem ? (
+            <>
+              <div
+                key={featuredFeedItem.id}
+                style={{
+                  display: "grid",
+                  gridTemplateColumns: "38px minmax(0, 1fr) auto",
+                  alignItems: "center",
+                  gap: 10,
+                  background: "linear-gradient(135deg, rgba(46,204,113,0.18), rgba(255,255,255,0.055))",
+                  border: "1px solid rgba(46,204,113,0.3)",
+                  borderRadius: 16,
+                  padding: "10px 12px",
+                  boxShadow: "0 10px 26px rgba(46,204,113,0.08)",
+                  minWidth: 0,
+                }}
+              >
+                <div style={{
+                  width: 38, height: 38, borderRadius: 14,
+                  background: "rgba(237,245,240,0.1)",
+                  display: "flex", alignItems: "center", justifyContent: "center",
+                  fontSize: 18, flexShrink: 0,
+                }}>
+                  {featuredFeedItem.skipEmoji ?? "."}
+                </div>
+                <div style={{ minWidth: 0 }}>
+                  <p style={{ fontSize: 13, fontWeight: 900, color: "var(--text-primary)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+                    {getFeedActionLine(featuredFeedItem)}
+                  </p>
+                  <p style={{ fontSize: 10, color: "var(--text-muted)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", marginTop: 2 }}>
+                    {featuredFeedItem.projectTitle ? `Toward ${featuredFeedItem.projectTitle}` : "Community activity"}
+                    {" - "}
+                    {featuredFeedItem.createdAt?.toDate ? formatRelativeTime(featuredFeedItem.createdAt.toDate()) : "just now"}
+                  </p>
+                </div>
+                {featuredFeedItem.skipAmount !== undefined && (
+                  <p style={{ fontSize: 15, fontWeight: 900, color: "var(--green-primary)", flexShrink: 0 }}>
+                    +{formatCurrency(featuredFeedItem.skipAmount)}
+                  </p>
+                )}
+              </div>
+            </>
+          ) : (
+            <button
+              onClick={() => setShowSkipPicker(true)}
+              style={{
+                width: "100%",
+                background: "var(--bg-surface-2)",
+                border: "1px dashed rgba(46,204,113,0.35)",
+                borderRadius: 14,
+                padding: "12px 14px",
+                color: "var(--text-secondary)",
+                fontSize: 13,
+                fontWeight: 800,
+                textAlign: "left",
+              }}
+            >
+              Be the first skip in the live feed.
+            </button>
+          )}
+        </div>
+
+        <div style={{ display: "none" }}>
+          {liveFeed.length > 0 ? (
+            liveFeed.slice(0, 3).map((item, index) => (
+              <div
+                key={item.id}
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 10,
+                  background: index === 0 ? "rgba(46,204,113,0.1)" : "var(--bg-surface-2)",
+                  border: "1px solid var(--border-default)",
+                  borderRadius: 14,
+                  padding: "10px 12px",
+                }}
+              >
+                <div style={{
+                  width: 36, height: 36, borderRadius: 13,
+                  background: "rgba(255,255,255,0.06)",
+                  display: "flex", alignItems: "center", justifyContent: "center",
+                  fontSize: 17, flexShrink: 0,
+                }}>
+                  {item.skipEmoji ?? "•"}
+                </div>
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <p style={{ fontSize: 13, fontWeight: 800, color: "var(--text-primary)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+                    {item.displayName} {formatFeedMessage(item.message)}
+                  </p>
+                  <p style={{ fontSize: 11, color: "var(--text-muted)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+                    {item.projectTitle ? `${item.projectTitle} · ` : ""}
+                    {item.createdAt?.toDate ? formatRelativeTime(item.createdAt.toDate()) : "just now"}
+                  </p>
+                </div>
+                {item.skipAmount !== undefined && (
+                  <p style={{ fontSize: 13, fontWeight: 900, color: "var(--green-primary)", flexShrink: 0 }}>
+                    +{formatCurrency(item.skipAmount)}
+                  </p>
+                )}
+              </div>
+            ))
+          ) : (
+            <button
+              onClick={() => setShowSkipPicker(true)}
+              style={{
+                width: "100%",
+                background: "var(--bg-surface-2)",
+                border: "1px dashed rgba(46,204,113,0.35)",
+                borderRadius: 14,
+                padding: "12px 14px",
+                color: "var(--text-secondary)",
+                fontSize: 13,
+                fontWeight: 800,
+                textAlign: "left",
+              }}
+            >
+              Be the first skip in the live feed.
+            </button>
+          )}
+        </div>
+      </div>
+      )}
+
+      {activeProject && isActiveChallenge && (
+        <div style={{ ...cardStyle, marginBottom: 20 }}>
+          {/* Title + Action Buttons */}
+          <div style={{ display: "flex", justifyContent: "space-between", gap: 12, alignItems: "flex-start", marginBottom: 16 }}>
+            <div>
+              <p style={{ fontSize: 11, fontWeight: 700, letterSpacing: 0.5, textTransform: "uppercase", color: "var(--text-muted)", marginBottom: 2 }}>Skip Group</p>
+              <p style={{ fontSize: 18, fontWeight: 800, color: "var(--text-primary)", lineHeight: 1.2 }}>
+                {activeProject.title}
+              </p>
+            </div>
+            <div style={{ display: "flex", gap: 8 }}>
+              <button
+                onClick={async () => {
+                  const url = `${window.location.origin}/challenges/${activeProject.id}`;
+                  if (typeof navigator.share === "function") {
+                    try { await navigator.share({ title: activeProject.title, text: `Join my iSkipped challenge: ${activeProject.title}`, url }); return; } catch { /* dismissed */ }
+                  }
+                  try { await navigator.clipboard.writeText(url); } catch { /* ignore */ }
+                }}
+                style={{ background: "rgba(46,204,113,0.08)", border: "1px solid rgba(46,204,113,0.22)", color: "var(--green-primary)", borderRadius: 999, padding: "7px 12px", fontSize: 12, fontWeight: 800, whiteSpace: "nowrap" }}
+              >
+                ↗ Invite
+              </button>
+              <button
+                onClick={() => router.push(`/challenges/${activeProject.id}`)}
+                style={{ background: "rgba(46,204,113,0.12)", border: "1px solid rgba(46,204,113,0.25)", color: "var(--green-primary)", borderRadius: 999, padding: "7px 12px", fontSize: 12, fontWeight: 800, whiteSpace: "nowrap" }}
+              >
+                View
+              </button>
+            </div>
+          </div>
+
+          {/* Hero Impact */}
+          <div style={{ marginBottom: 20 }}>
+            <div style={{ display: "flex", alignItems: "baseline", gap: 8, flexWrap: "wrap" }}>
+              <p style={{ fontSize: 36, fontWeight: 900, color: "var(--green-primary)", lineHeight: 1 }}>
+                {formatCurrency(displayedGroupTotal)}
+              </p>
+              <p style={{ fontSize: 14, fontWeight: 700, color: "var(--text-secondary)" }}>
+                pledged together
+              </p>
+            </div>
+            {hasCommunityUnit && (
+              <p style={{ fontSize: 12, fontWeight: 600, color: "var(--text-muted)", marginTop: 4 }}>
+                That&apos;s {communityImpactValue}
+              </p>
+            )}
+            {todaySkipCount > 0 && (
+              <div style={{ marginTop: 8 }}>
+                <span style={{ fontSize: 12, fontWeight: 800, color: "#FF9900" }}>
+                  🔥 {todaySkipCount} skip{todaySkipCount === 1 ? "" : "s"} today
+                </span>
+              </div>
+            )}
+            {activeCountdown && !activeCountdown.isExpired && activeCountdown.daysLeft !== null && (
+              <div style={{ marginTop: 8 }}>
+                <span style={{
+                  fontSize: 12,
+                  fontWeight: 800,
+                  color: activeCountdown.daysLeft < 3 ? "#EF4444" : activeCountdown.daysLeft < 7 ? "var(--gold-cta)" : "var(--text-muted)",
+                }}>
+                  ⏱ {activeCountdown.label}
+                </span>
+              </div>
+            )}
+            {activeCountdown?.isExpired && (
+              <div style={{ marginTop: 8 }}>
+                <span style={{ fontSize: 12, fontWeight: 800, color: "#EF4444" }}>Challenge ended — </span>
+                <button
+                  onClick={() => router.push("/jars/resolve")}
+                  style={{ fontSize: 12, fontWeight: 800, color: "var(--green-primary)", textDecoration: "underline" }}
+                >
+                  donate your jar
+                </button>
+              </div>
+            )}
+          </div>
+
+          {/* Live Activity Feed */}
+          <div style={{ marginBottom: 20 }}>
+            <p style={{ fontSize: 11, fontWeight: 900, letterSpacing: 0.9, textTransform: "uppercase", color: "var(--text-secondary)", marginBottom: 8 }}>
+              Live Activity
+            </p>
+            {challengeFeedItems.length > 0 ? (
+              <div style={{ display: "grid", gap: 8 }}>
+                {challengeFeedItems.map((item) => (
+                  <div key={item.id} style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                    <div style={{ width: 34, height: 34, borderRadius: 12, background: "rgba(46,204,113,0.12)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 17, flexShrink: 0 }}>
+                      {item.skipEmoji ?? "✨"}
+                    </div>
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <p style={{ fontSize: 12, fontWeight: 800, color: "var(--text-primary)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+                        {getFeedActionLine(item)}
+                      </p>
+                      <p style={{ fontSize: 11, color: "var(--text-muted)" }}>
+                        {item.createdAt?.toDate ? formatRelativeTime(item.createdAt.toDate()) : "just now"}
+                      </p>
+                    </div>
+                    {(item.giveAmount ?? item.skipAmount) !== undefined && (
+                      <p style={{ fontSize: 13, fontWeight: 900, color: "var(--green-primary)" }}>
+                        +{formatCurrency(item.giveAmount ?? item.skipAmount!)}
+                      </p>
+                    )}
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <button
+                onClick={() => setShowSkipPicker(true)}
+                style={{ width: "100%", background: "var(--bg-surface-2)", border: "1px dashed rgba(46,204,113,0.35)", borderRadius: 14, padding: "12px 14px", color: "var(--text-secondary)", fontSize: 13, fontWeight: 700, textAlign: "left" }}
+              >
+                Be the first to skip for this challenge →
+              </button>
+            )}
+          </div>
+
+          {/* Your Momentum */}
+          <div style={{ marginBottom: 20 }}>
+            <p style={{ fontSize: 11, fontWeight: 900, letterSpacing: 0.9, textTransform: "uppercase", color: "var(--text-secondary)", marginBottom: 8 }}>
+              Your Momentum
+            </p>
+            <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 5, background: displayedStreak > 0 ? "rgba(255,153,0,0.12)" : "var(--bg-surface-2)", border: displayedStreak > 0 ? "1px solid rgba(255,153,0,0.3)" : "1px solid var(--border-default)", borderRadius: 999, padding: "6px 12px" }}>
+                <span style={{ fontSize: 14 }}>🔥</span>
+                <p style={{ fontSize: 12, fontWeight: 800, color: displayedStreak > 0 ? "#FF9900" : "var(--text-muted)" }}>
+                  {displayedStreak > 0 ? `${displayedStreak} day streak` : "Start your streak!"}
+                </p>
+              </div>
+              <div style={{ display: "flex", alignItems: "center", gap: 5, background: "rgba(155,92,255,0.1)", border: "1px solid rgba(155,92,255,0.3)", borderRadius: 999, padding: "6px 12px" }}>
+                <span style={{ fontSize: 14 }}>⚡</span>
+                <p style={{ fontSize: 12, fontWeight: 800, color: "#9B5CFF" }}>Level {profile.level}</p>
+              </div>
+              <div style={{ display: "flex", alignItems: "center", gap: 5, background: "rgba(46,204,113,0.08)", border: "1px solid rgba(46,204,113,0.2)", borderRadius: 999, padding: "6px 12px" }}>
+                <p style={{ fontSize: 12, fontWeight: 800, color: "var(--green-primary)" }}>
+                  You: {formatCurrency(challengeContribution)}
+                </p>
+              </div>
+            </div>
+          </div>
+
+          {/* Next Goal */}
+          <div>
+            <p style={{ fontSize: 11, fontWeight: 900, letterSpacing: 0.9, textTransform: "uppercase", color: "var(--text-secondary)", marginBottom: 8 }}>
+              Next Goal
+            </p>
+            {allMilestonesComplete ? (
+              <div style={{ background: "rgba(46,204,113,0.08)", border: "1px solid rgba(46,204,113,0.25)", borderRadius: 14, padding: "12px 14px", display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12 }}>
+                <div>
+                  <p style={{ fontSize: 13, fontWeight: 900, color: "var(--green-primary)" }}>All levels complete 🏆</p>
+                  <p style={{ fontSize: 11, color: "var(--text-muted)", marginTop: 2 }}>Ready to donate your jar?</p>
+                </div>
+                <button
+                  onClick={() => router.push("/jars?tab=cause")}
+                  style={{ background: "var(--green-primary)", color: "#0B1A14", borderRadius: 999, padding: "7px 14px", fontSize: 12, fontWeight: 800, whiteSpace: "nowrap", flexShrink: 0 }}
+                >
+                  Donate
+                </button>
+              </div>
+            ) : nextMilestone !== null ? (
+              <div style={{ background: "var(--bg-surface-2)", border: "1px solid var(--border-default)", borderRadius: 14, padding: "12px 14px" }}>
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", marginBottom: 8 }}>
+                  <p style={{ fontSize: 12, fontWeight: 800, color: "var(--text-primary)" }}>
+                    {challengeSkips.length} / {nextMilestone} skips → Level {nextMilestoneIndex + 1}
+                  </p>
+                  <p style={{ fontSize: 12, fontWeight: 900, color: "var(--green-primary)", whiteSpace: "nowrap" }}>
+                    {nextMilestone - challengeSkips.length} to go
+                  </p>
+                </div>
+                <div style={{ height: 5, background: "rgba(46,204,113,0.12)", borderRadius: 999, overflow: "hidden" }}>
+                  <div style={{ height: "100%", width: `${Math.min(100, (challengeSkips.length / nextMilestone) * 100)}%`, background: "linear-gradient(90deg, #1E9485, #2ECC71)", borderRadius: 999 }} />
+                </div>
+              </div>
+            ) : (
+              <p style={{ fontSize: 12, color: "var(--text-muted)", padding: "4px 0" }}>
+                {challengeSkips.length} skip{challengeSkips.length === 1 ? "" : "s"} so far — keep going!
+              </p>
+            )}
+          </div>
+        </div>
+      )}
 
       {!profile.activeProjectId && givingBalance === 0 && (
         <div style={{
@@ -466,7 +1065,7 @@ export default function HomePage() {
         </div>
       )}
 
-      {/* ── Recent Skips ── */}
+      {/* Recent Skips */}
       <div>
         <div style={cardStyle}>
           <div style={{
@@ -474,7 +1073,7 @@ export default function HomePage() {
             marginBottom: 16,
           }}>
             <span style={{ fontSize: 13, fontWeight: 600, color: "var(--text-secondary)", letterSpacing: 0.5 }}>
-              Recent Skips
+              My Recent Skips
             </span>
             <button
               onClick={() => router.push("/dashboard")}
@@ -544,6 +1143,10 @@ export default function HomePage() {
       <InstallPrompt />
 
       <p className="mt-4 text-center text-xs" style={{ color: "var(--text-muted)", lineHeight: 1.6 }}>
+        iSkipped helps you track skipped spending and pledges. Donations are made outside the app, directly through the fundraiser or organization, and iSkipped does not process funds or control how donations are used.
+      </p>
+
+      <p className="hidden" style={{ color: "var(--text-muted)", lineHeight: 1.6 }}>
         We are still in beta — have feedback?{" "}
         <a href="mailto:iskippedfor@gmail.com" style={{ color: "var(--green-primary)", textDecoration: "underline" }}>
           iskippedfor@gmail.com

@@ -1,6 +1,6 @@
-"use client";
+﻿"use client";
 import { useEffect, useState, Suspense } from "react";
-import { useSearchParams } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { useAuthStore } from "@/store/authStore";
 import { useSkips } from "@/hooks/useSkips";
 import { useProjects } from "@/hooks/useProjects";
@@ -20,13 +20,14 @@ import {
   updateSpendingGoals,
   setUserCauseGoal,
 } from "@/lib/services/firebase/users";
-import { addCustomProject, updateCustomProject, deleteCustomProject } from "@/lib/services/firebase/projects";
+import { addCustomProject, updateCustomProject, deleteCustomProject, isCauseProject } from "@/lib/services/firebase/projects";
 import { formatUnits } from "@/lib/utils/impact";
 import { SpendingHistoryEvent, Project, SpendingGoal, DonationEvent } from "@/lib/types/models";
 
 type Tab = "cause" | "live";
 
 function JarsPageInner() {
+  const router = useRouter();
   const searchParams = useSearchParams();
   const rawTab = searchParams.get("tab");
   const initialTab: Tab = rawTab === "live" || rawTab === "cause" ? rawTab : "cause";
@@ -91,7 +92,7 @@ function JarsPageInner() {
   async function handleDeleteCause(projectId: string) {
     await deleteCustomProject(user!.uid, projectId);
     if (profile!.activeProjectId === projectId) {
-      const remaining = projects.filter((p) => p.id !== projectId);
+      const remaining = projects.filter((p) => p.id !== projectId && isCauseProject(p));
       const nextId = remaining[0]?.id ?? null;
       await setActiveProject(user!.uid, nextId);
       updateProfile({ activeProjectId: nextId });
@@ -209,12 +210,17 @@ function JarsPageInner() {
           }
           onEditDonation={editDonation}
           onDeleteDonation={deleteDonation}
+          onShowCommunityChallenges={() => router.push("/challenges")}
+          totalGiveAllocated={giveTotal}
+          totalDonated={profile.totalDonated ?? 0}
         />
       )}
 
       {activeTab === "live" && (
         <SplurgeTab
           spendingBalance={spendingBalance}
+          totalLiveAllocated={liveTotal}
+          totalSpent={profile.totalSpent ?? 0}
           goals={spendingGoals}
           activeGoalId={activeSpendingGoalId}
           activeGoal={activeGoal}
@@ -394,7 +400,7 @@ function JarPreview({ fillPct, color, gradEnd, label, amount, emptyPrompt, unitD
             <text x={60*scale} y={114*scale} textAnchor="middle" dominantBaseline="middle"
               fontSize={6*scale} fontWeight="500" fill="rgba(255,255,255,0.4)"
               style={{ fontFamily: "inherit" }}>
-              funded
+              pledged
             </text>
           </>
         ) : (
@@ -480,6 +486,9 @@ function CauseTab({
   onDonate,
   onEditDonation,
   onDeleteDonation,
+  onShowCommunityChallenges,
+  totalGiveAllocated,
+  totalDonated,
 }: {
   uid: string;
   projects: Project[];
@@ -497,6 +506,9 @@ function CauseTab({
   onDonate: (amount: number) => Promise<void>;
   onEditDonation: (donation: DonationEvent, newAmount: number) => Promise<void>;
   onDeleteDonation: (donation: DonationEvent) => Promise<void>;
+  onShowCommunityChallenges: () => void;
+  totalGiveAllocated: number;
+  totalDonated: number;
 }) {
   const [donatingId, setDonatingId] = useState<string | null>(null);
   const [donateAmountStr, setDonateAmountStr] = useState("");
@@ -694,33 +706,49 @@ function CauseTab({
       {/* Switch modal */}
       {switchTarget && (
         <div className="fixed inset-0 bg-black/60 z-50 flex items-end sm:items-center justify-center p-4" onClick={() => setSwitchTarget(null)}>
-          <div className="rounded-2xl w-full max-w-sm shadow-2xl" style={{ background: "var(--bg-surface-1)", border: "1px solid var(--border-default)" }} onClick={(e) => e.stopPropagation()}>
+          <div className="rounded-2xl w-full max-w-md p-5 shadow-2xl" style={{ background: "var(--bg-surface-1)", border: "1px solid var(--border-emphasis)" }} onClick={(e) => e.stopPropagation()}>
             <div className="px-5 pt-5 pb-4 relative" style={{ borderBottom: "1px solid var(--border-default)" }}>
               <button onClick={() => setSwitchTarget(null)} className="absolute top-4 right-4 text-xl leading-none" style={{ color: "var(--text-muted)" }}>×</button>
-              <p className="text-lg font-bold pr-6" style={{ color: "var(--text-primary)" }}>Switch active cause?</p>
-              <p className="text-xs mt-1.5" style={{ color: "var(--text-secondary)" }}>
-                You have <span className="font-semibold" style={{ color: "var(--coral-primary)" }}>{formatCurrency(givingBalance)}</span> saved toward <span className="font-semibold">{activeProject?.title}</span>. What would you like to do with it?
+              <p className="text-2xl font-black pr-6" style={{ color: "var(--text-primary)" }}>Before you switch</p>
+              <p className="text-sm mt-1" style={{ color: "var(--text-secondary)" }}>{switchTarget.title}</p>
+            </div>
+            <div className="px-5 pt-4">
+              <div className="rounded-xl p-4" style={{ background: "var(--bg-surface-2)", border: "1px solid var(--border-default)" }}>
+                <p className="text-xs uppercase font-black tracking-wider" style={{ color: "var(--text-muted)" }}>Current pledge</p>
+                <p className="text-sm font-black mt-2" style={{ color: "var(--text-primary)" }}>{activeProject?.title ?? "your current cause"}</p>
+                <p className="text-base font-black mt-2" style={{ color: "var(--coral-primary)" }}>{formatCurrency(givingBalance)} pledged</p>
+              </div>
+              <p className="text-sm leading-relaxed mt-4" style={{ color: "var(--text-secondary)" }}>
+                You have currently pledged {formatCurrency(givingBalance)} to {activeProject?.title ?? "your current cause"}. We recommend donating what you have pledged before moving to a new cause or challenge.
               </p>
             </div>
-            <div>
+            <div className="px-5 py-4 space-y-3 text-center">
+              {activeProject?.donationURL ? (
+                <a
+                  href={activeProject.donationURL}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  onClick={() => setSwitchTarget(null)}
+                  className="block w-full py-3 rounded-full text-sm font-black"
+                  style={{ background: "var(--text-primary)", color: "var(--bg-app)" }}
+                >
+                  Donate now
+                </a>
+              ) : (
+                <button
+                  className="w-full py-3 rounded-full text-sm font-black"
+                  style={{ background: "var(--text-primary)", color: "var(--bg-app)", cursor: "pointer" }}
+                  onClick={() => { setSwitchTarget(null); setDonatingId(activeProject?.id ?? null); }}
+                >
+                  Donate now
+                </button>
+              )}
               <button
-                className="w-full text-left px-5 py-4 transition-colors"
-                style={{ borderBottom: "1px solid var(--border-default)" }}
-                onMouseEnter={(e) => (e.currentTarget as HTMLElement).style.background = "var(--bg-surface-2)"}
-                onMouseLeave={(e) => (e.currentTarget as HTMLElement).style.background = "transparent"}
-                onClick={() => { setSwitchTarget(null); setDonatingId(activeProject?.id ?? null); }}
-              >
-                <p className="text-sm font-semibold" style={{ color: "var(--text-primary)" }}>Log a donation first</p>
-                <p className="text-xs mt-0.5" style={{ color: "var(--text-secondary)" }}>Enter how much you donated, then switch</p>
-              </button>
-              <button
-                className="w-full text-left px-5 py-4 transition-colors"
-                onMouseEnter={(e) => (e.currentTarget as HTMLElement).style.background = "var(--bg-surface-2)"}
-                onMouseLeave={(e) => (e.currentTarget as HTMLElement).style.background = "transparent"}
+                className="text-xs font-bold underline"
+                style={{ color: "var(--text-secondary)", background: "transparent", border: "none", cursor: "pointer" }}
                 onClick={() => { onSelectCause(switchTarget, true); setSwitchTarget(null); setGoalInputStr(""); setGoalSettingProject(switchTarget); }}
               >
-                <p className="text-sm font-semibold" style={{ color: "var(--text-primary)" }}>→ Move balance to {switchTarget.title}</p>
-                <p className="text-xs mt-0.5" style={{ color: "var(--text-secondary)" }}>Existing savings count toward the new cause</p>
+                I'd like to move my savings to this cause instead
               </button>
             </div>
           </div>
@@ -855,7 +883,7 @@ function CauseTab({
                   className="mt-4 w-full py-3 text-sm font-semibold rounded-xl"
                   style={isActive ? { background: "rgba(46,204,113,0.15)", color: "#2ECC71" } : { background: "#2ECC71", color: "#0B1A14" }}
                 >
-                  {isActive ? "✓ Your Giving Jar" : "Make this my Giving Jar"}
+                  {isActive ? "✓ Active" : "Make this my Giving Jar"}
                 </button>
                 {(dp.learnMoreURL || dp.donationURL) && (
                   <a href={dp.learnMoreURL ?? dp.donationURL!} target="_blank" rel="noopener noreferrer" className="block text-center text-sm mt-3 font-semibold" style={{ color: "#2ECC71" }}>
@@ -868,83 +896,39 @@ function CauseTab({
         );
       })()}
 
-      {/* Page heading */}
-      <div className="mb-4">
-        <h1 className="text-4xl font-extrabold leading-tight" style={{ color: "#2ECC71" }}>Giving Jar</h1>
-        <p className="text-sm mt-1" style={{ color: "var(--text-secondary)" }}>
-          Skip something small. Fund something real.
-        </p>
-      </div>
-
       {/* Scoreboard (active cause) OR Featured Cause (no active cause) */}
       {activeProject ? (
-        /* Scoreboard */
-        (() => {
-          const balance = givingBalance;
-          const personalGoal = causeGoalAmounts?.[activeProject.id] ?? activeProject.goalAmount ?? 0;
-          const isUnitCost = !!(activeProject.unitCost && !activeProject.unitIsGoal && activeProject.unitDisplay);
-          const unitsFunded = isUnitCost ? Math.floor(balance / activeProject.unitCost!) : 0;
-          const pct = personalGoal > 0 ? Math.min(100, Math.round((balance / personalGoal) * 100)) : null;
-          const { img: scoreboardImg } = getCategoryFallback(activeProject);
-          const scoreboardPhoto = activeProject.imageURL ?? scoreboardImg;
-          const impactLine = isUnitCost
-            ? `${formatCurrency(balance)} saved and ${unitsFunded} ${activeProject.unitDisplay} funded`
-            : null;
-          return (
-            <div className="rounded-2xl overflow-hidden mb-2" style={{ background: "var(--bg-surface-2)", border: "1px solid var(--border-default)" }}>
-              {scoreboardPhoto && (
-                <div className="h-44 sm:h-64 w-full" style={{ background: "var(--bg-surface-1)" }}>
-                  <img src={scoreboardPhoto} className="w-full h-full object-cover" style={{ objectPosition: activeProject.imagePosition ?? "center" }} alt={activeProject.title} />
-                </div>
-              )}
-              <div className="p-5">
-              <div className="flex items-center justify-between mb-3">
-                <button
-                  onClick={() => setDeactivateConfirm(true)}
-                  className="inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-full"
-                  style={{ background: "rgba(46,204,113,0.15)", color: "#2ECC71", border: "none", cursor: "pointer" }}
-                >
-                  ✓ Active
-                </button>
-                {activeProject.isCustom && <button onClick={() => startEdit(activeProject)} className="p-1 text-base" style={{ color: "var(--text-muted)" }} title="Edit">✏️</button>}
-              </div>
-              <div className="flex items-center gap-4">
-                <div className="flex-shrink-0">
-                  <JarPreview
-                    fillPct={personalGoal > 0 ? pct ?? 0 : balance > 0 ? 100 : 0}
-                    color="#2ECC71"
-                    gradEnd="#1E9485"
-                    label={null}
-                    amount=""
-                    emptyPrompt={activeProject.title}
-                    centerValue={personalGoal > 0 ? undefined : formatCurrency(balance)}
-                    centerLabel={personalGoal > 0 ? undefined : "saved"}
-                    goalAmount={personalGoal > 0 ? personalGoal : undefined}
-                    hideTopLabel
-                  />
-                </div>
-                <div className="flex-1 min-w-0">
-                  <p className="text-xs mb-0.5" style={{ color: "var(--text-muted)" }}>Your Giving Jar</p>
-                  <p className="text-xl font-bold leading-tight" style={{ color: "var(--text-primary)" }}>{activeProject.title}</p>
-                  {activeProject.sponsor && <p className="text-xs mt-1" style={{ color: "var(--text-muted)" }}>by {activeProject.sponsor}</p>}
-                  <div className="mt-3">
-                    {impactLine ? (
-                      <p className="text-sm font-bold leading-snug" style={{ color: "#2ECC71" }}>{impactLine}</p>
-                    ) : (
-                      <p className="text-sm font-semibold" style={{ color: "var(--text-primary)" }}>{formatCurrency(balance)} saved</p>
-                    )}
-                  </div>
-                  <CauseDonateRow project={activeProject} />
-                </div>
-              </div>
-              </div>
-            </div>
-          );
-        })()
+        /* Compact balance summary */
+        <div className="rounded-xl px-4 py-3 mb-4 flex items-center justify-between gap-3" style={{ background: "var(--bg-surface-1)", border: "1px solid var(--border-default)" }}>
+          <p className="text-sm min-w-0 truncate" style={{ color: "var(--text-muted)" }}>
+            Giving Jar · <span className="font-semibold" style={{ color: "var(--text-primary)" }}>{activeProject.title}</span>
+          </p>
+          <div className="flex items-center gap-2 flex-shrink-0">
+            <p className="text-sm font-extrabold" style={{ color: "#2ECC71" }}>{formatCurrency(givingBalance)}</p>
+            {activeProject.donationURL && (
+              <a
+                href={activeProject.donationURL}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-xs font-semibold px-3 py-1.5 rounded-lg"
+                style={{ background: "#2ECC71", color: "#0B1A14" }}
+              >
+                Donate
+              </a>
+            )}
+            <button
+              onClick={() => setDonatingId(activeProject.id)}
+              className="text-xs font-semibold px-3 py-1.5 rounded-lg"
+              style={{ border: "1px solid rgba(46,204,113,0.3)", color: "rgba(237,245,240,0.6)" }}
+            >
+              Log Donation
+            </button>
+          </div>
+        </div>
       ) : (
         /* Featured Cause */
         (() => {
-          const featured = projects.find(p => p.id === "cfc") ?? projects.find(p => !p.isCustom);
+          const featured = projects.find(p => p.id === "cfc") ?? projects.find(p => !p.isCustom && isCauseProject(p));
           if (!featured) return null;
           const { img: fallbackImg, abbr, color } = getCategoryFallback(featured);
           return (
@@ -981,10 +965,10 @@ function CauseTab({
       {/* Category filter tabs */}
       <div className="mt-6 mb-3">
         <p className="text-lg font-bold mb-0.5" style={{ color: "var(--text-primary)" }}>
-          {activeProject ? "Explore More Causes" : "Explore Causes"}
+          {activeProject ? "Support Another Cause Yourself" : "Support a Cause Yourself"}
         </p>
         <p className="text-xs" style={{ color: "var(--text-secondary)" }}>
-          Pick a cause anytime to change what your skipped spending supports.
+          Pick one cause, set your own Giving Jar goal, and donate the skips you save when you&apos;re ready.
         </p>
       </div>
       <div className="flex gap-2 overflow-x-auto pb-1 -mx-1 px-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
@@ -1009,6 +993,7 @@ function CauseTab({
           Education: "education", Meals: "food", Health: "health",
         };
         const filteredProjects = projects.filter(p => {
+          if (!isCauseProject(p)) return false;
           if (selectedCategory === "My Custom") return p.isCustom;
           if (selectedCategory === "All") return !p.isCustom;
           return p.tags?.includes(tagMap[selectedCategory]);
@@ -1051,7 +1036,7 @@ function CauseTab({
                         : { background: "#2ECC71", color: "#0B1A14" }
                       }
                     >
-                      {isActive ? "✓ Your Giving Jar" : "Choose Cause"}
+                      {isActive ? "✓ Active" : "Choose Cause"}
                     </button>
                     {project.isCustom && (
                       <div className="flex gap-1 mt-1.5 justify-end" onClick={(e) => e.stopPropagation()}>
@@ -1194,6 +1179,8 @@ function getNextMilestone(targetAmount: number, balance: number): { value: numbe
 /* ── Splurge Tab ── */
 function SplurgeTab({
   spendingBalance,
+  totalLiveAllocated,
+  totalSpent,
   goals,
   activeGoalId,
   activeGoal: activeGoalProp,
@@ -1211,6 +1198,8 @@ function SplurgeTab({
   onDeleteHistory,
 }: {
   spendingBalance: number;
+  totalLiveAllocated: number;
+  totalSpent: number;
   goals: SpendingGoal[];
   activeGoalId: string | null;
   activeGoal: SpendingGoal | null;
@@ -1337,12 +1326,6 @@ function SplurgeTab({
 
   return (
     <div className="space-y-4">
-      {/* Page heading */}
-      <div className="mb-2">
-        <h1 className="text-4xl font-extrabold leading-tight" style={{ color: "#8B5CF6" }}>Future Reward</h1>
-        <p className="text-sm mt-1" style={{ color: "var(--text-secondary)" }}>Turn skips today into something for tomorrow.</p>
-      </div>
-
       {/* Switch modal */}
       {switchTarget && (
         <div className="fixed inset-0 bg-black/60 z-50 flex items-end sm:items-center justify-center p-4" onClick={() => setSwitchTarget(null)}>
@@ -1485,24 +1468,24 @@ function SplurgeTab({
               </div>
             ) : (
               <>
-                <div className="flex items-center gap-4">
-                  <div className="flex-shrink-0">
-                  <JarPreview
-                    fillPct={pct}
-                    color="#8B5CF6"
-                    gradEnd="#6D28D9"
-                    label={null}
-                    amount=""
-                    emptyPrompt={activeGoal.label}
-                    goalAmount={activeGoal.targetAmount}
-                    hideTopLabel
-                  />
+                <p className="text-xs mb-4" style={{ color: "var(--text-muted)" }}>
+                  Current active reward: <span className="font-semibold" style={{ color: "var(--text-primary)" }}>{activeGoal.label}</span>
+                </p>
+                <div className="grid grid-cols-3 gap-3 mb-4">
+                  <div className="rounded-xl p-3 text-center" style={{ background: "var(--bg-surface-2)", border: "1px solid var(--border-default)" }}>
+                    <p className="text-[10px] font-bold uppercase tracking-wide mb-1" style={{ color: "var(--text-muted)" }}>Lifetime Saved</p>
+                    <p className="text-lg font-extrabold leading-tight" style={{ color: "var(--text-primary)" }}>{formatCurrency(totalLiveAllocated)}</p>
                   </div>
-                  <div className="flex-1 min-w-0">
-                    <p className="text-xs mb-0.5" style={{ color: "var(--text-muted)" }}>Your Reward Jar</p>
-                    <p className="text-xl font-bold leading-tight" style={{ color: "var(--text-primary)" }}>{activeGoal.label}</p>
-                    <p className="text-sm font-semibold mt-2" style={{ color: "#8B5CF6" }}>{formatCurrency(spendingBalance)} saved</p>
-                    <div className="mt-3">
+                  <div className="rounded-xl p-3 text-center" style={{ background: "var(--bg-surface-2)", border: "1px solid var(--border-default)" }}>
+                    <p className="text-[10px] font-bold uppercase tracking-wide mb-1" style={{ color: "var(--text-muted)" }}>Lifetime Spent</p>
+                    <p className="text-lg font-extrabold leading-tight" style={{ color: "var(--text-primary)" }}>{formatCurrency(totalSpent)}</p>
+                  </div>
+                  <div className="rounded-xl p-3 text-center" style={{ background: "rgba(139,92,246,0.08)", border: "1px solid rgba(139,92,246,0.35)" }}>
+                    <p className="text-[10px] font-bold uppercase tracking-wide mb-1" style={{ color: "#8B5CF6" }}>In Current Reward Jar</p>
+                    <p className="text-lg font-extrabold leading-tight" style={{ color: "#8B5CF6" }}>{formatCurrency(spendingBalance)}</p>
+                  </div>
+                </div>
+                <div className="mt-3">
                 {purchasingId === activeGoal.id ? (
                   <div className="space-y-2">
                     <div className="relative">
@@ -1561,8 +1544,6 @@ function SplurgeTab({
                     </button>
                   </div>
                     )}
-                    </div>
-                  </div>
                 </div>
 
                 {deletingActiveGoal && (

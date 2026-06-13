@@ -218,6 +218,16 @@ export async function switchGoal(
 }
 
 
+export async function transferJarBalance(uid: string, fromProjectId: string, toProjectId: string): Promise<void> {
+  const snap = await getDoc(doc(db, "users", uid));
+  const bal: number = snap.data()?.causeJarBalances?.[fromProjectId] ?? 0;
+  if (bal <= 0) return;
+  await updateDoc(doc(db, "users", uid), {
+    [`causeJarBalances.${toProjectId}`]: increment(bal),
+    [`causeJarBalances.${fromProjectId}`]: 0,
+  });
+}
+
 export async function recordDonation(uid: string, amount: number, projectId: string, projectTitle: string, date?: string): Promise<void> {
   if (amount <= 0) throw new Error("Donation amount must be greater than zero");
   const batch = writeBatch(db);

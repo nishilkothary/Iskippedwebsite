@@ -7,6 +7,9 @@ import {
   updateDoc,
   deleteDoc,
   serverTimestamp,
+  onSnapshot,
+  Timestamp,
+  Unsubscribe,
 } from "firebase/firestore";
 import { db } from "./config";
 import { Project } from "@/lib/types/models";
@@ -199,9 +202,16 @@ export async function addCustomProject(
     unitDisplay?: string;
     unitCost?: number;
     skipMilestones?: { level1: number; level2: number; level3: number };
-    visibility?: "public" | "unlisted" | "password";
+    visibility?: "public" | "private" | "unlisted" | "password";
+    password?: string;
+    durationDays?: number | null;
+    groupName?: string;
   }
 ): Promise<string> {
+  const startDate = Timestamp.now();
+  const endDate = data.durationDays
+    ? Timestamp.fromMillis(Date.now() + data.durationDays * 86400_000)
+    : null;
   const ref = await addDoc(collection(db, "projects"), {
     title: data.title,
     projectKind: data.projectKind || "cause",
@@ -218,10 +228,14 @@ export async function addCustomProject(
     unitCost: data.unitCost || null,
     skipMilestones: data.skipMilestones || null,
     visibility: data.visibility || "public",
+    password: data.password || null,
+    groupName: data.groupName || null,
     isCustom: true,
     createdBy: uid,
     tags: data.tags?.length ? data.tags : ["custom"],
     createdAt: serverTimestamp(),
+    startDate,
+    endDate,
   });
   return ref.id;
 }
@@ -229,22 +243,76 @@ export async function addCustomProject(
 export async function updateCustomProject(
   uid: string,
   projectId: string,
-  data: { title: string; sponsor?: string; location?: string; goalAmount: number; donationURL?: string; description?: string }
+  data: {
+    title: string;
+    sponsor?: string;
+    location?: string;
+    goalAmount: number;
+    donationURL?: string;
+    description?: string;
+    imageURL?: string;
+    unitName?: string;
+    unitDisplay?: string;
+    unitCost?: number;
+    skipMilestones?: { level1: number; level2: number; level3: number };
+    visibility?: "public" | "private" | "unlisted" | "password";
+    password?: string;
+    tags?: string[];
+    durationDays?: number | null;
+    groupName?: string;
+  }
 ): Promise<void> {
   const snap = await getDoc(doc(db, "projects", projectId));
   if (!snap.exists() || snap.data().createdBy !== uid) throw new Error("Not authorized");
+  const endDate =
+    data.durationDays !== undefined
+      ? data.durationDays
+        ? Timestamp.fromMillis(Date.now() + data.durationDays * 86400_000)
+        : null
+      : undefined;
   await updateDoc(doc(db, "projects", projectId), {
     title: data.title,
+    groupName: data.groupName || null,
     sponsor: data.sponsor || data.title,
     location: data.location || null,
     goalAmount: data.goalAmount,
     donationURL: data.donationURL || null,
     description: data.description || "",
+    imageURL: data.imageURL || null,
+    unitName: data.unitName || null,
+    unitDisplay: data.unitDisplay || null,
+    unitCost: data.unitCost || null,
+    skipMilestones: data.skipMilestones || null,
+    visibility: data.visibility || "public",
+    password: data.password || null,
+    ...(data.tags ? { tags: data.tags } : {}),
+    ...(endDate !== undefined ? { endDate } : {}),
   });
+}
+
+export async function extendChallengeDeadline(
+  uid: string,
+  projectId: string,
+  additionalDays: number
+): Promise<void> {
+  const snap = await getDoc(doc(db, "projects", projectId));
+  if (!snap.exists() || snap.data().createdBy !== uid) throw new Error("Not authorized");
+  const existing = snap.data().endDate as Timestamp | null;
+  const baseMs = existing && existing.toMillis() > Date.now()
+    ? existing.toMillis()
+    : Date.now();
+  const newEndDate = Timestamp.fromMillis(baseMs + additionalDays * 86400_000);
+  await updateDoc(doc(db, "projects", projectId), { endDate: newEndDate });
 }
 
 export async function deleteCustomProject(uid: string, projectId: string): Promise<void> {
   const snap = await getDoc(doc(db, "projects", projectId));
   if (!snap.exists() || snap.data().createdBy !== uid) throw new Error("Not authorized");
   await deleteDoc(doc(db, "projects", projectId));
+}
+
+export function subscribeToProject(projectId: string, callback: (project: Project | null) => void): Unsubscribe {
+  return onSnapshot(doc(db, "projects", projectId), (snap) => {
+    callback(snap.exists() ? ({ id: snap.id, ...snap.data() } as Project) : null);
+  });
 }

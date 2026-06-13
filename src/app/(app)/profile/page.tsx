@@ -7,52 +7,12 @@ import { formatCurrency } from "@/lib/utils/currency";
 import { updateJarSettings, normalizeJarSplit, recalculateTotals } from "@/lib/services/firebase/users";
 import { useSkips } from "@/hooks/useSkips";
 
-const FAQ_ITEMS = [
-  {
-    q: "Does any money actually transfer when I log a skip?",
-    a: "No — I Skipped is a tracking and motivation tool, not a payment platform. We encourage all users to donate what they've pledged in their jar, but no funds move automatically.",
-  },
-  {
-    q: "My balance doesn't look right. What should I do?",
-    a: "Use the Recalculate button on your Profile page. It rebuilds all your totals directly from your logged skip history and should bring everything back in sync.",
-  },
-  {
-    q: "Will more causes be added?",
-    a: "Yes! We're currently in beta and actively growing our list of causes. Stay tuned — more options are on the way.",
-  },
-  {
-    q: "Do I have to select a donation jar?",
-    a: "While we strongly encourage everyone to pick a cause, it's not required. Your Giving Jar will keep filling up until you choose one.",
-  },
-  {
-    q: "Can I fund multiple save or give jars at once?",
-    a: "No — at this time you can save for one thing at a time. You can transfer funds to a new cause/goal by activating a new jar, or mark as donated/purchased to close out that jar and start a new one.",
-  },
-  {
-    q: "Is there an Iskipped app?",
-    a: "We are still in the testing phase so there is no current app. For now we recommend pinning the URL to your phone's homepage for ease of access. Based on your feedback, we hope to bring an app to all our users shortly!",
-  },
-  {
-    q: "Does I Skipped process the donations?",
-    a: "No. I Skipped connects you with charitable organizations. Donations are processed directly by each organization. I Skipped does not handle or hold any donation funds.",
-  },
-  {
-    q: "What does the 'Share name and skip with community' toggle do?",
-    a: "This shares your first name and what you skipped. Keeping it off will hide your name and only show the category of the skip.",
-  },
-  {
-    q: "I have feedback — where can I share it?",
-    a: "We'd love to hear from you! Send us an email at iskippedfor@gmail.com and we'll get back to you.",
-  },
-];
-
 export default function ProfilePage() {
   const router = useRouter();
   const { user, profile, setUser, setProfile, updateProfile } = useAuthStore();
   const { recentSkips } = useSkips();
   const [recalcState, setRecalcState] = useState<"idle" | "loading" | "done" | "error">("idle");
   const [recalcResult, setRecalcResult] = useState<{ totalSkips: number; totalSaved: number } | null>(null);
-  const [openFaq, setOpenFaq] = useState<number | null>(null);
 
   if (!profile || !user) return null;
 
@@ -167,7 +127,7 @@ export default function ProfilePage() {
           {[
             { label: "Skips logged", value: String(weekSkips.length), color: "var(--green-primary)" },
             { label: "Give jar", value: formatCurrency(weekGive), color: "#2BBAA4" },
-            { label: "Live jar", value: formatCurrency(weekLive), color: "#8B5CF6" },
+            { label: "Reward jar", value: formatCurrency(weekLive), color: "#8B5CF6" },
             { label: "Top category", value: topCat ? `${topCat.emoji} ${topCat.label}` : "—", color: "#E8924A" },
           ].map((row, i) => (
             <div key={i} style={{
@@ -189,11 +149,8 @@ export default function ProfilePage() {
         onSave={(split) => updateProfile({ jarSplit: split })}
       />
 
-      {/* Help & Feedback */}
+      {/* Recalculate */}
       <div className="mb-6">
-        <h2 className="text-base font-bold mb-4" style={{ color: "var(--text-primary)" }}>Help &amp; Feedback</h2>
-
-        {/* Recalculate */}
         <div className="p-5 mb-4" style={{ ...cardStyle, borderRadius: 20 }}>
           <p className="text-sm font-bold mb-1" style={{ color: "var(--text-primary)" }}>🔄 Recalculate totals</p>
           <p className="text-xs mb-4" style={{ color: "var(--text-secondary)" }}>
@@ -222,37 +179,7 @@ export default function ProfilePage() {
           </button>
         </div>
 
-        {/* Contact */}
-        <div className="p-5 mb-4" style={{ ...cardStyle, borderRadius: 20 }}>
-          <p className="text-sm font-bold mb-1" style={{ color: "var(--text-primary)" }}>✉️ Have feedback or questions?</p>
-          <p className="text-sm" style={{ color: "var(--text-secondary)" }}>
-            Reach us at{" "}
-            <a href="mailto:iskippedfor@gmail.com" className="underline" style={{ color: "var(--green-primary)" }}>
-              iskippedfor@gmail.com
-            </a>
-          </p>
-        </div>
 
-        {/* FAQ */}
-        <div style={{ ...cardStyle, borderRadius: 20, overflow: "hidden" }}>
-          <p className="px-5 pt-5 pb-3 text-sm font-bold" style={{ color: "var(--text-primary)" }}>FAQ</p>
-          {FAQ_ITEMS.map((item, i) => (
-            <div key={i} style={{ borderTop: "1px solid var(--border-default)" }}>
-              <button
-                className="w-full text-left px-5 py-4 flex items-start justify-between gap-3"
-                onClick={() => setOpenFaq(openFaq === i ? null : i)}
-              >
-                <span className="text-sm font-semibold" style={{ color: "var(--text-primary)" }}>{item.q}</span>
-                <span className="text-lg leading-none flex-shrink-0 mt-0.5" style={{ color: "var(--text-muted)" }}>
-                  {openFaq === i ? "−" : "+"}
-                </span>
-              </button>
-              {openFaq === i && (
-                <p className="px-5 pb-4 text-sm" style={{ color: "var(--text-secondary)" }}>{item.a}</p>
-              )}
-            </div>
-          ))}
-        </div>
       </div>
 
       <button

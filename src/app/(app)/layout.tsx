@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 import { useEffect, Suspense } from "react";
 import { useRouter, usePathname, useSearchParams } from "next/navigation";
 import Link from "next/link";
@@ -7,12 +7,25 @@ import { useUIStore } from "@/store/uiStore";
 import { SkipModal } from "@/components/skip/SkipModal";
 
 const NAV_ITEMS = [
-  { href: "/home",            label: "Home",          emoji: "🏠",  tab: null },
-  { href: "/jars?tab=cause",  label: "Giving Jar", emoji: "🤲",  tab: "cause" },
-  { href: "/jars?tab=live",   label: "Reward Jar", emoji: "😊",  tab: "live" },
-  { href: "/community",       label: "Community",     emoji: "🌍",  tab: null },
-  { href: "/profile",         label: "Profile",       emoji: "👤",  tab: null },
+  { href: "/home",            label: "Home",          tab: null },
+  { href: "/jars?tab=cause",  label: "Causes",        tab: "cause" },
+  { href: "/challenges",      label: "Challenges",    tab: null },
+  { href: "/jars?tab=live",   label: "Rewards",       tab: "live" },
+  { href: "/about",           label: "About",         tab: null },
+  { href: "/profile",         label: "Profile",       tab: null },
 ];
+
+function isNavActive(item: (typeof NAV_ITEMS)[number], pathname: string, searchParams: { get: (name: string) => string | null }) {
+  if (item.label === "Challenges") {
+    return pathname === "/challenges" || pathname.startsWith("/challenges/");
+  }
+  if (item.label === "Causes") {
+    return pathname === "/jars" && searchParams.get("tab") === "cause";
+  }
+  return item.tab !== null
+    ? pathname === "/jars" && searchParams.get("tab") === item.tab
+    : pathname === item.href;
+}
 
 function SidebarNav({ onLogSkip }: { onLogSkip: () => void }) {
   const pathname = usePathname();
@@ -35,14 +48,12 @@ function SidebarNav({ onLogSkip }: { onLogSkip: () => void }) {
 
       <nav className="flex-1 px-3 py-4 space-y-1">
         {NAV_ITEMS.map((item) => {
-          const active = item.tab !== null
-            ? pathname === "/jars" && searchParams.get("tab") === item.tab
-            : pathname === item.href;
+          const active = isNavActive(item, pathname, searchParams);
           return (
             <Link
               key={item.href}
               href={item.href}
-              className="flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-all"
+              className="flex items-center px-3 py-2.5 rounded-lg text-sm font-medium transition-all"
               style={
                 active
                   ? {
@@ -62,7 +73,6 @@ function SidebarNav({ onLogSkip }: { onLogSkip: () => void }) {
                 if (!active) (e.currentTarget as HTMLElement).style.color = "var(--text-secondary)";
               }}
             >
-              <span className="text-base">{item.emoji}</span>
               {item.label}
             </Link>
           );
@@ -100,17 +110,14 @@ function MobileBottomNav() {
       }}
     >
       {NAV_ITEMS.map((item) => {
-        const active = item.tab !== null
-          ? pathname === "/jars" && searchParams.get("tab") === item.tab
-          : pathname === item.href;
+        const active = isNavActive(item, pathname, searchParams);
         return (
           <Link
             key={item.href}
             href={item.href}
-            className="flex-1 flex flex-col items-center py-2 text-xs font-medium transition-colors"
+            className="flex-1 flex items-center justify-center py-3 text-xs font-medium transition-colors"
             style={{ color: active ? "var(--gold-cta)" : "var(--text-muted)" }}
           >
-            <span className="text-xl">{item.emoji}</span>
             {item.label}
           </Link>
         );
