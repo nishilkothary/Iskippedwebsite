@@ -96,6 +96,7 @@ export interface Project {
   imagePosition?: string; // CSS object-position for the cause image, e.g. "bottom", "center 70%"
   startDate?: Timestamp | null;
   endDate?: Timestamp | null;
+  memberUids?: string[];
 }
 
 export interface FeedItem {

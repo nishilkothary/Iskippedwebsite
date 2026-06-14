@@ -195,7 +195,7 @@ export default function ChallengesPage() {
   });
   const visibleListChallenges = filteredChallenges.slice(0, 20);
 
-  const activePledgeBalance = profile?.activeProjectId ? profile?.causeJarBalances?.[profile.activeProjectId] ?? 0 : 0;
+  const givingBalance = Math.max(0, (profile?.totalGiveAllocated ?? 0) - (profile?.totalDonated ?? 0));
 
   function needsPrivatePassword(challenge: ChallengeCard) {
     return isPrivateChallenge(challenge.project) && !joinedProjectIds.has(challenge.project.id);
@@ -203,7 +203,7 @@ export default function ChallengesPage() {
 
   async function beginJoin(challenge: ChallengeCard) {
     if (!user || joiningId) return;
-    if (profile?.activeProjectId && profile.activeProjectId !== challenge.project.id) {
+    if (profile?.activeProjectId && profile.activeProjectId !== challenge.project.id && givingBalance > 0) {
       setJoinChoice(challenge);
       return;
     }
@@ -269,7 +269,6 @@ export default function ChallengesPage() {
     title: string;
     organizer: string;
     description: string;
-    goalAmount: number;
     donationURL: string;
     imageURL?: string;
     impactUnitName?: string;
@@ -290,7 +289,7 @@ export default function ChallengesPage() {
         title: data.title,
         projectKind: "challenge",
         sponsor: data.organizer,
-        goalAmount: data.goalAmount,
+        goalAmount: 0,
         description: data.description,
         donationURL: data.donationURL,
         imageURL: data.imageURL,
@@ -322,7 +321,6 @@ export default function ChallengesPage() {
     title: string;
     organizer: string;
     description: string;
-    goalAmount: number;
     donationURL: string;
     imageURL?: string;
     impactUnitName?: string;
@@ -342,7 +340,7 @@ export default function ChallengesPage() {
       await updateCustomProject(user.uid, challenge.project.id, {
         title: data.title,
         sponsor: data.organizer,
-        goalAmount: data.goalAmount,
+        goalAmount: 0,
         description: data.description,
         donationURL: data.donationURL,
         imageURL: data.imageURL,
@@ -424,22 +422,20 @@ export default function ChallengesPage() {
         ))}
       </div>
 
-      {challenges.length > 0 && (
-        <div className="flex justify-start mt-3 mb-2">
-          <button
-            type="button"
-            onClick={() => setShowCreateForm(true)}
-            className="px-4 py-2.5 rounded-full text-sm font-black shrink-0"
-            style={{
-              background: "linear-gradient(135deg, var(--gold-cta), var(--gold-light))",
-              color: "var(--bg-base)",
-              boxShadow: "0 4px 18px var(--gold-glow)",
-            }}
-          >
-            + Create a Group Challenge
-          </button>
-        </div>
-      )}
+      <div className="flex justify-start mt-3 mb-2">
+        <button
+          type="button"
+          onClick={() => setShowCreateForm(true)}
+          className="px-4 py-2.5 rounded-full text-sm font-black shrink-0"
+          style={{
+            background: "linear-gradient(135deg, var(--gold-cta), var(--gold-light))",
+            color: "var(--bg-base)",
+            boxShadow: "0 4px 18px var(--gold-glow)",
+          }}
+        >
+          + Create a Group Challenge
+        </button>
+      </div>
 
       {visibleListChallenges.length > 0 && (
       <section className="mt-6">
@@ -486,8 +482,8 @@ export default function ChallengesPage() {
       {joinChoice && (
         <JoinChoiceModal
           challenge={joinChoice}
-          activeTitle={activeProject?.title ?? "your current jar"}
-          pledgeAmount={activePledgeBalance}
+          activeTitle={activeProject?.groupName ?? activeProject?.title ?? "your current jar"}
+          pledgeAmount={givingBalance}
           isJoining={joiningId === joinChoice.project.id}
           onClose={() => setJoinChoice(null)}
           onDonateNow={() => {
@@ -497,7 +493,7 @@ export default function ChallengesPage() {
             }
             router.push("/jars?tab=cause");
           }}
-          onMakeActive={() => completeJoin(joinChoice, true)}
+
           onMovePledge={() => completeJoin(joinChoice, true, true)}
         />
       )}
@@ -627,9 +623,16 @@ function ChallengeListCard({
         <div className="flex items-start justify-between gap-2">
           <div className="min-w-0 flex-1">
             <div className="flex items-center gap-1.5 flex-wrap">
-              <p className="text-sm font-black leading-snug" style={{ color: "var(--text-primary)" }}>{challenge.title}</p>
+              <p className="text-sm font-black leading-snug" style={{ color: "var(--text-primary)" }}>
+                {challenge.project.groupName ?? challenge.title}
+              </p>
               <Badge>{accessBadgeLabel(challenge)}</Badge>
             </div>
+            {challenge.project.groupName && (
+              <p className="text-xs mt-0.5 font-semibold truncate" style={{ color: "var(--green-primary)" }}>
+                Skipping for: {challenge.title}
+              </p>
+            )}
             <p className="text-xs mt-0.5 truncate" style={{ color: "var(--text-muted)" }}>{challenge.project.sponsor || challenge.beneficiary}</p>
           </div>
           <div className="flex items-center gap-1.5 shrink-0">
@@ -698,7 +701,6 @@ function JoinChoiceModal({
   isJoining,
   onClose,
   onDonateNow,
-  onMakeActive,
   onMovePledge,
 }: {
   challenge: ChallengeCard;
@@ -707,89 +709,56 @@ function JoinChoiceModal({
   isJoining: boolean;
   onClose: () => void;
   onDonateNow: () => void;
-  onMakeActive: () => void;
   onMovePledge: () => void;
 }) {
-  const hasPledge = pledgeAmount > 0;
   const destinationType = isChallengeProject(challenge.project) ? "challenge" : "cause";
 
   return (
     <div className="fixed inset-0 bg-black/60 z-50 flex items-end sm:items-center justify-center p-4" onClick={onClose}>
       <div
-        className="rounded-2xl w-full max-w-md p-5 shadow-2xl"
-        style={{ background: "var(--bg-surface-1)", border: "1px solid var(--border-default)" }}
+        className="rounded-2xl w-full max-w-md shadow-2xl"
+        style={{ background: "var(--bg-surface-1)", border: "1px solid var(--border-emphasis)" }}
         onClick={(event) => event.stopPropagation()}
       >
-        <div className="flex items-start justify-between gap-4">
-          <div>
-            <p className="text-xl font-black" style={{ color: "var(--text-primary)" }}>{hasPledge ? "Before you switch" : "Join challenge"}</p>
-            <p className="text-sm mt-1" style={{ color: "var(--text-muted)" }}>{challenge.title}</p>
-          </div>
-          <button onClick={onClose} className="text-xl leading-none" style={{ color: "var(--text-muted)" }}>x</button>
+        <div className="px-5 pt-5 pb-4 relative" style={{ borderBottom: "1px solid var(--border-default)" }}>
+          <button onClick={onClose} className="absolute top-4 right-4 text-xl leading-none" style={{ color: "var(--text-muted)" }}>×</button>
+          <p className="text-2xl font-black pr-6" style={{ color: "var(--text-primary)" }}>Before you switch to:</p>
+          <p className="text-sm mt-1 font-bold" style={{ color: "var(--green-primary)" }}>{challenge.project.groupName ?? challenge.title}</p>
         </div>
 
-        <div className="rounded-xl p-4 mt-4" style={{ background: "var(--bg-surface-2)", border: "1px solid var(--border-default)" }}>
-          <p className="text-xs uppercase tracking-wide font-bold" style={{ color: "var(--text-muted)" }}>Current pledge</p>
-          <p className="text-sm font-black mt-1" style={{ color: "var(--text-primary)" }}>{activeTitle}</p>
-          {hasPledge && (
-            <p className="text-sm font-black mt-2" style={{ color: "var(--coral-primary)" }}>
-              {formatCurrency(pledgeAmount)} pledged
-            </p>
-          )}
+        <div className="px-5 pt-4">
+          <div className="rounded-xl p-4" style={{ background: "var(--bg-surface-2)", border: "1px solid var(--border-default)" }}>
+            <p className="text-base font-black" style={{ color: "var(--coral-primary)" }}>{formatCurrency(pledgeAmount)} pledged to {activeTitle}</p>
+          </div>
+          <p className="text-sm leading-relaxed mt-4" style={{ color: "var(--text-secondary)" }}>
+            You have {formatCurrency(pledgeAmount)} pledged to {activeTitle}. We recommend donating before switching to a new {destinationType}.
+          </p>
         </div>
 
-        {hasPledge ? (
-          <p className="text-sm leading-relaxed mt-4" style={{ color: "var(--text-secondary)" }}>
-            You have {formatCurrency(pledgeAmount)} saved for {activeTitle}. What would you like to do with it?
-          </p>
-        ) : (
-          <p className="text-sm leading-relaxed mt-4" style={{ color: "var(--text-secondary)" }}>
-            Make this your active challenge so your next skips count here by default.
-          </p>
-        )}
-
-        {hasPledge ? (
-          <div className="mt-5 space-y-2">
-            <button
-              type="button"
-              onClick={onDonateNow}
-              disabled={isJoining}
-              className="w-full py-3 rounded-full text-sm font-black disabled:opacity-60"
-              style={{
-                background: "linear-gradient(135deg, var(--gold-cta), var(--gold-light))",
-                color: "var(--bg-base)",
-                boxShadow: "0 4px 18px var(--gold-glow)",
-              }}
-            >
-              Donate {formatCurrency(pledgeAmount)} now
-            </button>
-            <button
-              type="button"
-              onClick={onMovePledge}
-              disabled={isJoining}
-              className="w-full py-2.5 rounded-full text-sm font-bold disabled:opacity-60"
-              style={{ border: "1px solid var(--border-emphasis)", color: "var(--green-primary)" }}
-            >
-              Transfer to this {destinationType}
-            </button>
-          </div>
-        ) : (
-          <div className="mt-5">
-            <button
-              type="button"
-              onClick={onMakeActive}
-              disabled={isJoining}
-              className="w-full py-3 rounded-full text-sm font-black disabled:opacity-60"
-              style={{
-                  background: "linear-gradient(135deg, var(--gold-cta), var(--gold-light))",
-                  color: "var(--bg-base)",
-                  boxShadow: "0 4px 18px var(--gold-glow)",
-              }}
-            >
-              {isJoining ? "Joining..." : "Join challenge"}
-            </button>
-          </div>
-        )}
+        <div className="px-5 py-4 space-y-3 text-center">
+          <button
+            type="button"
+            onClick={onDonateNow}
+            disabled={isJoining}
+            className="block w-full py-3 rounded-full text-sm font-black disabled:opacity-60"
+            style={{
+              background: "linear-gradient(135deg, var(--gold-cta), var(--gold-light))",
+              color: "var(--bg-base)",
+              boxShadow: "0 4px 18px var(--gold-glow)",
+            }}
+          >
+            Donate now
+          </button>
+          <button
+            type="button"
+            onClick={onMovePledge}
+            disabled={isJoining}
+            className="text-xs font-bold underline disabled:opacity-60"
+            style={{ color: "var(--text-secondary)", background: "transparent", border: "none", cursor: "pointer" }}
+          >
+            I&apos;d like to move my savings to this {destinationType} instead
+          </button>
+        </div>
       </div>
     </div>
   );
@@ -1102,7 +1071,6 @@ function CreateChallengeWizard({
     title: string;
     organizer: string;
     description: string;
-    goalAmount: number;
     donationURL: string;
     imageURL?: string;
     impactUnitName?: string;
@@ -1125,7 +1093,6 @@ function CreateChallengeWizard({
   const [title, setTitle] = useState(initialProject?.title ?? "");
   const [organizer, setOrganizer] = useState(initialProject?.sponsor ?? "");
   const [description, setDescription] = useState(initialProject?.description ?? "");
-  const [goalAmount, setGoalAmount] = useState(initialProject?.goalAmount ? String(initialProject.goalAmount) : "");
   const [donationURL, setDonationURL] = useState(initialProject?.donationURL ?? "");
   const [useImpactUnit, setUseImpactUnit] = useState(Boolean(initialProject?.unitName && initialProject?.unitCost));
   const [impactUnitName, setImpactUnitName] = useState(initialProject?.unitName ?? "");
@@ -1141,18 +1108,18 @@ function CreateChallengeWizard({
     normalizeChallengeVisibility(initialProject?.visibility as ChallengeVisibility | undefined)
   );
   const [password, setPassword] = useState(initialProject?.password ?? "");
-  const [durationDays, setDurationDays] = useState<number | null>(30);
+  const [durationDays, setDurationDays] = useState<number | null | "custom">(30);
+  const [customDateStr, setCustomDateStr] = useState("");
   const [isOrg, setIsOrg] = useState(Boolean(initialProject?.tags?.includes("organization")));
   const [groupName, setGroupName] = useState(initialProject?.groupName ?? "");
 
-  const parsedGoal = parseFloat(goalAmount);
   const parsedImpactUnitCost = parseFloat(impactUnitCost);
   const parsedMilestoneLevel1 = parseInt(milestoneLevel1, 10);
   const parsedMilestoneLevel2 = parseInt(milestoneLevel2, 10);
   const parsedMilestoneLevel3 = parseInt(milestoneLevel3, 10);
   const hasValidSkipChallenge = !useSkipChallenge || [parsedMilestoneLevel1, parsedMilestoneLevel2, parsedMilestoneLevel3].every((value) => Number.isFinite(value) && value > 0);
   const canContinueBasics = title.trim().length > 0 && description.trim().length > 0;
-  const canContinueImpact = parsedGoal > 0 && donationURL.trim().length > 0 && (!useImpactUnit || (impactUnitName.trim().length > 0 && parsedImpactUnitCost > 0)) && hasValidSkipChallenge;
+  const canContinueImpact = donationURL.trim().length > 0 && (!useImpactUnit || (impactUnitName.trim().length > 0 && parsedImpactUnitCost > 0)) && hasValidSkipChallenge;
   const canCreate = canContinueBasics && canContinueImpact && (visibility !== "private" || password.trim().length >= 4);
 
   function handleImageFile(file: File | undefined) {
@@ -1184,7 +1151,6 @@ function CreateChallengeWizard({
       title: title.trim(),
       organizer: organizer.trim(),
       description: description.trim(),
-      goalAmount: parsedGoal,
       donationURL: donationURL.trim(),
       imageURL: imageURL.trim() || undefined,
       impactUnitName: useImpactUnit ? impactUnitName.trim() : undefined,
@@ -1195,7 +1161,9 @@ function CreateChallengeWizard({
       category,
       visibility,
       password: visibility === "private" ? password.trim() : undefined,
-      durationDays: isEditing ? undefined : durationDays,
+      durationDays: isEditing ? undefined : (durationDays === "custom"
+        ? (customDateStr ? Math.max(1, Math.ceil((new Date(customDateStr).getTime() - Date.now()) / 86400_000)) : null)
+        : durationDays),
       isOrganization: isOrg,
       groupName: groupName.trim() || undefined,
     });
@@ -1325,18 +1293,7 @@ function CreateChallengeWizard({
             <>
               <div>
                 <p className="text-sm font-black mb-1" style={{ color: "var(--text-primary)" }}>Impact</p>
-                <p className="text-xs" style={{ color: "var(--text-muted)" }}>Set the fundraiser target and where donations should go.</p>
-              </div>
-              <div className="relative">
-                <span className="absolute left-4 top-1/2 -translate-y-1/2 text-sm" style={{ color: "var(--text-muted)" }}>$</span>
-                <input
-                  type="number"
-                  value={goalAmount}
-                  onChange={(event) => setGoalAmount(event.target.value)}
-                  placeholder="Challenge goal"
-                  className="w-full rounded-xl pl-8 pr-4 py-3 text-sm focus:outline-none"
-                  style={{ background: "var(--bg-surface-2)", border: "1px solid var(--border-default)", color: "var(--text-primary)" }}
-                />
+                <p className="text-xs" style={{ color: "var(--text-muted)" }}>Set where donations should go and optionally add an impact unit.</p>
               </div>
               <div>
                 <p className="text-xs font-bold uppercase tracking-wide mb-2" style={{ color: "var(--text-muted)" }}>Donation destination</p>
@@ -1449,12 +1406,12 @@ function CreateChallengeWizard({
                   <p className="text-xs font-bold uppercase tracking-wide mb-2" style={{ color: "var(--text-muted)" }}>Challenge duration</p>
                   <div className="flex flex-wrap gap-2">
                     {([
-                      { label: "2 weeks", days: 14 },
-                      { label: "1 month", days: 30 },
-                      { label: "3 months", days: 90 },
-                      { label: "6 months", days: 180 },
-                      { label: "Open-ended", days: null },
-                    ] as { label: string; days: number | null }[]).map(({ label, days }) => (
+                      { label: "2 weeks", days: 14 as number | null | "custom" },
+                      { label: "1 month", days: 30 as number | null | "custom" },
+                      { label: "2 months", days: 60 as number | null | "custom" },
+                      { label: "Pick a date", days: "custom" as number | null | "custom" },
+                      { label: "Open-ended", days: null as number | null | "custom" },
+                    ]).map(({ label, days }) => (
                       <button
                         key={label}
                         type="button"
@@ -1470,9 +1427,24 @@ function CreateChallengeWizard({
                       </button>
                     ))}
                   </div>
-                  {durationDays !== null && (
+                  {durationDays === "custom" && (
+                    <input
+                      type="date"
+                      value={customDateStr}
+                      min={new Date(Date.now() + 86400_000).toISOString().split("T")[0]}
+                      onChange={(e) => setCustomDateStr(e.target.value)}
+                      className="mt-3 w-full rounded-xl px-3 py-2 text-sm"
+                      style={{ background: "var(--bg-surface-2)", border: "1px solid var(--border-default)", color: "var(--text-primary)" }}
+                    />
+                  )}
+                  {durationDays !== null && durationDays !== "custom" && (
                     <p className="text-xs mt-2" style={{ color: "var(--text-muted)" }}>
                       Challenge ends {new Date(Date.now() + durationDays * 86400_000).toLocaleDateString(undefined, { month: "long", day: "numeric", year: "numeric" })}.
+                    </p>
+                  )}
+                  {durationDays === "custom" && customDateStr && (
+                    <p className="text-xs mt-2" style={{ color: "var(--text-muted)" }}>
+                      Challenge ends {new Date(customDateStr).toLocaleDateString(undefined, { month: "long", day: "numeric", year: "numeric" })}.
                     </p>
                   )}
                 </div>
@@ -1524,7 +1496,10 @@ function CreateChallengeWizard({
                     <Badge>Community</Badge>
                     <Badge>{visibility === "private" ? "Private" : "Public"}</Badge>
                   </div>
-                  <p className="text-lg font-black leading-tight" style={{ color: "var(--text-primary)" }}>{title || "Challenge title"}</p>
+                  <p className="text-lg font-black leading-tight" style={{ color: "var(--text-primary)" }}>{groupName || title || "Group name"}</p>
+                  {groupName && title && (
+                    <p className="text-xs mt-0.5 font-semibold" style={{ color: "var(--green-primary)" }}>Skipping for: {title}</p>
+                  )}
                   <p className="text-xs mt-1" style={{ color: "var(--text-muted)" }}>{organizer || "Organizer"}</p>
                   <p className="text-sm mt-3 leading-relaxed line-clamp-2" style={{ color: "var(--text-secondary)" }}>
                     {description || "Your challenge story will appear here."}
@@ -1539,7 +1514,6 @@ function CreateChallengeWizard({
                       Skip challenge: {parsedMilestoneLevel1}, {parsedMilestoneLevel2}, and {parsedMilestoneLevel3} skips
                     </p>
                   )}
-                  {parsedGoal > 0 && <p className="text-sm mt-3 font-black" style={{ color: "var(--green-primary)" }}>{formatCurrency(parsedGoal)} goal</p>}
                 </div>
               </div>
             </>

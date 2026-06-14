@@ -593,7 +593,7 @@ function CauseTab({
   }
 
   function handleSetActive(project: Project) {
-    if (activeProject && activeProject.id !== project.id) {
+    if (activeProject && activeProject.id !== project.id && givingBalance > 0) {
       setSwitchTarget(project);
     } else {
       onSelectCause(project, false);
@@ -709,17 +709,15 @@ function CauseTab({
           <div className="rounded-2xl w-full max-w-md p-5 shadow-2xl" style={{ background: "var(--bg-surface-1)", border: "1px solid var(--border-emphasis)" }} onClick={(e) => e.stopPropagation()}>
             <div className="px-5 pt-5 pb-4 relative" style={{ borderBottom: "1px solid var(--border-default)" }}>
               <button onClick={() => setSwitchTarget(null)} className="absolute top-4 right-4 text-xl leading-none" style={{ color: "var(--text-muted)" }}>×</button>
-              <p className="text-2xl font-black pr-6" style={{ color: "var(--text-primary)" }}>Before you switch</p>
-              <p className="text-sm mt-1" style={{ color: "var(--text-secondary)" }}>{switchTarget.title}</p>
+              <p className="text-2xl font-black pr-6" style={{ color: "var(--text-primary)" }}>Before you switch to:</p>
+              <p className="text-sm mt-1 font-bold" style={{ color: "var(--green-primary)" }}>{switchTarget.groupName ?? switchTarget.title}</p>
             </div>
             <div className="px-5 pt-4">
               <div className="rounded-xl p-4" style={{ background: "var(--bg-surface-2)", border: "1px solid var(--border-default)" }}>
-                <p className="text-xs uppercase font-black tracking-wider" style={{ color: "var(--text-muted)" }}>Current pledge</p>
-                <p className="text-sm font-black mt-2" style={{ color: "var(--text-primary)" }}>{activeProject?.title ?? "your current cause"}</p>
-                <p className="text-base font-black mt-2" style={{ color: "var(--coral-primary)" }}>{formatCurrency(givingBalance)} pledged</p>
+                <p className="text-base font-black" style={{ color: "var(--coral-primary)" }}>{formatCurrency(givingBalance)} pledged to {activeProject?.groupName ?? activeProject?.title ?? "your current cause"}</p>
               </div>
               <p className="text-sm leading-relaxed mt-4" style={{ color: "var(--text-secondary)" }}>
-                You have currently pledged {formatCurrency(givingBalance)} to {activeProject?.title ?? "your current cause"}. We recommend donating what you have pledged before moving to a new cause or challenge.
+                You have {formatCurrency(givingBalance)} pledged to {activeProject?.groupName ?? activeProject?.title ?? "your current cause"}. We recommend donating before switching to a new cause or challenge.
               </p>
             </div>
             <div className="px-5 py-4 space-y-3 text-center">
@@ -730,14 +728,14 @@ function CauseTab({
                   rel="noopener noreferrer"
                   onClick={() => setSwitchTarget(null)}
                   className="block w-full py-3 rounded-full text-sm font-black"
-                  style={{ background: "var(--text-primary)", color: "var(--bg-app)" }}
+                  style={{ background: "linear-gradient(135deg, var(--gold-cta), var(--gold-light))", color: "var(--bg-base)", boxShadow: "0 4px 18px var(--gold-glow)" }}
                 >
                   Donate now
                 </a>
               ) : (
                 <button
                   className="w-full py-3 rounded-full text-sm font-black"
-                  style={{ background: "var(--text-primary)", color: "var(--bg-app)", cursor: "pointer" }}
+                  style={{ background: "linear-gradient(135deg, var(--gold-cta), var(--gold-light))", color: "var(--bg-base)", boxShadow: "0 4px 18px var(--gold-glow)", cursor: "pointer" }}
                   onClick={() => { setSwitchTarget(null); setDonatingId(activeProject?.id ?? null); }}
                 >
                   Donate now
@@ -925,42 +923,7 @@ function CauseTab({
             </button>
           </div>
         </div>
-      ) : (
-        /* Featured Cause */
-        (() => {
-          const featured = projects.find(p => p.id === "cfc") ?? projects.find(p => !p.isCustom && isCauseProject(p));
-          if (!featured) return null;
-          const { img: fallbackImg, abbr, color } = getCategoryFallback(featured);
-          return (
-            <div className="rounded-2xl overflow-hidden mb-2 cursor-pointer" style={{ background: "var(--bg-surface-1)", border: "1px solid var(--border-default)" }} onClick={() => setDetailProject(featured)}>
-              <div className="flex items-center justify-center h-28 sm:h-48 w-full" style={{ background: "var(--bg-surface-2)" }}>
-                {featured.imageURL
-                  ? <img src={featured.imageURL} className="w-full h-full object-cover" style={{ objectPosition: featured.imagePosition ?? "center" }} alt={featured.title} />
-                  : fallbackImg
-                    ? <img src={fallbackImg} className="w-full h-full object-cover" alt={featured.title} />
-                    : <span className="text-2xl font-extrabold" style={{ color }}>{abbr}</span>
-                }
-              </div>
-              <div className="p-4">
-                <p className="text-[10px] font-bold uppercase tracking-wide mb-1" style={{ color: "#2ECC71" }}>This Month&apos;s Featured Cause</p>
-                <p className="text-xl font-bold" style={{ color: "var(--text-primary)" }}>{featured.title}</p>
-                {featured.sponsor && <p className="text-xs mt-0.5" style={{ color: "var(--text-muted)" }}>by {featured.sponsor}</p>}
-                {featured.description && <p className="text-xs mt-1.5 line-clamp-2" style={{ color: "var(--text-secondary)" }}>{featured.description}</p>}
-                {featured.unitName && (
-                  <p className="text-xs mt-1.5 font-semibold" style={{ color: "#2ECC71" }}>{formatCurrency(featured.unitIsGoal ? featured.goalAmount : featured.unitCost!)} = 1 {featured.unitName}</p>
-                )}
-                <button
-                  onClick={(e) => { e.stopPropagation(); handleSetActive(featured); }}
-                  className="mt-3 w-full py-2.5 text-sm font-semibold rounded-xl"
-                  style={{ background: "#2ECC71", color: "#0B1A14" }}
-                >
-                  Make this my Giving Jar
-                </button>
-              </div>
-            </div>
-          );
-        })()
-      )}
+      ) : null}
 
       {/* Category filter tabs */}
       <div className="mt-6 mb-3">
@@ -1244,6 +1207,7 @@ function SplurgeTab({
   const [purchasing, setPurchasing] = useState(false);
   const [deactivatingGoal, setDeactivatingGoal] = useState(false);
   const [deactivating, setDeactivating] = useState(false);
+  const [rewardFilter, setRewardFilter] = useState<"all" | "prebuilt" | "custom">("all");
 
   const activeGoal = activeGoalProp;
   const rewardPresets = [
@@ -1404,20 +1368,6 @@ function SplurgeTab({
         const isEditing = editingGoalId === activeGoal.id;
         return (
           <div className="rounded-2xl p-5 mb-4" style={{ background: "var(--bg-surface-1)", border: "1px solid var(--border-default)" }}>
-            {/* Controls row */}
-            <div className="flex items-center justify-between mb-3">
-              <button
-                onClick={() => { setDeactivatingGoal(true); setDeletingActiveGoal(false); }}
-                className="text-[10px] font-bold px-2 py-0.5 rounded-full"
-                style={{ background: "rgba(139,92,246,0.15)", color: "#8B5CF6" }}
-              >
-                ✓ Active
-              </button>
-              <div className="flex items-center gap-1">
-                <button onClick={() => startEditGoal(activeGoal)} className="text-[rgba(237,245,240,0.35)] hover:text-[#8B5CF6] p-1 text-base" title="Edit">✏️</button>
-                <button onClick={() => { setDeletingActiveGoal(true); setDeactivatingGoal(false); setEditingGoalId(null); }} className="text-[rgba(237,245,240,0.35)] hover:text-red-400 p-1 text-base" title="Delete">🗑️</button>
-              </div>
-            </div>
 
             {isEditing ? (
               <div className="space-y-2">
@@ -1661,114 +1611,102 @@ function SplurgeTab({
         );
       })()}
 
-      {/* Suggested rewards and saved rewards */}
+      {/* Rewards list */}
       {!showAddForm && !editingGoalId && (
-        <div className="flex flex-col">
-          <div style={{ order: goals.length > 0 ? 2 : 1 }} className={goals.length > 0 ? "mt-5" : ""}>
-          <p className="text-lg font-bold mb-0.5" style={{ color: "var(--text-primary)" }}>Suggested Rewards</p>
-          <p className="text-xs mb-3" style={{ color: "var(--text-secondary)" }}>
-            One tap creates a reward and makes it active.
-          </p>
+        <div>
+          {/* Filter tabs */}
+          <div className="flex gap-1.5 mb-3">
+            {(["all", "prebuilt", "custom"] as const).map((f) => (
+              <button
+                key={f}
+                onClick={() => setRewardFilter(f)}
+                className="px-3 py-1.5 rounded-full text-xs font-bold"
+                style={rewardFilter === f
+                  ? { background: "rgba(139,92,246,0.18)", border: "1px solid rgba(139,92,246,0.45)", color: "#8B5CF6" }
+                  : { background: "var(--bg-surface-2)", border: "1px solid var(--border-default)", color: "var(--text-secondary)" }}
+              >
+                {f === "all" ? "All" : f === "prebuilt" ? "Pre-built" : "Custom"}
+              </button>
+            ))}
+          </div>
+          {/* Add button */}
+          <div className="flex justify-start mb-4">
+            <button
+              onClick={() => setShowAddForm(true)}
+              className="px-4 py-2.5 rounded-full text-sm font-black shrink-0"
+              style={{ background: "white", color: "#0B1A14", border: "none" }}
+            >
+              + Add a Reward
+            </button>
+          </div>
+
           <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
-            {suggestedRewards.map((preset) => {
+            {/* Pre-built cards */}
+            {rewardFilter !== "custom" && rewardPresets.map((preset) => {
               const matchingGoal = goals.find(
-                (goal) => goal.label.toLowerCase() === preset.label.toLowerCase() && goal.targetAmount === preset.amount
+                (g) => g.label.toLowerCase() === preset.label.toLowerCase() && g.targetAmount === preset.amount
               );
-              const isActivePreset = matchingGoal?.id === activeGoalId;
+              const isActive = matchingGoal?.id === activeGoalId;
               return (
                 <button
-                  key={`${preset.label}-${preset.amount}`}
+                  key={`preset-${preset.label}`}
                   onClick={() => handleAddPresetGoal(preset.label, preset.amount)}
                   disabled={saving}
                   className="rounded-2xl p-4 text-left transition-all hover:scale-[1.02] active:scale-[0.98] disabled:opacity-60"
                   style={{
-                    background: isActivePreset ? "rgba(139,92,246,0.16)" : "var(--bg-surface-1)",
-                    border: isActivePreset ? "2px solid #8B5CF6" : "1px solid rgba(139,92,246,0.3)",
+                    background: isActive ? "rgba(139,92,246,0.16)" : "var(--bg-surface-1)",
+                    border: isActive ? "2px solid #8B5CF6" : "1px solid rgba(139,92,246,0.3)",
                   }}
                 >
-                  {isActivePreset && (
+                  {isActive && (
                     <span className="text-[10px] font-bold px-2 py-0.5 rounded-full mb-1.5 inline-block" style={{ background: "rgba(139,92,246,0.2)", color: "#8B5CF6" }}>
                       Active
                     </span>
                   )}
+                  <div className="text-[10px] font-bold uppercase tracking-wide mb-1" style={{ color: "var(--text-muted)" }}>Pre-built</div>
                   <div className="text-sm font-bold mb-1" style={{ color: "#8B5CF6" }}>{preset.label}</div>
                   <div className="text-lg font-extrabold" style={{ color: "var(--text-primary)" }}>{formatCurrency(preset.amount)}</div>
                   <div className="text-xs mt-1" style={{ color: "var(--text-muted)" }}>{matchingGoal ? "tap to activate" : preset.note}</div>
                 </button>
               );
             })}
-            {/* Custom card */}
-            <button
-              onClick={() => setShowAddForm(true)}
-              className="rounded-2xl p-4 text-left transition-all hover:scale-[1.02] active:scale-[0.98]"
-              style={{ background: "var(--bg-surface-1)", border: "1px dashed rgba(139,92,246,0.4)" }}
-            >
-              <div className="text-2xl font-bold mb-1" style={{ color: "#8B5CF6" }}>+</div>
-              <div className="text-sm font-bold" style={{ color: "var(--text-primary)" }}>Custom</div>
-              <div className="text-xs mt-1" style={{ color: "var(--text-muted)" }}>Set your own goal</div>
-            </button>
-          </div>
-          </div>
 
-          {goals.length > 0 && (
-            <div style={{ order: 1 }}>
-              <p className="text-lg font-bold mb-0.5" style={{ color: "var(--text-primary)" }}>Your Rewards</p>
-              <p className="text-xs mb-3" style={{ color: "var(--text-secondary)" }}>
-                Edit, delete, or tap a reward to make it active.
-              </p>
-              <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
-            {goals.map((goal) => {
+            {/* Custom goal cards */}
+            {rewardFilter !== "prebuilt" && goals.map((goal) => {
               const isActiveGoal = goal.id === activeGoalId;
               return (
-              <div
-                key={goal.id}
-                className="rounded-2xl p-4 text-left transition-all hover:scale-[1.02] active:scale-[0.98] relative"
-                style={{ background: "var(--bg-surface-1)", border: deletingGoalId === goal.id ? "1px solid rgba(239,68,68,0.4)" : isActiveGoal ? "2px solid #8B5CF6" : "1px solid rgba(139,92,246,0.3)" }}
-              >
-                {/* Icon row */}
-                <div className="absolute top-2 right-2 flex gap-0.5" onClick={(e) => e.stopPropagation()}>
-                  <button
-                    onClick={() => { startEditGoal(goal); setDeletingGoalId(null); }}
-                    className="text-[rgba(237,245,240,0.3)] hover:text-[#8B5CF6] p-1 text-sm leading-none"
-                    title="Edit"
-                  >✏️</button>
-                  <button
-                    onClick={() => setDeletingGoalId(deletingGoalId === goal.id ? null : goal.id)}
-                    className="text-[rgba(237,245,240,0.3)] hover:text-red-400 p-1 text-sm leading-none"
-                    title="Delete"
-                  >🗑️</button>
-                </div>
-                {deletingGoalId === goal.id ? (
-                  <div onClick={(e) => e.stopPropagation()}>
-                    <p className="text-xs text-red-400 mb-2 pr-12">Delete &quot;{goal.label}&quot;?</p>
-                    <div className="flex gap-1.5">
-                      <button
-                        onClick={() => { onDeleteGoal(goal.id); setDeletingGoalId(null); }}
-                        className="flex-1 bg-red-500 text-white font-semibold py-1.5 rounded-lg text-xs"
-                      >Delete</button>
-                      <button
-                        onClick={() => setDeletingGoalId(null)}
-                        className="flex-1 text-[rgba(237,245,240,0.6)] font-semibold py-1.5 rounded-lg text-xs"
-                        style={{ border: "1px solid rgba(139,92,246,0.12)" }}
-                      >Cancel</button>
+                <div
+                  key={goal.id}
+                  className="rounded-2xl p-4 text-left transition-all hover:scale-[1.02] active:scale-[0.98] relative"
+                  style={{ background: "var(--bg-surface-1)", border: deletingGoalId === goal.id ? "1px solid rgba(239,68,68,0.4)" : isActiveGoal ? "2px solid #8B5CF6" : "1px solid rgba(139,92,246,0.3)" }}
+                >
+                  <div className="absolute top-2 right-2 flex gap-0.5" onClick={(e) => e.stopPropagation()}>
+                    <button onClick={() => { startEditGoal(goal); setDeletingGoalId(null); }} className="text-[rgba(237,245,240,0.3)] hover:text-[#8B5CF6] p-1 text-sm leading-none" title="Edit">✏️</button>
+                    <button onClick={() => setDeletingGoalId(deletingGoalId === goal.id ? null : goal.id)} className="text-[rgba(237,245,240,0.3)] hover:text-red-400 p-1 text-sm leading-none" title="Delete">🗑️</button>
+                  </div>
+                  {deletingGoalId === goal.id ? (
+                    <div onClick={(e) => e.stopPropagation()}>
+                      <p className="text-xs text-red-400 mb-2 pr-12">Delete &quot;{goal.label}&quot;?</p>
+                      <div className="flex gap-1.5">
+                        <button onClick={() => { onDeleteGoal(goal.id); setDeletingGoalId(null); }} className="flex-1 bg-red-500 text-white font-semibold py-1.5 rounded-lg text-xs">Delete</button>
+                        <button onClick={() => setDeletingGoalId(null)} className="flex-1 text-[rgba(237,245,240,0.6)] font-semibold py-1.5 rounded-lg text-xs" style={{ border: "1px solid rgba(139,92,246,0.12)" }}>Cancel</button>
+                      </div>
                     </div>
-                  </div>
-                ) : (
-                  <div onClick={() => !isActiveGoal && handleSetActiveGoalWithCheck(goal)} className={isActiveGoal ? "" : "cursor-pointer"}>
-                    {isActiveGoal && (
-                      <span className="text-[10px] font-bold px-2 py-0.5 rounded-full mb-1.5 inline-block" style={{ background: "rgba(139,92,246,0.15)", color: "#8B5CF6" }}>✓ Active</span>
-                    )}
-                    <div className="text-sm font-bold mb-1 pr-12" style={{ color: "#8B5CF6" }}>{goal.label}</div>
-                    <div className="text-lg font-extrabold" style={{ color: "var(--text-primary)" }}>${goal.targetAmount}</div>
-                    {!isActiveGoal && <div className="text-xs mt-1" style={{ color: "var(--text-muted)" }}>tap to activate</div>}
-                  </div>
-                )}
-              </div>
+                  ) : (
+                    <div onClick={() => !isActiveGoal && handleSetActiveGoalWithCheck(goal)} className={isActiveGoal ? "" : "cursor-pointer"}>
+                      {isActiveGoal && (
+                        <span className="text-[10px] font-bold px-2 py-0.5 rounded-full mb-1.5 inline-block" style={{ background: "rgba(139,92,246,0.15)", color: "#8B5CF6" }}>✓ Active</span>
+                      )}
+                      <div className="text-[10px] font-bold uppercase tracking-wide mb-1" style={{ color: "var(--text-muted)" }}>Custom</div>
+                      <div className="text-sm font-bold mb-1 pr-12" style={{ color: "#8B5CF6" }}>{goal.label}</div>
+                      <div className="text-lg font-extrabold" style={{ color: "var(--text-primary)" }}>{formatCurrency(goal.targetAmount)}</div>
+                      {!isActiveGoal && <div className="text-xs mt-1" style={{ color: "var(--text-muted)" }}>tap to activate</div>}
+                    </div>
+                  )}
+                </div>
               );
             })}
-              </div>
-            </div>
-          )}
+          </div>
         </div>
       )}
 

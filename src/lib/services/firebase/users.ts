@@ -18,6 +18,7 @@ import {
 import { User } from "firebase/auth";
 import { db } from "./config";
 import { UserProfile, DonationEvent, SpendingHistoryEvent, SpendingGoal } from "@/lib/types/models";
+import { xpForSkip, levelForXp } from "@/lib/utils/xp";
 
 export function normalizeSpendingGoals(profile: UserProfile): {
   goals: SpendingGoal[];
@@ -161,10 +162,13 @@ export async function setActiveProject(uid: string, projectId: string | null): P
 }
 
 export async function joinProject(uid: string, projectId: string, makeActive: boolean): Promise<void> {
-  await updateDoc(doc(db, "users", uid), {
-    joinedProjectIds: arrayUnion(projectId),
-    ...(makeActive ? { activeProjectId: projectId } : {}),
-  });
+  await Promise.all([
+    updateDoc(doc(db, "users", uid), {
+      joinedProjectIds: arrayUnion(projectId),
+      ...(makeActive ? { activeProjectId: projectId } : {}),
+    }),
+    updateDoc(doc(db, "projects", projectId), { memberUids: arrayUnion(uid) }),
+  ]);
 }
 
 export async function setUserCauseGoal(uid: string, causeId: string, amount: number): Promise<void> {
@@ -188,7 +192,10 @@ export async function switchCause(
       balanceTransfer = { [oldCauseId]: 0, [newCauseId]: oldBal };
     }
   }
-  await updateDoc(doc(db, "users", uid), updates);
+  await Promise.all([
+    updateDoc(doc(db, "users", uid), updates),
+    updateDoc(doc(db, "projects", newCauseId), { memberUids: arrayUnion(uid) }),
+  ]);
   return balanceTransfer;
 }
 
@@ -370,10 +377,12 @@ export async function recalculateTotals(
         totalSkips: acc.totalSkips + 1,
         totalGiveAllocated: acc.totalGiveAllocated + skip.amount * (split.give / 100),
         totalLiveAllocated: acc.totalLiveAllocated + skip.amount * (split.live / 100),
+        xp: acc.xp + xpForSkip(skip.amount),
       };
     },
-    { totalSaved: 0, totalSkips: 0, totalGiveAllocated: 0, totalLiveAllocated: 0 }
+    { totalSaved: 0, totalSkips: 0, totalGiveAllocated: 0, totalLiveAllocated: 0, xp: 0 }
   );
+  const recalcLevel = levelForXp(skipTotals.xp);
 
   // Sum all donations
   const donationsSnap = await getDocs(collection(db, "users", uid, "donations"));
@@ -398,7 +407,29 @@ export async function recalculateTotals(
     }
   });
 
-  const totals = { ...skipTotals, totalDonated, totalSpent, causeJarBalances };
+  // Consolidate: when a user switches causes they always move or donate, so any
+  // non-active balance rebuilt from raw skip history is a phantom from that transfer.
+  // Exception: expired challenge balances are intentionally parked (awaiting donation).
+  const profileSnap = await getDoc(doc(db, "users", uid));
+  const activeProjectId: string | null = profileSnap.data()?.activeProjectId ?? null;
+  const nonActiveIds = Object.keys(causeJarBalances).filter((id) => id !== activeProjectId && causeJarBalances[id] > 0);
+  if (nonActiveIds.length > 0) {
+    const { getDoc: getProjectDoc, doc: projectDoc } = await import("firebase/firestore");
+    for (const id of nonActiveIds) {
+      const projSnap = await getProjectDoc(projectDoc(db, "projects", id));
+      const projData = projSnap.data();
+      const isExpiredChallenge =
+        projData?.projectKind === "challenge" &&
+        projData?.endDate?.toMillis != null &&
+        projData.endDate.toMillis() < Date.now();
+      if (!isExpiredChallenge && activeProjectId) {
+        causeJarBalances[activeProjectId] = (causeJarBalances[activeProjectId] ?? 0) + causeJarBalances[id];
+        causeJarBalances[id] = 0;
+      }
+    }
+  }
+
+  const totals = { ...skipTotals, totalDonated, totalSpent, causeJarBalances, level: recalcLevel };
   await updateDoc(doc(db, "users", uid), totals);
   return totals;
 }

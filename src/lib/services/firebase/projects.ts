@@ -290,19 +290,16 @@ export async function updateCustomProject(
   });
 }
 
-export async function extendChallengeDeadline(
+export async function setChallengeDeadline(
   uid: string,
   projectId: string,
-  additionalDays: number
+  endDate: Date | null
 ): Promise<void> {
   const snap = await getDoc(doc(db, "projects", projectId));
   if (!snap.exists() || snap.data().createdBy !== uid) throw new Error("Not authorized");
-  const existing = snap.data().endDate as Timestamp | null;
-  const baseMs = existing && existing.toMillis() > Date.now()
-    ? existing.toMillis()
-    : Date.now();
-  const newEndDate = Timestamp.fromMillis(baseMs + additionalDays * 86400_000);
-  await updateDoc(doc(db, "projects", projectId), { endDate: newEndDate });
+  await updateDoc(doc(db, "projects", projectId), {
+    endDate: endDate ? Timestamp.fromDate(endDate) : null,
+  });
 }
 
 export async function deleteCustomProject(uid: string, projectId: string): Promise<void> {
