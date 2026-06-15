@@ -105,11 +105,11 @@ service cloud.firestore {
           // Owner can edit their custom cause
           (resource.data.isCustom == true && resource.data.createdBy == request.auth.uid)
           ||
-          // Any authenticated user can increment totalRaised (via donation batch)
+          // Any authenticated user can update totalRaised (increment on skip/join, decrement on cause switch/delete)
           (
             incomingData().diff(resource.data).affectedKeys().hasOnly(["totalRaised"])
             && incomingData().totalRaised is number
-            && incomingData().totalRaised >= resource.data.totalRaised
+            && incomingData().totalRaised >= 0
           )
           ||
           // Any authenticated user can add themselves to memberUids when joining a challenge

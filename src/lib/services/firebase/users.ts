@@ -194,8 +194,8 @@ export async function switchCause(
     updates[`causeJarBalances.${causeId}`] = 0;
     balanceTransfer[causeId] = 0;
     totalTransferred += amount;
-    // Decrement old project's totalRaised (best-effort)
-    updateDoc(doc(db, "projects", causeId), { totalRaised: increment(-amount) }).catch(() => {});
+    // Decrement old project's totalRaised (best-effort — setDoc+merge so missing doc fails cleanly)
+    setDoc(doc(db, "projects", causeId), { totalRaised: increment(-amount) }, { merge: true }).catch(() => {});
   }
   if (totalTransferred > 0) {
     updates[`causeJarBalances.${newCauseId}`] = increment(totalTransferred);
@@ -245,8 +245,8 @@ export async function transferJarBalance(uid: string, fromProjectId: string, toP
     [`causeJarBalances.${toProjectId}`]: increment(bal),
     [`causeJarBalances.${fromProjectId}`]: 0,
   });
-  // Keep project totals in sync (best-effort)
-  updateDoc(doc(db, "projects", fromProjectId), { totalRaised: increment(-bal) }).catch(() => {});
+  // Keep project totals in sync (best-effort — setDoc+merge so missing doc fails cleanly)
+  setDoc(doc(db, "projects", fromProjectId), { totalRaised: increment(-bal) }, { merge: true }).catch(() => {});
   setDoc(doc(db, "projects", toProjectId), { totalRaised: increment(bal) }, { merge: true }).catch(() => {});
 }
 

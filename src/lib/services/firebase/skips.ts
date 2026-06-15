@@ -295,6 +295,10 @@ export async function deleteSkip(
     ...(projectId ? { [`causeJarBalances.${projectId}`]: increment(-giveAllocAmount) } : {}),
   });
   await batch.commit();
+  // Keep project totalRaised in sync when a skip is deleted
+  if (projectId && giveAllocAmount > 0) {
+    setDoc(doc(db, "projects", projectId), { totalRaised: increment(-giveAllocAmount) }, { merge: true }).catch(() => {});
+  }
 }
 
 export async function getRecentSkips(uid: string, count = 10): Promise<Skip[]> {
