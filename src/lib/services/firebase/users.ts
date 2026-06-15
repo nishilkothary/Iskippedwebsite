@@ -240,6 +240,9 @@ export async function transferJarBalance(uid: string, fromProjectId: string, toP
     [`causeJarBalances.${toProjectId}`]: increment(bal),
     [`causeJarBalances.${fromProjectId}`]: 0,
   });
+  // Keep project totals in sync (best-effort)
+  updateDoc(doc(db, "projects", fromProjectId), { totalRaised: increment(-bal) }).catch(() => {});
+  setDoc(doc(db, "projects", toProjectId), { totalRaised: increment(bal) }, { merge: true }).catch(() => {});
 }
 
 export async function recordDonation(uid: string, amount: number, projectId: string, projectTitle: string, date?: string): Promise<void> {

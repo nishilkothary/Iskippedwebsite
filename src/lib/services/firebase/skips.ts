@@ -12,6 +12,7 @@ import {
   onSnapshot,
   Unsubscribe,
   updateDoc,
+  setDoc,
 } from "firebase/firestore";
 import { ref, runTransaction } from "firebase/database";
 import { db, rtdb } from "./config";
@@ -174,15 +175,12 @@ export async function logSkip(params: LogSkipParams): Promise<{ skipId: string; 
   await batch.commit();
 
   // Update project totals for challenge group tracking (non-atomic, best-effort)
+  // Use setDoc+merge so it works even if the project doc doesn't exist yet
   if (projectId) {
-    try {
-      await updateDoc(doc(db, "projects", projectId), {
-        ...(giveAmount > 0 ? { totalRaised: increment(giveAmount) } : {}),
-        totalSkips: increment(1),
-      });
-    } catch {
-      // Official projects aren't in Firestore — ignore
-    }
+    setDoc(doc(db, "projects", projectId), {
+      ...(giveAmount > 0 ? { totalRaised: increment(giveAmount) } : {}),
+      totalSkips: increment(1),
+    }, { merge: true }).catch(() => {});
   }
 
   // 4. Update global counters in Realtime DB

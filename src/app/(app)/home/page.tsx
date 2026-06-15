@@ -937,22 +937,22 @@ export default function HomePage() {
                 {hasCommunityUnit && communityUnitCountDisplay !== null && (
                   <>
                     <div style={{ width: 1, background: "rgba(255,255,255,0.12)", height: 44, marginBottom: 18 }} />
-                    <div>
+                    <div style={{ minWidth: 0 }}>
                       <p style={{ fontSize: 28, fontWeight: 900, color: "var(--green-primary)", lineHeight: 1 }}>
                         {communityUnitCountDisplay}
                       </p>
-                      <p style={{ fontSize: 10, fontWeight: 800, letterSpacing: 1.2, textTransform: "uppercase", color: "var(--text-muted)", marginTop: 3, whiteSpace: "nowrap" }}>
+                      <p style={{ fontSize: 10, fontWeight: 800, letterSpacing: 1.2, textTransform: "uppercase", color: "var(--text-muted)", marginTop: 3 }}>
                         {communityUnitLabel} Funded
                       </p>
                     </div>
                   </>
                 )}
-                {communityGoal === 0 && displayedGroupTotal > 0 && (
+                {communityGoal === 0 && !hasCommunityUnit && displayedGroupTotal > 0 && (
                   <>
                     <div style={{ width: 1, background: "rgba(255,255,255,0.12)", height: 44, marginBottom: 18 }} />
                     <div>
                       <p style={{ fontSize: 28, fontWeight: 900, color: "var(--gold-cta)", lineHeight: 1 }}>
-                        {formatCurrency(displayedGroupTotal)}
+                        ${Math.round(displayedGroupTotal).toLocaleString()}
                       </p>
                       <p style={{ fontSize: 10, fontWeight: 800, letterSpacing: 1.2, textTransform: "uppercase", color: "var(--text-muted)", marginTop: 3 }}>
                         Pledged
@@ -964,8 +964,8 @@ export default function HomePage() {
               {communityGoal > 0 ? (
                 <div style={{ marginTop: 8 }}>
                   <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 5 }}>
-                    <span style={{ fontSize: 11, fontWeight: 700, color: "var(--text-primary)" }}>{formatCurrency(displayedGroupTotal)}</span>
-                    <span style={{ fontSize: 11, fontWeight: 700, color: "var(--text-muted)" }}>of {formatCurrency(communityGoal)} goal</span>
+                    <span style={{ fontSize: 11, fontWeight: 700, color: "var(--text-primary)" }}>${Math.round(displayedGroupTotal).toLocaleString()}</span>
+                    <span style={{ fontSize: 11, fontWeight: 700, color: "var(--text-muted)" }}>of ${Math.round(communityGoal).toLocaleString()} goal</span>
                   </div>
                   <div style={{ height: 8, background: "rgba(46,204,113,0.15)", borderRadius: 999, overflow: "hidden" }}>
                     <div style={{ height: "100%", width: `${Math.min(100, (displayedGroupTotal / communityGoal) * 100)}%`, background: "linear-gradient(90deg, #1E9485, #2ECC71)", borderRadius: 999 }} />
