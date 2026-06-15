@@ -28,6 +28,7 @@ export interface UserProfile {
   followersCount: number;
   createdAt: Timestamp;
   lastSkipDate: string | null; // YYYY-MM-DD
+  lastDonationDate?: string | null; // YYYY-MM-DD
   favoriteCauseIds: string[];
   causeStats?: Record<string, { donated: number }>;
   jarSplit?: { give: number; live: number };
@@ -75,11 +76,16 @@ export interface Project {
   parentProjectId?: string | null;
   title: string;
   sponsor: string;
+  groupName?: string;
   description: string;
   goalAmount: number;
   totalRaised: number;
+  totalDonated?: number;
+  totalSkips?: number;
+  status?: "active" | "ended";
   imageURL: string | null;
   donationURL: string | null;
+  donationNote?: string | null; // shown when no donationURL — e.g. "Send via Venmo @username"
   learnMoreURL?: string | null;
   isCustom: boolean;
   location?: string;
@@ -88,10 +94,14 @@ export interface Project {
   unitCost?: number;    // dollars per unit, e.g. 0.822
   unitIsGoal?: boolean; // true = 1 unit IS the full goal (e.g. Chromebook $250 = 1 unit); shows % mode
   skipMilestones?: { level1: number; level2: number; level3: number };
-  visibility?: "public" | "unlisted" | "password";
+  visibility?: "public" | "private" | "unlisted" | "password";
+  password?: string | null;
   createdBy: string | null; // uid for custom causes
   tags: string[];
   imagePosition?: string; // CSS object-position for the cause image, e.g. "bottom", "center 70%"
+  startDate?: Timestamp | null;
+  endDate?: Timestamp | null;
+  memberUids?: string[];
 }
 
 export interface FeedItem {
@@ -102,8 +112,10 @@ export interface FeedItem {
   type: "skip" | "donation";
   skipId?: string;
   skipAmount?: number;
+  giveAmount?: number;
   skipCategory?: string;
   skipEmoji?: string;
+  projectId?: string | null;
   projectTitle?: string;
   projectLocation?: string | null;
   shareName?: boolean;

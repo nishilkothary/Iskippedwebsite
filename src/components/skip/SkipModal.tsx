@@ -1,5 +1,5 @@
 "use client";
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useSkips } from "@/hooks/useSkips";
 import { useProjects } from "@/hooks/useProjects";
@@ -8,6 +8,8 @@ import { SKIP_CATEGORIES } from "@/lib/constants/skipCategories";
 import { formatCurrency } from "@/lib/utils/currency";
 import { normalizeJarSplit, normalizeSpendingGoals } from "@/lib/services/firebase/users";
 import { formatUnits } from "@/lib/utils/impact";
+import { isChallengeProject } from "@/lib/services/firebase/projects";
+import { getChallengeCountdown } from "@/lib/utils/dates";
 
 interface Props {
   onClose: () => void;
@@ -28,6 +30,7 @@ export function SkipModal({ onClose }: Props) {
   const [customLabel, setCustomLabel] = useState("");
   const [whatSkipped, setWhatSkipped] = useState("");
   const [shareWithCommunity, setShareWithCommunity] = useState(false);
+  const shareToggleTouchedRef = useRef(false);
   const [projectId] = useState<string | null>(profile?.activeProjectId ?? null);
   const [success, setSuccess] = useState(false);
   const [copied, setCopied] = useState(false);
@@ -38,6 +41,18 @@ export function SkipModal({ onClose }: Props) {
   const [skipGivePct, setSkipGivePct] = useState(profileSplit.give);
   const [successOverflowCount, setSuccessOverflowCount] = useState<number | undefined>(undefined);
   const [successJarBalance, setSuccessJarBalance] = useState(0);
+  const activeProjectForSkip = projects.find((p) => p.id === projectId) ?? null;
+  const isActiveChallenge = activeProjectForSkip ? isChallengeProject(activeProjectForSkip) : false;
+  // If the active project has expired, don't credit this skip to its jar
+  const effectiveProjectId = activeProjectForSkip && getChallengeCountdown(activeProjectForSkip).isExpired
+    ? null
+    : projectId;
+
+  useEffect(() => {
+    if (isActiveChallenge && !shareToggleTouchedRef.current) {
+      setShareWithCommunity(true);
+    }
+  }, [isActiveChallenge]);
 
   function handleCatSelect(cat: typeof defaultCat) {
     setSelectedCat(cat);
@@ -65,7 +80,7 @@ export function SkipModal({ onClose }: Props) {
       categoryLabel: customLabel || selectedCat.label,
       categoryEmoji: selectedCat.emoji,
       amount,
-      projectId,
+      projectId: effectiveProjectId,
       projectTitle: selectedProject?.title ?? null,
       projectLocation: selectedProject?.location ?? null,
       projectUnitName: selectedProject?.unitName ?? null,
@@ -121,14 +136,14 @@ export function SkipModal({ onClose }: Props) {
       const unitsStr = formatUnits(skipGive, successProjectUnitCost, successProjectUnitName);
       const locationSuffix = successProjectLocation ? ` in ${successProjectLocation}` : "";
       impactDisplay = `${unitsStr}${locationSuffix}`;
-      impactClause = ` to help fund ${unitsStr}${locationSuffix}`;
+      impactClause = ` to help pledge ${unitsStr}${locationSuffix}`;
     } else if (causeTitle && successProjectUnitName && successProjectUnitCost && successActiveProject?.unitIsGoal) {
       const pct = Math.max(1, Math.round((skipGive / successProjectUnitCost) * 100));
       impactDisplay = `${pct}% of ${causeTitle}`;
-      impactClause = ` to help fund ${pct}% of ${causeTitle}`;
+      impactClause = ` to help pledge ${pct}% of ${causeTitle}`;
     } else if (causeTitle) {
       impactDisplay = causeTitle;
-      impactClause = ` to help fund ${causeTitle}`;
+      impactClause = ` to help pledge toward ${causeTitle}`;
     } else {
       impactDisplay = `${formatCurrency(amount)} saved`;
     }
@@ -151,7 +166,7 @@ export function SkipModal({ onClose }: Props) {
             <p className="text-2xl font-bold" style={{ color: "var(--text-primary)" }}>Giving Jar Full!</p>
             <p className="font-bold text-lg mt-1" style={{ color: "#2ECC71" }}>Congratulations!</p>
             <p className="text-sm mt-3" style={{ color: "var(--text-secondary)" }}>
-              You&apos;ve funded 100% of your <strong style={{ color: "var(--text-primary)" }}>{successActiveProject.title}</strong>{" "}giving jar.
+              You&apos;ve pledged 100% of your <strong style={{ color: "var(--text-primary)" }}>{successActiveProject.title}</strong>{" "}giving jar.
               It&apos;s time to empty your jar and send it over!
             </p>
             <p className="text-sm mt-2 font-semibold" style={{ color: "#2ECC71" }}>
@@ -196,7 +211,7 @@ export function SkipModal({ onClose }: Props) {
             <p className="text-2xl font-bold" style={{ color: "var(--text-primary)" }}>Your skips can change lives</p>
             <p className="font-bold text-lg mt-1" style={{ color: "var(--green-primary)" }}>{formatCurrency(amount)} saved</p>
             <p className="text-sm mt-3" style={{ color: "var(--text-secondary)" }}>
-              You could use {formatCurrency(skipGive)} from this skip to fund:
+              You could pledge {formatCurrency(skipGive)} from this skip toward:
             </p>
             <ul className="text-left mt-2 space-y-1" style={{ color: "var(--text-secondary)", fontSize: 13, paddingLeft: 20 }}>
               {nudgeCfc?.unitCost && <li>{formatUnits(skipGive, nudgeCfc.unitCost, nudgeCfc.unitName!)} in {nudgeCfc.location}</li>}
@@ -242,7 +257,7 @@ export function SkipModal({ onClose }: Props) {
           <div className="px-8 pb-8" style={{ paddingTop: causeImageURL ? 20 : 0 }}>
             {!causeImageURL && <div className="text-6xl mb-3">🎉</div>}
             {hasCauseImpact && (
-              <p className="text-sm uppercase tracking-wide font-semibold mb-1" style={{ color: "var(--text-muted)" }}>Thank you for Funding</p>
+              <p className="text-sm uppercase tracking-wide font-semibold mb-1" style={{ color: "var(--text-muted)" }}>Thank you for pledging</p>
             )}
             <p className="text-2xl font-bold leading-tight" style={{ color: "var(--green-primary)" }}>{impactDisplay}</p>
             {hasCauseImpact && goalPctDisplay !== null && successActiveGoal && (
@@ -474,7 +489,10 @@ export function SkipModal({ onClose }: Props) {
           {/* Share toggle */}
           <label className="flex items-center gap-3 cursor-pointer">
             <div
-              onClick={() => setShareWithCommunity((v) => !v)}
+              onClick={() => {
+                shareToggleTouchedRef.current = true;
+                setShareWithCommunity((v) => !v);
+              }}
               className="w-11 h-6 rounded-full transition-colors relative"
               style={{ background: shareWithCommunity ? "var(--green-primary)" : "var(--bg-surface-3)" }}
             >

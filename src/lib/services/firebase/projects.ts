@@ -4,9 +4,14 @@ import {
   getDocs,
   getDoc,
   addDoc,
+  setDoc,
   updateDoc,
   deleteDoc,
   serverTimestamp,
+  writeBatch,
+  onSnapshot,
+  Timestamp,
+  Unsubscribe,
 } from "firebase/firestore";
 import { db } from "./config";
 import { Project } from "@/lib/types/models";
@@ -17,7 +22,7 @@ export const OFFICIAL_PROJECTS: Project[] = [
     title: "A Student's Education in Cambodia",
     sponsor: "Caring for Cambodia",
     description: "Your savings fund a full year of quality education for a child in Cambodia, including tuition, uniforms, and school supplies.",
-    goalAmount: 300,
+    goalAmount: 0,
     totalRaised: 0,
     imageURL: "/causes/cfc.jpg",
     donationURL: "https://www.caringforcambodia.org/donate",
@@ -28,13 +33,14 @@ export const OFFICIAL_PROJECTS: Project[] = [
     unitCost: parseFloat((300 / 365).toFixed(4)), // ~$0.8219
     createdBy: null,
     tags: ["education", "children", "cambodia"],
+    visibility: "public" as const,
   },
   {
     id: "kc",
     title: "A Chromebook for A Student In Kenya",
     sponsor: "Kenya Connect",
     description: "Help equip students in remote Kenyan villages with a Chromebook, unlocking digital learning and new opportunities.",
-    goalAmount: 250,
+    goalAmount: 0,
     totalRaised: 0,
     imageURL: "/causes/KC Chromebook.jpg",
     donationURL: "https://www.kenyaconnect.org/donate",
@@ -46,13 +52,14 @@ export const OFFICIAL_PROJECTS: Project[] = [
     unitIsGoal: true,
     createdBy: null,
     tags: ["education", "technology", "kenya"],
+    visibility: "public" as const,
   },
   {
     id: "kc-library",
     title: "A Mobile Library for Schools in Kenya",
     sponsor: "Kenya Connect",
     description: "Your savings help bring a mobile library to schools in rural Kenya, giving students access to books and learning resources.",
-    goalAmount: 166.67,
+    goalAmount: 0,
     totalRaised: 0,
     imageURL: "/causes/KC Mobile Library.jpg",
     donationURL: "https://www.kenyaconnect.org/donate",
@@ -64,6 +71,7 @@ export const OFFICIAL_PROJECTS: Project[] = [
     unitIsGoal: true,
     createdBy: null,
     tags: ["education", "library", "kenya"],
+    visibility: "public" as const,
   },
   {
     id: "pop-education",
@@ -83,13 +91,14 @@ export const OFFICIAL_PROJECTS: Project[] = [
     unitCost: parseFloat((100 / 365).toFixed(4)), // ~$0.2740
     createdBy: null,
     tags: ["official", "education"],
+    visibility: "public" as const,
   },
   {
     id: "stm-palestine",
     title: "Life-Saving Meals in Palestine",
     sponsor: "Share the Meal",
     description: "Your savings provide emergency meals to families in need in Palestine.",
-    goalAmount: 80,
+    goalAmount: 0,
     totalRaised: 0,
     imageURL: null,
     donationURL: "https://sharethemeal.org/en-us/campaigns/palestine11",
@@ -100,6 +109,7 @@ export const OFFICIAL_PROJECTS: Project[] = [
     unitCost: 0.80,
     createdBy: null,
     tags: ["food", "emergency", "palestine"],
+    visibility: "public" as const,
   },
   {
     id: "stm-ukraine",
@@ -117,6 +127,7 @@ export const OFFICIAL_PROJECTS: Project[] = [
     unitCost: 0.80,
     createdBy: null,
     tags: ["food", "emergency", "ukraine"],
+    visibility: "public" as const,
   },
   {
     id: "stm-syria",
@@ -134,6 +145,7 @@ export const OFFICIAL_PROJECTS: Project[] = [
     unitCost: 0.80,
     createdBy: null,
     tags: ["food", "emergency", "syria"],
+    visibility: "public" as const,
   },
   {
     id: "mc-nets",
@@ -151,27 +163,72 @@ export const OFFICIAL_PROJECTS: Project[] = [
     unitCost: 2.27,
     createdBy: null,
     tags: ["official", "health"],
+    visibility: "public" as const,
   },
 ];
+
+function mergeWithOfficials(firestoreDocs: Project[]): Project[] {
+  const firestoreById = new Map(firestoreDocs.map((d) => [d.id, d]));
+  const officials = OFFICIAL_PROJECTS.map((p) => {
+    const fs = firestoreById.get(p.id);
+    return fs ? { ...p, ...fs } : p;
+  });
+  const officialIds = new Set(OFFICIAL_PROJECTS.map((p) => p.id));
+  const custom = firestoreDocs.filter((p) => p.isCustom && !officialIds.has(p.id));
+  return [...officials, ...custom];
+}
+
+export function subscribeToProjects(callback: (projects: Project[]) => void): Unsubscribe {
+  return onSnapshot(
+    collection(db, "projects"),
+    (snap) => {
+      const docs = snap.docs.map((d) => ({ id: d.id, ...d.data() } as Project));
+      callback(mergeWithOfficials(docs));
+
+      // Seed any official projects not yet in Firestore so totalRaised can be incremented
+      const firestoreIds = new Set(docs.map((d) => d.id));
+      const missing = OFFICIAL_PROJECTS.filter((p) => !firestoreIds.has(p.id));
+      if (missing.length > 0) {
+        const batch = writeBatch(db);
+        for (const p of missing) {
+          batch.set(doc(db, "projects", p.id), { totalRaised: 0, memberUids: [], isCustom: false }, { merge: true });
+        }
+        batch.commit().catch(() => {});
+      }
+    },
+    () => callback(OFFICIAL_PROJECTS),
+  );
+}
 
 export async function getAllProjects(): Promise<Project[]> {
   try {
     const snap = await getDocs(collection(db, "projects"));
-    const custom = snap.docs
-      .map((d) => ({ id: d.id, ...d.data() } as Project))
-      .filter((p) => p.isCustom);
-    return [...OFFICIAL_PROJECTS, ...custom];
+    const docs = snap.docs.map((d) => ({ id: d.id, ...d.data() } as Project));
+    return mergeWithOfficials(docs);
   } catch {
     return OFFICIAL_PROJECTS;
   }
 }
 
 export function isChallengeProject(project: Project): boolean {
-  return project.projectKind === "challenge" || project.tags?.includes("challenge");
+  if (project.projectKind) return project.projectKind === "challenge";
+  // Legacy custom projects created before projectKind field was added default to challenge
+  return project.tags?.includes("challenge") || !!project.isCustom;
 }
 
 export function isCauseProject(project: Project): boolean {
   return !isChallengeProject(project);
+}
+
+export function isProjectEnded(project: Project): boolean {
+  if (project.status === "ended") return true;
+  if (project.endDate) {
+    const ms = typeof (project.endDate as any).toMillis === "function"
+      ? (project.endDate as any).toMillis()
+      : NaN;
+    return !isNaN(ms) && ms < Date.now();
+  }
+  return false;
 }
 
 export async function getProject(id: string): Promise<Project | null> {
@@ -193,15 +250,24 @@ export async function addCustomProject(
     goalAmount: number;
     description?: string;
     donationURL?: string;
+    donationNote?: string;
     tags?: string[];
     imageURL?: string;
+    imagePosition?: string;
     unitName?: string;
     unitDisplay?: string;
     unitCost?: number;
     skipMilestones?: { level1: number; level2: number; level3: number };
-    visibility?: "public" | "unlisted" | "password";
+    visibility?: "public" | "private" | "unlisted" | "password";
+    password?: string;
+    durationDays?: number | null;
+    groupName?: string;
   }
 ): Promise<string> {
+  const startDate = Timestamp.now();
+  const endDate = data.durationDays
+    ? Timestamp.fromMillis(Date.now() + data.durationDays * 86400_000)
+    : null;
   const ref = await addDoc(collection(db, "projects"), {
     title: data.title,
     projectKind: data.projectKind || "cause",
@@ -212,16 +278,22 @@ export async function addCustomProject(
     goalAmount: data.goalAmount,
     totalRaised: 0,
     imageURL: data.imageURL || null,
+    imagePosition: data.imagePosition || null,
     donationURL: data.donationURL || null,
+    donationNote: data.donationNote || null,
     unitName: data.unitName || null,
     unitDisplay: data.unitDisplay || null,
     unitCost: data.unitCost || null,
     skipMilestones: data.skipMilestones || null,
     visibility: data.visibility || "public",
+    password: data.password || null,
+    groupName: data.groupName || null,
     isCustom: true,
     createdBy: uid,
     tags: data.tags?.length ? data.tags : ["custom"],
     createdAt: serverTimestamp(),
+    startDate,
+    endDate,
   });
   return ref.id;
 }
@@ -229,22 +301,83 @@ export async function addCustomProject(
 export async function updateCustomProject(
   uid: string,
   projectId: string,
-  data: { title: string; sponsor?: string; location?: string; goalAmount: number; donationURL?: string; description?: string }
+  data: {
+    title: string;
+    sponsor?: string;
+    location?: string;
+    goalAmount: number;
+    donationURL?: string;
+    donationNote?: string;
+    description?: string;
+    imageURL?: string;
+    imagePosition?: string;
+    unitName?: string;
+    unitDisplay?: string;
+    unitCost?: number;
+    skipMilestones?: { level1: number; level2: number; level3: number };
+    visibility?: "public" | "private" | "unlisted" | "password";
+    password?: string;
+    tags?: string[];
+    durationDays?: number | null;
+    groupName?: string;
+  }
 ): Promise<void> {
   const snap = await getDoc(doc(db, "projects", projectId));
   if (!snap.exists() || snap.data().createdBy !== uid) throw new Error("Not authorized");
+  const endDate =
+    data.durationDays !== undefined
+      ? data.durationDays
+        ? Timestamp.fromMillis(Date.now() + data.durationDays * 86400_000)
+        : null
+      : undefined;
   await updateDoc(doc(db, "projects", projectId), {
     title: data.title,
+    groupName: data.groupName || null,
     sponsor: data.sponsor || data.title,
     location: data.location || null,
     goalAmount: data.goalAmount,
     donationURL: data.donationURL || null,
+    donationNote: data.donationNote || null,
     description: data.description || "",
+    imageURL: data.imageURL || null,
+    imagePosition: data.imagePosition || null,
+    unitName: data.unitName || null,
+    unitDisplay: data.unitDisplay || null,
+    unitCost: data.unitCost || null,
+    skipMilestones: data.skipMilestones || null,
+    visibility: data.visibility || "public",
+    password: data.password || null,
+    ...(data.tags ? { tags: data.tags } : {}),
+    ...(endDate !== undefined ? { endDate } : {}),
   });
+}
+
+export async function setChallengeDeadline(
+  uid: string,
+  projectId: string,
+  endDate: Date | null
+): Promise<void> {
+  const snap = await getDoc(doc(db, "projects", projectId));
+  if (!snap.exists() || snap.data().createdBy !== uid) throw new Error("Not authorized");
+  await updateDoc(doc(db, "projects", projectId), {
+    endDate: endDate ? Timestamp.fromDate(endDate) : null,
+  });
+}
+
+export async function endChallenge(uid: string, projectId: string): Promise<void> {
+  const snap = await getDoc(doc(db, "projects", projectId));
+  if (!snap.exists() || snap.data().createdBy !== uid) throw new Error("Not authorized");
+  await updateDoc(doc(db, "projects", projectId), { status: "ended" });
 }
 
 export async function deleteCustomProject(uid: string, projectId: string): Promise<void> {
   const snap = await getDoc(doc(db, "projects", projectId));
   if (!snap.exists() || snap.data().createdBy !== uid) throw new Error("Not authorized");
   await deleteDoc(doc(db, "projects", projectId));
+}
+
+export function subscribeToProject(projectId: string, callback: (project: Project | null) => void): Unsubscribe {
+  return onSnapshot(doc(db, "projects", projectId), (snap) => {
+    callback(snap.exists() ? ({ id: snap.id, ...snap.data() } as Project) : null);
+  });
 }

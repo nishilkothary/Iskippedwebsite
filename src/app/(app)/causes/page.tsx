@@ -47,19 +47,27 @@ function formatDonationDate(donation: DonationEvent): string {
         </a>
       </div>
 
-      {/* $300 fact card */}
-      <div
-        className="rounded-2xl p-6 mb-6"
-        style={{ background: "linear-gradient(135deg, var(--coral-primary), var(--coral-dark))", color: "#fff" }}
-      >
-        <div className="flex items-center gap-3">
-          <span className="text-4xl">🎓</span>
-          <div>
-            <p className="text-2xl font-bold">$300 = 1 child educated</p>
-            <p className="text-sm mt-0.5" style={{ color: "rgba(255,255,255,0.75)" }}>for a full year</p>
+      {/* Impact fact card */}
+      {cfcProject && (
+        <div
+          className="rounded-2xl p-6 mb-6"
+          style={{ background: "linear-gradient(135deg, var(--coral-primary), var(--coral-dark))", color: "#fff" }}
+        >
+          <div className="flex items-center gap-3">
+            <span className="text-4xl">🎓</span>
+            <div>
+              <p className="text-2xl font-bold">
+                {cfcProject.goalAmount > 0
+                  ? `${formatCurrency(cfcProject.goalAmount)} = 1 child educated`
+                  : cfcProject.unitCost && cfcProject.unitName
+                    ? `${formatCurrency(cfcProject.unitCost)} = 1 ${cfcProject.unitName}`
+                    : "$300 = 1 child educated"}
+              </p>
+              <p className="text-sm mt-0.5" style={{ color: "rgba(255,255,255,0.75)" }}>for a full year</p>
+            </div>
           </div>
         </div>
-      </div>
+      )}
 
       {/* Available to donate */}
       {loading ? (

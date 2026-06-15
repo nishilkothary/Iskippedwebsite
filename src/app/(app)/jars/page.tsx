@@ -1,6 +1,6 @@
-"use client";
+﻿"use client";
 import { useEffect, useState, Suspense } from "react";
-import { useSearchParams } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { useAuthStore } from "@/store/authStore";
 import { useSkips } from "@/hooks/useSkips";
 import { useProjects } from "@/hooks/useProjects";
@@ -20,13 +20,14 @@ import {
   updateSpendingGoals,
   setUserCauseGoal,
 } from "@/lib/services/firebase/users";
-import { addCustomProject, updateCustomProject, deleteCustomProject } from "@/lib/services/firebase/projects";
+import { addCustomProject, updateCustomProject, deleteCustomProject, isCauseProject, isChallengeProject, isProjectEnded } from "@/lib/services/firebase/projects";
 import { formatUnits } from "@/lib/utils/impact";
 import { SpendingHistoryEvent, Project, SpendingGoal, DonationEvent } from "@/lib/types/models";
 
 type Tab = "cause" | "live";
 
 function JarsPageInner() {
+  const router = useRouter();
   const searchParams = useSearchParams();
   const rawTab = searchParams.get("tab");
   const initialTab: Tab = rawTab === "live" || rawTab === "cause" ? rawTab : "cause";
@@ -45,6 +46,10 @@ function JarsPageInner() {
     const unsub = subscribeToSpendingHistory(user.uid, setSpendingHistory);
     return unsub;
   }, [user?.uid]);
+  const [editingPurchaseId, setEditingPurchaseId] = useState<string | null>(null);
+  const [editPurchaseAmountStr, setEditPurchaseAmountStr] = useState("");
+  const [deletingPurchaseId, setDeletingPurchaseId] = useState<string | null>(null);
+  const [purchaseWorking, setPurchaseWorking] = useState(false);
 
   if (!profile || !user) return null;
 
@@ -56,14 +61,24 @@ function JarsPageInner() {
 
   const activeProject = projects.find((p) => p.id === profile.activeProjectId) ?? null;
 
+  const completedChallenges = (profile.joinedProjectIds ?? [])
+    .map((id) => projects.find((p) => p.id === id))
+    .filter((p): p is Project => !!p && isChallengeProject(p) && isProjectEnded(p))
+    .filter((p) => (profile.causeJarBalances?.[p.id] ?? 0) > 0)
+    .map((p) => ({
+      project: p,
+      balance: profile.causeJarBalances?.[p.id] ?? 0,
+      donated: donations.filter((d) => d.causeId === p.id).reduce((sum, d) => sum + d.amount, 0),
+    }));
+
   const { goals: spendingGoals, activeId: activeSpendingGoalId } = normalizeSpendingGoals(profile);
   const activeGoal = spendingGoals.find((g) => g.id === activeSpendingGoalId) ?? null;
 
   const givingBalance = globalGivingBalance;
   const spendingBalance = globalSpendingBalance;
 
-  async function handleSelectCause(project: Project, moveFunds: boolean) {
-    const transfer = await switchCause(user!.uid, activeProject?.id ?? null, project.id, moveFunds);
+  async function handleSelectCause(project: Project) {
+    const transfer = await switchCause(user!.uid, activeProject?.id ?? null, project.id);
     const currentBalances = profile!.causeJarBalances ?? {};
     const newCauseJarBalances = transfer
       ? Object.fromEntries(
@@ -91,7 +106,7 @@ function JarsPageInner() {
   async function handleDeleteCause(projectId: string) {
     await deleteCustomProject(user!.uid, projectId);
     if (profile!.activeProjectId === projectId) {
-      const remaining = projects.filter((p) => p.id !== projectId);
+      const remaining = projects.filter((p) => p.id !== projectId && isCauseProject(p));
       const nextId = remaining[0]?.id ?? null;
       await setActiveProject(user!.uid, nextId);
       updateProfile({ activeProjectId: nextId });
@@ -179,75 +194,153 @@ function JarsPageInner() {
     });
   }
 
-  const tabs: { id: Tab; label: string; emoji: string }[] = [
-    { id: "cause", label: "Giving Jar", emoji: "🤲" },
-    { id: "live",  label: "Reward Jar", emoji: "😊" },
-  ];
+  const splurgeProps = {
+    spendingBalance,
+    totalLiveAllocated: liveTotal,
+    totalSpent: profile.totalSpent ?? 0,
+    goals: spendingGoals,
+    activeGoalId: activeSpendingGoalId,
+    activeGoal,
+    spendingHistory,
+    goalJarBalances: profile.goalJarBalances,
+    onAddGoal: handleAddGoal,
+    onEditGoal: handleEditGoal,
+    onDeleteGoal: handleDeleteGoal,
+    onSetActiveGoal: handleSetActiveGoal,
+    onDeactivateGoal: handleDeactivateGoal,
+    onCompleteGoal: handleCompleteGoal,
+    onMoveToGive: handleMoveToGive,
+    onPurchase: async (amount: number) => {
+      if (!activeSpendingGoalId || !activeGoal) return;
+      await recordPurchase(user.uid, activeSpendingGoalId, activeGoal.label, activeGoal.targetAmount, amount);
+      updateProfile({ totalSpent: (profile.totalSpent ?? 0) + amount });
+    },
+    onEditHistory: (event: SpendingHistoryEvent, newAmount: number) => {
+      updateProfile({ totalSpent: (profile.totalSpent ?? 0) + (newAmount - event.amountSaved) });
+      return updateSpendingHistory(user.uid, event.id, newAmount, event.amountSaved);
+    },
+    onDeleteHistory: (event: SpendingHistoryEvent) => {
+      const updates: Parameters<typeof updateProfile>[0] = { totalSpent: (profile.totalSpent ?? 0) - event.amountSaved };
+      if (event.goalId) {
+        updates.goalJarBalances = {
+          ...(profile.goalJarBalances ?? {}),
+          [event.goalId]: (profile.goalJarBalances?.[event.goalId] ?? 0) + event.amountSaved,
+        };
+      }
+      updateProfile(updates);
+      return deleteSpendingHistory(user.uid, event.id, event.amountSaved, event.goalId);
+    },
+  };
+
+  const currentSplit = normalizeJarSplit(profile.jarSplit as any);
+  const [splitGive, setSplitGive] = useState(currentSplit.give);
+  const [savingSplit, setSavingSplit] = useState(false);
 
   return (
     <div className="p-4 md:p-8 max-w-2xl mx-auto pb-20 md:pb-8">
-      {activeTab === "cause" && (
-        <CauseTab
-          uid={user.uid}
-          projects={projects}
-          activeProject={activeProject}
-          givingBalance={givingBalance}
-          donations={donations}
-          causeJarBalances={profile.causeJarBalances}
-          causeGoalAmounts={profile.causeGoalAmounts}
-          onSelectCause={handleSelectCause}
-          onSetGoal={handleSetCauseGoal}
-          onDeactivateCause={handleDeactivateCause}
-          onAddCause={handleAddCause}
-          onEditCause={async (projectId, data) => {
-            await updateCustomProject(user!.uid, projectId, data);
-            await refetch();
-          }}
-          onDeleteCause={handleDeleteCause}
-          onDonate={(amount) =>
-            donate(amount, activeProject?.id ?? "giving", activeProject?.title ?? "Giving")
-          }
-          onEditDonation={editDonation}
-          onDeleteDonation={deleteDonation}
+      {/* Jar split card */}
+      <div className="rounded-2xl p-4 mb-5" style={{ background: "var(--bg-surface-1)", border: "1px solid var(--border-default)" }}>
+        <p className="text-xs font-bold uppercase tracking-widest mb-3" style={{ color: "var(--text-muted)" }}>Preferred Jar Split</p>
+        <div className="flex justify-between mb-2">
+          <div>
+            <p className="text-xs font-semibold" style={{ color: "var(--green-primary)" }}>🤲 Giving Jar</p>
+            <p className="text-xl font-black" style={{ color: "var(--green-primary)" }}>{splitGive}%</p>
+          </div>
+          <div className="text-right">
+            <p className="text-xs font-semibold" style={{ color: "#8B5CF6" }}>😊 Reward Jar</p>
+            <p className="text-xl font-black" style={{ color: "#8B5CF6" }}>{100 - splitGive}%</p>
+          </div>
+        </div>
+        {/* Two-tone track */}
+        <div className="relative h-2 rounded-full mb-4 overflow-hidden" style={{ background: "var(--bg-surface-3)" }}>
+          <div className="absolute inset-y-0 left-0 rounded-full" style={{ width: `${splitGive}%`, background: "linear-gradient(90deg, var(--green-primary), #2ECC71)" }} />
+          <div className="absolute inset-y-0 right-0 rounded-full" style={{ width: `${100 - splitGive}%`, background: "linear-gradient(90deg, #7C3AED, #8B5CF6)" }} />
+        </div>
+        <input
+          type="range"
+          min={0}
+          max={100}
+          step={5}
+          value={splitGive}
+          onChange={(e) => setSplitGive(Number(e.target.value))}
+          className="w-full mb-4"
+          style={{ accentColor: "var(--green-primary)", height: 4 }}
         />
-      )}
+        {splitGive !== currentSplit.give && (
+          <button
+            disabled={savingSplit}
+            onClick={async () => {
+              setSavingSplit(true);
+              const { updateJarSettings } = await import("@/lib/services/firebase/users");
+              await updateJarSettings(user.uid, { give: splitGive, live: 100 - splitGive }, null);
+              updateProfile({ jarSplit: { give: splitGive, live: 100 - splitGive } });
+              setSavingSplit(false);
+            }}
+            className="w-full py-2.5 rounded-xl text-sm font-bold disabled:opacity-50"
+            style={{ background: "var(--green-primary)", color: "#0B1A14" }}
+          >
+            {savingSplit ? "Saving…" : "Save split"}
+          </button>
+        )}
+      </div>
 
-      {activeTab === "live" && (
-        <SplurgeTab
-          spendingBalance={spendingBalance}
-          goals={spendingGoals}
-          activeGoalId={activeSpendingGoalId}
-          activeGoal={activeGoal}
-          spendingHistory={spendingHistory}
-          goalJarBalances={profile.goalJarBalances}
-          onAddGoal={handleAddGoal}
-          onEditGoal={handleEditGoal}
-          onDeleteGoal={handleDeleteGoal}
-          onSetActiveGoal={handleSetActiveGoal}
-          onDeactivateGoal={handleDeactivateGoal}
-          onCompleteGoal={handleCompleteGoal}
-          onMoveToGive={handleMoveToGive}
-          onPurchase={async (amount) => {
-            if (!activeSpendingGoalId || !activeGoal) return;
-            await recordPurchase(user.uid, activeSpendingGoalId, activeGoal.label, activeGoal.targetAmount, amount);
-            updateProfile({ totalSpent: (profile.totalSpent ?? 0) + amount });
-          }}
-          onEditHistory={(event, newAmount) => {
-            updateProfile({ totalSpent: (profile.totalSpent ?? 0) + (newAmount - event.amountSaved) });
-            return updateSpendingHistory(user.uid, event.id, newAmount, event.amountSaved);
-          }}
-          onDeleteHistory={(event) => {
-            const updates: Parameters<typeof updateProfile>[0] = { totalSpent: (profile.totalSpent ?? 0) - event.amountSaved };
-            if (event.goalId) {
-              updates.goalJarBalances = {
-                ...(profile.goalJarBalances ?? {}),
-                [event.goalId]: (profile.goalJarBalances?.[event.goalId] ?? 0) + event.amountSaved,
-              };
+      {/* Tab bar */}
+      <div className="flex rounded-2xl p-1 mb-5" style={{ background: "var(--bg-surface-1)", border: "1px solid var(--border-default)" }}>
+        <button
+          onClick={() => router.push("/jars?tab=cause")}
+          className="flex-1 py-2 rounded-xl text-sm font-bold transition-all"
+          style={activeTab === "cause"
+            ? { background: "var(--green-primary)", color: "#0B1A14" }
+            : { color: "var(--text-muted)" }}
+        >
+          My Giving Jar
+        </button>
+        <button
+          onClick={() => router.push("/jars?tab=live")}
+          className="flex-1 py-2 rounded-xl text-sm font-bold transition-all"
+          style={activeTab === "live"
+            ? { background: "#8B5CF6", color: "white" }
+            : { color: "var(--text-muted)" }}
+        >
+          My Reward Jar
+        </button>
+      </div>
+
+      {activeTab === "live" ? (
+        <SplurgeTab {...splurgeProps} />
+      ) : (
+        <div className="space-y-5">
+          <CauseTab
+            uid={user.uid}
+            projects={projects}
+            activeProject={activeProject}
+            givingBalance={givingBalance}
+            donations={donations}
+            causeJarBalances={profile.causeJarBalances}
+            causeGoalAmounts={profile.causeGoalAmounts}
+            completedChallenges={completedChallenges}
+            onSelectCause={handleSelectCause}
+            onSetGoal={handleSetCauseGoal}
+            onDeactivateCause={handleDeactivateCause}
+            onAddCause={handleAddCause}
+            onEditCause={async (projectId, data) => {
+              await updateCustomProject(user!.uid, projectId, data);
+              await refetch();
+            }}
+            onDeleteCause={handleDeleteCause}
+            onDonate={(amount) =>
+              donate(amount, activeProject?.id ?? "giving", activeProject?.title ?? "Giving")
             }
-            updateProfile(updates);
-            return deleteSpendingHistory(user.uid, event.id, event.amountSaved, event.goalId);
-          }}
-        />
+            onDonateCompleted={(amount, projectId, projectTitle) =>
+              donate(amount, projectId, projectTitle)
+            }
+            onEditDonation={editDonation}
+            onDeleteDonation={deleteDonation}
+            onShowCommunityChallenges={() => router.push("/challenges")}
+            totalGiveAllocated={giveTotal}
+            totalDonated={profile.totalDonated ?? 0}
+          />
+        </div>
       )}
     </div>
   );
@@ -394,7 +487,7 @@ function JarPreview({ fillPct, color, gradEnd, label, amount, emptyPrompt, unitD
             <text x={60*scale} y={114*scale} textAnchor="middle" dominantBaseline="middle"
               fontSize={6*scale} fontWeight="500" fill="rgba(255,255,255,0.4)"
               style={{ fontFamily: "inherit" }}>
-              funded
+              pledged
             </text>
           </>
         ) : (
@@ -462,24 +555,21 @@ function getCategoryFallback(project: Project): { img: string | null; abbr: stri
   return { img: null, abbr: "GIVE", color: "#2ECC71" };
 }
 
-/* ── Cause Tab ── */
+/* ── Giving Jar Tab ── */
 function CauseTab({
-  uid,
   projects,
   activeProject,
   givingBalance,
   donations,
   causeJarBalances,
-  causeGoalAmounts,
-  onSelectCause,
-  onSetGoal,
-  onDeactivateCause,
-  onAddCause,
-  onEditCause,
-  onDeleteCause,
+  completedChallenges,
   onDonate,
+  onDonateCompleted,
   onEditDonation,
   onDeleteDonation,
+  onShowCommunityChallenges,
+  totalGiveAllocated,
+  totalDonated,
 }: {
   uid: string;
   projects: Project[];
@@ -488,131 +578,80 @@ function CauseTab({
   donations: DonationEvent[];
   causeJarBalances: Record<string, number> | undefined;
   causeGoalAmounts: Record<string, number> | undefined;
-  onSelectCause: (p: Project, moveFunds: boolean) => void;
+  completedChallenges: { project: Project; balance: number; donated: number }[];
+  onSelectCause: (p: Project) => void;
   onSetGoal: (causeId: string, amount: number) => Promise<void>;
   onDeactivateCause: () => Promise<void>;
   onAddCause: (title: string, sponsor: string, location: string | undefined, goalAmount: number, donationURL?: string, description?: string, tags?: string[]) => Promise<void>;
   onEditCause: (projectId: string, data: { title: string; sponsor: string; location?: string; goalAmount: number; donationURL?: string; description?: string }) => Promise<void>;
   onDeleteCause: (projectId: string) => Promise<void>;
   onDonate: (amount: number) => Promise<void>;
+  onDonateCompleted: (amount: number, projectId: string, projectTitle: string) => Promise<void>;
   onEditDonation: (donation: DonationEvent, newAmount: number) => Promise<void>;
   onDeleteDonation: (donation: DonationEvent) => Promise<void>;
+  onShowCommunityChallenges: () => void;
+  totalGiveAllocated: number;
+  totalDonated: number;
 }) {
-  const [donatingId, setDonatingId] = useState<string | null>(null);
+  const [showLogDonation, setShowLogDonation] = useState(false);
   const [donateAmountStr, setDonateAmountStr] = useState("");
   const [donating, setDonating] = useState(false);
-  const [showAddForm, setShowAddForm] = useState(false);
-  const [customTitle, setCustomTitle] = useState("");
-  const [customSponsor, setCustomSponsor] = useState("");
-  const [customLocation, setCustomLocation] = useState("");
-  const [customGoalStr, setCustomGoalStr] = useState("");
-  const [customURL, setCustomURL] = useState("");
-  const [customDescription, setCustomDescription] = useState("");
-  const [customCategory, setCustomCategory] = useState("education");
-  const [addingCause, setAddingCause] = useState(false);
-  const [editingCustomId, setEditingCustomId] = useState<string | null>(null);
-  const [switchTarget, setSwitchTarget] = useState<Project | null>(null);
-  const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
-  const [deleting, setDeleting] = useState(false);
   const [editingDonationId, setEditingDonationId] = useState<string | null>(null);
-  const [goalSettingProject, setGoalSettingProject] = useState<Project | null>(null);
-  const [goalInputStr, setGoalInputStr] = useState("");
-  const [savingGoal, setSavingGoal] = useState(false);
   const [editDonationAmountStr, setEditDonationAmountStr] = useState("");
   const [deletingDonationId, setDeletingDonationId] = useState<string | null>(null);
   const [donationWorking, setDonationWorking] = useState(false);
-  const [deactivateConfirm, setDeactivateConfirm] = useState(false);
-  const [deactivating, setDeactivating] = useState(false);
-  const [selectedCategory, setSelectedCategory] = useState("All");
-  const [detailProject, setDetailProject] = useState<Project | null>(null);
+  const [completedDonateId, setCompletedDonateId] = useState<string | null>(null);
+  const [completedDonateAmountStr, setCompletedDonateAmountStr] = useState("");
+  const [completedDonating, setCompletedDonating] = useState(false);
 
-  async function handleDelete(projectId: string) {
-    setDeleting(true);
-    try {
-      await onDeleteCause(projectId);
-      setConfirmDeleteId(null);
-    } finally {
-      setDeleting(false);
-    }
-  }
+  const completedIds = new Set(completedChallenges.map((c) => c.project.id));
 
-  function startEdit(project: Project) {
-    setEditingCustomId(project.id);
-    setCustomTitle(project.title);
-    setCustomSponsor(project.sponsor ?? "");
-    setCustomLocation(project.location ?? "");
-    setCustomDescription(project.description ?? "");
-    setCustomGoalStr(project.goalAmount > 0 ? String(project.goalAmount) : "");
-    setCustomURL(project.donationURL ?? "");
-    setSelectedCategory("My Custom");
-    setShowAddForm(true);
-  }
+  // Show other cause balances — exclude active cause and completed challenges (shown separately)
+  const otherBalances = Object.entries(causeJarBalances ?? {})
+    .filter(([id, bal]) => (bal as number) > 0 && id !== activeProject?.id && !completedIds.has(id))
+    .map(([id, bal]) => ({
+      id,
+      balance: bal as number,
+      project: projects.find((p) => p.id === id) ?? null,
+    }))
+    .filter(({ project }) => project !== null) as { id: string; balance: number; project: NonNullable<ReturnType<typeof projects.find>> }[];
 
-  function resetForm() {
-    setCustomTitle("");
-    setCustomSponsor("");
-    setCustomLocation("");
-    setCustomGoalStr("");
-    setCustomURL("");
-    setCustomDescription("");
-    setCustomCategory("education");
-    setEditingCustomId(null);
-    setShowAddForm(false);
-  }
-
-  async function handleAddCause() {
-    if (!customTitle.trim() || parseFloat(customGoalStr) <= 0) return;
-    const goalAmount = parseFloat(customGoalStr);
-    setAddingCause(true);
-    if (editingCustomId) {
-      await onEditCause(editingCustomId, {
-        title: customTitle.trim(),
-        sponsor: customSponsor.trim(),
-        location: customLocation.trim() || undefined,
-        goalAmount,
-        donationURL: customURL.trim() || undefined,
-        description: customDescription.trim() || undefined,
-      });
-    } else {
-      await onAddCause(customTitle.trim(), customSponsor.trim(), customLocation.trim() || undefined, goalAmount, customURL.trim() || undefined, customDescription.trim() || undefined, ["custom"]);
-    }
-    resetForm();
-    setAddingCause(false);
-  }
-
-  function handleSetActive(project: Project) {
-    if (activeProject && activeProject.id !== project.id) {
-      setSwitchTarget(project);
-    } else {
-      onSelectCause(project, false);
-      setGoalInputStr("");
-      setGoalSettingProject(project);
-    }
-  }
-
-  function CauseDonateRow({ project }: { project: Project }) {
-    return (
-      <div className="mt-3 space-y-2">
-        {project.donationURL && (
-          <a
-            href={project.donationURL}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="flex items-center justify-center gap-1.5 w-full py-2 bg-[#2ECC71] text-[#0B1A14] font-semibold rounded-xl hover:bg-[#1DB954] transition-colors text-xs"
-          >
-            {givingBalance > 0 ? "Donate my Jar" : "Donate"}
-          </a>
-        )}
-        {donatingId === project.id ? (
+  return (
+    <div className="space-y-5">
+      {/* Scoreboard card */}
+      {activeProject ? (
+        <div className="rounded-2xl p-5" style={{ background: "var(--bg-surface-1)", border: "1px solid var(--border-default)" }}>
+          <p className="text-xs uppercase tracking-wide font-bold mb-1" style={{ color: "var(--text-muted)" }}>
+            {activeProject.sponsor ? `${activeProject.sponsor}` : "Active Challenge"}
+          </p>
+          <p className="text-base font-black leading-snug mb-4" style={{ color: "var(--text-primary)" }}>
+            {activeProject.title}
+          </p>
+          <div className="grid grid-cols-3 gap-3 mb-4">
+            <div className="rounded-xl p-3 text-center" style={{ background: "var(--bg-surface-2)", border: "1px solid var(--border-default)" }}>
+              <p className="text-[10px] font-bold uppercase tracking-wide mb-1" style={{ color: "var(--text-muted)" }}>Lifetime Given</p>
+              <p className="text-lg font-extrabold leading-tight" style={{ color: "var(--text-primary)" }}>{formatCurrency(totalGiveAllocated)}</p>
+            </div>
+            <div className="rounded-xl p-3 text-center" style={{ background: "var(--bg-surface-2)", border: "1px solid var(--border-default)" }}>
+              <p className="text-[10px] font-bold uppercase tracking-wide mb-1" style={{ color: "var(--text-muted)" }}>Donated</p>
+              <p className="text-lg font-extrabold leading-tight" style={{ color: "var(--text-primary)" }}>{formatCurrency(totalDonated)}</p>
+            </div>
+            <div className="rounded-xl p-3 text-center" style={{ background: "rgba(46,204,113,0.08)", border: "1px solid rgba(46,204,113,0.35)" }}>
+              <p className="text-[10px] font-bold uppercase tracking-wide mb-1" style={{ color: "#2ECC71" }}>Jar Balance</p>
+              <p className="text-lg font-extrabold leading-tight" style={{ color: "#2ECC71" }}>{formatCurrency(givingBalance)}</p>
+            </div>
+          </div>
+          {showLogDonation ? (
             <div className="flex gap-2">
               <div className="relative flex-1">
-                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-[rgba(237,245,240,0.6)]">$</span>
+                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm" style={{ color: "var(--text-muted)" }}>$</span>
                 <input
                   type="number"
                   placeholder="0.00"
                   value={donateAmountStr}
                   onChange={(e) => setDonateAmountStr(e.target.value)}
-                  className="w-full pl-7 rounded-xl px-3 py-2 text-sm focus:outline-none" style={{ background: "var(--bg-surface-2)", border: "1px solid var(--border-default)", color: "var(--text-primary)" }}
+                  className="w-full pl-7 rounded-xl px-3 py-2 text-sm focus:outline-none"
+                  style={{ background: "var(--bg-surface-2)", border: "1px solid #2ECC71", color: "var(--text-primary)" }}
                   autoFocus
                 />
               </div>
@@ -623,555 +662,233 @@ function CauseTab({
                   setDonating(true);
                   await onDonate(amt);
                   setDonateAmountStr("");
-                  setDonatingId(null);
+                  setShowLogDonation(false);
                   setDonating(false);
                 }}
                 disabled={donating || !donateAmountStr || parseFloat(donateAmountStr) <= 0}
-                className="bg-[#2ECC71] text-[#0B1A14] font-semibold px-4 py-2 rounded-xl text-sm disabled:opacity-50"
-              >
-                {donating ? "…" : "Confirm"}
-              </button>
+                className="px-3 py-2 rounded-xl text-sm font-bold disabled:opacity-50"
+                style={{ background: "#2ECC71", color: "#0B1A14" }}
+              >{donating ? "…" : "✓"}</button>
               <button
-                onClick={() => { setDonatingId(null); setDonateAmountStr(""); }}
-                className="border-[rgba(46,204,113,0.12)] text-[rgba(237,245,240,0.6)] px-3 py-2 rounded-xl text-sm"
-              >
-                Cancel
-              </button>
-            </div>
-          ) : (
-            <button
-              onClick={() => setDonatingId(project.id)}
-              className="w-full py-2 font-semibold rounded-xl text-xs"
-              style={{ border: "1px solid rgba(46,204,113,0.3)", color: "rgba(237,245,240,0.6)" }}
-            >
-              Log Donation
-            </button>
-          )
-        }
-      </div>
-    );
-  }
-
-  return (
-    <div className="space-y-5">
-      {/* Deactivate confirm modal */}
-      {deactivateConfirm && (
-        <div className="fixed inset-0 bg-black/60 z-50 flex items-end sm:items-center justify-center p-4" onClick={() => setDeactivateConfirm(false)}>
-          <div className="rounded-2xl w-full max-w-sm shadow-2xl" style={{ background: "var(--bg-surface-1)", border: "1px solid var(--border-default)" }} onClick={(e) => e.stopPropagation()}>
-            <div className="px-5 pt-5 pb-4 relative" style={{ borderBottom: "1px solid var(--border-default)" }}>
-              <button onClick={() => setDeactivateConfirm(false)} className="absolute top-4 right-4 text-xl leading-none" style={{ color: "var(--text-muted)" }}>×</button>
-              <p className="text-lg font-bold pr-6" style={{ color: "var(--text-primary)" }}>Deactivate this jar?</p>
-              <p className="text-xs mt-1.5" style={{ color: "var(--text-secondary)" }}>
-                You have <span className="font-semibold" style={{ color: "var(--coral-primary)" }}>{formatCurrency(givingBalance)}</span> in your Giving Jar. After deactivating, it stays available until you pick a new cause.
-              </p>
-            </div>
-            <div className="px-5 py-4 flex gap-2">
-              <button
-                onClick={async () => {
-                  setDeactivating(true);
-                  await onDeactivateCause();
-                  setDeactivating(false);
-                  setDeactivateConfirm(false);
-                }}
-                disabled={deactivating}
-                className="flex-1 py-3 rounded-xl text-sm font-bold"
-                style={{ background: "var(--coral-primary)", color: "#fff", border: "none", cursor: "pointer", opacity: deactivating ? 0.6 : 1 }}
-              >
-                {deactivating ? "Deactivating…" : "Deactivate"}
-              </button>
-              <button
-                onClick={() => setDeactivateConfirm(false)}
-                className="flex-1 py-3 rounded-xl text-sm font-semibold"
-                style={{ background: "transparent", border: "1px solid var(--border-emphasis)", color: "var(--text-secondary)", cursor: "pointer" }}
-              >
-                Cancel
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Switch modal */}
-      {switchTarget && (
-        <div className="fixed inset-0 bg-black/60 z-50 flex items-end sm:items-center justify-center p-4" onClick={() => setSwitchTarget(null)}>
-          <div className="rounded-2xl w-full max-w-sm shadow-2xl" style={{ background: "var(--bg-surface-1)", border: "1px solid var(--border-default)" }} onClick={(e) => e.stopPropagation()}>
-            <div className="px-5 pt-5 pb-4 relative" style={{ borderBottom: "1px solid var(--border-default)" }}>
-              <button onClick={() => setSwitchTarget(null)} className="absolute top-4 right-4 text-xl leading-none" style={{ color: "var(--text-muted)" }}>×</button>
-              <p className="text-lg font-bold pr-6" style={{ color: "var(--text-primary)" }}>Switch active cause?</p>
-              <p className="text-xs mt-1.5" style={{ color: "var(--text-secondary)" }}>
-                You have <span className="font-semibold" style={{ color: "var(--coral-primary)" }}>{formatCurrency(givingBalance)}</span> saved toward <span className="font-semibold">{activeProject?.title}</span>. What would you like to do with it?
-              </p>
-            </div>
-            <div>
-              <button
-                className="w-full text-left px-5 py-4 transition-colors"
-                style={{ borderBottom: "1px solid var(--border-default)" }}
-                onMouseEnter={(e) => (e.currentTarget as HTMLElement).style.background = "var(--bg-surface-2)"}
-                onMouseLeave={(e) => (e.currentTarget as HTMLElement).style.background = "transparent"}
-                onClick={() => { setSwitchTarget(null); setDonatingId(activeProject?.id ?? null); }}
-              >
-                <p className="text-sm font-semibold" style={{ color: "var(--text-primary)" }}>Log a donation first</p>
-                <p className="text-xs mt-0.5" style={{ color: "var(--text-secondary)" }}>Enter how much you donated, then switch</p>
-              </button>
-              <button
-                className="w-full text-left px-5 py-4 transition-colors"
-                onMouseEnter={(e) => (e.currentTarget as HTMLElement).style.background = "var(--bg-surface-2)"}
-                onMouseLeave={(e) => (e.currentTarget as HTMLElement).style.background = "transparent"}
-                onClick={() => { onSelectCause(switchTarget, true); setSwitchTarget(null); setGoalInputStr(""); setGoalSettingProject(switchTarget); }}
-              >
-                <p className="text-sm font-semibold" style={{ color: "var(--text-primary)" }}>→ Move balance to {switchTarget.title}</p>
-                <p className="text-xs mt-0.5" style={{ color: "var(--text-secondary)" }}>Existing savings count toward the new cause</p>
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Goal-setting modal */}
-      {goalSettingProject && (
-        <div className="fixed inset-0 bg-black/60 z-50 flex items-end sm:items-center justify-center p-4" onClick={() => setGoalSettingProject(null)}>
-          <div className="rounded-2xl w-full max-w-sm shadow-2xl" style={{ background: "var(--bg-surface-1)", border: "1px solid var(--border-default)" }} onClick={(e) => e.stopPropagation()}>
-            <div className="px-5 pt-5 pb-4 relative" style={{ borderBottom: "1px solid var(--border-default)" }}>
-              <button onClick={() => setGoalSettingProject(null)} className="absolute top-4 right-4 text-xl leading-none" style={{ color: "var(--text-muted)" }}>×</button>
-              <p className="text-lg font-bold pr-6" style={{ color: "var(--text-primary)" }}>Set a saving goal</p>
-              <p className="text-xs mt-1" style={{ color: "var(--text-secondary)" }}>{goalSettingProject.title}</p>
-              {goalSettingProject.unitName && goalSettingProject.unitCost && (
-                <p className="text-xs mt-0.5 font-semibold" style={{ color: "#2BBAA4" }}>
-                  1 {goalSettingProject.unitName} = {goalSettingProject.unitCost < 1 ? `${Math.round(goalSettingProject.unitCost * 100)}¢` : formatCurrency(goalSettingProject.unitCost)}
-                </p>
-              )}
-            </div>
-            <div className="px-5 py-4 space-y-3">
-              <p className="text-sm" style={{ color: "var(--text-secondary)" }}>How much do you want to save toward this cause?</p>
-              <input
-                type="number"
-                min="0"
-                step="1"
-                placeholder="e.g. 25"
-                value={goalInputStr}
-                onChange={(e) => setGoalInputStr(e.target.value)}
-                className="w-full rounded-xl px-4 py-3 text-sm font-semibold focus:outline-none"
-                style={{ background: "var(--bg-surface-2)", border: "1px solid var(--border-default)", color: "var(--text-primary)" }}
-              />
-              {(() => {
-                const dollars = parseFloat(goalInputStr);
-                if (!dollars || dollars <= 0) return null;
-                const { unitName, unitCost, unitDisplay, unitIsGoal } = goalSettingProject;
-                if (unitName && unitCost && !unitIsGoal) {
-                  const count = dollars / unitCost;
-                  const display = count >= 10 ? Math.round(count) : parseFloat(count.toFixed(1));
-                  return <p className="text-xs font-semibold" style={{ color: "#2BBAA4" }}>≈ {display} {unitDisplay ?? unitName.toLowerCase()}</p>;
-                } else if (unitName && unitCost && unitIsGoal) {
-                  const pct = Math.round((dollars / unitCost) * 100);
-                  return <p className="text-xs font-semibold" style={{ color: "#2BBAA4" }}>≈ {pct}% of 1 {unitName}</p>;
-                }
-                return null;
-              })()}
-              <div className="flex gap-2 pt-1">
-                <button
-                  onClick={async () => {
-                    const dollars = parseFloat(goalInputStr);
-                    if (!dollars || dollars <= 0) return;
-                    setSavingGoal(true);
-                    await onSetGoal(goalSettingProject.id, dollars);
-                    setSavingGoal(false);
-                    setGoalSettingProject(null);
-                  }}
-                  disabled={savingGoal || !parseFloat(goalInputStr) || parseFloat(goalInputStr) <= 0}
-                  className="flex-1 py-3 rounded-xl text-sm font-bold transition-colors"
-                  style={{ background: "#2BBAA4", color: "#fff", border: "none", cursor: "pointer", opacity: savingGoal ? 0.6 : 1 }}
-                >
-                  {savingGoal ? "Saving…" : "Save Goal"}
-                </button>
-                <button
-                  onClick={() => setGoalSettingProject(null)}
-                  className="flex-1 py-3 rounded-xl text-sm font-semibold"
-                  style={{ background: "transparent", border: "1px solid var(--border-emphasis)", color: "var(--text-secondary)", cursor: "pointer" }}
-                >
-                  Skip
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Delete confirm modal */}
-      {confirmDeleteId && (
-        <div className="fixed inset-0 bg-black/60 z-50 flex items-end sm:items-center justify-center p-4" onClick={() => setConfirmDeleteId(null)}>
-          <div className="rounded-2xl w-full max-w-sm shadow-2xl" style={{ background: "var(--bg-surface-1)", border: "1px solid var(--border-default)" }} onClick={(e) => e.stopPropagation()}>
-            <div className="px-5 pt-5 pb-3" style={{ borderBottom: "1px solid var(--border-default)" }}>
-              <p className="font-bold" style={{ color: "var(--text-primary)" }}>Delete this cause?</p>
-              <p className="text-xs mt-1" style={{ color: "var(--text-secondary)" }}>This can&apos;t be undone.</p>
-            </div>
-            <div className="px-5 py-4 flex gap-2">
-              <button
-                onClick={() => handleDelete(confirmDeleteId)}
-                disabled={deleting}
-                className="flex-1 bg-red-500 text-white font-semibold py-2.5 rounded-xl text-sm disabled:opacity-50"
-              >
-                {deleting ? "Deleting…" : "Delete"}
-              </button>
-              <button
-                onClick={() => setConfirmDeleteId(null)}
-                className="flex-1 font-semibold py-2.5 rounded-xl text-sm"
+                onClick={() => { setShowLogDonation(false); setDonateAmountStr(""); }}
+                className="px-3 py-2 rounded-xl text-sm"
                 style={{ border: "1px solid var(--border-default)", color: "var(--text-secondary)" }}
-              >
-                Cancel
-              </button>
+              >✕</button>
             </div>
-          </div>
-        </div>
-      )}
-
-      {/* Cause detail modal */}
-      {detailProject && (() => {
-        const dp = detailProject;
-        const isActive = activeProject?.id === dp.id;
-        const { img: fallbackImg, abbr, color } = getCategoryFallback(dp);
-        return (
-          <div className="fixed inset-0 bg-black/60 z-50 flex items-end sm:items-center justify-center p-4" onClick={() => setDetailProject(null)}>
-            <div className="rounded-2xl w-full max-w-sm shadow-2xl overflow-hidden" style={{ background: "var(--bg-surface-1)", border: "1px solid var(--border-default)" }} onClick={(e) => e.stopPropagation()}>
-              <div className="relative flex items-center justify-center h-40 w-full" style={{ background: "var(--bg-surface-2)" }}>
-                {dp.imageURL
-                  ? <img src={dp.imageURL} className="w-full h-full object-cover" style={{ objectPosition: dp.imagePosition ?? "center" }} alt={dp.title} />
-                  : fallbackImg
-                    ? <img src={fallbackImg} className="w-full h-full object-cover" alt={dp.title} />
-                    : <span className="text-3xl font-extrabold" style={{ color }}>{abbr}</span>
-                }
-                <button onClick={() => setDetailProject(null)} className="absolute top-3 right-3 text-xl leading-none w-8 h-8 flex items-center justify-center rounded-full" style={{ background: "rgba(0,0,0,0.4)", color: "#fff" }}>×</button>
-              </div>
-              <div className="px-5 py-4">
-                <p className="text-xl font-bold" style={{ color: "var(--text-primary)" }}>{dp.title}</p>
-                {dp.sponsor && <p className="text-xs mt-0.5" style={{ color: "var(--text-muted)" }}>by {dp.sponsor}</p>}
-                {dp.description && <p className="text-sm mt-2 leading-relaxed" style={{ color: "var(--text-secondary)" }}>{dp.description}</p>}
-                {dp.unitName ? (
-                  <p className="text-sm mt-2 font-semibold" style={{ color: "#2ECC71" }}>{formatCurrency(dp.unitIsGoal ? dp.goalAmount : dp.unitCost!)} = 1 {dp.unitName}</p>
-                ) : dp.goalAmount > 0 ? (
-                  <p className="text-sm mt-2 font-semibold" style={{ color: "#2ECC71" }}>Goal: {formatCurrency(dp.goalAmount)}</p>
-                ) : null}
-                <button
-                  onClick={() => { handleSetActive(dp); setDetailProject(null); }}
-                  className="mt-4 w-full py-3 text-sm font-semibold rounded-xl"
-                  style={isActive ? { background: "rgba(46,204,113,0.15)", color: "#2ECC71" } : { background: "#2ECC71", color: "#0B1A14" }}
-                >
-                  {isActive ? "✓ Your Giving Jar" : "Make this my Giving Jar"}
-                </button>
-                {(dp.learnMoreURL || dp.donationURL) && (
-                  <a href={dp.learnMoreURL ?? dp.donationURL!} target="_blank" rel="noopener noreferrer" className="block text-center text-sm mt-3 font-semibold" style={{ color: "#2ECC71" }}>
-                    Learn More →
-                  </a>
-                )}
-              </div>
-            </div>
-          </div>
-        );
-      })()}
-
-      {/* Page heading */}
-      <div className="mb-4">
-        <h1 className="text-4xl font-extrabold leading-tight" style={{ color: "#2ECC71" }}>Giving Jar</h1>
-        <p className="text-sm mt-1" style={{ color: "var(--text-secondary)" }}>
-          Skip something small. Fund something real.
-        </p>
-      </div>
-
-      {/* Scoreboard (active cause) OR Featured Cause (no active cause) */}
-      {activeProject ? (
-        /* Scoreboard */
-        (() => {
-          const balance = givingBalance;
-          const personalGoal = causeGoalAmounts?.[activeProject.id] ?? activeProject.goalAmount ?? 0;
-          const isUnitCost = !!(activeProject.unitCost && !activeProject.unitIsGoal && activeProject.unitDisplay);
-          const unitsFunded = isUnitCost ? Math.floor(balance / activeProject.unitCost!) : 0;
-          const pct = personalGoal > 0 ? Math.min(100, Math.round((balance / personalGoal) * 100)) : null;
-          const { img: scoreboardImg } = getCategoryFallback(activeProject);
-          const scoreboardPhoto = activeProject.imageURL ?? scoreboardImg;
-          const impactLine = isUnitCost
-            ? `${formatCurrency(balance)} saved and ${unitsFunded} ${activeProject.unitDisplay} funded`
-            : null;
-          return (
-            <div className="rounded-2xl overflow-hidden mb-2" style={{ background: "var(--bg-surface-2)", border: "1px solid var(--border-default)" }}>
-              {scoreboardPhoto && (
-                <div className="h-44 sm:h-64 w-full" style={{ background: "var(--bg-surface-1)" }}>
-                  <img src={scoreboardPhoto} className="w-full h-full object-cover" style={{ objectPosition: activeProject.imagePosition ?? "center" }} alt={activeProject.title} />
-                </div>
-              )}
-              <div className="p-5">
-              <div className="flex items-center justify-between mb-3">
-                <button
-                  onClick={() => setDeactivateConfirm(true)}
-                  className="inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-full"
-                  style={{ background: "rgba(46,204,113,0.15)", color: "#2ECC71", border: "none", cursor: "pointer" }}
-                >
-                  ✓ Active
-                </button>
-                {activeProject.isCustom && <button onClick={() => startEdit(activeProject)} className="p-1 text-base" style={{ color: "var(--text-muted)" }} title="Edit">✏️</button>}
-              </div>
-              <div className="flex items-center gap-4">
-                <div className="flex-shrink-0">
-                  <JarPreview
-                    fillPct={personalGoal > 0 ? pct ?? 0 : balance > 0 ? 100 : 0}
-                    color="#2ECC71"
-                    gradEnd="#1E9485"
-                    label={null}
-                    amount=""
-                    emptyPrompt={activeProject.title}
-                    centerValue={personalGoal > 0 ? undefined : formatCurrency(balance)}
-                    centerLabel={personalGoal > 0 ? undefined : "saved"}
-                    goalAmount={personalGoal > 0 ? personalGoal : undefined}
-                    hideTopLabel
-                  />
-                </div>
-                <div className="flex-1 min-w-0">
-                  <p className="text-xs mb-0.5" style={{ color: "var(--text-muted)" }}>Your Giving Jar</p>
-                  <p className="text-xl font-bold leading-tight" style={{ color: "var(--text-primary)" }}>{activeProject.title}</p>
-                  {activeProject.sponsor && <p className="text-xs mt-1" style={{ color: "var(--text-muted)" }}>by {activeProject.sponsor}</p>}
-                  <div className="mt-3">
-                    {impactLine ? (
-                      <p className="text-sm font-bold leading-snug" style={{ color: "#2ECC71" }}>{impactLine}</p>
-                    ) : (
-                      <p className="text-sm font-semibold" style={{ color: "var(--text-primary)" }}>{formatCurrency(balance)} saved</p>
-                    )}
-                  </div>
-                  <CauseDonateRow project={activeProject} />
-                </div>
-              </div>
-              </div>
-            </div>
-          );
-        })()
-      ) : (
-        /* Featured Cause */
-        (() => {
-          const featured = projects.find(p => p.id === "cfc") ?? projects.find(p => !p.isCustom);
-          if (!featured) return null;
-          const { img: fallbackImg, abbr, color } = getCategoryFallback(featured);
-          return (
-            <div className="rounded-2xl overflow-hidden mb-2 cursor-pointer" style={{ background: "var(--bg-surface-1)", border: "1px solid var(--border-default)" }} onClick={() => setDetailProject(featured)}>
-              <div className="flex items-center justify-center h-28 sm:h-48 w-full" style={{ background: "var(--bg-surface-2)" }}>
-                {featured.imageURL
-                  ? <img src={featured.imageURL} className="w-full h-full object-cover" style={{ objectPosition: featured.imagePosition ?? "center" }} alt={featured.title} />
-                  : fallbackImg
-                    ? <img src={fallbackImg} className="w-full h-full object-cover" alt={featured.title} />
-                    : <span className="text-2xl font-extrabold" style={{ color }}>{abbr}</span>
-                }
-              </div>
-              <div className="p-4">
-                <p className="text-[10px] font-bold uppercase tracking-wide mb-1" style={{ color: "#2ECC71" }}>This Month&apos;s Featured Cause</p>
-                <p className="text-xl font-bold" style={{ color: "var(--text-primary)" }}>{featured.title}</p>
-                {featured.sponsor && <p className="text-xs mt-0.5" style={{ color: "var(--text-muted)" }}>by {featured.sponsor}</p>}
-                {featured.description && <p className="text-xs mt-1.5 line-clamp-2" style={{ color: "var(--text-secondary)" }}>{featured.description}</p>}
-                {featured.unitName && (
-                  <p className="text-xs mt-1.5 font-semibold" style={{ color: "#2ECC71" }}>{formatCurrency(featured.unitIsGoal ? featured.goalAmount : featured.unitCost!)} = 1 {featured.unitName}</p>
-                )}
-                <button
-                  onClick={(e) => { e.stopPropagation(); handleSetActive(featured); }}
-                  className="mt-3 w-full py-2.5 text-sm font-semibold rounded-xl"
-                  style={{ background: "#2ECC71", color: "#0B1A14" }}
-                >
-                  Make this my Giving Jar
-                </button>
-              </div>
-            </div>
-          );
-        })()
-      )}
-
-      {/* Category filter tabs */}
-      <div className="mt-6 mb-3">
-        <p className="text-lg font-bold mb-0.5" style={{ color: "var(--text-primary)" }}>
-          {activeProject ? "Explore More Causes" : "Explore Causes"}
-        </p>
-        <p className="text-xs" style={{ color: "var(--text-secondary)" }}>
-          Pick a cause anytime to change what your skipped spending supports.
-        </p>
-      </div>
-      <div className="flex gap-2 overflow-x-auto pb-1 -mx-1 px-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
-        {["All", "Education", "Meals", "Health", "My Custom"].map(cat => (
-          <button
-            key={cat}
-            onClick={() => setSelectedCategory(cat)}
-            className="flex-shrink-0 px-3 py-1.5 rounded-full text-xs font-semibold transition-colors"
-            style={selectedCategory === cat
-              ? { background: "#2ECC71", color: "#0B1A14" }
-              : { border: "1px solid rgba(46,204,113,0.3)", color: "var(--text-secondary)" }
-            }
-          >
-            {cat}
-          </button>
-        ))}
-      </div>
-
-      {/* Cause card grid */}
-      {(() => {
-        const tagMap: Record<string, string> = {
-          Education: "education", Meals: "food", Health: "health",
-        };
-        const filteredProjects = projects.filter(p => {
-          if (selectedCategory === "My Custom") return p.isCustom;
-          if (selectedCategory === "All") return !p.isCustom;
-          return p.tags?.includes(tagMap[selectedCategory]);
-        });
-        return (
-          <div className="grid grid-cols-2 gap-3">
-            {filteredProjects.map(project => {
-              const isActive = activeProject?.id === project.id;
-              const { img: fallbackImg, abbr, color } = getCategoryFallback(project);
-              return (
-                <div
-                  key={project.id}
-                  className="rounded-2xl overflow-hidden cursor-pointer"
-                  style={{ background: "var(--bg-surface-1)", border: isActive ? "2px solid #2ECC71" : "1px solid var(--border-default)" }}
-                  onClick={() => setDetailProject(project)}
-                >
-                  <div className="flex items-center justify-center h-24 sm:h-36 w-full" style={{ background: "var(--bg-surface-2)" }}>
-                    {project.imageURL
-                      ? <img src={project.imageURL} className="w-full h-full object-cover" style={{ objectPosition: project.imagePosition ?? "center" }} alt={project.title} />
-                      : fallbackImg
-                        ? <img src={fallbackImg} className="w-full h-full object-cover" alt={project.title} />
-                        : <span className="text-sm font-extrabold" style={{ color }}>{abbr}</span>
-                    }
-                  </div>
-                  <div className="p-3">
-                    {isActive && <span className="text-[10px] font-bold px-2 py-0.5 rounded-full mb-1 inline-block" style={{ background: "rgba(46,204,113,0.15)", color: "#2ECC71" }}>✓ Active</span>}
-                    <p className="text-sm font-bold leading-snug" style={{ color: "var(--text-primary)" }}>{project.title}</p>
-                    {project.sponsor && <p className="text-xs mt-0.5" style={{ color: "var(--text-muted)" }}>by {project.sponsor}</p>}
-                    {project.description && <p className="text-xs mt-1 line-clamp-2" style={{ color: "var(--text-secondary)" }}>{project.description}</p>}
-                    {project.unitName ? (
-                      <p className="text-xs mt-1 font-semibold" style={{ color: "#2ECC71" }}>{formatCurrency(project.unitIsGoal ? project.goalAmount : project.unitCost!)} = 1 {project.unitName}</p>
-                    ) : project.goalAmount > 0 ? (
-                      <p className="text-xs mt-1 font-semibold" style={{ color: "#2ECC71" }}>Goal: {formatCurrency(project.goalAmount)}</p>
-                    ) : null}
-                    <button
-                      onClick={(e) => { e.stopPropagation(); handleSetActive(project); }}
-                      className="mt-2 w-full py-2 text-xs font-semibold rounded-xl transition-colors"
-                      style={isActive
-                        ? { background: "rgba(46,204,113,0.15)", color: "#2ECC71" }
-                        : { background: "#2ECC71", color: "#0B1A14" }
-                      }
-                    >
-                      {isActive ? "✓ Your Giving Jar" : "Choose Cause"}
-                    </button>
-                    {project.isCustom && (
-                      <div className="flex gap-1 mt-1.5 justify-end" onClick={(e) => e.stopPropagation()}>
-                        <button onClick={() => startEdit(project)} className="text-[rgba(237,245,240,0.35)] hover:text-[#2ECC71] p-1 text-sm">✏️</button>
-                        <button onClick={() => setConfirmDeleteId(project.id)} className="text-[rgba(237,245,240,0.35)] hover:text-red-400 p-1 text-sm">🗑️</button>
-                      </div>
-                    )}
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-        );
-      })()}
-
-      {/* Add / Edit cause form — only in My Custom tab */}
-      {selectedCategory === "My Custom" && (
-        showAddForm ? (
-          <div className="mt-3 rounded-2xl p-4 space-y-3" style={{ background: "var(--bg-surface-1)", border: "1px solid var(--border-default)" }}>
-            <p className="text-sm font-semibold" style={{ color: "var(--text-primary)" }}>{editingCustomId ? "Edit your cause" : "Add your own cause"}</p>
-            <input type="text" placeholder="My Skips Fund *" value={customTitle} onChange={(e) => setCustomTitle(e.target.value)} className="w-full rounded-xl px-3 py-2.5 text-sm focus:outline-none" style={{ background: "var(--bg-surface-2)", border: "1px solid var(--border-default)", color: "var(--text-primary)" }} maxLength={100} autoFocus />
-            <input type="text" placeholder="Organization (optional)" value={customSponsor} onChange={(e) => setCustomSponsor(e.target.value)} className="w-full rounded-xl px-3 py-2.5 text-sm focus:outline-none" style={{ background: "var(--bg-surface-2)", border: "1px solid var(--border-default)", color: "var(--text-primary)" }} maxLength={100} />
-            <input type="text" placeholder="Location (optional, e.g. Cambodia)" value={customLocation} onChange={(e) => setCustomLocation(e.target.value)} className="w-full rounded-xl px-3 py-2.5 text-sm focus:outline-none" style={{ background: "var(--bg-surface-2)", border: "1px solid var(--border-default)", color: "var(--text-primary)" }} maxLength={100} />
-            <textarea placeholder="Description (optional)" value={customDescription} onChange={(e) => setCustomDescription(e.target.value)} rows={3} className="w-full rounded-xl px-3 py-2.5 text-sm focus:outline-none resize-none" style={{ background: "var(--bg-surface-2)", border: "1px solid var(--border-default)", color: "var(--text-primary)" }} maxLength={300} />
-            <div className="relative">
-              <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-[rgba(237,245,240,0.6)]">$</span>
-              <input type="number" placeholder="Skipped Amount Needed *" value={customGoalStr} onChange={(e) => setCustomGoalStr(e.target.value)} className="w-full pl-7 rounded-xl px-3 py-2.5 text-sm focus:outline-none" style={{ background: "var(--bg-surface-2)", border: "1px solid var(--border-default)", color: "var(--text-primary)" }} />
-            </div>
-            <input type="url" placeholder="Donation link (optional)" value={customURL} onChange={(e) => setCustomURL(e.target.value)} className="w-full rounded-xl px-3 py-2.5 text-sm focus:outline-none" style={{ background: "var(--bg-surface-2)", border: "1px solid var(--border-default)", color: "var(--text-primary)" }} maxLength={500} />
-            <div className="flex gap-2">
-              <button onClick={handleAddCause} disabled={addingCause || !customTitle.trim() || !customGoalStr || parseFloat(customGoalStr) <= 0} className="flex-1 bg-[#2ECC71] text-[#0B1A14] font-semibold py-2.5 rounded-xl text-sm disabled:opacity-50">{addingCause ? "Saving…" : "Save"}</button>
-              <button onClick={resetForm} className="px-4 py-2.5 font-semibold rounded-xl text-sm hover:text-[#EDF5F0] transition-colors" style={{ border: "1px solid var(--border-default)", color: "var(--text-secondary)" }}>Cancel</button>
-            </div>
-          </div>
-        ) : (
-          <button onClick={() => setShowAddForm(true)} className="mt-3 w-full py-2.5 border border-dashed border-[rgba(46,204,113,0.25)] text-white font-bold rounded-xl hover:border-[#2ECC71] hover:text-[#2ECC71] transition-colors text-sm">
-            ＋ Add your own cause
-          </button>
-        )
-      )}
-
-        {/* Donation history */}
-        <div className="mt-4">
-          <p className="text-xs font-semibold text-[rgba(237,245,240,0.85)] uppercase tracking-wide mb-2">Donations</p>
-          {donations.length === 0 ? (
-            <p className="text-xs text-[rgba(237,245,240,0.35)] py-2">No donations yet — your jar doesn&apos;t need to be full to give!</p>
           ) : (
-            <div className="space-y-1">
-              {donations.map((d) => (
-                <div key={d.id}>
-                  {editingDonationId === d.id ? (
-                    <div className="flex gap-2 py-1.5">
-                      <div className="relative flex-1">
-                        <span className="absolute left-3 top-1/2 -translate-y-1/2 text-xs text-[rgba(237,245,240,0.6)]">$</span>
-                        <input
-                          type="number"
-                          value={editDonationAmountStr}
-                          onChange={(e) => setEditDonationAmountStr(e.target.value)}
-                          className="w-full pl-6 rounded-lg px-2 py-1.5 text-sm focus:outline-none" style={{ background: "var(--bg-surface-2)", border: "1px solid var(--green-primary)", color: "var(--text-primary)" }}
-                          autoFocus
-                        />
-                      </div>
-                      <button
-                        onClick={async () => {
-                          const newAmount = parseFloat(editDonationAmountStr);
-                          if (!newAmount || newAmount <= 0) return;
-                          setDonationWorking(true);
-                          await onEditDonation(d, newAmount);
-                          setEditingDonationId(null);
-                          setDonationWorking(false);
-                        }}
-                        disabled={donationWorking}
-                        className="text-xs bg-[#2ECC71] text-[#0B1A14] px-3 py-1.5 rounded-lg disabled:opacity-50"
-                      >
-                        {donationWorking ? "…" : "Save"}
-                      </button>
-                      <button onClick={() => setEditingDonationId(null)} className="text-xs border-[rgba(46,204,113,0.12)] text-[rgba(237,245,240,0.6)] px-3 py-1.5 rounded-lg">Cancel</button>
-                    </div>
-                  ) : deletingDonationId === d.id ? (
-                    <div className="flex items-center justify-between rounded-lg px-3 py-2 bg-red-500/10 border border-red-500/30">
-                      <p className="text-xs text-red-400">Delete {formatCurrency(d.amount)} to {d.causeTitle}?</p>
-                      <div className="flex gap-2">
-                        <button
-                          onClick={async () => {
-                            setDonationWorking(true);
-                            await onDeleteDonation(d);
-                            setDeletingDonationId(null);
-                            setDonationWorking(false);
-                          }}
-                          disabled={donationWorking}
-                          className="text-xs bg-red-500 text-white px-3 py-1 rounded-lg disabled:opacity-50"
-                        >
-                          {donationWorking ? "…" : "Delete"}
-                        </button>
-                        <button onClick={() => setDeletingDonationId(null)} className="text-xs border-[rgba(46,204,113,0.12)] text-[rgba(237,245,240,0.6)] px-3 py-1 rounded-lg">Cancel</button>
-                      </div>
-                    </div>
-                  ) : (
-                    <div className="flex items-center justify-between rounded-xl px-3 py-2" style={{ background: "var(--bg-surface-2)", border: "1px solid var(--border-default)" }}>
-                      <div>
-                        <p className="text-sm text-[#EDF5F0]">{d.causeTitle}</p>
-                        <p className="text-xs text-[rgba(237,245,240,0.35)]">{d.date ?? (d.donatedAt?.toDate ? d.donatedAt.toDate().toLocaleDateString() : "")}</p>
-                      </div>
-                      <div className="flex items-center gap-1">
-                        <span className="text-sm font-bold text-[#2ECC71]">{formatCurrency(d.amount)}</span>
-                        <button onClick={() => { setEditingDonationId(d.id); setEditDonationAmountStr(String(d.amount)); }} className="text-white/30 hover:text-[#2ECC71] text-base p-1">✏️</button>
-                        <button onClick={() => setDeletingDonationId(d.id)} className="text-white/30 hover:text-red-400 text-base p-1">🗑️</button>
-                      </div>
-                    </div>
-                  )}
-                </div>
-              ))}
+            <div className="flex gap-2">
+              {activeProject?.donationURL && (
+                <a
+                  href={activeProject.donationURL}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="flex-1 py-2.5 text-sm font-bold rounded-xl text-center"
+                  style={{ background: "#2ECC71", color: "#0B1A14", textDecoration: "none" }}
+                >Donate ↗</a>
+              )}
+              <button
+                onClick={() => setShowLogDonation(true)}
+                className="flex-1 py-2.5 text-sm font-bold rounded-xl"
+                style={activeProject?.donationURL
+                  ? { border: "1px solid rgba(46,204,113,0.4)", color: "#2ECC71" }
+                  : { background: "#2ECC71", color: "#0B1A14" }}
+              >Log Donation</button>
             </div>
           )}
         </div>
+      ) : (
+        <div className="rounded-2xl p-6 text-center" style={{ background: "var(--bg-surface-1)", border: "1px dashed rgba(46,204,113,0.3)" }}>
+          <p className="text-lg font-black mb-1" style={{ color: "var(--text-primary)" }}>No active challenge</p>
+          <p className="text-sm mb-4" style={{ color: "var(--text-secondary)" }}>
+            Join a challenge to start saving toward a cause with others.
+          </p>
+          <button
+            onClick={onShowCommunityChallenges}
+            className="px-6 py-2.5 rounded-full text-sm font-bold"
+            style={{ background: "var(--green-primary)", color: "#0B1A14" }}
+          >
+            Browse Challenges
+          </button>
+        </div>
+      )}
+
+      {/* Other cause balances */}
+      {otherBalances.length > 0 && (
+        <div className="rounded-2xl p-4" style={{ background: "var(--bg-surface-2)", border: "1px solid var(--border-default)" }}>
+          <p className="text-xs uppercase tracking-wide font-bold mb-3" style={{ color: "var(--text-muted)" }}>Other Balances</p>
+          <div className="space-y-2">
+            {otherBalances.map(({ id, balance, project }) => (
+              <div key={id} className="flex items-center justify-between">
+                <p className="text-sm font-semibold truncate mr-3" style={{ color: "var(--text-primary)" }}>
+                  {project?.title ?? id}
+                </p>
+                <p className="text-sm font-black shrink-0" style={{ color: "#2ECC71" }}>{formatCurrency(balance)}</p>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Completed Challenges */}
+      {completedChallenges.length > 0 && (
+        <div className="rounded-2xl p-4" style={{ background: "var(--bg-surface-1)", border: "1px solid var(--border-default)" }}>
+          <p className="text-xs font-bold uppercase tracking-widest mb-3" style={{ color: "var(--text-muted)" }}>Completed Challenges</p>
+          <div className="space-y-4">
+            {completedChallenges.map(({ project: p, balance, donated }) => (
+              <div key={p.id}>
+                <p className="text-sm font-black leading-snug" style={{ color: "var(--text-primary)" }}>{p.groupName || p.title}</p>
+                <p className="text-xs mb-3" style={{ color: "var(--text-muted)" }}>{p.sponsor}</p>
+                <div className="grid grid-cols-3 gap-2 mb-3">
+                  {[
+                    { label: "Saved", value: formatCurrency(balance + donated), color: "var(--text-primary)" },
+                    { label: "Donated", value: formatCurrency(donated), color: "#2ECC71" },
+                    { label: "Remaining", value: formatCurrency(balance), color: "#F59E0B" },
+                  ].map((s) => (
+                    <div key={s.label} className="rounded-xl p-2.5 text-center" style={{ background: "var(--bg-surface-2)", border: "1px solid var(--border-default)" }}>
+                      <p className="text-[10px] font-bold uppercase tracking-wide mb-1" style={{ color: "var(--text-muted)" }}>{s.label}</p>
+                      <p className="text-sm font-extrabold" style={{ color: s.color }}>{s.value}</p>
+                    </div>
+                  ))}
+                </div>
+                {completedDonateId === p.id ? (
+                  <div className="flex gap-2">
+                    <div className="relative flex-1">
+                      <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm" style={{ color: "var(--text-muted)" }}>$</span>
+                      <input
+                        type="number"
+                        placeholder="0.00"
+                        value={completedDonateAmountStr}
+                        onChange={(e) => setCompletedDonateAmountStr(e.target.value)}
+                        className="w-full pl-7 rounded-xl px-3 py-2 text-sm focus:outline-none"
+                        style={{ background: "var(--bg-surface-2)", border: "1px solid #F59E0B", color: "var(--text-primary)" }}
+                        autoFocus
+                      />
+                    </div>
+                    <button
+                      onClick={async () => {
+                        const amt = parseFloat(completedDonateAmountStr);
+                        if (!amt || amt <= 0) return;
+                        setCompletedDonating(true);
+                        await onDonateCompleted(amt, p.id, p.groupName || p.title);
+                        setCompletedDonateAmountStr("");
+                        setCompletedDonateId(null);
+                        setCompletedDonating(false);
+                      }}
+                      disabled={completedDonating || !completedDonateAmountStr || parseFloat(completedDonateAmountStr) <= 0}
+                      className="px-3 py-2 rounded-xl text-sm font-bold disabled:opacity-50"
+                      style={{ background: "#F59E0B", color: "#0B1A14" }}
+                    >{completedDonating ? "…" : "✓"}</button>
+                    <button
+                      onClick={() => { setCompletedDonateId(null); setCompletedDonateAmountStr(""); }}
+                      className="px-3 py-2 rounded-xl text-sm"
+                      style={{ border: "1px solid var(--border-default)", color: "var(--text-secondary)" }}
+                    >✕</button>
+                  </div>
+                ) : (
+                  <div className="flex gap-2">
+                    {p.donationURL && (
+                      <a
+                        href={p.donationURL}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="flex-1 py-2.5 text-sm font-bold rounded-xl text-center"
+                        style={{ background: "#F59E0B", color: "#0B1A14", textDecoration: "none" }}
+                      >Donate ↗</a>
+                    )}
+                    <button
+                      onClick={() => { setCompletedDonateId(p.id); setCompletedDonateAmountStr(""); }}
+                      className="flex-1 py-2.5 text-sm font-bold rounded-xl"
+                      style={p.donationURL
+                        ? { border: "1px solid rgba(245,158,11,0.4)", color: "#F59E0B" }
+                        : { background: "#F59E0B", color: "#0B1A14" }}
+                    >Log Donation</button>
+                  </div>
+                )}
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Donation history */}
+      <div className="rounded-2xl p-4" style={{ background: "var(--bg-surface-1)", border: "1px solid var(--border-default)" }}>
+        <p className="text-xs font-bold uppercase tracking-widest mb-3" style={{ color: "var(--text-muted)" }}>Donations</p>
+        {donations.length === 0 ? (
+          <p className="text-xs py-1" style={{ color: "var(--text-muted)" }}>No donations yet — your jar doesn&apos;t need to be full to give!</p>
+        ) : (
+          <div className="space-y-1">
+            {donations.map((d) => (
+              <div key={d.id}>
+                {editingDonationId === d.id ? (
+                  <div className="flex gap-2 py-1.5">
+                    <div className="relative flex-1">
+                      <span className="absolute left-3 top-1/2 -translate-y-1/2 text-xs text-[rgba(237,245,240,0.6)]">$</span>
+                      <input
+                        type="number"
+                        value={editDonationAmountStr}
+                        onChange={(e) => setEditDonationAmountStr(e.target.value)}
+                        className="w-full pl-6 rounded-lg px-2 py-1.5 text-sm focus:outline-none"
+                        style={{ background: "var(--bg-surface-2)", border: "1px solid var(--green-primary)", color: "var(--text-primary)" }}
+                        autoFocus
+                      />
+                    </div>
+                    <button
+                      onClick={async () => {
+                        const newAmount = parseFloat(editDonationAmountStr);
+                        if (!newAmount || newAmount <= 0) return;
+                        setDonationWorking(true);
+                        await onEditDonation(d, newAmount);
+                        setEditingDonationId(null);
+                        setDonationWorking(false);
+                      }}
+                      disabled={donationWorking}
+                      className="text-xs bg-[#2ECC71] text-[#0B1A14] px-3 py-1.5 rounded-lg disabled:opacity-50"
+                    >
+                      {donationWorking ? "…" : "Save"}
+                    </button>
+                    <button onClick={() => setEditingDonationId(null)} className="text-xs border-[rgba(46,204,113,0.12)] text-[rgba(237,245,240,0.6)] px-3 py-1.5 rounded-lg">Cancel</button>
+                  </div>
+                ) : deletingDonationId === d.id ? (
+                  <div className="flex items-center justify-between rounded-lg px-3 py-2 bg-red-500/10 border border-red-500/30">
+                    <p className="text-xs text-red-400">Delete {formatCurrency(d.amount)} to {d.causeTitle}?</p>
+                    <div className="flex gap-2">
+                      <button
+                        onClick={async () => {
+                          setDonationWorking(true);
+                          await onDeleteDonation(d);
+                          setDeletingDonationId(null);
+                          setDonationWorking(false);
+                        }}
+                        disabled={donationWorking}
+                        className="text-xs bg-red-500 text-white px-3 py-1 rounded-lg disabled:opacity-50"
+                      >
+                        {donationWorking ? "…" : "Delete"}
+                      </button>
+                      <button onClick={() => setDeletingDonationId(null)} className="text-xs border-[rgba(46,204,113,0.12)] text-[rgba(237,245,240,0.6)] px-3 py-1 rounded-lg">Cancel</button>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="flex items-center justify-between rounded-xl px-3 py-2" style={{ background: "var(--bg-surface-2)", border: "1px solid var(--border-default)" }}>
+                    <div>
+                      <p className="text-sm text-[#EDF5F0]">{d.causeTitle}</p>
+                      <p className="text-xs text-[rgba(237,245,240,0.35)]">{d.date ?? (d.donatedAt?.toDate ? d.donatedAt.toDate().toLocaleDateString() : "")}</p>
+                    </div>
+                    <div className="flex items-center gap-1">
+                      <span className="text-sm font-bold text-[#2ECC71]">{formatCurrency(d.amount)}</span>
+                      <button onClick={() => { setEditingDonationId(d.id); setEditDonationAmountStr(String(d.amount)); }} className="text-white/30 hover:text-[#2ECC71] text-base p-1">✏️</button>
+                      <button onClick={() => setDeletingDonationId(d.id)} className="text-white/30 hover:text-red-400 text-base p-1">🗑️</button>
+                    </div>
+                  </div>
+                )}
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
 
       <p className="text-xs text-[rgba(237,245,240,0.35)] text-center mt-6 leading-relaxed">
         I Skipped connects you with charitable organizations. Donations are processed directly by each organization. I Skipped does not handle or hold any donation funds.
       </p>
-
     </div>
   );
 }
@@ -1191,9 +908,183 @@ function getNextMilestone(targetAmount: number, balance: number): { value: numbe
   return { value: next, need: Math.max(0, next - balance) };
 }
 
+/* ── Compact Reward Jar (shown on combined My Jars view) ── */
+function CompactRewardJar({
+  spendingBalance,
+  totalLiveAllocated,
+  totalSpent,
+  activeGoal,
+  onPurchase,
+  onManageRewards,
+}: {
+  spendingBalance: number;
+  totalLiveAllocated: number;
+  totalSpent: number;
+  activeGoal: SpendingGoal | null;
+  onPurchase: (amount: number) => Promise<void>;
+  onManageRewards: () => void;
+}) {
+  const [showPurchaseInput, setShowPurchaseInput] = useState(false);
+  const [purchaseAmountStr, setPurchaseAmountStr] = useState("");
+  const [purchasing, setPurchasing] = useState(false);
+
+  const pct = activeGoal && activeGoal.targetAmount > 0
+    ? Math.min(100, Math.round((spendingBalance / activeGoal.targetAmount) * 100))
+    : 0;
+
+  return (
+    <div className="rounded-2xl p-4" style={{ background: "var(--bg-surface-1)", border: "1px solid rgba(139,92,246,0.3)" }}>
+      {/* Header */}
+      <div className="flex items-center justify-between mb-3">
+        <p className="text-xs uppercase tracking-wide font-bold" style={{ color: "#8B5CF6" }}>Reward Jar</p>
+        <button
+          onClick={onManageRewards}
+          className="text-xs font-semibold"
+          style={{ color: "var(--text-muted)", background: "none", border: "none", padding: 0, cursor: "pointer" }}
+        >
+          Manage rewards →
+        </button>
+      </div>
+
+      {/* Balance + goal */}
+      <div className="flex items-start justify-between gap-3 mb-3">
+        <div className="min-w-0">
+          {activeGoal ? (
+            <>
+              <p className="text-base font-black leading-snug" style={{ color: "var(--text-primary)" }}>{activeGoal.label}</p>
+              <p className="text-xs mt-0.5" style={{ color: "var(--text-muted)" }}>
+                {formatCurrency(spendingBalance)} of {formatCurrency(activeGoal.targetAmount)} goal
+              </p>
+            </>
+          ) : (
+            <p className="text-sm font-semibold" style={{ color: "var(--text-secondary)" }}>No reward set</p>
+          )}
+        </div>
+        <div className="text-right shrink-0">
+          <p className="text-2xl font-black" style={{ color: "#8B5CF6" }}>{formatCurrency(spendingBalance)}</p>
+          <p className="text-xs" style={{ color: "var(--text-muted)" }}>in jar</p>
+        </div>
+      </div>
+
+      {/* Progress bar */}
+      {activeGoal && activeGoal.targetAmount > 0 && (
+        <div className="mb-3">
+          <div className="h-2 rounded-full overflow-hidden" style={{ background: "var(--bg-surface-3)" }}>
+            <div
+              className="h-full rounded-full transition-all duration-700"
+              style={{ width: `${pct}%`, background: "#8B5CF6" }}
+            />
+          </div>
+          <p className="text-xs mt-1 text-right" style={{ color: "var(--text-muted)" }}>{pct}%</p>
+        </div>
+      )}
+
+      {/* Action buttons */}
+      {showPurchaseInput ? (
+        <div className="flex gap-2">
+          <div className="relative flex-1">
+            <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm" style={{ color: "var(--text-muted)" }}>$</span>
+            <input
+              type="number"
+              placeholder={activeGoal ? String(activeGoal.targetAmount) : "0.00"}
+              value={purchaseAmountStr}
+              onChange={(e) => setPurchaseAmountStr(e.target.value)}
+              className="w-full pl-7 rounded-xl px-3 py-2 text-sm focus:outline-none"
+              style={{ background: "var(--bg-surface-2)", border: "1px solid #8B5CF6", color: "var(--text-primary)" }}
+              autoFocus
+            />
+          </div>
+          <button
+            onClick={async () => {
+              const amt = parseFloat(purchaseAmountStr);
+              if (!amt || amt <= 0) return;
+              setPurchasing(true);
+              await onPurchase(amt);
+              setPurchaseAmountStr("");
+              setShowPurchaseInput(false);
+              setPurchasing(false);
+            }}
+            disabled={purchasing || !purchaseAmountStr || parseFloat(purchaseAmountStr) <= 0}
+            className="px-3 py-2 rounded-xl text-sm font-bold disabled:opacity-50"
+            style={{ background: "#8B5CF6", color: "white" }}
+          >
+            {purchasing ? "…" : "✓"}
+          </button>
+          <button
+            onClick={() => { setShowPurchaseInput(false); setPurchaseAmountStr(""); }}
+            className="px-3 py-2 rounded-xl text-sm"
+            style={{ border: "1px solid rgba(139,92,246,0.3)", color: "var(--text-secondary)" }}
+          >
+            ✕
+          </button>
+        </div>
+      ) : activeGoal ? (
+        <div className="flex gap-2">
+          {activeGoal.shoppingLink ? (
+            <a
+              href={activeGoal.shoppingLink}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="flex-1 py-2 text-sm font-bold rounded-xl text-center"
+              style={{ background: "#8B5CF6", color: "white" }}
+            >
+              Buy Now ↗
+            </a>
+          ) : null}
+          <button
+            onClick={() => { setShowPurchaseInput(true); setPurchaseAmountStr(String(activeGoal.targetAmount)); }}
+            className="flex-1 py-2 text-sm font-semibold rounded-xl"
+            style={activeGoal.shoppingLink
+              ? { border: "1px solid rgba(139,92,246,0.4)", color: "#8B5CF6" }
+              : { background: "#8B5CF6", color: "white" }
+            }
+          >
+            Log Purchase
+          </button>
+          {!activeGoal.shoppingLink && (
+            <button
+              onClick={onManageRewards}
+              className="flex-1 py-2 text-sm font-semibold rounded-xl"
+              style={{ border: "1px solid rgba(139,92,246,0.3)", color: "var(--text-muted)" }}
+            >
+              Manage →
+            </button>
+          )}
+        </div>
+      ) : (
+        <button
+          onClick={onManageRewards}
+          className="w-full py-2.5 text-sm font-bold rounded-xl"
+          style={{ background: "#8B5CF6", color: "white" }}
+        >
+          Set a Reward Goal
+        </button>
+      )}
+
+      {/* Stats row */}
+      <div className="grid grid-cols-3 gap-2 mt-4">
+        <div className="rounded-xl p-2.5 text-center" style={{ background: "var(--bg-surface-2)" }}>
+          <p className="text-[10px] font-bold uppercase tracking-wide mb-0.5" style={{ color: "var(--text-muted)" }}>Lifetime Saved</p>
+          <p className="text-sm font-extrabold" style={{ color: "var(--text-primary)" }}>{formatCurrency(totalLiveAllocated)}</p>
+        </div>
+        <div className="rounded-xl p-2.5 text-center" style={{ background: "rgba(139,92,246,0.08)", border: "1px solid rgba(139,92,246,0.2)" }}>
+          <p className="text-[10px] font-bold uppercase tracking-wide mb-0.5" style={{ color: "#8B5CF6" }}>In Jar</p>
+          <p className="text-sm font-extrabold" style={{ color: "#8B5CF6" }}>{formatCurrency(spendingBalance)}</p>
+        </div>
+        <div className="rounded-xl p-2.5 text-center" style={{ background: "var(--bg-surface-2)" }}>
+          <p className="text-[10px] font-bold uppercase tracking-wide mb-0.5" style={{ color: "var(--text-muted)" }}>Lifetime Spent</p>
+          <p className="text-sm font-extrabold" style={{ color: "var(--text-primary)" }}>{formatCurrency(totalSpent)}</p>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 /* ── Splurge Tab ── */
 function SplurgeTab({
   spendingBalance,
+  totalLiveAllocated,
+  totalSpent,
   goals,
   activeGoalId,
   activeGoal: activeGoalProp,
@@ -1211,6 +1102,8 @@ function SplurgeTab({
   onDeleteHistory,
 }: {
   spendingBalance: number;
+  totalLiveAllocated: number;
+  totalSpent: number;
   goals: SpendingGoal[];
   activeGoalId: string | null;
   activeGoal: SpendingGoal | null;
@@ -1255,6 +1148,7 @@ function SplurgeTab({
   const [purchasing, setPurchasing] = useState(false);
   const [deactivatingGoal, setDeactivatingGoal] = useState(false);
   const [deactivating, setDeactivating] = useState(false);
+  const [rewardFilter, setRewardFilter] = useState<"all" | "prebuilt" | "custom">("all");
 
   const activeGoal = activeGoalProp;
   const rewardPresets = [
@@ -1337,12 +1231,6 @@ function SplurgeTab({
 
   return (
     <div className="space-y-4">
-      {/* Page heading */}
-      <div className="mb-2">
-        <h1 className="text-4xl font-extrabold leading-tight" style={{ color: "#8B5CF6" }}>Future Reward</h1>
-        <p className="text-sm mt-1" style={{ color: "var(--text-secondary)" }}>Turn skips today into something for tomorrow.</p>
-      </div>
-
       {/* Switch modal */}
       {switchTarget && (
         <div className="fixed inset-0 bg-black/60 z-50 flex items-end sm:items-center justify-center p-4" onClick={() => setSwitchTarget(null)}>
@@ -1421,20 +1309,6 @@ function SplurgeTab({
         const isEditing = editingGoalId === activeGoal.id;
         return (
           <div className="rounded-2xl p-5 mb-4" style={{ background: "var(--bg-surface-1)", border: "1px solid var(--border-default)" }}>
-            {/* Controls row */}
-            <div className="flex items-center justify-between mb-3">
-              <button
-                onClick={() => { setDeactivatingGoal(true); setDeletingActiveGoal(false); }}
-                className="text-[10px] font-bold px-2 py-0.5 rounded-full"
-                style={{ background: "rgba(139,92,246,0.15)", color: "#8B5CF6" }}
-              >
-                ✓ Active
-              </button>
-              <div className="flex items-center gap-1">
-                <button onClick={() => startEditGoal(activeGoal)} className="text-[rgba(237,245,240,0.35)] hover:text-[#8B5CF6] p-1 text-base" title="Edit">✏️</button>
-                <button onClick={() => { setDeletingActiveGoal(true); setDeactivatingGoal(false); setEditingGoalId(null); }} className="text-[rgba(237,245,240,0.35)] hover:text-red-400 p-1 text-base" title="Delete">🗑️</button>
-              </div>
-            </div>
 
             {isEditing ? (
               <div className="space-y-2">
@@ -1485,24 +1359,24 @@ function SplurgeTab({
               </div>
             ) : (
               <>
-                <div className="flex items-center gap-4">
-                  <div className="flex-shrink-0">
-                  <JarPreview
-                    fillPct={pct}
-                    color="#8B5CF6"
-                    gradEnd="#6D28D9"
-                    label={null}
-                    amount=""
-                    emptyPrompt={activeGoal.label}
-                    goalAmount={activeGoal.targetAmount}
-                    hideTopLabel
-                  />
+                <p className="text-xs mb-4" style={{ color: "var(--text-muted)" }}>
+                  Current active reward: <span className="font-semibold" style={{ color: "var(--text-primary)" }}>{activeGoal.label}</span>
+                </p>
+                <div className="grid grid-cols-3 gap-3 mb-4">
+                  <div className="rounded-xl p-3 text-center" style={{ background: "var(--bg-surface-2)", border: "1px solid var(--border-default)" }}>
+                    <p className="text-[10px] font-bold uppercase tracking-wide mb-1" style={{ color: "var(--text-muted)" }}>Lifetime Saved</p>
+                    <p className="text-lg font-extrabold leading-tight" style={{ color: "var(--text-primary)" }}>{formatCurrency(totalLiveAllocated)}</p>
                   </div>
-                  <div className="flex-1 min-w-0">
-                    <p className="text-xs mb-0.5" style={{ color: "var(--text-muted)" }}>Your Reward Jar</p>
-                    <p className="text-xl font-bold leading-tight" style={{ color: "var(--text-primary)" }}>{activeGoal.label}</p>
-                    <p className="text-sm font-semibold mt-2" style={{ color: "#8B5CF6" }}>{formatCurrency(spendingBalance)} saved</p>
-                    <div className="mt-3">
+                  <div className="rounded-xl p-3 text-center" style={{ background: "var(--bg-surface-2)", border: "1px solid var(--border-default)" }}>
+                    <p className="text-[10px] font-bold uppercase tracking-wide mb-1" style={{ color: "var(--text-muted)" }}>Lifetime Spent</p>
+                    <p className="text-lg font-extrabold leading-tight" style={{ color: "var(--text-primary)" }}>{formatCurrency(totalSpent)}</p>
+                  </div>
+                  <div className="rounded-xl p-3 text-center" style={{ background: "rgba(139,92,246,0.08)", border: "1px solid rgba(139,92,246,0.35)" }}>
+                    <p className="text-[10px] font-bold uppercase tracking-wide mb-1" style={{ color: "#8B5CF6" }}>In Current Reward Jar</p>
+                    <p className="text-lg font-extrabold leading-tight" style={{ color: "#8B5CF6" }}>{formatCurrency(spendingBalance)}</p>
+                  </div>
+                </div>
+                <div className="mt-3">
                 {purchasingId === activeGoal.id ? (
                   <div className="space-y-2">
                     <div className="relative">
@@ -1540,29 +1414,29 @@ function SplurgeTab({
                     </button>
                   </div>
                 ) : (
-                  <div className="flex flex-col gap-2">
+                  <div className="flex gap-2">
                     {activeGoal.shoppingLink && (
                       <a
                         href={activeGoal.shoppingLink}
                         target="_blank"
                         rel="noopener noreferrer"
-                        className="flex w-full items-center justify-center py-2.5 font-semibold rounded-xl text-sm transition-colors"
-                        style={{ border: "1px solid rgba(139,92,246,0.4)", color: "#8B5CF6" }}
+                        className="flex-1 flex items-center justify-center py-2.5 font-bold rounded-xl text-sm"
+                        style={{ background: "#8B5CF6", color: "white", textDecoration: "none" }}
                       >
-                        Purchase
+                        Buy Now ↗
                       </a>
                     )}
                     <button
                       onClick={() => { setPurchasingId(activeGoal.id); setPurchaseAmountStr(String(activeGoal.targetAmount)); }}
-                      className="w-full py-2.5 font-semibold rounded-xl text-sm transition-colors"
-                      style={{ background: "var(--bg-surface-2)", color: "var(--text-primary)", border: "1px solid var(--border-default)" }}
+                      className="flex-1 py-2.5 font-bold rounded-xl text-sm"
+                      style={activeGoal.shoppingLink
+                        ? { border: "1px solid rgba(139,92,246,0.4)", color: "#8B5CF6" }
+                        : { background: "#8B5CF6", color: "white" }}
                     >
-                      I Bought It
+                      Log Purchase
                     </button>
                   </div>
                     )}
-                    </div>
-                  </div>
                 </div>
 
                 {deletingActiveGoal && (
@@ -1680,114 +1554,102 @@ function SplurgeTab({
         );
       })()}
 
-      {/* Suggested rewards and saved rewards */}
+      {/* Rewards list */}
       {!showAddForm && !editingGoalId && (
-        <div className="flex flex-col">
-          <div style={{ order: goals.length > 0 ? 2 : 1 }} className={goals.length > 0 ? "mt-5" : ""}>
-          <p className="text-lg font-bold mb-0.5" style={{ color: "var(--text-primary)" }}>Suggested Rewards</p>
-          <p className="text-xs mb-3" style={{ color: "var(--text-secondary)" }}>
-            One tap creates a reward and makes it active.
-          </p>
+        <div className="mt-2">
+          {/* Filter tabs */}
+          <div className="flex gap-1.5 mb-3">
+            {(["all", "prebuilt", "custom"] as const).map((f) => (
+              <button
+                key={f}
+                onClick={() => setRewardFilter(f)}
+                className="px-3 py-1.5 rounded-full text-xs font-bold"
+                style={rewardFilter === f
+                  ? { background: "rgba(139,92,246,0.18)", border: "1px solid rgba(139,92,246,0.45)", color: "#8B5CF6" }
+                  : { background: "var(--bg-surface-2)", border: "1px solid var(--border-default)", color: "var(--text-secondary)" }}
+              >
+                {f === "all" ? "All" : f === "prebuilt" ? "Pre-built" : "Custom"}
+              </button>
+            ))}
+          </div>
+          {/* Add button */}
+          <div className="flex justify-start mb-4">
+            <button
+              onClick={() => setShowAddForm(true)}
+              className="px-4 py-2.5 rounded-full text-sm font-black shrink-0"
+              style={{ background: "white", color: "#0B1A14", border: "none" }}
+            >
+              + Add a Reward
+            </button>
+          </div>
+
           <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
-            {suggestedRewards.map((preset) => {
+            {/* Pre-built cards */}
+            {rewardFilter !== "custom" && rewardPresets.map((preset) => {
               const matchingGoal = goals.find(
-                (goal) => goal.label.toLowerCase() === preset.label.toLowerCase() && goal.targetAmount === preset.amount
+                (g) => g.label.toLowerCase() === preset.label.toLowerCase() && g.targetAmount === preset.amount
               );
-              const isActivePreset = matchingGoal?.id === activeGoalId;
+              const isActive = matchingGoal?.id === activeGoalId;
               return (
                 <button
-                  key={`${preset.label}-${preset.amount}`}
+                  key={`preset-${preset.label}`}
                   onClick={() => handleAddPresetGoal(preset.label, preset.amount)}
                   disabled={saving}
                   className="rounded-2xl p-4 text-left transition-all hover:scale-[1.02] active:scale-[0.98] disabled:opacity-60"
                   style={{
-                    background: isActivePreset ? "rgba(139,92,246,0.16)" : "var(--bg-surface-1)",
-                    border: isActivePreset ? "2px solid #8B5CF6" : "1px solid rgba(139,92,246,0.3)",
+                    background: isActive ? "rgba(139,92,246,0.16)" : "var(--bg-surface-1)",
+                    border: isActive ? "2px solid #8B5CF6" : "1px solid rgba(139,92,246,0.3)",
                   }}
                 >
-                  {isActivePreset && (
+                  {isActive && (
                     <span className="text-[10px] font-bold px-2 py-0.5 rounded-full mb-1.5 inline-block" style={{ background: "rgba(139,92,246,0.2)", color: "#8B5CF6" }}>
                       Active
                     </span>
                   )}
+                  <div className="text-[10px] font-bold uppercase tracking-wide mb-1" style={{ color: "var(--text-muted)" }}>Pre-built</div>
                   <div className="text-sm font-bold mb-1" style={{ color: "#8B5CF6" }}>{preset.label}</div>
                   <div className="text-lg font-extrabold" style={{ color: "var(--text-primary)" }}>{formatCurrency(preset.amount)}</div>
                   <div className="text-xs mt-1" style={{ color: "var(--text-muted)" }}>{matchingGoal ? "tap to activate" : preset.note}</div>
                 </button>
               );
             })}
-            {/* Custom card */}
-            <button
-              onClick={() => setShowAddForm(true)}
-              className="rounded-2xl p-4 text-left transition-all hover:scale-[1.02] active:scale-[0.98]"
-              style={{ background: "var(--bg-surface-1)", border: "1px dashed rgba(139,92,246,0.4)" }}
-            >
-              <div className="text-2xl font-bold mb-1" style={{ color: "#8B5CF6" }}>+</div>
-              <div className="text-sm font-bold" style={{ color: "var(--text-primary)" }}>Custom</div>
-              <div className="text-xs mt-1" style={{ color: "var(--text-muted)" }}>Set your own goal</div>
-            </button>
-          </div>
-          </div>
 
-          {goals.length > 0 && (
-            <div style={{ order: 1 }}>
-              <p className="text-lg font-bold mb-0.5" style={{ color: "var(--text-primary)" }}>Your Rewards</p>
-              <p className="text-xs mb-3" style={{ color: "var(--text-secondary)" }}>
-                Edit, delete, or tap a reward to make it active.
-              </p>
-              <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
-            {goals.map((goal) => {
+            {/* Custom goal cards */}
+            {rewardFilter !== "prebuilt" && goals.map((goal) => {
               const isActiveGoal = goal.id === activeGoalId;
               return (
-              <div
-                key={goal.id}
-                className="rounded-2xl p-4 text-left transition-all hover:scale-[1.02] active:scale-[0.98] relative"
-                style={{ background: "var(--bg-surface-1)", border: deletingGoalId === goal.id ? "1px solid rgba(239,68,68,0.4)" : isActiveGoal ? "2px solid #8B5CF6" : "1px solid rgba(139,92,246,0.3)" }}
-              >
-                {/* Icon row */}
-                <div className="absolute top-2 right-2 flex gap-0.5" onClick={(e) => e.stopPropagation()}>
-                  <button
-                    onClick={() => { startEditGoal(goal); setDeletingGoalId(null); }}
-                    className="text-[rgba(237,245,240,0.3)] hover:text-[#8B5CF6] p-1 text-sm leading-none"
-                    title="Edit"
-                  >✏️</button>
-                  <button
-                    onClick={() => setDeletingGoalId(deletingGoalId === goal.id ? null : goal.id)}
-                    className="text-[rgba(237,245,240,0.3)] hover:text-red-400 p-1 text-sm leading-none"
-                    title="Delete"
-                  >🗑️</button>
-                </div>
-                {deletingGoalId === goal.id ? (
-                  <div onClick={(e) => e.stopPropagation()}>
-                    <p className="text-xs text-red-400 mb-2 pr-12">Delete &quot;{goal.label}&quot;?</p>
-                    <div className="flex gap-1.5">
-                      <button
-                        onClick={() => { onDeleteGoal(goal.id); setDeletingGoalId(null); }}
-                        className="flex-1 bg-red-500 text-white font-semibold py-1.5 rounded-lg text-xs"
-                      >Delete</button>
-                      <button
-                        onClick={() => setDeletingGoalId(null)}
-                        className="flex-1 text-[rgba(237,245,240,0.6)] font-semibold py-1.5 rounded-lg text-xs"
-                        style={{ border: "1px solid rgba(139,92,246,0.12)" }}
-                      >Cancel</button>
+                <div
+                  key={goal.id}
+                  className="rounded-2xl p-4 text-left transition-all hover:scale-[1.02] active:scale-[0.98] relative"
+                  style={{ background: "var(--bg-surface-1)", border: deletingGoalId === goal.id ? "1px solid rgba(239,68,68,0.4)" : isActiveGoal ? "2px solid #8B5CF6" : "1px solid rgba(139,92,246,0.3)" }}
+                >
+                  <div className="absolute top-2 right-2 flex gap-0.5" onClick={(e) => e.stopPropagation()}>
+                    <button onClick={() => { startEditGoal(goal); setDeletingGoalId(null); }} className="text-[rgba(237,245,240,0.3)] hover:text-[#8B5CF6] p-1 text-sm leading-none" title="Edit">✏️</button>
+                    <button onClick={() => setDeletingGoalId(deletingGoalId === goal.id ? null : goal.id)} className="text-[rgba(237,245,240,0.3)] hover:text-red-400 p-1 text-sm leading-none" title="Delete">🗑️</button>
+                  </div>
+                  {deletingGoalId === goal.id ? (
+                    <div onClick={(e) => e.stopPropagation()}>
+                      <p className="text-xs text-red-400 mb-2 pr-12">Delete &quot;{goal.label}&quot;?</p>
+                      <div className="flex gap-1.5">
+                        <button onClick={() => { onDeleteGoal(goal.id); setDeletingGoalId(null); }} className="flex-1 bg-red-500 text-white font-semibold py-1.5 rounded-lg text-xs">Delete</button>
+                        <button onClick={() => setDeletingGoalId(null)} className="flex-1 text-[rgba(237,245,240,0.6)] font-semibold py-1.5 rounded-lg text-xs" style={{ border: "1px solid rgba(139,92,246,0.12)" }}>Cancel</button>
+                      </div>
                     </div>
-                  </div>
-                ) : (
-                  <div onClick={() => !isActiveGoal && handleSetActiveGoalWithCheck(goal)} className={isActiveGoal ? "" : "cursor-pointer"}>
-                    {isActiveGoal && (
-                      <span className="text-[10px] font-bold px-2 py-0.5 rounded-full mb-1.5 inline-block" style={{ background: "rgba(139,92,246,0.15)", color: "#8B5CF6" }}>✓ Active</span>
-                    )}
-                    <div className="text-sm font-bold mb-1 pr-12" style={{ color: "#8B5CF6" }}>{goal.label}</div>
-                    <div className="text-lg font-extrabold" style={{ color: "var(--text-primary)" }}>${goal.targetAmount}</div>
-                    {!isActiveGoal && <div className="text-xs mt-1" style={{ color: "var(--text-muted)" }}>tap to activate</div>}
-                  </div>
-                )}
-              </div>
+                  ) : (
+                    <div onClick={() => !isActiveGoal && handleSetActiveGoalWithCheck(goal)} className={isActiveGoal ? "" : "cursor-pointer"}>
+                      {isActiveGoal && (
+                        <span className="text-[10px] font-bold px-2 py-0.5 rounded-full mb-1.5 inline-block" style={{ background: "rgba(139,92,246,0.15)", color: "#8B5CF6" }}>✓ Active</span>
+                      )}
+                      <div className="text-[10px] font-bold uppercase tracking-wide mb-1" style={{ color: "var(--text-muted)" }}>Custom</div>
+                      <div className="text-sm font-bold mb-1 pr-12" style={{ color: "#8B5CF6" }}>{goal.label}</div>
+                      <div className="text-lg font-extrabold" style={{ color: "var(--text-primary)" }}>{formatCurrency(goal.targetAmount)}</div>
+                      {!isActiveGoal && <div className="text-xs mt-1" style={{ color: "var(--text-muted)" }}>tap to activate</div>}
+                    </div>
+                  )}
+                </div>
               );
             })}
-              </div>
-            </div>
-          )}
+          </div>
         </div>
       )}
 

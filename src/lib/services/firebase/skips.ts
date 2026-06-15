@@ -11,6 +11,7 @@ import {
   getDocs,
   onSnapshot,
   Unsubscribe,
+  updateDoc,
 } from "firebase/firestore";
 import { ref, runTransaction } from "firebase/database";
 import { db, rtdb } from "./config";
@@ -71,15 +72,15 @@ export async function logSkip(params: LogSkipParams): Promise<{ skipId: string; 
   const giveAmountForMessage = amount * (effectiveSplit.give / 100);
   let causeSuffix = "";
   if (projectTitle && projectUnitName && projectUnitCost && !projectUnitIsGoal) {
-    // Count mode: "to help fund 25 Emergency Meals in Ukraine"
+    // Count mode: "to help pledge 25 Emergency Meals in Ukraine"
     const unitsStr = formatUnits(giveAmountForMessage, projectUnitCost, projectUnitName);
-    causeSuffix = ` to help fund ${unitsStr}${projectLocation ? ` in ${projectLocation}` : ""}`;
+    causeSuffix = ` to help pledge ${unitsStr}${projectLocation ? ` in ${projectLocation}` : ""}`;
   } else if (projectTitle && projectUnitName && projectUnitCost && projectUnitIsGoal) {
-    // % mode: "to help fund 8% of A Chromebook for a Student to Learn Coding"
+    // % mode: "to help pledge 8% of A Chromebook for a Student to Learn Coding"
     const pct = Math.max(1, Math.round((giveAmountForMessage / projectUnitCost) * 100));
-    causeSuffix = ` to help fund ${pct}% of ${projectTitle}`;
+    causeSuffix = ` to help pledge ${pct}% of ${projectTitle}`;
   } else if (projectTitle) {
-    causeSuffix = ` to help fund ${projectTitle}`;
+    causeSuffix = ` to help pledge toward ${projectTitle}`;
   }
 
   const giveAmount = amount * (effectiveSplit.give / 100);
@@ -103,7 +104,7 @@ export async function logSkip(params: LogSkipParams): Promise<{ skipId: string; 
   } else if (lastSkipDate === yesterdayStr) {
     newStreak = currentStreak + 1;
   } else {
-    newStreak = 1;
+    newStreak = 0;
   }
 
   const newLongestStreak = Math.max(currentLongestStreak, newStreak);
@@ -172,6 +173,18 @@ export async function logSkip(params: LogSkipParams): Promise<{ skipId: string; 
 
   await batch.commit();
 
+  // Update project totals for challenge group tracking (non-atomic, best-effort)
+  if (projectId) {
+    try {
+      await updateDoc(doc(db, "projects", projectId), {
+        ...(giveAmount > 0 ? { totalRaised: increment(giveAmount) } : {}),
+        totalSkips: increment(1),
+      });
+    } catch {
+      // Official projects aren't in Firestore — ignore
+    }
+  }
+
   // 4. Update global counters in Realtime DB
   try {
     const statsRef = ref(rtdb, "globalStats");
@@ -202,9 +215,11 @@ export async function logSkip(params: LogSkipParams): Promise<{ skipId: string; 
       type: "skip",
       skipId: skipRef.id,
       skipAmount: amount,
+      giveAmount,
       skipCategory: category,
       skipEmoji: categoryEmoji,
       skipLabel: whatSkipped || categoryLabel,
+      projectId,
       projectTitle,
       ...(projectLocation ? { projectLocation } : {}),
       shareName,

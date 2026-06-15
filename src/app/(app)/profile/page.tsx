@@ -4,47 +4,8 @@ import { useState } from "react";
 import { useAuthStore } from "@/store/authStore";
 import { signOut } from "@/lib/services/firebase/auth";
 import { formatCurrency } from "@/lib/utils/currency";
-import { updateJarSettings, normalizeJarSplit, recalculateTotals } from "@/lib/services/firebase/users";
+import { normalizeJarSplit, recalculateTotals } from "@/lib/services/firebase/users";
 import { useSkips } from "@/hooks/useSkips";
-
-const FAQ_ITEMS = [
-  {
-    q: "Does any money actually transfer when I log a skip?",
-    a: "No — I Skipped is a tracking and motivation tool, not a payment platform. We encourage all users to donate what they've pledged in their jar, but no funds move automatically.",
-  },
-  {
-    q: "My balance doesn't look right. What should I do?",
-    a: "Use the Recalculate button on your Profile page. It rebuilds all your totals directly from your logged skip history and should bring everything back in sync.",
-  },
-  {
-    q: "Will more causes be added?",
-    a: "Yes! We're currently in beta and actively growing our list of causes. Stay tuned — more options are on the way.",
-  },
-  {
-    q: "Do I have to select a donation jar?",
-    a: "While we strongly encourage everyone to pick a cause, it's not required. Your Giving Jar will keep filling up until you choose one.",
-  },
-  {
-    q: "Can I fund multiple save or give jars at once?",
-    a: "No — at this time you can save for one thing at a time. You can transfer funds to a new cause/goal by activating a new jar, or mark as donated/purchased to close out that jar and start a new one.",
-  },
-  {
-    q: "Is there an Iskipped app?",
-    a: "We are still in the testing phase so there is no current app. For now we recommend pinning the URL to your phone's homepage for ease of access. Based on your feedback, we hope to bring an app to all our users shortly!",
-  },
-  {
-    q: "Does I Skipped process the donations?",
-    a: "No. I Skipped connects you with charitable organizations. Donations are processed directly by each organization. I Skipped does not handle or hold any donation funds.",
-  },
-  {
-    q: "What does the 'Share name and skip with community' toggle do?",
-    a: "This shares your first name and what you skipped. Keeping it off will hide your name and only show the category of the skip.",
-  },
-  {
-    q: "I have feedback — where can I share it?",
-    a: "We'd love to hear from you! Send us an email at iskippedfor@gmail.com and we'll get back to you.",
-  },
-];
 
 export default function ProfilePage() {
   const router = useRouter();
@@ -52,7 +13,6 @@ export default function ProfilePage() {
   const { recentSkips } = useSkips();
   const [recalcState, setRecalcState] = useState<"idle" | "loading" | "done" | "error">("idle");
   const [recalcResult, setRecalcResult] = useState<{ totalSkips: number; totalSaved: number } | null>(null);
-  const [openFaq, setOpenFaq] = useState<number | null>(null);
 
   if (!profile || !user) return null;
 
@@ -167,7 +127,7 @@ export default function ProfilePage() {
           {[
             { label: "Skips logged", value: String(weekSkips.length), color: "var(--green-primary)" },
             { label: "Give jar", value: formatCurrency(weekGive), color: "#2BBAA4" },
-            { label: "Live jar", value: formatCurrency(weekLive), color: "#8B5CF6" },
+            { label: "Reward jar", value: formatCurrency(weekLive), color: "#8B5CF6" },
             { label: "Top category", value: topCat ? `${topCat.emoji} ${topCat.label}` : "—", color: "#E8924A" },
           ].map((row, i) => (
             <div key={i} style={{
@@ -182,18 +142,8 @@ export default function ProfilePage() {
         </div>
       </div>
 
-      {/* Jar Settings */}
-      <JarSettings
-        uid={user.uid}
-        initialSplit={currentSplit}
-        onSave={(split) => updateProfile({ jarSplit: split })}
-      />
-
-      {/* Help & Feedback */}
+      {/* Recalculate */}
       <div className="mb-6">
-        <h2 className="text-base font-bold mb-4" style={{ color: "var(--text-primary)" }}>Help &amp; Feedback</h2>
-
-        {/* Recalculate */}
         <div className="p-5 mb-4" style={{ ...cardStyle, borderRadius: 20 }}>
           <p className="text-sm font-bold mb-1" style={{ color: "var(--text-primary)" }}>🔄 Recalculate totals</p>
           <p className="text-xs mb-4" style={{ color: "var(--text-secondary)" }}>
@@ -222,37 +172,7 @@ export default function ProfilePage() {
           </button>
         </div>
 
-        {/* Contact */}
-        <div className="p-5 mb-4" style={{ ...cardStyle, borderRadius: 20 }}>
-          <p className="text-sm font-bold mb-1" style={{ color: "var(--text-primary)" }}>✉️ Have feedback or questions?</p>
-          <p className="text-sm" style={{ color: "var(--text-secondary)" }}>
-            Reach us at{" "}
-            <a href="mailto:iskippedfor@gmail.com" className="underline" style={{ color: "var(--green-primary)" }}>
-              iskippedfor@gmail.com
-            </a>
-          </p>
-        </div>
 
-        {/* FAQ */}
-        <div style={{ ...cardStyle, borderRadius: 20, overflow: "hidden" }}>
-          <p className="px-5 pt-5 pb-3 text-sm font-bold" style={{ color: "var(--text-primary)" }}>FAQ</p>
-          {FAQ_ITEMS.map((item, i) => (
-            <div key={i} style={{ borderTop: "1px solid var(--border-default)" }}>
-              <button
-                className="w-full text-left px-5 py-4 flex items-start justify-between gap-3"
-                onClick={() => setOpenFaq(openFaq === i ? null : i)}
-              >
-                <span className="text-sm font-semibold" style={{ color: "var(--text-primary)" }}>{item.q}</span>
-                <span className="text-lg leading-none flex-shrink-0 mt-0.5" style={{ color: "var(--text-muted)" }}>
-                  {openFaq === i ? "−" : "+"}
-                </span>
-              </button>
-              {openFaq === i && (
-                <p className="px-5 pb-4 text-sm" style={{ color: "var(--text-secondary)" }}>{item.a}</p>
-              )}
-            </div>
-          ))}
-        </div>
       </div>
 
       <button
@@ -271,133 +191,3 @@ export default function ProfilePage() {
   );
 }
 
-function JarSettings({
-  uid,
-  initialSplit,
-  onSave,
-}: {
-  uid: string;
-  initialSplit: { give: number; live: number };
-  onSave: (split: { give: number; live: number }) => void;
-}) {
-  const presets = [
-    { label: "50 / 50",  g: 50,  l: 50  },
-    { label: "75 / 25",  g: 75,  l: 25  },
-    { label: "25 / 75",  g: 25,  l: 75  },
-    { label: "100 / 0",  g: 100, l: 0   },
-  ];
-
-  const matchingPreset = presets.find((p) => p.g === initialSplit.give);
-  const [mode, setMode] = useState<"preset" | "custom">(matchingPreset ? "preset" : "custom");
-  const [selectedPreset, setSelectedPreset] = useState<{ g: number; l: number }>(matchingPreset ?? presets[0]);
-  const [customGive, setCustomGive] = useState(String(initialSplit.give));
-  const [saving, setSaving] = useState(false);
-  const [saved, setSaved] = useState(false);
-
-  function getActiveSplit(): { give: number; live: number } | null {
-    if (mode === "preset") return { give: selectedPreset.g, live: selectedPreset.l };
-    const g = parseInt(customGive, 10);
-    if (isNaN(g) || g < 0 || g > 100) return null;
-    return { give: g, live: 100 - g };
-  }
-
-  async function handleSave() {
-    const split = getActiveSplit();
-    if (!split) return;
-    setSaving(true);
-    await updateJarSettings(uid, split, null);
-    onSave(split);
-    setSaving(false);
-    setSaved(true);
-    setTimeout(() => setSaved(false), 2000);
-  }
-
-  const activeSplit = getActiveSplit();
-
-  return (
-    <div className="p-6 mb-6" style={{ background: "var(--bg-surface-1)", border: "1px solid var(--border-default)", borderRadius: 20 }}>
-      <h2 className="text-base font-bold mb-1" style={{ color: "var(--text-primary)" }}>Preferred Jar Split</h2>
-      <p className="text-xs mb-4" style={{ color: "var(--text-secondary)" }}>🤲 Giving Jar / 😊 Reward Jar</p>
-
-      {/* Mode toggle */}
-      <div className="flex rounded-xl p-1 mb-4" style={{ background: "var(--bg-surface-2)" }}>
-        <button
-          onClick={() => setMode("preset")}
-          className="flex-1 py-1.5 rounded-lg text-xs font-semibold transition"
-          style={mode === "preset" ? { background: "var(--bg-surface-3)", color: "var(--text-primary)" } : { color: "var(--text-muted)" }}
-        >
-          Preset
-        </button>
-        <button
-          onClick={() => setMode("custom")}
-          className="flex-1 py-1.5 rounded-lg text-xs font-semibold transition"
-          style={mode === "custom" ? { background: "var(--bg-surface-3)", color: "var(--text-primary)" } : { color: "var(--text-muted)" }}
-        >
-          Custom
-        </button>
-      </div>
-
-      {mode === "preset" ? (
-        <div className="grid grid-cols-2 gap-2 mb-5">
-          {presets.map((p) => (
-            <button
-              key={p.label}
-              onClick={() => setSelectedPreset(p)}
-              className="py-3 rounded-xl text-sm font-bold transition-all"
-              style={
-                selectedPreset.g === p.g
-                  ? { border: "2px solid var(--green-primary)", background: "var(--bg-surface-2)", color: "var(--green-primary)" }
-                  : { border: "1px solid var(--border-default)", color: "var(--text-secondary)", background: "transparent" }
-              }
-            >
-              {p.label}
-            </button>
-          ))}
-        </div>
-      ) : (
-        <div className="mb-5">
-          <p className="text-xs mb-2" style={{ color: "var(--text-muted)" }}>Enter your Give % (0–100). Save % is calculated automatically.</p>
-          <div className="flex items-center gap-3">
-            <div className="flex-1">
-              <label className="text-xs mb-1 block" style={{ color: "var(--coral-primary)" }}>🤲 Giving %</label>
-              <input
-                type="number"
-                min={0}
-                max={100}
-                value={customGive}
-                onChange={(e) => setCustomGive(e.target.value)}
-                className="w-full rounded-xl px-3 py-2.5 text-sm font-bold focus:outline-none"
-                style={{ background: "var(--bg-surface-2)", border: "1px solid var(--border-default)", color: "var(--text-primary)" }}
-              />
-            </div>
-            <div className="text-lg font-bold" style={{ color: "var(--text-muted)", paddingTop: 20 }}>/</div>
-            <div className="flex-1">
-              <label className="text-xs mb-1 block" style={{ color: "#2BBAA4" }}>😊 Reward %</label>
-              <div
-                className="w-full rounded-xl px-3 py-2.5 text-sm font-bold"
-                style={{ background: "var(--bg-surface-2)", border: "1px solid var(--border-default)", color: "var(--text-muted)" }}
-              >
-                {activeSplit ? 100 - activeSplit.give : "—"}
-              </div>
-            </div>
-          </div>
-          {activeSplit === null && (
-            <p className="text-xs mt-1" style={{ color: "var(--coral-primary)" }}>Enter a number between 0 and 100</p>
-          )}
-        </div>
-      )}
-
-      <button
-        onClick={handleSave}
-        disabled={saving || !activeSplit}
-        className="w-full py-3 font-semibold rounded-xl text-sm transition-all disabled:opacity-50"
-        style={{
-          background: "linear-gradient(135deg, var(--gold-cta), var(--gold-light))",
-          color: "var(--bg-base)",
-        }}
-      >
-        {saved ? "✓ Saved!" : saving ? "Saving…" : "Save"}
-      </button>
-    </div>
-  );
-}

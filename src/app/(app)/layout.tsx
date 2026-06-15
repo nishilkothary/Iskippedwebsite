@@ -1,18 +1,33 @@
-"use client";
-import { useEffect, Suspense } from "react";
+﻿"use client";
+import { useEffect, useRef, useMemo, useState, Suspense } from "react";
 import { useRouter, usePathname, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { useAuthStore } from "@/store/authStore";
 import { useUIStore } from "@/store/uiStore";
 import { SkipModal } from "@/components/skip/SkipModal";
+import { useProjects } from "@/hooks/useProjects";
+import { isChallengeProject, isProjectEnded } from "@/lib/services/firebase/projects";
+import { setActiveProject } from "@/lib/services/firebase/users";
+import { formatCurrency } from "@/lib/utils/currency";
+import { Project } from "@/lib/types/models";
 
 const NAV_ITEMS = [
-  { href: "/home",            label: "Home",          emoji: "🏠",  tab: null },
-  { href: "/jars?tab=cause",  label: "Giving Jar", emoji: "🤲",  tab: "cause" },
-  { href: "/jars?tab=live",   label: "Reward Jar", emoji: "😊",  tab: "live" },
-  { href: "/community",       label: "Community",     emoji: "🌍",  tab: null },
-  { href: "/profile",         label: "Profile",       emoji: "👤",  tab: null },
+  { href: "/home",        label: "Home",       tab: null },
+  { href: "/challenges",  label: "Challenges", tab: null },
+  { href: "/jars",        label: "Jars",       tab: null },
+  { href: "/about",       label: "About",      tab: null },
+  { href: "/profile",     label: "Profile",    tab: null },
 ];
+
+function isNavActive(item: (typeof NAV_ITEMS)[number], pathname: string, _searchParams: { get: (name: string) => string | null }) {
+  if (item.label === "Challenges") {
+    return pathname === "/challenges" || pathname.startsWith("/challenges/");
+  }
+  if (item.label === "Jars") {
+    return pathname === "/jars";
+  }
+  return pathname === item.href;
+}
 
 function SidebarNav({ onLogSkip }: { onLogSkip: () => void }) {
   const pathname = usePathname();
@@ -35,14 +50,12 @@ function SidebarNav({ onLogSkip }: { onLogSkip: () => void }) {
 
       <nav className="flex-1 px-3 py-4 space-y-1">
         {NAV_ITEMS.map((item) => {
-          const active = item.tab !== null
-            ? pathname === "/jars" && searchParams.get("tab") === item.tab
-            : pathname === item.href;
+          const active = isNavActive(item, pathname, searchParams);
           return (
             <Link
               key={item.href}
               href={item.href}
-              className="flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-all"
+              className="flex items-center px-3 py-2.5 rounded-lg text-sm font-medium transition-all"
               style={
                 active
                   ? {
@@ -62,7 +75,6 @@ function SidebarNav({ onLogSkip }: { onLogSkip: () => void }) {
                 if (!active) (e.currentTarget as HTMLElement).style.color = "var(--text-secondary)";
               }}
             >
-              <span className="text-base">{item.emoji}</span>
               {item.label}
             </Link>
           );
@@ -100,22 +112,93 @@ function MobileBottomNav() {
       }}
     >
       {NAV_ITEMS.map((item) => {
-        const active = item.tab !== null
-          ? pathname === "/jars" && searchParams.get("tab") === item.tab
-          : pathname === item.href;
+        const active = isNavActive(item, pathname, searchParams);
         return (
           <Link
             key={item.href}
             href={item.href}
-            className="flex-1 flex flex-col items-center py-2 text-xs font-medium transition-colors"
+            className="flex-1 flex items-center justify-center py-3 text-xs font-medium transition-colors"
             style={{ color: active ? "var(--gold-cta)" : "var(--text-muted)" }}
           >
-            <span className="text-xl">{item.emoji}</span>
             {item.label}
           </Link>
         );
       })}
     </nav>
+  );
+}
+
+function ChallengeBanners() {
+  const { profile, updateProfile } = useAuthStore();
+  const { projects, loading: projectsLoading } = useProjects();
+  const endedClearRef = useRef(false);
+  const deletedClearRef = useRef(false);
+  const [showDeletedBanner, setShowDeletedBanner] = useState(false);
+
+  const endedWithBalance = useMemo((): Project[] => {
+    if (!profile || !projects.length) return [];
+    return (profile.joinedProjectIds ?? [])
+      .map((id) => projects.find((p) => p.id === id))
+      .filter((p): p is Project => !!p && isChallengeProject(p) && isProjectEnded(p))
+      .filter((p) => (profile.causeJarBalances?.[p.id] ?? 0) > 0);
+  }, [profile?.joinedProjectIds, profile?.causeJarBalances, projects]);
+
+  // Auto-clear activeProjectId when active challenge has ended
+  useEffect(() => {
+    if (endedClearRef.current || !profile?.activeProjectId || !profile.uid || !projects.length) return;
+    const active = projects.find((p) => p.id === profile.activeProjectId);
+    if (active && isChallengeProject(active) && isProjectEnded(active)) {
+      endedClearRef.current = true;
+      setActiveProject(profile.uid, null)
+        .then(() => updateProfile({ activeProjectId: null }))
+        .catch(() => {});
+    }
+  }, [profile?.activeProjectId, projects.length]);
+
+  // Detect deleted challenge: activeProjectId set but project not found after load
+  useEffect(() => {
+    if (deletedClearRef.current || !profile?.activeProjectId || !profile.uid || projectsLoading || !projects.length) return;
+    const active = projects.find((p) => p.id === profile.activeProjectId);
+    if (!active) {
+      deletedClearRef.current = true;
+      setShowDeletedBanner(true);
+      setActiveProject(profile.uid, null)
+        .then(() => updateProfile({ activeProjectId: null }))
+        .catch(() => {});
+    }
+  }, [profile?.activeProjectId, projects, projectsLoading]);
+
+  if (!endedWithBalance.length && !showDeletedBanner) return null;
+
+  return (
+    <div>
+      {showDeletedBanner && (
+        <div className="flex items-center justify-between gap-3 px-4 py-3" style={{ background: "rgba(239,68,68,0.08)", borderBottom: "1px solid rgba(239,68,68,0.18)" }}>
+          <p className="text-xs font-semibold leading-relaxed" style={{ color: "#F87171" }}>
+            The organizer deleted your active challenge. Your jar balance is unchanged — pick a new cause to keep saving.
+          </p>
+          <div className="flex items-center gap-2 shrink-0">
+            <Link href="/jars?tab=cause" className="text-xs font-bold px-3 py-1.5 rounded-full" style={{ background: "#F87171", color: "#fff", textDecoration: "none" }}>
+              Pick Cause
+            </Link>
+            <button onClick={() => setShowDeletedBanner(false)} className="text-xs" style={{ color: "#F87171" }}>✕</button>
+          </div>
+        </div>
+      )}
+      {endedWithBalance.map((p) => {
+        const balance = profile!.causeJarBalances?.[p.id] ?? 0;
+        return (
+          <div key={p.id} className="flex items-center justify-between gap-3 px-4 py-3" style={{ background: "rgba(245,158,11,0.08)", borderBottom: "1px solid rgba(245,158,11,0.18)" }}>
+            <p className="text-xs font-semibold leading-relaxed" style={{ color: "#F59E0B" }}>
+              <span className="font-black">{p.groupName || p.title}</span> ended — donate your {formatCurrency(balance)} saved now.
+            </p>
+            <Link href="/jars?tab=cause" className="shrink-0 text-xs font-bold px-3 py-1.5 rounded-full" style={{ background: "#F59E0B", color: "#0B1A14", textDecoration: "none" }}>
+              Manage Jar
+            </Link>
+          </div>
+        );
+      })}
+    </div>
   );
 }
 
@@ -149,6 +232,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
       </Suspense>
 
       <main className="flex-1 overflow-y-auto pb-16 md:pb-0">
+        <ChallengeBanners />
         {children}
       </main>
 

@@ -111,6 +111,11 @@ service cloud.firestore {
             && incomingData().totalRaised is number
             && incomingData().totalRaised >= resource.data.totalRaised
           )
+          ||
+          // Any authenticated user can add themselves to memberUids when joining a challenge
+          (
+            incomingData().diff(resource.data).affectedKeys().hasOnly(["memberUids"])
+          )
         );
       allow delete: if isSignedIn()
         && resource.data.isCustom == true

@@ -18,6 +18,18 @@ import { ref, onValue } from "firebase/database";
 import { db, rtdb } from "./config";
 import { FeedItem, GlobalStats } from "@/lib/types/models";
 
+export function subscribeToChallengeFeed(projectId: string, callback: (items: FeedItem[]) => void): Unsubscribe {
+  const q = query(
+    collection(db, "communityFeed"),
+    where("projectId", "==", projectId),
+    orderBy("createdAt", "desc"),
+    limit(50)
+  );
+  return onSnapshot(q, (snap) => {
+    callback(snap.docs.map((d) => ({ id: d.id, ...d.data() } as FeedItem)));
+  });
+}
+
 export function subscribeToCommunityFeed(callback: (items: FeedItem[]) => void): Unsubscribe {
   const q = query(
     collection(db, "communityFeed"),
@@ -44,6 +56,13 @@ export async function getCommunityTotalSaved(): Promise<number> {
     totalSaved: sum("totalSaved"),
   });
   return snap.data().totalSaved ?? 0;
+}
+
+export async function getCommunityFeedTotal(): Promise<number> {
+  const snap = await getAggregateFromServer(collection(db, "communityFeed"), {
+    total: sum("skipAmount"),
+  });
+  return snap.data().total ?? 0;
 }
 
 export async function deleteCommunityFeedItem(skipId: string): Promise<void> {
