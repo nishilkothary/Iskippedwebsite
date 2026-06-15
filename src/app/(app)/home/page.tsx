@@ -947,15 +947,10 @@ export default function HomePage() {
                       <p style={{ fontSize: 10, fontWeight: 800, letterSpacing: 1.2, textTransform: "uppercase", color: "var(--text-muted)", marginTop: 3 }}>
                         {communityUnitLabel} Funded
                       </p>
-                      {displayedGroupTotal > 0 && (
-                        <p style={{ fontSize: 11, fontWeight: 700, color: "var(--gold-cta)", marginTop: 4 }}>
-                          ${Math.round(displayedGroupTotal).toLocaleString()} pledged
-                        </p>
-                      )}
                     </div>
                   </>
                 )}
-                {communityGoal === 0 && !hasCommunityUnit && displayedGroupTotal > 0 && (
+                {communityGoal === 0 && displayedGroupTotal > 0 && (
                   <>
                     <div style={{ width: 1, background: "rgba(255,255,255,0.12)", height: 44, marginBottom: 18 }} />
                     <div>
