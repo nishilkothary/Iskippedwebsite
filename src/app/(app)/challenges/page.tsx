@@ -1464,7 +1464,7 @@ function CreateChallengeWizard({
                         style={{ objectPosition: `${imgPos.x}% ${imgPos.y}%`, pointerEvents: "none" }}
                         draggable={false}
                       />
-                      <div className="absolute inset-0 flex items-center justify-center opacity-0 hover:opacity-100 transition-opacity" style={{ background: "rgba(0,0,0,0.25)" }}>
+                      <div className="absolute inset-x-0 bottom-0 flex items-center justify-center py-1.5" style={{ background: "rgba(0,0,0,0.45)" }}>
                         <span className="text-xs font-bold text-white">Drag to reposition</span>
                       </div>
                       <button
@@ -1481,7 +1481,7 @@ function CreateChallengeWizard({
                   )}
                 </div>
                 <div className="flex">
-                  <label className="px-4 py-2 rounded-full text-sm font-bold cursor-pointer" style={{ background: "#2ECC71", color: "#0B1A14" }}>
+                  <label className="px-5 py-3 rounded-full text-sm font-bold cursor-pointer select-none" style={{ background: "#2ECC71", color: "#0B1A14", touchAction: "manipulation", minHeight: 44, display: "inline-flex", alignItems: "center" }}>
                     Upload photo
                     <input type="file" accept="image/*" className="hidden" onChange={(event) => handleImageFile(event.target.files?.[0])} />
                   </label>

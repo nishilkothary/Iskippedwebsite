@@ -920,12 +920,12 @@ export default function HomePage() {
           overflow: "hidden",
         }}>
           {/* Header: mirrors community scoreboard format */}
-          <div style={{ display: "flex", justifyContent: "space-between", gap: 14, alignItems: "flex-start", marginBottom: 14 }}>
+          <div style={{ display: "flex", justifyContent: "space-between", gap: 14, alignItems: "flex-start", marginBottom: 18 }}>
             <div>
               <p style={{ fontSize: 11, fontWeight: 900, letterSpacing: 1.4, textTransform: "uppercase", color: "var(--green-primary)", marginBottom: 4 }}>
                 {activeProject.groupName ?? activeProject.title} · Group
               </p>
-              <div style={{ display: "flex", gap: 20, alignItems: "flex-end", marginTop: 12 }}>
+              <div style={{ display: "flex", gap: 20, alignItems: "flex-start", marginTop: 12 }}>
                 <div>
                   <p style={{ fontSize: 28, fontWeight: 900, color: "var(--text-primary)", lineHeight: 1 }}>
                     {challengeCommunitySkipCount.toLocaleString()}
@@ -941,7 +941,7 @@ export default function HomePage() {
                       <p style={{ fontSize: 28, fontWeight: 900, color: "var(--green-primary)", lineHeight: 1 }}>
                         {communityUnitCountDisplay}
                       </p>
-                      <p style={{ fontSize: 10, fontWeight: 800, letterSpacing: 1.2, textTransform: "uppercase", color: "var(--text-muted)", marginTop: 3 }}>
+                      <p style={{ fontSize: 10, fontWeight: 800, letterSpacing: 1.2, textTransform: "uppercase", color: "var(--text-muted)", marginTop: 3, whiteSpace: "nowrap" }}>
                         {communityUnitLabel} Funded
                       </p>
                     </div>
@@ -1007,7 +1007,7 @@ export default function HomePage() {
           </div>
 
           {/* Feed: challenge items first, community fallback until group gets active */}
-          <div style={{ display: "grid", gap: 10, borderTop: "1px solid rgba(255,255,255,0.07)", paddingTop: 14, marginTop: 4 }}>
+          <div style={{ display: "grid", gap: 10, borderTop: "1px solid rgba(255,255,255,0.07)", paddingTop: 16, marginTop: 16 }}>
             {challengeFeedItems.length > 0 ? (
               <>
                 <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 2 }}>

@@ -606,16 +606,6 @@ function CauseTab({
 
   const completedIds = new Set(completedChallenges.map((c) => c.project.id));
 
-  // Show other cause balances — exclude active cause and completed challenges (shown separately)
-  const otherBalances = Object.entries(causeJarBalances ?? {})
-    .filter(([id, bal]) => (bal as number) > 0 && id !== activeProject?.id && !completedIds.has(id))
-    .map(([id, bal]) => ({
-      id,
-      balance: bal as number,
-      project: projects.find((p) => p.id === id) ?? null,
-    }))
-    .filter(({ project }) => project !== null) as { id: string; balance: number; project: NonNullable<ReturnType<typeof projects.find>> }[];
-
   return (
     <div className="space-y-5">
       {/* Scoreboard card */}
@@ -709,23 +699,6 @@ function CauseTab({
           >
             Browse Challenges
           </button>
-        </div>
-      )}
-
-      {/* Other cause balances */}
-      {otherBalances.length > 0 && (
-        <div className="rounded-2xl p-4" style={{ background: "var(--bg-surface-2)", border: "1px solid var(--border-default)" }}>
-          <p className="text-xs uppercase tracking-wide font-bold mb-3" style={{ color: "var(--text-muted)" }}>Other Balances</p>
-          <div className="space-y-2">
-            {otherBalances.map(({ id, balance, project }) => (
-              <div key={id} className="flex items-center justify-between">
-                <p className="text-sm font-semibold truncate mr-3" style={{ color: "var(--text-primary)" }}>
-                  {project?.title ?? id}
-                </p>
-                <p className="text-sm font-black shrink-0" style={{ color: "#2ECC71" }}>{formatCurrency(balance)}</p>
-              </div>
-            ))}
-          </div>
         </div>
       )}
 

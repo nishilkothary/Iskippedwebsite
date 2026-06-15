@@ -12,11 +12,11 @@ import { formatCurrency } from "@/lib/utils/currency";
 import { Project } from "@/lib/types/models";
 
 const NAV_ITEMS = [
-  { href: "/home",        label: "Home",       tab: null },
-  { href: "/challenges",  label: "Challenges", tab: null },
-  { href: "/jars",        label: "Jars",       tab: null },
-  { href: "/about",       label: "About",      tab: null },
-  { href: "/profile",     label: "Profile",    tab: null },
+  { href: "/home",        label: "Home",       emoji: "🏠", tab: null },
+  { href: "/challenges",  label: "Challenges", emoji: "🎯", tab: null },
+  { href: "/jars",        label: "Jars",       emoji: "🫙", tab: null },
+  { href: "/about",       label: "About",      emoji: "💡", tab: null },
+  { href: "/profile",     label: "Profile",    emoji: "👤", tab: null },
 ];
 
 function isNavActive(item: (typeof NAV_ITEMS)[number], pathname: string, _searchParams: { get: (name: string) => string | null }) {
@@ -117,10 +117,14 @@ function MobileBottomNav() {
           <Link
             key={item.href}
             href={item.href}
-            className="flex-1 flex items-center justify-center py-3 text-xs font-medium transition-colors"
-            style={{ color: active ? "var(--gold-cta)" : "var(--text-muted)" }}
+            className="flex-1 flex flex-col items-center justify-center py-2 gap-0.5 transition-colors"
+            style={{ color: active ? "var(--gold-cta)" : "rgba(237,245,240,0.55)" }}
           >
-            {item.label}
+            <span className="text-lg leading-none">{item.emoji}</span>
+            <span className="text-[10px] font-bold leading-tight"
+              style={{ color: active ? "var(--gold-cta)" : "rgba(237,245,240,0.7)" }}>
+              {item.label}
+            </span>
           </Link>
         );
       })}
