@@ -174,13 +174,10 @@ export async function logSkip(params: LogSkipParams): Promise<{ skipId: string; 
 
   await batch.commit();
 
-  // Update project totals for challenge group tracking (non-atomic, best-effort)
-  // Use setDoc+merge so it works even if the project doc doesn't exist yet
-  if (projectId) {
-    setDoc(doc(db, "projects", projectId), {
-      ...(giveAmount > 0 ? { totalRaised: increment(giveAmount) } : {}),
-      totalSkips: increment(1),
-    }, { merge: true }).catch(() => {});
+  // Update project totals for challenge group tracking (non-atomic, best-effort).
+  // Firestore rule only allows changing totalRaised alone — split into separate writes.
+  if (projectId && giveAmount > 0) {
+    setDoc(doc(db, "projects", projectId), { totalRaised: increment(giveAmount) }, { merge: true }).catch(() => {});
   }
 
   // 4. Update global counters in Realtime DB

@@ -412,7 +412,7 @@ export default function HomePage() {
     const activeProjectId = profile?.activeProjectId;
     if (!activeProjectId) { setLiveChallengeTotalRaised(0); return; }
     const proj = projects.find((p) => p.id === activeProjectId);
-    if (!proj || !isChallengeProject(proj)) { setLiveChallengeTotalRaised(0); return; }
+    if (!proj || !(isChallengeProject(proj) || !proj.isCustom)) { setLiveChallengeTotalRaised(0); return; }
     setLiveChallengeTotalRaised(proj.totalRaised ?? 0);
     return subscribeToProject(activeProjectId, (p) => {
       setLiveChallengeTotalRaised(p?.totalRaised ?? 0);
@@ -920,12 +920,35 @@ export default function HomePage() {
           overflow: "hidden",
         }}>
           {/* Header */}
-          <div style={{ display: "flex", justifyContent: "space-between", gap: 14, alignItems: "flex-start", marginBottom: 18 }}>
-            <div>
-              <p style={{ fontSize: 16, fontWeight: 800, color: "var(--text-primary)", marginBottom: 2, lineHeight: 1.2 }}>
+          <div style={{ marginBottom: 18 }}>
+            {/* Title row with action buttons inline */}
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8, marginBottom: 2 }}>
+              <p style={{ fontSize: 15, fontWeight: 800, color: "var(--text-primary)", lineHeight: 1.2 }}>
                 What&apos;s Happening In My Group
               </p>
-              <p style={{ fontSize: 13, fontWeight: 700, color: "var(--green-primary)" }}>
+              <div style={{ display: "flex", gap: 8, flexShrink: 0 }}>
+                <button
+                  onClick={async () => {
+                    const url = `${window.location.origin}/challenges/${activeProject.id}`;
+                    if (typeof navigator.share === "function") {
+                      try { await navigator.share({ title: activeProject.title, text: `Join my iSkipped challenge: ${activeProject.title}`, url }); return; } catch { /* dismissed */ }
+                    }
+                    try { await navigator.clipboard.writeText(url); } catch { /* ignore */ }
+                  }}
+                  style={{ background: "rgba(46,204,113,0.12)", border: "1px solid rgba(46,204,113,0.25)", borderRadius: 999, color: "var(--green-primary)", fontSize: 11, fontWeight: 900, padding: "6px 10px", whiteSpace: "nowrap" }}
+                >
+                  ↗ Invite
+                </button>
+                <button
+                  onClick={() => router.push(`/challenges/${activeProject.id}`)}
+                  style={{ background: "rgba(46,204,113,0.12)", border: "1px solid rgba(46,204,113,0.25)", borderRadius: 999, color: "var(--green-primary)", fontSize: 11, fontWeight: 900, padding: "6px 10px", whiteSpace: "nowrap" }}
+                >
+                  View
+                </button>
+              </div>
+            </div>
+            <div>
+              <p style={{ fontSize: 13, fontWeight: 700, color: "var(--green-primary)", marginBottom: 0 }}>
                 {activeProject.groupName ?? activeProject.title}
               </p>
               <div style={{ display: "flex", gap: 20, alignItems: "flex-start", marginTop: 12 }}>
@@ -987,25 +1010,6 @@ export default function HomePage() {
                 </div>
               ) : null}
             </div>
-            <div style={{ display: "flex", gap: 8, flexShrink: 0 }}>
-              <button
-                onClick={async () => {
-                  const url = `${window.location.origin}/challenges/${activeProject.id}`;
-                  if (typeof navigator.share === "function") {
-                    try { await navigator.share({ title: activeProject.title, text: `Join my iSkipped challenge: ${activeProject.title}`, url }); return; } catch { /* dismissed */ }
-                  }
-                  try { await navigator.clipboard.writeText(url); } catch { /* ignore */ }
-                }}
-                style={{ background: "rgba(46,204,113,0.12)", border: "1px solid rgba(46,204,113,0.25)", borderRadius: 999, color: "var(--green-primary)", fontSize: 11, fontWeight: 900, padding: "6px 10px", whiteSpace: "nowrap" }}
-              >
-                ↗ Invite
-              </button>
-              <button
-                onClick={() => router.push(`/challenges/${activeProject.id}`)}
-                style={{ background: "rgba(46,204,113,0.12)", border: "1px solid rgba(46,204,113,0.25)", borderRadius: 999, color: "var(--green-primary)", fontSize: 11, fontWeight: 900, padding: "6px 10px", whiteSpace: "nowrap" }}
-              >
-                View
-              </button>
             </div>
           </div>
 

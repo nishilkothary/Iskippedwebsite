@@ -198,12 +198,12 @@ export async function switchCause(
   await updateDoc(doc(db, "users", uid), updates);
   // Keep project.totalRaised in sync: move the pledged amount from old to new project (best-effort)
   // Use setDoc+merge for the destination so it works even if the project doc doesn't exist yet
+  // Firestore rule only allows changing totalRaised or memberUids separately — split writes
   if (oldCauseId && transferredAmount > 0) {
     updateDoc(doc(db, "projects", oldCauseId), { totalRaised: increment(-transferredAmount) }).catch(() => {});
-    setDoc(doc(db, "projects", newCauseId), { totalRaised: increment(transferredAmount), memberUids: arrayUnion(uid) }, { merge: true }).catch(() => {});
-  } else {
-    setDoc(doc(db, "projects", newCauseId), { memberUids: arrayUnion(uid) }, { merge: true }).catch(() => {});
+    setDoc(doc(db, "projects", newCauseId), { totalRaised: increment(transferredAmount) }, { merge: true }).catch(() => {});
   }
+  setDoc(doc(db, "projects", newCauseId), { memberUids: arrayUnion(uid) }, { merge: true }).catch(() => {});
   return balanceTransfer;
 }
 
