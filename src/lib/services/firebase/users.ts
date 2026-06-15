@@ -181,30 +181,34 @@ export async function switchCause(
   newCauseId: string,
 ): Promise<Record<string, number> | null> {
   const updates: Record<string, unknown> = { activeProjectId: newCauseId, joinedProjectIds: arrayUnion(newCauseId) };
-  let balanceTransfer: Record<string, number> | null = null;
-  let transferredAmount = 0;
-  if (oldCauseId) {
-    const snap = await getDoc(doc(db, "users", uid));
-    const oldBal: number = Math.max(0, snap.data()?.causeJarBalances?.[oldCauseId] ?? 0);
-    updates[`causeJarBalances.${oldCauseId}`] = 0;
-    if (oldBal > 0) {
-      updates[`causeJarBalances.${newCauseId}`] = increment(oldBal);
-      transferredAmount = oldBal;
-      balanceTransfer = { [oldCauseId]: 0, [newCauseId]: oldBal };
-    } else {
-      balanceTransfer = { [oldCauseId]: 0 };
-    }
+  const balanceTransfer: Record<string, number> = {};
+  let totalTransferred = 0;
+
+  // Consolidate ALL orphaned cause jar balances (not just the immediately-previous one)
+  // so users always see their full giving balance reflected in their active challenge.
+  const snap = await getDoc(doc(db, "users", uid));
+  const allJarBalances: Record<string, number> = snap.data()?.causeJarBalances ?? {};
+  for (const [causeId, bal] of Object.entries(allJarBalances)) {
+    const amount = Math.max(0, Number(bal) || 0);
+    if (causeId === newCauseId || amount === 0) continue;
+    updates[`causeJarBalances.${causeId}`] = 0;
+    balanceTransfer[causeId] = 0;
+    totalTransferred += amount;
+    // Decrement old project's totalRaised (best-effort)
+    updateDoc(doc(db, "projects", causeId), { totalRaised: increment(-amount) }).catch(() => {});
   }
+  if (totalTransferred > 0) {
+    updates[`causeJarBalances.${newCauseId}`] = increment(totalTransferred);
+    balanceTransfer[newCauseId] = (allJarBalances[newCauseId] ?? 0) + totalTransferred;
+  }
+
   await updateDoc(doc(db, "users", uid), updates);
-  // Keep project.totalRaised in sync: move the pledged amount from old to new project (best-effort)
-  // Use setDoc+merge for the destination so it works even if the project doc doesn't exist yet
-  // Firestore rule only allows changing totalRaised or memberUids separately — split writes
-  if (oldCauseId && transferredAmount > 0) {
-    updateDoc(doc(db, "projects", oldCauseId), { totalRaised: increment(-transferredAmount) }).catch(() => {});
-    setDoc(doc(db, "projects", newCauseId), { totalRaised: increment(transferredAmount) }, { merge: true }).catch(() => {});
+  // Keep destination project totalRaised in sync (split write — rule only allows totalRaised alone)
+  if (totalTransferred > 0) {
+    setDoc(doc(db, "projects", newCauseId), { totalRaised: increment(totalTransferred) }, { merge: true }).catch(() => {});
   }
   setDoc(doc(db, "projects", newCauseId), { memberUids: arrayUnion(uid) }, { merge: true }).catch(() => {});
-  return balanceTransfer;
+  return Object.keys(balanceTransfer).length > 0 ? balanceTransfer : null;
 }
 
 export async function switchGoal(
