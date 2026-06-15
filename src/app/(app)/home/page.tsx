@@ -1010,7 +1010,6 @@ export default function HomePage() {
                 </div>
               ) : null}
             </div>
-            </div>
           </div>
 
           {/* Feed: challenge items first, community fallback until group gets active */}
