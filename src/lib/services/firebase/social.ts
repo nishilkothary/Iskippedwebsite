@@ -18,6 +18,18 @@ import { ref, onValue } from "firebase/database";
 import { db, rtdb } from "./config";
 import { FeedItem, GlobalStats } from "@/lib/types/models";
 
+export function subscribeToChallengeFeed(projectId: string, callback: (items: FeedItem[]) => void): Unsubscribe {
+  const q = query(
+    collection(db, "communityFeed"),
+    where("projectId", "==", projectId),
+    orderBy("createdAt", "desc"),
+    limit(50)
+  );
+  return onSnapshot(q, (snap) => {
+    callback(snap.docs.map((d) => ({ id: d.id, ...d.data() } as FeedItem)));
+  });
+}
+
 export function subscribeToCommunityFeed(callback: (items: FeedItem[]) => void): Unsubscribe {
   const q = query(
     collection(db, "communityFeed"),

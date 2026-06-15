@@ -4,11 +4,9 @@ import { useEffect, useMemo, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { useAuthStore } from "@/store/authStore";
 import { useProjects } from "@/hooks/useProjects";
-import { useSkips } from "@/hooks/useSkips";
-import { FeedItem, Project } from "@/lib/types/models";
-import { joinProject, switchCause } from "@/lib/services/firebase/users";
+import { Project } from "@/lib/types/models";
+import { joinProject, switchCause, setUserCauseGoal, normalizeJarSplit } from "@/lib/services/firebase/users";
 import { isChallengeProject } from "@/lib/services/firebase/projects";
-import { subscribeToCommunityFeed } from "@/lib/services/firebase/social";
 import { formatCurrency } from "@/lib/utils/currency";
 import { getChallengeCountdown } from "@/lib/utils/dates";
 
@@ -31,12 +29,6 @@ type ChallengeView = {
   skipChallengeLine: string | null;
 };
 
-const JOINED_BY_CATEGORY: Record<ChallengeCategory, string> = {
-  Education: "1,240 joined",
-  Meals: "890 joined",
-  Health: "540 joined",
-  Community: "32 joined",
-};
 
 function challengeTitle(project: Project): string {
   if (project.isCustom) return project.title;
@@ -61,7 +53,7 @@ function fallbackForCategory(category: ChallengeCategory) {
 }
 
 function getChallengeGoal(project: Project): number {
-  return project.goalAmount || 100;
+  return project.goalAmount > 0 ? project.goalAmount : 0;
 }
 
 function getSkipChallengeLine(project: Project): string | null {
@@ -75,9 +67,8 @@ function getSkipChallengeLine(project: Project): string | null {
 }
 
 function visibilityLabel(project: Project): ChallengeView["visibilityLabel"] {
-  const privateTags = ["visibility-private", "visibility-password", "visibility-unlisted"];
+  const privateTags = ["visibility-private", "visibility-unlisted"];
   return project.visibility === "private"
-    || project.visibility === "password"
     || project.visibility === "unlisted"
     || Boolean(project.tags?.some((tag) => privateTags.includes(tag)))
     ? "Private"
@@ -88,7 +79,7 @@ function challengeFromProject(project: Project): ChallengeView {
   const category = challengeCategory(project);
   const fallback = fallbackForCategory(category);
   const goal = getChallengeGoal(project);
-  const raised = Math.min(goal, Math.max(project.totalRaised || 0, project.isCustom ? 0 : goal * 0.18));
+  const raised = Math.min(goal, project.totalRaised || 0);
   const progressPct = goal > 0 ? Math.min(100, Math.round((raised / goal) * 100)) : 0;
 
   return {
@@ -104,7 +95,9 @@ function challengeFromProject(project: Project): ChallengeView {
     raised,
     goal,
     progressPct,
-    joinedLabel: project.isCustom ? "Community challenge" : JOINED_BY_CATEGORY[category],
+    joinedLabel: (project.memberUids?.length ?? 0) > 0
+      ? `${project.memberUids!.length} joined`
+      : project.isCustom ? "Community challenge" : "Open challenge",
     skipChallengeLine: getSkipChallengeLine(project),
   };
 }
@@ -196,32 +189,19 @@ export default function ChallengeDetailPage() {
   const challengeId = typeof params?.id === "string" ? params.id : Array.isArray(params?.id) ? params.id[0] : "";
   const { user, profile, updateProfile } = useAuthStore();
   const { projects } = useProjects();
-  const { recentSkips } = useSkips();
   const [joining, setJoining] = useState(false);
   const [showJoinChoice, setShowJoinChoice] = useState(false);
-  const [showPasswordEntry, setShowPasswordEntry] = useState(false);
-  const [challengePassword, setChallengePassword] = useState("");
-  const [passwordError, setPasswordError] = useState("");
-  const [communityFeed, setCommunityFeed] = useState<FeedItem[]>([]);
+  const [goalPickerProjectId, setGoalPickerProjectId] = useState<string | null>(null);
   const [showShare, setShowShare] = useState(false);
   const challengeUrl = typeof window !== "undefined"
     ? `${window.location.origin}/challenges/${challengeId}`
     : `/challenges/${challengeId}`;
   const canNativeShare = typeof navigator !== "undefined" && typeof navigator.share === "function";
 
-  useEffect(() => {
-    return subscribeToCommunityFeed(setCommunityFeed);
-  }, []);
-
   const challenge = useMemo(() => {
     const project = projects.find((item) => item.id === challengeId);
-    return project && isChallengeProject(project) ? challengeFromProject(project) : null;
+    return project && (isChallengeProject(project) || !project.isCustom) ? challengeFromProject(project) : null;
   }, [projects, challengeId]);
-
-  const challengeSkips = useMemo(
-    () => recentSkips.filter((skip) => skip.projectId === challengeId),
-    [recentSkips, challengeId]
-  );
 
   if (!challenge) {
     return (
@@ -242,21 +222,11 @@ export default function ChallengeDetailPage() {
   const countdown = getChallengeCountdown(challenge.project);
   const activeChallenge = projects.find((item) => item.id === profile?.activeProjectId);
   const activePledgeBalance = profile?.activeProjectId ? profile?.causeJarBalances?.[profile.activeProjectId] ?? 0 : 0;
-  const skipPledgeTotal = challengeSkips.reduce((sum, skip) => sum + skip.amount, 0);
+  const split = normalizeJarSplit(profile?.jarSplit as any);
+  const giveTotal = profile ? (profile.totalGiveAllocated ?? profile.totalSaved * (split.give / 100)) : 0;
+  const globalGivingBalance = profile ? Math.max(0, giveTotal - (profile.totalDonated ?? 0)) : 0;
   const profileChallengeBalance = profile?.causeJarBalances?.[challenge.project.id] ?? 0;
-  const pledgedAmount = challenge.project.isCustom
-    ? Math.max(challenge.project.totalRaised || 0, skipPledgeTotal, profileChallengeBalance)
-    : challenge.raised;
-  const challengeFeed = communityFeed.filter(
-    (item) => item.projectId === challengeId || item.projectTitle === challenge.project.title
-  );
-  const recentActivity = challengeFeed.length > 0
-    ? challengeFeed.slice(0, 5).map((item) => ({
-        label: item.skipLabel ? `${item.displayName} skipped ${item.skipLabel}` : item.message,
-        amount: item.skipAmount ?? 0,
-        emoji: item.skipEmoji,
-      }))
-    : [];
+  const pledgedAmount = Math.max(challenge.project.totalRaised || 0, profileChallengeBalance);
 
   async function handleShare() {
     if (!challenge) return;
@@ -269,20 +239,10 @@ export default function ChallengeDetailPage() {
     setShowShare(true);
   }
 
-  function needsPasswordToJoin() {
-    return challenge?.visibilityLabel === "Private" && !isJoined;
-  }
-
   async function handleJoin() {
     if (!user || !challenge || joining) return;
     if (isActive) {
       router.push("/home");
-      return;
-    }
-    if (needsPasswordToJoin()) {
-      setShowPasswordEntry(true);
-      setChallengePassword("");
-      setPasswordError("");
       return;
     }
     await beginJoin();
@@ -297,30 +257,12 @@ export default function ChallengeDetailPage() {
     await completeJoin(true);
   }
 
-  async function submitPrivatePassword() {
-    if (!challenge || joining) return;
-    const entered = challengePassword.trim();
-    const expected = challenge.project.password?.trim();
-    if (!entered) {
-      setPasswordError("Enter the challenge password.");
-      return;
-    }
-    if (expected && entered !== expected) {
-      setPasswordError("That password doesn't match.");
-      return;
-    }
-    setShowPasswordEntry(false);
-    setChallengePassword("");
-    setPasswordError("");
-    await beginJoin();
-  }
-
-  async function completeJoin(makeActive: boolean, movePledge = false) {
+  async function completeJoin(makeActive: boolean) {
     if (!user || !challenge || joining) return;
     setJoining(true);
     try {
       if (makeActive) {
-        const balanceTransfer = await switchCause(user.uid, profile?.activeProjectId ?? null, challenge.project.id, movePledge);
+        const balanceTransfer = await switchCause(user.uid, profile?.activeProjectId ?? null, challenge.project.id);
         updateProfile({
           activeProjectId: challenge.project.id,
           joinedProjectIds: Array.from(new Set([...(profile?.joinedProjectIds ?? []), challenge.project.id])),
@@ -328,6 +270,7 @@ export default function ChallengeDetailPage() {
             ? { causeJarBalances: { ...(profile?.causeJarBalances ?? {}), ...balanceTransfer } }
             : {}),
         });
+        setGoalPickerProjectId(challenge.project.id);
       } else {
         await joinProject(user.uid, challenge.project.id, false);
         updateProfile({ joinedProjectIds: Array.from(new Set([...(profile?.joinedProjectIds ?? []), challenge.project.id])) });
@@ -397,7 +340,45 @@ export default function ChallengeDetailPage() {
           </section>
 
           <div className="mt-5">
-            <ProgressBar challenge={challenge} pledgedAmount={pledgedAmount} />
+            {challenge.goal > 0 ? (
+              pledgedAmount > 0 ? (
+                <ProgressBar challenge={challenge} pledgedAmount={pledgedAmount} />
+              ) : (
+                <p className="text-sm font-semibold" style={{ color: "var(--text-muted)" }}>
+                  Goal: {formatCurrency(challenge.goal)}
+                </p>
+              )
+            ) : (
+              /* Partner / open-ended challenge — show aggregate stats instead of a progress bar */
+              (() => {
+                const totalSkips = challenge.project.totalSkips ?? 0;
+                const totalRaised = challenge.project.totalRaised ?? 0;
+                const unitCost = challenge.project.unitCost ?? 0;
+                const hasUnits = unitCost > 0;
+                const unitsPluralLabel = hasUnits && challenge.project.unitName
+                  ? challenge.project.unitName.split(" ").slice(-1)[0].toLowerCase() + "s funded"
+                  : "units funded";
+                const unitsCount = hasUnits ? Math.floor(totalRaised / unitCost) : 0;
+                return (
+                  <div className={`grid gap-3 rounded-xl p-4 ${hasUnits ? "grid-cols-3" : "grid-cols-2"}`} style={{ background: "var(--bg-surface-2)", border: "1px solid var(--border-default)" }}>
+                    <div className="text-center">
+                      <p className="text-xl font-black" style={{ color: "var(--green-primary)" }}>{totalSkips.toLocaleString()}</p>
+                      <p className="text-xs mt-0.5" style={{ color: "var(--text-muted)" }}>skips</p>
+                    </div>
+                    {hasUnits && (
+                      <div className="text-center">
+                        <p className="text-xl font-black" style={{ color: "var(--gold-cta)" }}>{unitsCount.toLocaleString()}</p>
+                        <p className="text-xs mt-0.5" style={{ color: "var(--text-muted)" }}>{unitsPluralLabel}</p>
+                      </div>
+                    )}
+                    <div className="text-center">
+                      <p className="text-xl font-black" style={{ color: "var(--coral-primary)" }}>{formatCurrency(totalRaised)}</p>
+                      <p className="text-xs mt-0.5" style={{ color: "var(--text-muted)" }}>raised</p>
+                    </div>
+                  </div>
+                );
+              })()
+            )}
           </div>
 
           {challenge.impactLine && (
@@ -408,41 +389,38 @@ export default function ChallengeDetailPage() {
 
           <SkipChallenge project={challenge.project} />
 
-          <section className="mt-5">
-            <p className="text-xs uppercase tracking-wide font-bold mb-2" style={{ color: "var(--text-muted)" }}>Recent Activity</p>
-            {recentActivity.length > 0 ? (
-              <div className="space-y-2">
-                {recentActivity.map((activity) => (
-                  <div key={`${activity.label}-${activity.amount}`} className="flex items-center justify-between rounded-xl px-3 py-2" style={{ background: "var(--bg-surface-2)" }}>
-                    <span className="text-sm font-semibold" style={{ color: "var(--text-primary)" }}>
-                      {activity.emoji && <span className="mr-1.5">{activity.emoji}</span>}
-                      {activity.label}
-                    </span>
-                    <span className="text-sm font-black" style={{ color: "var(--green-primary)" }}>{formatCurrency(activity.amount)}</span>
-                  </div>
-                ))}
-              </div>
-            ) : (
-              <p className="text-sm rounded-xl px-3 py-3" style={{ color: "var(--text-muted)", background: "var(--bg-surface-2)" }}>
-                Be the first to skip for this challenge!
+          {/* Where donations go */}
+          {challenge.project.donationURL && (
+            <div className="mt-5 rounded-xl px-4 py-4" style={{ background: "var(--bg-surface-2)", border: "1px solid var(--border-default)" }}>
+              <p className="text-xs uppercase tracking-wide font-bold mb-2" style={{ color: "var(--text-muted)" }}>Where your donation goes</p>
+              <p className="text-sm font-black" style={{ color: "var(--text-primary)" }}>
+                {challenge.project.sponsor || challenge.title}
               </p>
-            )}
-          </section>
-
-          {/* Where donations currently go */}
-          <div className="mt-5 rounded-xl px-4 py-3" style={{ background: "var(--bg-surface-2)", border: "1px solid var(--border-default)" }}>
-            <p className="text-xs uppercase tracking-wide font-bold mb-1" style={{ color: "var(--text-muted)" }}>Your current Giving Jar</p>
-            {activeChallenge ? (
-              <>
-                <p className="text-sm font-semibold" style={{ color: "var(--text-primary)" }}>{activeChallenge.title}</p>
-                {activeChallenge.id !== challenge.project.id && (
-                  <p className="text-xs mt-1" style={{ color: "var(--text-muted)" }}>Joining will switch your skips to this challenge.</p>
-                )}
-              </>
-            ) : (
-              <p className="text-sm font-semibold" style={{ color: "var(--text-secondary)" }}>No active cause — joining will set this one.</p>
-            )}
-          </div>
+              <a
+                href={challenge.project.donationURL}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-xs mt-0.5 block hover:underline"
+                style={{ color: "var(--green-primary)" }}
+              >
+                {(() => { try { return new URL(challenge.project.donationURL).hostname.replace("www.", ""); } catch { return challenge.project.donationURL; } })()}
+              </a>
+              {challenge.project.learnMoreURL && (
+                <a
+                  href={challenge.project.learnMoreURL}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-xs mt-1 block hover:underline"
+                  style={{ color: "var(--text-muted)" }}
+                >
+                  Learn more →
+                </a>
+              )}
+              <p className="text-xs mt-3 leading-relaxed" style={{ color: "var(--text-muted)" }}>
+                iSkipped doesn&apos;t process payments. When you tap Donate, you go directly to {challenge.project.sponsor || "the organizer"} to complete your gift.
+              </p>
+            </div>
+          )}
 
           <div className="flex gap-2 mt-4">
             {!countdown.isExpired && (
@@ -473,50 +451,6 @@ export default function ChallengeDetailPage() {
           </div>
         </div>
       </article>
-
-      {showPasswordEntry && (
-        <div className="fixed inset-0 bg-black/60 z-50 flex items-end sm:items-center justify-center p-4" onClick={() => setShowPasswordEntry(false)}>
-          <div
-            className="rounded-2xl w-full max-w-sm p-5 shadow-2xl"
-            style={{ background: "var(--bg-surface-1)", border: "1px solid var(--border-default)" }}
-            onClick={(event) => event.stopPropagation()}
-          >
-            <div className="flex items-start justify-between gap-4">
-              <div>
-                <p className="text-xl font-black" style={{ color: "var(--text-primary)" }}>Private challenge</p>
-                <p className="text-sm mt-1" style={{ color: "var(--text-muted)" }}>{challenge.title}</p>
-              </div>
-              <button onClick={() => setShowPasswordEntry(false)} className="text-xl leading-none" style={{ color: "var(--text-muted)" }}>x</button>
-            </div>
-            <input
-              type="password"
-              value={challengePassword}
-              onChange={(event) => {
-                setChallengePassword(event.target.value);
-                if (passwordError) setPasswordError("");
-              }}
-              placeholder="Enter password"
-              className="w-full rounded-xl px-4 py-3 text-sm focus:outline-none mt-4"
-              style={{ background: "var(--bg-surface-2)", border: "1px solid var(--border-default)", color: "var(--text-primary)" }}
-              autoFocus
-            />
-            {passwordError && <p className="text-xs mt-2" style={{ color: "var(--coral-primary)" }}>{passwordError}</p>}
-            <button
-              type="button"
-              onClick={submitPrivatePassword}
-              disabled={joining}
-              className="w-full py-3 rounded-full text-sm font-black mt-4 disabled:opacity-60"
-              style={{
-                background: "linear-gradient(135deg, var(--gold-cta), var(--gold-light))",
-                color: "var(--bg-base)",
-                boxShadow: "0 4px 18px var(--gold-glow)",
-              }}
-            >
-              {joining ? "Joining..." : "Join Challenge"}
-            </button>
-          </div>
-        </div>
-      )}
 
       {showJoinChoice && (
         <div className="fixed inset-0 bg-black/60 z-50 flex items-end sm:items-center justify-center p-4" onClick={() => setShowJoinChoice(false)}>
@@ -568,7 +502,7 @@ export default function ChallengeDetailPage() {
               {activePledgeBalance > 0 && (
                 <button
                   type="button"
-                  onClick={() => completeJoin(true, true)}
+                  onClick={() => completeJoin(true)}
                   disabled={joining}
                   className="py-3 rounded-full text-sm font-black disabled:opacity-60"
                   style={{ border: "1px solid var(--border-emphasis)", color: "var(--green-primary)" }}
@@ -585,22 +519,21 @@ export default function ChallengeDetailPage() {
               >
                 Join Only
               </button>
-              <button
-                type="button"
-                onClick={() => completeJoin(true)}
-                disabled={joining}
-                className="py-3 rounded-full text-sm font-black disabled:opacity-60"
-                style={activePledgeBalance > 0
-                  ? { border: "1px solid var(--border-default)", color: "var(--text-secondary)" }
-                  : {
-                      background: "linear-gradient(135deg, var(--gold-cta), var(--gold-light))",
-                      color: "var(--bg-base)",
-                      boxShadow: "0 4px 18px var(--gold-glow)",
-                    }
-                }
-              >
-                {joining ? "Joining..." : "Join Challenge"}
-              </button>
+              {activePledgeBalance === 0 && (
+                <button
+                  type="button"
+                  onClick={() => completeJoin(true)}
+                  disabled={joining}
+                  className="py-3 rounded-full text-sm font-black disabled:opacity-60"
+                  style={{
+                    background: "linear-gradient(135deg, var(--gold-cta), var(--gold-light))",
+                    color: "var(--bg-base)",
+                    boxShadow: "0 4px 18px var(--gold-glow)",
+                  }}
+                >
+                  {joining ? "Joining..." : "Join Challenge"}
+                </button>
+              )}
             </div>
           </div>
         </div>
@@ -614,6 +547,105 @@ export default function ChallengeDetailPage() {
           onClose={() => setShowShare(false)}
         />
       )}
+
+      {goalPickerProjectId && (
+        <PersonalGoalPickerModal
+          onClose={() => setGoalPickerProjectId(null)}
+          onSet={async (amount) => {
+            if (!user) return;
+            await setUserCauseGoal(user.uid, goalPickerProjectId, amount);
+            updateProfile({ causeGoalAmounts: { ...(profile?.causeGoalAmounts ?? {}), [goalPickerProjectId]: amount } });
+            setGoalPickerProjectId(null);
+          }}
+        />
+      )}
+    </div>
+  );
+}
+
+function PersonalGoalPickerModal({
+  onClose,
+  onSet,
+}: {
+  onClose: () => void;
+  onSet: (amount: number) => Promise<void>;
+}) {
+  const PRESETS = [25, 50, 100, 200];
+  const [custom, setCustom] = useState("");
+  const [selected, setSelected] = useState<number | null>(null);
+  const [saving, setSaving] = useState(false);
+
+  async function handleSet(amount: number) {
+    if (saving || amount <= 0) return;
+    setSaving(true);
+    try { await onSet(amount); } finally { setSaving(false); }
+  }
+
+  const parsedCustom = parseFloat(custom);
+  const customValid = !isNaN(parsedCustom) && parsedCustom > 0;
+  const saveAmount = customValid ? parsedCustom : selected;
+  const canSave = saveAmount !== null && saveAmount > 0;
+
+  return (
+    <div className="fixed inset-0 bg-black/60 z-50 flex items-end sm:items-center justify-center p-4" onClick={onClose}>
+      <div
+        className="rounded-2xl w-full max-w-md p-5 shadow-2xl"
+        style={{ background: "var(--bg-surface-1)", border: "1px solid var(--border-default)" }}
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="flex items-start justify-between gap-4 mb-4">
+          <div>
+            <p className="text-xl font-black" style={{ color: "var(--text-primary)" }}>You&apos;re in! 🙌</p>
+            <p className="text-sm mt-1" style={{ color: "var(--text-muted)" }}>Set a personal savings goal. Your jar will show your progress toward it.</p>
+          </div>
+          <button onClick={onClose} className="text-xl leading-none" style={{ color: "var(--text-muted)" }}>×</button>
+        </div>
+
+        <div className="grid grid-cols-4 gap-2 mb-4">
+          {PRESETS.map((amount) => {
+            const isSelected = selected === amount && !customValid;
+            return (
+              <button
+                key={amount}
+                type="button"
+                onClick={() => { setSelected(amount); setCustom(""); }}
+                disabled={saving}
+                className="py-3 rounded-xl text-sm font-black disabled:opacity-50"
+                style={{
+                  background: isSelected ? "#2ECC71" : "var(--bg-surface-2)",
+                  border: isSelected ? "1px solid #2ECC71" : "1px solid var(--border-default)",
+                  color: isSelected ? "#0B1A14" : "var(--text-primary)",
+                }}
+              >
+                ${amount}
+              </button>
+            );
+          })}
+        </div>
+
+        <div className="relative">
+          <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm" style={{ color: "var(--text-muted)" }}>$</span>
+          <input
+            type="number"
+            min={1}
+            value={custom}
+            onChange={(e) => { setCustom(e.target.value); setSelected(null); }}
+            placeholder="Custom amount"
+            className="w-full rounded-xl pl-7 pr-4 py-3 text-sm focus:outline-none"
+            style={{ background: "var(--bg-surface-2)", border: "1px solid var(--border-default)", color: "var(--text-primary)" }}
+          />
+        </div>
+
+        <button
+          type="button"
+          onClick={() => canSave && handleSet(saveAmount!)}
+          disabled={saving || !canSave}
+          className="mt-3 w-full py-3 rounded-xl text-sm font-black disabled:opacity-40"
+          style={{ background: "#2ECC71", color: "#0B1A14" }}
+        >
+          {saving ? "Saving…" : "Save"}
+        </button>
+      </div>
     </div>
   );
 }

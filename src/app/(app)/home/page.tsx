@@ -300,16 +300,19 @@ function Jar({ fillPercent, color, gradEnd, label, amount, emoji, causeLabel, go
 
 // ─── Home Page ──────────────────────────────────────────────────────────────
 function getCommunityGoal(project: Project): number {
-  return project.goalAmount || project.unitCost || 100;
+  return project.goalAmount > 0 ? project.goalAmount : 0;
 }
 
 function getCommunityRaised(project: Project, savedForProject: number): number {
   return Math.max(0, savedForProject || project.totalRaised || 0);
 }
 
-function formatCommunityUnitCount(amount: number, unitCost: number): string {
+function formatCommunityUnitCount(amount: number, unitCost: number, unitIsGoal?: boolean): string {
   if (!Number.isFinite(amount) || !Number.isFinite(unitCost) || unitCost <= 0) return "0";
-  return Math.floor(amount / unitCost).toLocaleString();
+  const count = amount / unitCost;
+  if (unitIsGoal || count < 2) return parseFloat(count.toFixed(2)).toString();
+  if (count < 10) return parseFloat(count.toFixed(1)).toString();
+  return Math.floor(count).toLocaleString();
 }
 
 function formatFeedMessage(message: string): string {
@@ -357,7 +360,8 @@ function getConsecutiveSkipStreak(skips: Skip[]): number {
 
 export default function HomePage() {
   const router = useRouter();
-  const { profile } = useAuthStore();
+  const { user, profile } = useAuthStore();
+  const [nudgeDismissed, setNudgeDismissed] = useState(false);
   const { recentSkips } = useSkips();
   const { projects } = useProjects();
   const { setShowSkipPicker } = useUIStore();
@@ -432,37 +436,44 @@ export default function HomePage() {
   const spendingBalance = globalSpendingBalance;
 
 
-  const isActiveChallenge = activeProject ? isChallengeProject(activeProject) : false;
-  const challengeContribution = isActiveChallenge ? givingBalance : 0;
-  // Show at least the user's own giving balance as floor — all of it can be donated to the challenge
+  const isActiveChallenge = activeProject ? (isChallengeProject(activeProject) || !activeProject.isCustom) : false;
+  // Per-challenge balance: what the user has pledged specifically to their active challenge
+  const userChallengeBalance = isActiveChallenge && activeProject
+    ? (profile.causeJarBalances?.[activeProject.id] || givingBalance)
+    : 0;
+  const challengeContribution = userChallengeBalance;
+  // Group total: use project's totalRaised, floored by the user's own challenge balance
   const displayedGroupTotal = isActiveChallenge
-    ? Math.max(liveChallengeTotalRaised, givingBalance)
+    ? Math.max(liveChallengeTotalRaised, userChallengeBalance)
     : 0;
   const communityGoal = activeProject && isActiveChallenge ? getCommunityGoal(activeProject) : 0;
-  const personalGoal = !isActiveChallenge
-    ? profile.causeGoalAmounts?.[activeProject?.id ?? ""] ?? activeProject?.goalAmount ?? 0
-    : 0;
+  const personalGoal = profile.causeGoalAmounts?.[activeProject?.id ?? ""]
+    ?? (!isActiveChallenge ? activeProject?.goalAmount ?? 0 : 0);
   const givingFillPct = personalGoal > 0 ? Math.min(100, (givingBalance / personalGoal) * 100) : 0;
-  const destinationFillPct = isActiveChallenge && communityGoal > 0
-    ? Math.min(100, (givingBalance / communityGoal) * 100)
-    : givingFillPct;
-  const destinationGoalAmount = isActiveChallenge
-    ? communityGoal
-    : personalGoal > 0
-      ? personalGoal
-      : undefined;
+  const destinationGoalAmount = personalGoal > 0
+    ? personalGoal
+    : isActiveChallenge && communityGoal > 0 ? communityGoal : undefined;
+  const destinationFillPct = destinationGoalAmount
+    ? Math.min(100, (givingBalance / destinationGoalAmount) * 100)
+    : 0;
   const destinationAmount = givingBalance;
-  const destinationHref = isActiveChallenge && activeProject ? `/challenges/${activeProject.id}` : "/jars?tab=cause";
+  const destinationHref = activeProject
+    ? (isActiveChallenge ? `/challenges/${activeProject.id}` : "/jars?tab=cause")
+    : "/challenges";
   const destinationLabel = "Giving Jar";
-  const destinationEmptyLabel = "Choose a cause →";
+  const destinationEmptyLabel = "Join a challenge →";
   const challengeSkips = activeProject && isActiveChallenge
     ? recentSkips.filter((skip) => skip.projectId === activeProject.id)
     : [];
   const hasCommunityUnit = !!(activeProject?.unitCost && activeProject.unitCost > 0);
   const communityImpactLabel = hasCommunityUnit ? "Units Funded" : "Community $";
   const communityImpactValue = hasCommunityUnit && activeProject
-    ? `${formatCommunityUnitCount(displayedGroupTotal, activeProject.unitCost ?? 0)} ${activeProject.unitDisplay || activeProject.unitName || "units"}`
+    ? `${formatCommunityUnitCount(displayedGroupTotal, activeProject.unitCost ?? 0, activeProject.unitIsGoal)} ${activeProject.unitDisplay || activeProject.unitName || "units"}`
     : formatCurrency(displayedGroupTotal);
+  const communityUnitCountDisplay = hasCommunityUnit && activeProject
+    ? formatCommunityUnitCount(displayedGroupTotal, activeProject.unitCost ?? 0, activeProject.unitIsGoal)
+    : null;
+  const communityUnitLabel = activeProject?.unitDisplay || activeProject?.unitName || "units";
   const challengeDonated = activeProject && isActiveChallenge
     ? profile.causeStats?.[activeProject.id]?.donated ?? 0
     : 0;
@@ -630,6 +641,68 @@ export default function HomePage() {
           </div>
         </div>
 
+        {/* Donation prompt banners */}
+        {(() => {
+          const activeProjectId = profile.activeProjectId;
+          const causeJarBalance = activeProjectId ? (profile.causeJarBalances?.[activeProjectId] ?? 0) : 0;
+          const personalGoalAmt = activeProjectId ? (profile.causeGoalAmounts?.[activeProjectId] ?? 0) : 0;
+          const groupGoalReached = communityGoal > 0 && displayedGroupTotal >= communityGoal;
+          const personalGoalReached = personalGoalAmt > 0 && causeJarBalance >= personalGoalAmt;
+          const challengeEnded = activeProject?.status === "ended";
+          const donationURL = activeProject?.donationURL ?? null;
+          const lastDonationDate = profile.lastDonationDate ?? null;
+          const daysSinceLastDonation = lastDonationDate
+            ? Math.floor((Date.now() - new Date(lastDonationDate).getTime()) / 86400_000)
+            : Infinity;
+          const hasGivingBalance = (profile.totalGiveAllocated ?? 0) > 0;
+          const nudgeDismissKey = `iskipped_nudge_dismissed_${user?.uid}`;
+          const nudgeDismissedAt = typeof window !== "undefined" ? localStorage.getItem(nudgeDismissKey) : null;
+          const nudgeDismissedDaysAgo = nudgeDismissedAt
+            ? Math.floor((Date.now() - parseInt(nudgeDismissedAt)) / 86400_000)
+            : Infinity;
+          const showNudge = hasGivingBalance && daysSinceLastDonation >= 30 && nudgeDismissedDaysAgo >= 30;
+
+          if (!groupGoalReached && !personalGoalReached && !challengeEnded && !showNudge) return null;
+
+          const base: React.CSSProperties = { borderRadius: 14, padding: "12px 14px", marginBottom: 10, display: "flex", flexDirection: "column", gap: 8 };
+          const jarBtn = (color: string, textColor: string) => ({
+            alignSelf: "flex-start" as const, background: color, color: textColor, fontSize: 12, fontWeight: 900, padding: "6px 14px", borderRadius: 999, border: "none", cursor: "pointer",
+          });
+          return (
+            <div>
+              {groupGoalReached && (
+                <div style={{ ...base, background: "linear-gradient(135deg, rgba(255,183,0,0.15), rgba(46,204,113,0.1))", border: "1px solid rgba(255,183,0,0.35)" }}>
+                  <p style={{ fontSize: 13, fontWeight: 900, color: "var(--gold-cta)" }}>🎉 Your group hit the goal! Time to donate your jar.</p>
+                  <button onClick={() => router.push("/jars?tab=cause")} style={jarBtn("var(--gold-cta)", "#0B1A14")}>Manage my jar →</button>
+                </div>
+              )}
+              {!groupGoalReached && personalGoalReached && (
+                <div style={{ ...base, background: "rgba(46,204,113,0.1)", border: "1px solid rgba(46,204,113,0.3)" }}>
+                  <p style={{ fontSize: 13, fontWeight: 900, color: "var(--green-primary)" }}>🙌 You hit your personal goal! Ready to donate?</p>
+                  <button onClick={() => router.push("/jars?tab=cause")} style={jarBtn("var(--green-primary)", "#0B1A14")}>Manage my jar →</button>
+                </div>
+              )}
+              {challengeEnded && (
+                <div style={{ ...base, background: "rgba(239,136,68,0.08)", border: "1px solid rgba(239,136,68,0.3)" }}>
+                  <p style={{ fontSize: 13, fontWeight: 900, color: "#EF8844" }}>This challenge has ended. Your jar is ready — donate your savings now.</p>
+                  <button onClick={() => router.push("/jars?tab=cause")} style={jarBtn("#EF8844", "white")}>Manage my jar →</button>
+                </div>
+              )}
+              {showNudge && (
+                <div style={{ ...base, background: "var(--bg-surface-2)", border: "1px solid var(--border-default)", position: "relative" }}>
+                  <button
+                    onClick={() => { if (typeof window !== "undefined") localStorage.setItem(nudgeDismissKey, Date.now().toString()); setNudgeDismissed(true); }}
+                    style={{ position: "absolute", top: 10, right: 12, background: "none", border: "none", color: "var(--text-muted)", fontSize: 18, lineHeight: 1, cursor: "pointer" }}
+                  >×</button>
+                  <p style={{ fontSize: 13, fontWeight: 900, color: "var(--text-primary)", paddingRight: 20 }}>You&apos;ve been skipping for 30 days — nice work. 🌱</p>
+                  <p style={{ fontSize: 12, color: "var(--text-secondary)" }}>Your giving jar is growing. Consider sending it to your cause so it can start making a real difference.</p>
+                  <button onClick={() => router.push("/jars?tab=cause")} style={jarBtn("var(--green-primary)", "#0B1A14")}>Manage my jar →</button>
+                </div>
+              )}
+            </div>
+          );
+        })()}
+
         {/* Jars */}
         <div style={{ display: "flex", justifyContent: "center", gap: 16, margin: "20px 0", flexWrap: "nowrap" }}>
           <Jar
@@ -642,16 +715,10 @@ export default function HomePage() {
             causeLabel={activeProject?.title}
             goalAmount={destinationGoalAmount}
             emptyLabel={destinationEmptyLabel}
-            centerLabelOverride={isActiveChallenge && destinationGoalAmount ? "contributed\nto group goal" : undefined}
+            centerLabelOverride={personalGoal > 0 && isActiveChallenge ? "your goal" : isActiveChallenge && destinationGoalAmount ? "contributed\nto group goal" : undefined}
             onClick={() => router.push(destinationHref)}
             actionLabel="Donate my Jar"
-            actionOnClick={() => {
-              if (activeProject?.donationURL) {
-                window.open(activeProject.donationURL, "_blank", "noopener,noreferrer");
-                return;
-              }
-              router.push("/jars?tab=cause");
-            }}
+            actionOnClick={() => router.push("/jars?tab=cause")}
           />
           <Jar
             fillPercent={spendingFillPct}
@@ -842,7 +909,7 @@ export default function HomePage() {
       </div>
       )}
 
-      {activeProject && isActiveChallenge && (
+      {activeProject && isActiveChallenge && activeProject.status !== "ended" && (
         <div style={{
           ...cardStyle,
           marginBottom: 20,
@@ -858,27 +925,64 @@ export default function HomePage() {
               <p style={{ fontSize: 11, fontWeight: 900, letterSpacing: 1.4, textTransform: "uppercase", color: "var(--green-primary)", marginBottom: 4 }}>
                 {activeProject.groupName ?? activeProject.title} · Group
               </p>
-              <p style={{ fontSize: 28, fontWeight: 900, color: "var(--text-primary)", lineHeight: 1.05 }}>
-                {challengeCommunitySkipCount.toLocaleString()} skips
-              </p>
+              <div style={{ display: "flex", gap: 20, alignItems: "flex-end", marginTop: 12 }}>
+                <div>
+                  <p style={{ fontSize: 28, fontWeight: 900, color: "var(--text-primary)", lineHeight: 1 }}>
+                    {challengeCommunitySkipCount.toLocaleString()}
+                  </p>
+                  <p style={{ fontSize: 10, fontWeight: 800, letterSpacing: 1.2, textTransform: "uppercase", color: "var(--text-muted)", marginTop: 3 }}>
+                    Skips
+                  </p>
+                </div>
+                {hasCommunityUnit && communityUnitCountDisplay !== null && (
+                  <>
+                    <div style={{ width: 1, background: "rgba(255,255,255,0.12)", height: 44, marginBottom: 18 }} />
+                    <div>
+                      <p style={{ fontSize: 28, fontWeight: 900, color: "var(--green-primary)", lineHeight: 1 }}>
+                        {communityUnitCountDisplay}
+                      </p>
+                      <p style={{ fontSize: 10, fontWeight: 800, letterSpacing: 1.2, textTransform: "uppercase", color: "var(--text-muted)", marginTop: 3 }}>
+                        {communityUnitLabel} Funded
+                      </p>
+                    </div>
+                  </>
+                )}
+                {communityGoal === 0 && displayedGroupTotal > 0 && (
+                  <>
+                    <div style={{ width: 1, background: "rgba(255,255,255,0.12)", height: 44, marginBottom: 18 }} />
+                    <div>
+                      <p style={{ fontSize: 28, fontWeight: 900, color: "var(--gold-cta)", lineHeight: 1 }}>
+                        {formatCurrency(displayedGroupTotal)}
+                      </p>
+                      <p style={{ fontSize: 10, fontWeight: 800, letterSpacing: 1.2, textTransform: "uppercase", color: "var(--text-muted)", marginTop: 3 }}>
+                        Pledged
+                      </p>
+                    </div>
+                  </>
+                )}
+              </div>
               {communityGoal > 0 ? (
                 <div style={{ marginTop: 8 }}>
                   <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 5 }}>
                     <span style={{ fontSize: 11, fontWeight: 700, color: "var(--text-primary)" }}>{formatCurrency(displayedGroupTotal)}</span>
                     <span style={{ fontSize: 11, fontWeight: 700, color: "var(--text-muted)" }}>of {formatCurrency(communityGoal)} goal</span>
                   </div>
-                  <div style={{ height: 5, background: "rgba(46,204,113,0.15)", borderRadius: 999, overflow: "hidden" }}>
+                  <div style={{ height: 8, background: "rgba(46,204,113,0.15)", borderRadius: 999, overflow: "hidden" }}>
                     <div style={{ height: "100%", width: `${Math.min(100, (displayedGroupTotal / communityGoal) * 100)}%`, background: "linear-gradient(90deg, #1E9485, #2ECC71)", borderRadius: 999 }} />
                   </div>
+                  {displayedGroupTotal >= communityGoal && (
+                    <div style={{ marginTop: 12, marginBottom: 4, padding: "12px 14px", borderRadius: 14, background: "linear-gradient(135deg, rgba(255,183,0,0.15), rgba(46,204,113,0.12))", border: "1px solid rgba(255,183,0,0.3)" }}>
+                      <p style={{ fontSize: 14, fontWeight: 900, color: "var(--gold-cta)", marginBottom: 8 }}>🎉 We reached our goal!</p>
+                      <button
+                        onClick={() => router.push("/jars?tab=cause")}
+                        style={{ background: "var(--gold-cta)", color: "#0B1A14", fontSize: 12, fontWeight: 900, padding: "6px 14px", borderRadius: 999, border: "none", cursor: "pointer" }}
+                      >
+                        Manage my jar →
+                      </button>
+                    </div>
+                  )}
                 </div>
-              ) : displayedGroupTotal > 0 ? (
-                <p style={{ fontSize: 13, fontWeight: 700, color: "var(--green-primary)", marginTop: 3 }}>
-                  = {formatCurrency(displayedGroupTotal)} pledged
-                </p>
               ) : null}
-              <p style={{ fontSize: 12, fontWeight: 700, color: "var(--text-muted)", marginTop: 20 }}>
-                Live activity from your group
-              </p>
             </div>
             <div style={{ display: "flex", gap: 8, flexShrink: 0 }}>
               <button
@@ -902,10 +1006,18 @@ export default function HomePage() {
             </div>
           </div>
 
-          {/* Feed: same card style as community scoreboard */}
-          <div style={{ display: "grid", gap: 10 }}>
+          {/* Feed: challenge items first, community fallback until group gets active */}
+          <div style={{ display: "grid", gap: 10, borderTop: "1px solid rgba(255,255,255,0.07)", paddingTop: 14, marginTop: 4 }}>
             {challengeFeedItems.length > 0 ? (
-              challengeFeedItems.map((item) => (
+              <>
+                <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 2 }}>
+                  <p style={{ fontSize: 10, fontWeight: 700, letterSpacing: 1, textTransform: "uppercase", color: "var(--text-muted)" }}>Live Group Activity</p>
+                  <button
+                    onClick={() => router.push(`/challenges/${activeProject.id}/activity`)}
+                    style={{ background: "none", border: "none", padding: 0, fontSize: 11, fontWeight: 700, color: "var(--green-primary)", cursor: "pointer" }}
+                  >See more →</button>
+                </div>
+                {challengeFeedItems.map((item) => (
                 <div
                   key={item.id}
                   style={{
@@ -938,7 +1050,57 @@ export default function HomePage() {
                     </p>
                   )}
                 </div>
-              ))
+              ))}
+              </>
+            ) : communityFeed.length > 0 ? (
+              <>
+                <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 8 }}>
+                  <p style={{ fontSize: 10, fontWeight: 700, letterSpacing: 1, textTransform: "uppercase", color: "var(--text-muted)" }}>
+                    Live iSkipped Activity
+                  </p>
+                  <button
+                    onClick={() => router.push("/community")}
+                    style={{ background: "none", border: "none", padding: 0, fontSize: 11, fontWeight: 700, color: "var(--green-primary)", cursor: "pointer" }}
+                  >
+                    See more →
+                  </button>
+                </div>
+                {communityFeed.slice(0, 2).map((item) => (
+                  <div
+                    key={item.id}
+                    style={{
+                      display: "grid",
+                      gridTemplateColumns: "38px minmax(0,1fr) auto",
+                      alignItems: "center",
+                      gap: 10,
+                      background: "rgba(237,245,240,0.04)",
+                      border: "1px solid var(--border-default)",
+                      borderRadius: 16,
+                      padding: "10px 12px",
+                      minWidth: 0,
+                    }}
+                  >
+                    <div style={{ width: 38, height: 38, borderRadius: 14, background: "rgba(237,245,240,0.07)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 18, flexShrink: 0 }}>
+                      {item.skipEmoji ?? "✨"}
+                    </div>
+                    <div style={{ minWidth: 0 }}>
+                      <p style={{ fontSize: 13, fontWeight: 900, color: "var(--text-primary)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+                        {getFeedActionLine(item)}
+                      </p>
+                      <p style={{ fontSize: 10, color: "var(--text-muted)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", marginTop: 2 }}>
+                        {item.projectTitle ? `Toward ${item.projectTitle}` : "iSkipped community"}
+                        {" · "}
+                        {item.createdAt?.toDate ? formatRelativeTime(item.createdAt.toDate()) : "just now"}
+                      </p>
+                    </div>
+                    {item.skipAmount !== undefined && (
+                      <p style={{ fontSize: 15, fontWeight: 900, color: "var(--green-primary)", flexShrink: 0 }}>
+                        +{formatCurrency(item.skipAmount)}
+                      </p>
+                    )}
+                  </div>
+                ))}
+              </>
             ) : (
               <button
                 onClick={() => setShowSkipPicker(true)}
@@ -949,25 +1111,21 @@ export default function HomePage() {
             )}
           </div>
 
-          {/* Footer: personal stats + time left */}
+          {/* Footer: time left + personal stats */}
           <div style={{ borderTop: "1px solid var(--border-default)", paddingTop: 12, marginTop: 14 }}>
             <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, flexWrap: "wrap" }}>
-              <span style={{ fontSize: 12, fontWeight: 700, color: "var(--green-primary)" }}>
-                {formatCurrency(challengeContribution)} pledged so far
-              </span>
-              {activeCountdown && !activeCountdown.isExpired && activeCountdown.daysLeft !== null && (
+              {activeCountdown && !activeCountdown.isExpired && activeCountdown.daysLeft !== null ? (
                 <span style={{ fontSize: 12, fontWeight: 700, color: activeCountdown.daysLeft < 3 ? "#EF4444" : activeCountdown.daysLeft < 7 ? "var(--gold-cta)" : "var(--text-muted)" }}>
-                  {activeCountdown.daysLeft} days left to keep skipping
+                  {activeCountdown.daysLeft} days left
                 </span>
-              )}
-              {activeCountdown?.isExpired && (
+              ) : activeCountdown?.isExpired ? (
                 <button
                   onClick={() => router.push("/jars/resolve")}
                   style={{ fontSize: 12, fontWeight: 700, color: "var(--green-primary)", background: "none", border: "none", padding: 0, cursor: "pointer", textDecoration: "underline" }}
                 >
                   Challenge ended — donate your jar →
                 </button>
-              )}
+              ) : null}
             </div>
           </div>
         </div>
@@ -985,14 +1143,14 @@ export default function HomePage() {
         }}>
           <div style={{ flex: 1, minWidth: 0 }}>
             <div style={{ fontSize: 14, fontWeight: 700, color: "var(--text-primary)" }}>
-              🤲 Pick a cause you care about
+              🙌 Join a challenge
             </div>
             <div style={{ fontSize: 12, color: "var(--text-muted)", marginTop: 3, lineHeight: 1.5 }}>
-              Your skips can make a real difference in people&apos;s lives. Pick a cause to start seeing the impact — you can always change it anytime!
+              Skip with a group, give together. No asking for money — just spend less and watch your collective savings grow.
             </div>
           </div>
           <button
-            onClick={() => router.push("/jars?tab=cause")}
+            onClick={() => router.push("/challenges")}
             style={{
               background: "linear-gradient(135deg, var(--coral-primary), var(--coral-dark))",
               color: "#fff",
@@ -1006,7 +1164,7 @@ export default function HomePage() {
               whiteSpace: "nowrap",
             }}
           >
-            Explore causes →
+            Browse challenges →
           </button>
         </div>
       )}

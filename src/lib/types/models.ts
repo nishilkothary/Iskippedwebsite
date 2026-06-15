@@ -28,6 +28,7 @@ export interface UserProfile {
   followersCount: number;
   createdAt: Timestamp;
   lastSkipDate: string | null; // YYYY-MM-DD
+  lastDonationDate?: string | null; // YYYY-MM-DD
   favoriteCauseIds: string[];
   causeStats?: Record<string, { donated: number }>;
   jarSplit?: { give: number; live: number };
@@ -79,6 +80,9 @@ export interface Project {
   description: string;
   goalAmount: number;
   totalRaised: number;
+  totalDonated?: number;
+  totalSkips?: number;
+  status?: "active" | "ended";
   imageURL: string | null;
   donationURL: string | null;
   learnMoreURL?: string | null;

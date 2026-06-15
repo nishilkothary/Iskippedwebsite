@@ -6,29 +6,36 @@ import { useRouter } from "next/navigation";
 const STEPS = [
   {
     number: "01",
-    title: "Select a Charitable Cause",
-    body: "Choose a cause you wish to help fund — that's your Giving Jar.",
+    title: "Join or start a challenge",
+    body: "Pick a partner cause or start a group challenge with friends, family, or colleagues. Everyone skips toward the same goal.",
     color: "var(--green-primary)",
     bgColor: "rgba(46,204,113,0.10)",
   },
   {
     number: "02",
-    title: "Select a Personal Reward",
-    body: "All good actions deserve a personal reward. Pick something that motivates you to keep saving.",
+    title: "Skip anything small",
+    body: "Coffee, takeout, impulse buy — anything you can do without. Log it in iSkipped and your Giving Jar grows with every skip.",
     color: "var(--gold-cta)",
     bgColor: "rgba(255,183,0,0.10)",
   },
   {
     number: "03",
-    title: "Skip & Log",
-    body: "Skip a coffee, takeout, impulse buy — anything you can do without. Log it in iSkipped and watch your Giving and Reward Jars grow with every skip.",
+    title: "Treat yourself too",
+    body: "Pick something you're saving toward — dinner out, a splurge, a small treat. A share of every skip fills your Reward Jar alongside your giving. All good deeds deserve a reward.",
     color: "#8B5CF6",
     bgColor: "rgba(139,92,246,0.10)",
   },
   {
     number: "04",
-    title: "Donate or Redeem",
-    body: "When you're ready, donate your savings from skipped expenses to the causes that matter to you and enjoy your hard-earned rewards along the way!",
+    title: "See the power of skipped expenses",
+    body: "Watch the impact of your group's skips add up in real time. Every coffee, every takeout — it all becomes something meaningful.",
+    color: "var(--green-primary)",
+    bgColor: "rgba(46,204,113,0.10)",
+  },
+  {
+    number: "05",
+    title: "Donate",
+    body: "When you're ready, donate your donation jar directly to the cause. No money moves through iSkipped — it goes straight to the organization.",
     color: "var(--coral-primary)",
     bgColor: "rgba(239,68,68,0.10)",
   },
@@ -96,11 +103,11 @@ export default function AboutPage() {
           className="text-4xl font-black leading-tight mb-3"
           style={{ color: "var(--text-primary)", letterSpacing: "-0.5px" }}
         >
-          Skip a little.<br />
-          <span style={{ color: "var(--green-primary)" }}>Give a lot.</span>
+          All it takes is<br />
+          <span style={{ color: "var(--green-primary)" }}>a few skipped expenses.</span>
         </p>
         <p className="text-sm max-w-xs mx-auto leading-relaxed" style={{ color: "var(--text-secondary)" }}>
-          iSkipped turns your everyday spending decisions into real impact — for causes you love and goals worth saving for.
+          To make a difference in the world all it takes is a few skipped expenses.
         </p>
       </div>
 
@@ -131,6 +138,17 @@ export default function AboutPage() {
               </div>
             ))}
           </div>
+          <button
+            onClick={() => router.push("/challenges")}
+            className="mt-4 w-full py-3 rounded-2xl text-sm font-black"
+            style={{
+              background: "linear-gradient(135deg, var(--gold-cta), var(--gold-light))",
+              color: "var(--bg-base)",
+              boxShadow: "0 4px 18px var(--gold-glow)",
+            }}
+          >
+            Browse challenges →
+          </button>
         </section>
 
         {/* How iSkipped works note */}
@@ -146,44 +164,6 @@ export default function AboutPage() {
             When you&apos;re ready to donate, your Giving Jar links you directly to each charitable organization. <span className="font-semibold" style={{ color: "var(--text-primary)" }}>All donations are processed by the cause itself</span> — iSkipped never holds or handles your funds.
           </p>
         </div>
-
-        {/* Skip Together CTA */}
-        <section
-          className="rounded-2xl overflow-hidden"
-          style={{ background: "linear-gradient(135deg, #0D1F17, #132E20)", border: "1px solid var(--border-emphasis)" }}
-        >
-          <div className="p-5">
-            <p className="text-xs font-bold uppercase tracking-widest mb-2" style={{ color: "var(--green-primary)" }}>
-              Skip Together
-            </p>
-            <p className="text-xl font-black leading-snug mb-2" style={{ color: "var(--text-primary)" }}>
-              Want to skip as a group?
-            </p>
-            <p className="text-sm leading-relaxed mb-5" style={{ color: "var(--text-secondary)" }}>
-              Create a challenge, invite friends or colleagues, and watch your collective impact grow together. Set milestones, track progress, and make skipping a shared habit.
-            </p>
-            <div className="space-y-2">
-              <button
-                onClick={() => router.push("/challenges")}
-                className="w-full py-3 rounded-xl text-sm font-black"
-                style={{
-                  background: "linear-gradient(135deg, var(--gold-cta), var(--gold-light))",
-                  color: "var(--bg-base)",
-                  boxShadow: "0 4px 18px var(--gold-glow)",
-                }}
-              >
-                + Create a Group Challenge
-              </button>
-              <button
-                onClick={() => router.push("/challenges")}
-                className="w-full py-2.5 rounded-xl text-sm font-semibold"
-                style={{ border: "1px solid var(--border-emphasis)", color: "var(--text-secondary)" }}
-              >
-                Browse existing challenges
-              </button>
-            </div>
-          </div>
-        </section>
 
         {/* FAQ */}
         <section>

@@ -173,10 +173,13 @@ export async function logSkip(params: LogSkipParams): Promise<{ skipId: string; 
 
   await batch.commit();
 
-  // Update project totalRaised for challenge group tracking (non-atomic, best-effort)
-  if (projectId && giveAmount > 0) {
+  // Update project totals for challenge group tracking (non-atomic, best-effort)
+  if (projectId) {
     try {
-      await updateDoc(doc(db, "projects", projectId), { totalRaised: increment(giveAmount) });
+      await updateDoc(doc(db, "projects", projectId), {
+        ...(giveAmount > 0 ? { totalRaised: increment(giveAmount) } : {}),
+        totalSkips: increment(1),
+      });
     } catch {
       // Official projects aren't in Firestore — ignore
     }

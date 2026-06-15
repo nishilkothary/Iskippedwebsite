@@ -167,7 +167,7 @@ export async function joinProject(uid: string, projectId: string, makeActive: bo
       joinedProjectIds: arrayUnion(projectId),
       ...(makeActive ? { activeProjectId: projectId } : {}),
     }),
-    updateDoc(doc(db, "projects", projectId), { memberUids: arrayUnion(uid) }),
+    setDoc(doc(db, "projects", projectId), { memberUids: arrayUnion(uid) }, { merge: true }),
   ]);
 }
 
@@ -179,23 +179,30 @@ export async function switchCause(
   uid: string,
   oldCauseId: string | null,
   newCauseId: string,
-  moveFunds: boolean
 ): Promise<Record<string, number> | null> {
   const updates: Record<string, unknown> = { activeProjectId: newCauseId, joinedProjectIds: arrayUnion(newCauseId) };
   let balanceTransfer: Record<string, number> | null = null;
-  if (moveFunds && oldCauseId) {
+  let transferredAmount = 0;
+  if (oldCauseId) {
     const snap = await getDoc(doc(db, "users", uid));
-    const oldBal: number = snap.data()?.causeJarBalances?.[oldCauseId] ?? 0;
+    const oldBal: number = Math.max(0, snap.data()?.causeJarBalances?.[oldCauseId] ?? 0);
+    updates[`causeJarBalances.${oldCauseId}`] = 0;
     if (oldBal > 0) {
       updates[`causeJarBalances.${newCauseId}`] = increment(oldBal);
-      updates[`causeJarBalances.${oldCauseId}`] = 0;
+      transferredAmount = oldBal;
       balanceTransfer = { [oldCauseId]: 0, [newCauseId]: oldBal };
+    } else {
+      balanceTransfer = { [oldCauseId]: 0 };
     }
   }
-  await Promise.all([
-    updateDoc(doc(db, "users", uid), updates),
-    updateDoc(doc(db, "projects", newCauseId), { memberUids: arrayUnion(uid) }),
-  ]);
+  await updateDoc(doc(db, "users", uid), updates);
+  // Keep project.totalRaised in sync: move the pledged amount from old to new project (best-effort)
+  if (oldCauseId && transferredAmount > 0) {
+    updateDoc(doc(db, "projects", oldCauseId), { totalRaised: increment(-transferredAmount) }).catch(() => {});
+    updateDoc(doc(db, "projects", newCauseId), { totalRaised: increment(transferredAmount), memberUids: arrayUnion(uid) }).catch(() => {});
+  } else {
+    updateDoc(doc(db, "projects", newCauseId), { memberUids: arrayUnion(uid) }).catch(() => {});
+  }
   return balanceTransfer;
 }
 
@@ -237,27 +244,32 @@ export async function transferJarBalance(uid: string, fromProjectId: string, toP
 
 export async function recordDonation(uid: string, amount: number, projectId: string, projectTitle: string, date?: string): Promise<void> {
   if (amount <= 0) throw new Error("Donation amount must be greater than zero");
+  const userRef = doc(db, "users", uid);
+  const userSnap = await getDoc(userRef);
+  // Cap jar decrease at current balance so it never goes negative
+  const currentBal: number = userSnap.data()?.causeJarBalances?.[projectId] ?? 0;
+  const jarDecrease = Math.min(amount, Math.max(0, currentBal));
   const batch = writeBatch(db);
-  const donationRef = doc(collection(db, "users", uid, "donations"));
-  batch.set(donationRef, {
+  batch.set(doc(collection(db, "users", uid, "donations")), {
     causeId: projectId,
     causeTitle: projectTitle,
     amount,
     ...(date ? { date } : {}),
     donatedAt: serverTimestamp(),
   });
-  batch.update(doc(db, "users", uid), {
+  batch.update(userRef, {
     totalDonated: increment(amount),
     savedTowardActiveCause: 0,
-    [`causeJarBalances.${projectId}`]: increment(-amount),
+    [`causeJarBalances.${projectId}`]: increment(-jarDecrease),
     [`causeJarOverflowCounts.${projectId}`]: 0,
   });
-  const projectRef = doc(db, "projects", projectId);
-  const projectSnap = await getDoc(projectRef);
-  if (projectSnap.exists()) {
-    batch.update(projectRef, { totalRaised: increment(amount) });
-  }
+  // NOTE: project.totalRaised is NOT incremented here — it was already counted when the skip was logged.
+  // Donating converts the pledged jar amount to an actual donation; no new money enters the cause total.
   await batch.commit();
+  // Track total donated on the project doc so organizers can see it (best-effort)
+  updateDoc(doc(db, "projects", projectId), { totalDonated: increment(amount) }).catch(() => {});
+  // Record last donation date for 30-day nudge logic (best-effort)
+  updateDoc(doc(db, "users", uid), { lastDonationDate: new Date().toISOString().slice(0, 10) }).catch(() => {});
 }
 
 export async function recordPurchase(uid: string, goalId: string, goalLabel: string, targetAmount: number, amount: number): Promise<void> {
@@ -288,9 +300,13 @@ export async function updateDonation(uid: string, donationId: string, newAmount:
   if (date !== undefined) donationUpdates.date = date;
   batch.update(doc(db, "users", uid, "donations", donationId), donationUpdates);
   if (delta !== 0) {
+    // If increasing the donation, cap the jar decrease so it doesn't go negative
+    const userSnap = await getDoc(doc(db, "users", uid));
+    const currentBal: number = userSnap.data()?.causeJarBalances?.[causeId] ?? 0;
+    const jarDelta = delta > 0 ? -Math.min(delta, Math.max(0, currentBal)) : -delta;
     batch.update(doc(db, "users", uid), {
       totalDonated: increment(delta),
-      [`causeJarBalances.${causeId}`]: increment(-delta),
+      [`causeJarBalances.${causeId}`]: increment(jarDelta),
     });
   }
   await batch.commit();

@@ -7,23 +7,21 @@ import { useUIStore } from "@/store/uiStore";
 import { SkipModal } from "@/components/skip/SkipModal";
 
 const NAV_ITEMS = [
-  { href: "/home",            label: "Home",          tab: null },
-  { href: "/jars?tab=cause",  label: "Causes",        tab: "cause" },
-  { href: "/challenges",      label: "Challenges",    tab: null },
-  { href: "/about",           label: "About",         tab: null },
-  { href: "/profile",         label: "Profile",       tab: null },
+  { href: "/home",        label: "Home",       tab: null },
+  { href: "/challenges",  label: "Challenges", tab: null },
+  { href: "/jars",        label: "Jars",       tab: null },
+  { href: "/about",       label: "About",      tab: null },
+  { href: "/profile",     label: "Profile",    tab: null },
 ];
 
-function isNavActive(item: (typeof NAV_ITEMS)[number], pathname: string, searchParams: { get: (name: string) => string | null }) {
+function isNavActive(item: (typeof NAV_ITEMS)[number], pathname: string, _searchParams: { get: (name: string) => string | null }) {
   if (item.label === "Challenges") {
     return pathname === "/challenges" || pathname.startsWith("/challenges/");
   }
-  if (item.label === "Causes") {
-    return pathname === "/jars" && searchParams.get("tab") === "cause";
+  if (item.label === "Jars") {
+    return pathname === "/jars";
   }
-  return item.tab !== null
-    ? pathname === "/jars" && searchParams.get("tab") === item.tab
-    : pathname === item.href;
+  return pathname === item.href;
 }
 
 function SidebarNav({ onLogSkip }: { onLogSkip: () => void }) {

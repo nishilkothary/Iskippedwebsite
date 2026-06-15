@@ -4,11 +4,13 @@ import { useState, useEffect } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { useAuthStore } from "@/store/authStore";
 import { useProjects } from "@/hooks/useProjects";
-import { deleteCustomProject, setChallengeDeadline } from "@/lib/services/firebase/projects";
+import { deleteCustomProject, endChallenge, setChallengeDeadline, subscribeToProject } from "@/lib/services/firebase/projects";
+import { subscribeToCommunityFeed } from "@/lib/services/firebase/social";
 import { formatCurrency } from "@/lib/utils/currency";
 import { getChallengeCountdown } from "@/lib/utils/dates";
 import { doc, getDoc } from "firebase/firestore";
 import { db } from "@/lib/services/firebase/config";
+import { Project, FeedItem } from "@/lib/types/models";
 
 export default function ManageChallengePage() {
   const params = useParams();
@@ -21,6 +23,8 @@ export default function ManageChallengePage() {
 
   const [ending, setEnding] = useState(false);
   const [endConfirm, setEndConfirm] = useState(false);
+  const [archiving, setArchiving] = useState(false);
+  const [archiveConfirm, setArchiveConfirm] = useState(false);
   const [linkCopied, setLinkCopied] = useState(false);
   const [showDeadlineEdit, setShowDeadlineEdit] = useState(false);
   const [newDeadlineDays, setNewDeadlineDays] = useState<number | null | "custom">(30);
@@ -28,8 +32,21 @@ export default function ManageChallengePage() {
   const [settingDeadline, setSettingDeadline] = useState(false);
   const [deadlineSuccess, setDeadlineSuccess] = useState(false);
   const [showMembers, setShowMembers] = useState(false);
-  const [members, setMembers] = useState<{ uid: string; displayName: string; photoURL: string | null }[]>([]);
+  const [members, setMembers] = useState<{ uid: string; displayName: string; photoURL: string | null; pledged: number }[]>([]);
   const [loadingMembers, setLoadingMembers] = useState(false);
+  const [liveProject, setLiveProject] = useState<Project | null>(null);
+  const [communityFeed, setCommunityFeed] = useState<FeedItem[]>([]);
+
+  // Live project subscription for real-time stats
+  useEffect(() => {
+    if (!challengeId) return;
+    return subscribeToProject(challengeId, setLiveProject);
+  }, [challengeId]);
+
+  // Activity feed subscription filtered to this challenge
+  useEffect(() => {
+    return subscribeToCommunityFeed(setCommunityFeed);
+  }, []);
 
   useEffect(() => {
     if (challenge && challenge.createdBy !== user?.uid) {
@@ -47,17 +64,38 @@ export default function ManageChallengePage() {
 
   if (challenge.createdBy !== user?.uid) return null;
 
+  // Merge live stats over static challenge data
+  const totalRaised = liveProject?.totalRaised ?? challenge.totalRaised;
+  const totalDonated = liveProject?.totalDonated ?? 0;
+  const memberUids = liveProject?.memberUids ?? challenge.memberUids ?? [];
+
+  const challengeFeed = communityFeed
+    .filter((item) => item.projectId === challengeId || item.projectTitle === challenge.title)
+    .slice(0, 10);
+
   const challengeUrl = typeof window !== "undefined"
     ? `${window.location.origin}/challenges/${challengeId}`
     : `/challenges/${challengeId}`;
 
   const canNativeShare = typeof navigator !== "undefined" && typeof navigator.share === "function";
   const progressPct = challenge.goalAmount > 0
-    ? Math.min(100, Math.round((challenge.totalRaised / challenge.goalAmount) * 100))
+    ? Math.min(100, Math.round((totalRaised / challenge.goalAmount) * 100))
     : 0;
 
   const groupLabel = challenge.groupName ? `Group - ${challenge.groupName}` : challenge.title;
   const nudgeMessage = `I'm creating an iSkipped challenge ${groupLabel}. Every time we skip a purchase we save toward this goal together: ${challenge.title}\nJoin me: ${challengeUrl}`;
+
+  async function handleArchive() {
+    if (!challenge || !user) return;
+    setArchiving(true);
+    try {
+      await endChallenge(user.uid, challengeId);
+      router.push("/challenges");
+    } catch {
+      setArchiving(false);
+      setArchiveConfirm(false);
+    }
+  }
 
   async function handleEnd() {
     if (!challenge || !user) return;
@@ -91,19 +129,26 @@ export default function ManageChallengePage() {
   }
 
   async function handleViewMembers() {
+    if (!challenge) return;
     if (members.length > 0) { setShowMembers((v) => !v); return; }
     setShowMembers(true);
     setLoadingMembers(true);
-    const uids: string[] = challenge.memberUids ?? [];
+    const uids: string[] = memberUids;
     try {
       const profiles = await Promise.all(
         uids.slice(0, 50).map(async (uid) => {
           const snap = await getDoc(doc(db, "users", uid));
           const data = snap.data();
-          return { uid, displayName: data?.displayName ?? "Member", photoURL: data?.photoURL ?? null };
+          return {
+            uid,
+            displayName: data?.displayName ?? "Member",
+            photoURL: data?.photoURL ?? null,
+            pledged: (data?.causeJarBalances?.[challengeId] ?? 0) as number,
+          };
         })
       );
-      setMembers(profiles);
+      // Sort by pledged amount descending
+      setMembers(profiles.sort((a, b) => b.pledged - a.pledged));
     } finally {
       setLoadingMembers(false);
     }
@@ -154,28 +199,47 @@ export default function ManageChallengePage() {
         <p className="text-xs uppercase tracking-wide font-bold mb-3" style={{ color: "var(--text-muted)" }}>
           Challenge Stats
         </p>
-        <div className="grid grid-cols-2 gap-4 mb-4">
+        <div className="grid grid-cols-3 gap-4 mb-4">
           <div>
             <p className="text-2xl font-black" style={{ color: "var(--green-primary)" }}>
-              {formatCurrency(challenge.totalRaised)}
+              {formatCurrency(totalRaised)}
             </p>
-            <p className="text-xs mt-0.5" style={{ color: "var(--text-muted)" }}>pledged so far</p>
+            <p className="text-xs mt-0.5" style={{ color: "var(--text-muted)" }}>
+              {challenge.goalAmount > 0 ? `of ${formatCurrency(challenge.goalAmount)} goal` : "pledged"}
+            </p>
+          </div>
+          <div>
+            <p className="text-2xl font-black" style={{ color: "var(--coral-primary)" }}>
+              {formatCurrency(totalDonated)}
+            </p>
+            <p className="text-xs mt-0.5" style={{ color: "var(--text-muted)" }}>donated</p>
           </div>
           <div>
             <p className="text-2xl font-black" style={{ color: "var(--text-primary)" }}>
-              {challenge.memberUids?.length ?? 0}
+              {memberUids.length}
             </p>
             <p className="text-xs mt-0.5" style={{ color: "var(--text-muted)" }}>members</p>
           </div>
         </div>
-        {(challenge.memberUids?.length ?? 0) > 0 && (
+        {challenge.goalAmount > 0 && (
+          <div className="mb-4">
+            <div className="h-2 rounded-full overflow-hidden" style={{ background: "var(--bg-surface-3)" }}>
+              <div
+                className="h-full rounded-full transition-all duration-700"
+                style={{ width: `${progressPct}%`, background: "var(--green-primary)" }}
+              />
+            </div>
+            <p className="text-xs mt-1 text-right" style={{ color: "var(--text-muted)" }}>{progressPct}%</p>
+          </div>
+        )}
+        {memberUids.length > 0 && (
           <>
             <button
               onClick={handleViewMembers}
               className="text-xs font-semibold"
               style={{ color: "var(--green-primary)", background: "none", border: "none", padding: 0, cursor: "pointer", textDecoration: "underline", textUnderlineOffset: 2 }}
             >
-              {showMembers ? "Hide members" : `View all ${challenge.memberUids!.length} members →`}
+              {showMembers ? "Hide members" : `View all ${memberUids.length} members →`}
             </button>
             {showMembers && (
               <div className="mt-3 space-y-2">
@@ -190,7 +254,12 @@ export default function ManageChallengePage() {
                           ? <img src={m.photoURL} alt={m.displayName} className="w-full h-full object-cover" />
                           : m.displayName.charAt(0).toUpperCase()}
                       </div>
-                      <p className="text-sm font-semibold" style={{ color: "var(--text-primary)" }}>{m.displayName}</p>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-semibold truncate" style={{ color: "var(--text-primary)" }}>{m.displayName}</p>
+                      </div>
+                      {m.pledged > 0 && (
+                        <p className="text-sm font-black shrink-0" style={{ color: "var(--green-primary)" }}>{formatCurrency(m.pledged)}</p>
+                      )}
                     </div>
                   ))
                 )}
@@ -199,6 +268,36 @@ export default function ManageChallengePage() {
           </>
         )}
       </section>
+
+      {/* Recent Activity */}
+      {challengeFeed.length > 0 && (
+        <section className="rounded-2xl p-4 mb-4" style={{ background: "var(--bg-surface-2)", border: "1px solid var(--border-default)" }}>
+          <p className="text-xs uppercase tracking-wide font-bold mb-3" style={{ color: "var(--text-muted)" }}>
+            Recent Activity
+          </p>
+          <div className="space-y-2">
+            {challengeFeed.map((item) => (
+              <div key={item.id} className="flex items-start gap-3">
+                <div className="w-7 h-7 rounded-full flex items-center justify-center text-xs shrink-0 mt-0.5"
+                  style={{ background: "rgba(46,204,113,0.12)", color: "var(--green-primary)" }}>
+                  {item.displayName?.charAt(0).toUpperCase() ?? "?"}
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="text-xs font-semibold" style={{ color: "var(--text-primary)" }}>
+                    {item.displayName ?? "A member"}{" "}
+                    <span style={{ color: "var(--text-muted)", fontWeight: 400 }}>
+                      skipped {item.message ?? "a purchase"} and saved{" "}
+                    </span>
+                    <span style={{ color: "var(--green-primary)", fontWeight: 700 }}>
+                      {formatCurrency(item.skipAmount ?? 0)}
+                    </span>
+                  </p>
+                </div>
+              </div>
+            ))}
+          </div>
+        </section>
+      )}
 
       {/* Invite Friends */}
       <section className="rounded-2xl p-4 mb-4" style={{ background: "var(--bg-surface-2)", border: "1px solid var(--border-default)" }}>
@@ -229,14 +328,6 @@ export default function ManageChallengePage() {
             >
               ↗ Share via...
             </button>
-          )}
-          {(challenge.visibility === "private" || challenge.visibility === "password") && challenge.password && (
-            <div className="rounded-xl px-3 py-2" style={{ background: "rgba(255,183,0,0.08)", border: "1px solid rgba(255,183,0,0.2)" }}>
-              <p className="text-[10px] font-bold mb-0.5" style={{ color: "var(--gold-cta)" }}>Password</p>
-              <p className="text-sm font-black tracking-wide" style={{ color: "var(--text-primary)" }}>
-                {challenge.password}
-              </p>
-            </div>
           )}
         </div>
       </section>
@@ -368,6 +459,50 @@ export default function ManageChallengePage() {
             </>
           );
         })()}
+      </section>
+
+      {/* End Challenge (archive) */}
+      <section className="rounded-2xl p-4" style={{ background: "var(--bg-surface-2)", border: "1px solid var(--border-default)" }}>
+        {!archiveConfirm ? (
+          <div>
+            <button
+              onClick={() => setArchiveConfirm(true)}
+              className="w-full py-2.5 rounded-xl text-sm font-bold"
+              style={{ border: "1px solid rgba(239,136,68,0.4)", color: "#EF8844" }}
+            >
+              End Challenge
+            </button>
+            <p className="text-xs mt-2 text-center" style={{ color: "var(--text-muted)" }}>
+              Members can still access it to donate. Nothing is deleted.
+            </p>
+          </div>
+        ) : (
+          <div className="space-y-3">
+            <div className="rounded-xl p-3" style={{ background: "rgba(239,136,68,0.08)", border: "1px solid rgba(239,136,68,0.2)" }}>
+              <p className="text-sm font-bold mb-1" style={{ color: "#EF8844" }}>End this challenge?</p>
+              <p className="text-xs" style={{ color: "var(--text-secondary)" }}>
+                The challenge will be archived. Members keep their jar balances and can still donate. You can always come back here to delete it permanently.
+              </p>
+            </div>
+            <div className="flex gap-2">
+              <button
+                onClick={() => setArchiveConfirm(false)}
+                className="flex-1 py-2 rounded-xl text-xs font-semibold"
+                style={{ border: "1px solid var(--border-default)", color: "var(--text-secondary)" }}
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleArchive}
+                disabled={archiving}
+                className="flex-1 py-2 rounded-xl text-xs font-bold disabled:opacity-50"
+                style={{ background: "#EF8844", color: "white" }}
+              >
+                {archiving ? "Ending..." : "Yes, End It"}
+              </button>
+            </div>
+          </div>
+        )}
       </section>
 
       {/* Delete Challenge */}
