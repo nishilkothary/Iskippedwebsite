@@ -919,11 +919,14 @@ export default function HomePage() {
           boxShadow: "0 18px 42px rgba(0,0,0,0.18)",
           overflow: "hidden",
         }}>
-          {/* Header: mirrors community scoreboard format */}
+          {/* Header */}
           <div style={{ display: "flex", justifyContent: "space-between", gap: 14, alignItems: "flex-start", marginBottom: 18 }}>
             <div>
-              <p style={{ fontSize: 11, fontWeight: 900, letterSpacing: 1.4, textTransform: "uppercase", color: "var(--green-primary)", marginBottom: 4 }}>
-                {activeProject.groupName ?? activeProject.title} · Group
+              <p style={{ fontSize: 16, fontWeight: 800, color: "var(--text-primary)", marginBottom: 2, lineHeight: 1.2 }}>
+                What&apos;s Happening In My Group
+              </p>
+              <p style={{ fontSize: 13, fontWeight: 700, color: "var(--green-primary)" }}>
+                {activeProject.groupName ?? activeProject.title}
               </p>
               <div style={{ display: "flex", gap: 20, alignItems: "flex-start", marginTop: 12 }}>
                 <div>
