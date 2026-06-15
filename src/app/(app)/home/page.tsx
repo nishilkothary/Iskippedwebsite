@@ -947,6 +947,11 @@ export default function HomePage() {
                       <p style={{ fontSize: 10, fontWeight: 800, letterSpacing: 1.2, textTransform: "uppercase", color: "var(--text-muted)", marginTop: 3 }}>
                         {communityUnitLabel} Funded
                       </p>
+                      {displayedGroupTotal > 0 && (
+                        <p style={{ fontSize: 11, fontWeight: 700, color: "var(--gold-cta)", marginTop: 4 }}>
+                          ${Math.round(displayedGroupTotal).toLocaleString()} pledged
+                        </p>
+                      )}
                     </div>
                   </>
                 )}
