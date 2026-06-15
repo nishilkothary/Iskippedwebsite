@@ -310,7 +310,7 @@ function getCommunityRaised(project: Project, savedForProject: number): number {
 function formatCommunityUnitCount(amount: number, unitCost: number, unitIsGoal?: boolean): string {
   if (!Number.isFinite(amount) || !Number.isFinite(unitCost) || unitCost <= 0) return "0";
   const count = amount / unitCost;
-  if (unitIsGoal || count < 2) return parseFloat(count.toFixed(2)).toString();
+  if (unitIsGoal || count < 2) return parseFloat(count.toFixed(1)).toString();
   if (count < 10) return parseFloat(count.toFixed(1)).toString();
   return Math.floor(count).toLocaleString();
 }
@@ -951,7 +951,7 @@ export default function HomePage() {
               <p style={{ fontSize: 13, fontWeight: 700, color: "var(--green-primary)", marginBottom: 0 }}>
                 {activeProject.groupName ?? activeProject.title}
               </p>
-              <div style={{ display: "flex", gap: 20, alignItems: "flex-start", marginTop: 12 }}>
+              <div style={{ display: "flex", gap: 14, alignItems: "flex-start", marginTop: 12 }}>
                 <div>
                   <p style={{ fontSize: 28, fontWeight: 900, color: "var(--text-primary)", lineHeight: 1 }}>
                     {challengeCommunitySkipCount.toLocaleString()}
