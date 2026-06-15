@@ -4,7 +4,7 @@ import { useState } from "react";
 import { useAuthStore } from "@/store/authStore";
 import { signOut } from "@/lib/services/firebase/auth";
 import { formatCurrency } from "@/lib/utils/currency";
-import { updateJarSettings, normalizeJarSplit, recalculateTotals } from "@/lib/services/firebase/users";
+import { normalizeJarSplit, recalculateTotals } from "@/lib/services/firebase/users";
 import { useSkips } from "@/hooks/useSkips";
 
 export default function ProfilePage() {
@@ -142,13 +142,6 @@ export default function ProfilePage() {
         </div>
       </div>
 
-      {/* Jar Settings */}
-      <JarSettings
-        uid={user.uid}
-        initialSplit={currentSplit}
-        onSave={(split) => updateProfile({ jarSplit: split })}
-      />
-
       {/* Recalculate */}
       <div className="mb-6">
         <div className="p-5 mb-4" style={{ ...cardStyle, borderRadius: 20 }}>
@@ -198,133 +191,3 @@ export default function ProfilePage() {
   );
 }
 
-function JarSettings({
-  uid,
-  initialSplit,
-  onSave,
-}: {
-  uid: string;
-  initialSplit: { give: number; live: number };
-  onSave: (split: { give: number; live: number }) => void;
-}) {
-  const presets = [
-    { label: "50 / 50",  g: 50,  l: 50  },
-    { label: "75 / 25",  g: 75,  l: 25  },
-    { label: "25 / 75",  g: 25,  l: 75  },
-    { label: "100 / 0",  g: 100, l: 0   },
-  ];
-
-  const matchingPreset = presets.find((p) => p.g === initialSplit.give);
-  const [mode, setMode] = useState<"preset" | "custom">(matchingPreset ? "preset" : "custom");
-  const [selectedPreset, setSelectedPreset] = useState<{ g: number; l: number }>(matchingPreset ?? presets[0]);
-  const [customGive, setCustomGive] = useState(String(initialSplit.give));
-  const [saving, setSaving] = useState(false);
-  const [saved, setSaved] = useState(false);
-
-  function getActiveSplit(): { give: number; live: number } | null {
-    if (mode === "preset") return { give: selectedPreset.g, live: selectedPreset.l };
-    const g = parseInt(customGive, 10);
-    if (isNaN(g) || g < 0 || g > 100) return null;
-    return { give: g, live: 100 - g };
-  }
-
-  async function handleSave() {
-    const split = getActiveSplit();
-    if (!split) return;
-    setSaving(true);
-    await updateJarSettings(uid, split, null);
-    onSave(split);
-    setSaving(false);
-    setSaved(true);
-    setTimeout(() => setSaved(false), 2000);
-  }
-
-  const activeSplit = getActiveSplit();
-
-  return (
-    <div className="p-6 mb-6" style={{ background: "var(--bg-surface-1)", border: "1px solid var(--border-default)", borderRadius: 20 }}>
-      <h2 className="text-base font-bold mb-1" style={{ color: "var(--text-primary)" }}>Preferred Jar Split</h2>
-      <p className="text-xs mb-4" style={{ color: "var(--text-secondary)" }}>🤲 Giving Jar / 😊 Reward Jar</p>
-
-      {/* Mode toggle */}
-      <div className="flex rounded-xl p-1 mb-4" style={{ background: "var(--bg-surface-2)" }}>
-        <button
-          onClick={() => setMode("preset")}
-          className="flex-1 py-1.5 rounded-lg text-xs font-semibold transition"
-          style={mode === "preset" ? { background: "var(--bg-surface-3)", color: "var(--text-primary)" } : { color: "var(--text-muted)" }}
-        >
-          Preset
-        </button>
-        <button
-          onClick={() => setMode("custom")}
-          className="flex-1 py-1.5 rounded-lg text-xs font-semibold transition"
-          style={mode === "custom" ? { background: "var(--bg-surface-3)", color: "var(--text-primary)" } : { color: "var(--text-muted)" }}
-        >
-          Custom
-        </button>
-      </div>
-
-      {mode === "preset" ? (
-        <div className="grid grid-cols-2 gap-2 mb-5">
-          {presets.map((p) => (
-            <button
-              key={p.label}
-              onClick={() => setSelectedPreset(p)}
-              className="py-3 rounded-xl text-sm font-bold transition-all"
-              style={
-                selectedPreset.g === p.g
-                  ? { border: "2px solid var(--green-primary)", background: "var(--bg-surface-2)", color: "var(--green-primary)" }
-                  : { border: "1px solid var(--border-default)", color: "var(--text-secondary)", background: "transparent" }
-              }
-            >
-              {p.label}
-            </button>
-          ))}
-        </div>
-      ) : (
-        <div className="mb-5">
-          <p className="text-xs mb-2" style={{ color: "var(--text-muted)" }}>Enter your Give % (0–100). Save % is calculated automatically.</p>
-          <div className="flex items-center gap-3">
-            <div className="flex-1">
-              <label className="text-xs mb-1 block" style={{ color: "var(--coral-primary)" }}>🤲 Giving %</label>
-              <input
-                type="number"
-                min={0}
-                max={100}
-                value={customGive}
-                onChange={(e) => setCustomGive(e.target.value)}
-                className="w-full rounded-xl px-3 py-2.5 text-sm font-bold focus:outline-none"
-                style={{ background: "var(--bg-surface-2)", border: "1px solid var(--border-default)", color: "var(--text-primary)" }}
-              />
-            </div>
-            <div className="text-lg font-bold" style={{ color: "var(--text-muted)", paddingTop: 20 }}>/</div>
-            <div className="flex-1">
-              <label className="text-xs mb-1 block" style={{ color: "#2BBAA4" }}>😊 Reward %</label>
-              <div
-                className="w-full rounded-xl px-3 py-2.5 text-sm font-bold"
-                style={{ background: "var(--bg-surface-2)", border: "1px solid var(--border-default)", color: "var(--text-muted)" }}
-              >
-                {activeSplit ? 100 - activeSplit.give : "—"}
-              </div>
-            </div>
-          </div>
-          {activeSplit === null && (
-            <p className="text-xs mt-1" style={{ color: "var(--coral-primary)" }}>Enter a number between 0 and 100</p>
-          )}
-        </div>
-      )}
-
-      <button
-        onClick={handleSave}
-        disabled={saving || !activeSplit}
-        className="w-full py-3 font-semibold rounded-xl text-sm transition-all disabled:opacity-50"
-        style={{
-          background: "linear-gradient(135deg, var(--gold-cta), var(--gold-light))",
-          color: "var(--bg-base)",
-        }}
-      >
-        {saved ? "✓ Saved!" : saving ? "Saving…" : "Save"}
-      </button>
-    </div>
-  );
-}

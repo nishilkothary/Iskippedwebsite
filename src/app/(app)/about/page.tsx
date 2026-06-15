@@ -27,13 +27,6 @@ const STEPS = [
   },
   {
     number: "04",
-    title: "See the power of skipped expenses",
-    body: "Watch the impact of your group's skips add up in real time. Every coffee, every takeout — it all becomes something meaningful.",
-    color: "var(--green-primary)",
-    bgColor: "rgba(46,204,113,0.10)",
-  },
-  {
-    number: "05",
     title: "Donate",
     body: "When you're ready, donate your donation jar directly to the cause. No money moves through iSkipped — it goes straight to the organization.",
     color: "var(--coral-primary)",
@@ -103,19 +96,19 @@ export default function AboutPage() {
           className="text-4xl font-black leading-tight mb-3"
           style={{ color: "var(--text-primary)", letterSpacing: "-0.5px" }}
         >
-          All it takes is<br />
-          <span style={{ color: "var(--green-primary)" }}>a few skipped expenses.</span>
+          All it takes is saying<br />
+          <span style={{ color: "var(--green-primary)" }}>iSkipped.</span>
         </p>
         <p className="text-sm max-w-xs mx-auto leading-relaxed" style={{ color: "var(--text-secondary)" }}>
-          To make a difference in the world all it takes is a few skipped expenses.
+          To make a difference in the world we just have to skip a few expenses.
         </p>
       </div>
 
-      <div className="px-4 max-w-lg mx-auto space-y-6 pt-6">
+      <div className="px-4 max-w-lg mx-auto space-y-10 pt-8">
 
         {/* How it works */}
         <section>
-          <p className="text-xs font-bold uppercase tracking-widest mb-4" style={{ color: "var(--text-muted)" }}>
+          <p className="text-base font-black uppercase tracking-widest mb-4" style={{ color: "var(--text-primary)" }}>
             How it works
           </p>
           <div className="space-y-3">
@@ -140,7 +133,7 @@ export default function AboutPage() {
           </div>
           <button
             onClick={() => router.push("/challenges")}
-            className="mt-4 w-full py-3 rounded-2xl text-sm font-black"
+            className="mt-6 w-full py-3 rounded-2xl text-sm font-black"
             style={{
               background: "linear-gradient(135deg, var(--gold-cta), var(--gold-light))",
               color: "var(--bg-base)",
@@ -167,7 +160,7 @@ export default function AboutPage() {
 
         {/* FAQ */}
         <section>
-          <p className="text-xs font-bold uppercase tracking-widest mb-4" style={{ color: "var(--text-muted)" }}>
+          <p className="text-base font-black uppercase tracking-widest mb-4" style={{ color: "var(--text-primary)" }}>
             FAQ
           </p>
           <div

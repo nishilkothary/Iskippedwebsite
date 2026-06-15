@@ -98,7 +98,7 @@ export const OFFICIAL_PROJECTS: Project[] = [
     title: "Life-Saving Meals in Palestine",
     sponsor: "Share the Meal",
     description: "Your savings provide emergency meals to families in need in Palestine.",
-    goalAmount: 80,
+    goalAmount: 0,
     totalRaised: 0,
     imageURL: null,
     donationURL: "https://sharethemeal.org/en-us/campaigns/palestine11",
@@ -220,6 +220,17 @@ export function isCauseProject(project: Project): boolean {
   return !isChallengeProject(project);
 }
 
+export function isProjectEnded(project: Project): boolean {
+  if (project.status === "ended") return true;
+  if (project.endDate) {
+    const ms = typeof (project.endDate as any).toMillis === "function"
+      ? (project.endDate as any).toMillis()
+      : NaN;
+    return !isNaN(ms) && ms < Date.now();
+  }
+  return false;
+}
+
 export async function getProject(id: string): Promise<Project | null> {
   // Check official projects first
   const official = OFFICIAL_PROJECTS.find((p) => p.id === id);
@@ -239,6 +250,7 @@ export async function addCustomProject(
     goalAmount: number;
     description?: string;
     donationURL?: string;
+    donationNote?: string;
     tags?: string[];
     imageURL?: string;
     imagePosition?: string;
@@ -268,6 +280,7 @@ export async function addCustomProject(
     imageURL: data.imageURL || null,
     imagePosition: data.imagePosition || null,
     donationURL: data.donationURL || null,
+    donationNote: data.donationNote || null,
     unitName: data.unitName || null,
     unitDisplay: data.unitDisplay || null,
     unitCost: data.unitCost || null,
@@ -294,6 +307,7 @@ export async function updateCustomProject(
     location?: string;
     goalAmount: number;
     donationURL?: string;
+    donationNote?: string;
     description?: string;
     imageURL?: string;
     imagePosition?: string;
@@ -323,6 +337,7 @@ export async function updateCustomProject(
     location: data.location || null,
     goalAmount: data.goalAmount,
     donationURL: data.donationURL || null,
+    donationNote: data.donationNote || null,
     description: data.description || "",
     imageURL: data.imageURL || null,
     imagePosition: data.imagePosition || null,

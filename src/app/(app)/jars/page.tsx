@@ -20,7 +20,7 @@ import {
   updateSpendingGoals,
   setUserCauseGoal,
 } from "@/lib/services/firebase/users";
-import { addCustomProject, updateCustomProject, deleteCustomProject, isCauseProject } from "@/lib/services/firebase/projects";
+import { addCustomProject, updateCustomProject, deleteCustomProject, isCauseProject, isChallengeProject, isProjectEnded } from "@/lib/services/firebase/projects";
 import { formatUnits } from "@/lib/utils/impact";
 import { SpendingHistoryEvent, Project, SpendingGoal, DonationEvent } from "@/lib/types/models";
 
@@ -60,6 +60,16 @@ function JarsPageInner() {
   const globalSpendingBalance = Math.max(0, liveTotal - (profile.totalSpent ?? 0));
 
   const activeProject = projects.find((p) => p.id === profile.activeProjectId) ?? null;
+
+  const completedChallenges = (profile.joinedProjectIds ?? [])
+    .map((id) => projects.find((p) => p.id === id))
+    .filter((p): p is Project => !!p && isChallengeProject(p) && isProjectEnded(p))
+    .filter((p) => (profile.causeJarBalances?.[p.id] ?? 0) > 0)
+    .map((p) => ({
+      project: p,
+      balance: profile.causeJarBalances?.[p.id] ?? 0,
+      donated: donations.filter((d) => d.causeId === p.id).reduce((sum, d) => sum + d.amount, 0),
+    }));
 
   const { goals: spendingGoals, activeId: activeSpendingGoalId } = normalizeSpendingGoals(profile);
   const activeGoal = spendingGoals.find((g) => g.id === activeSpendingGoalId) ?? null;
@@ -308,6 +318,7 @@ function JarsPageInner() {
             donations={donations}
             causeJarBalances={profile.causeJarBalances}
             causeGoalAmounts={profile.causeGoalAmounts}
+            completedChallenges={completedChallenges}
             onSelectCause={handleSelectCause}
             onSetGoal={handleSetCauseGoal}
             onDeactivateCause={handleDeactivateCause}
@@ -319,6 +330,9 @@ function JarsPageInner() {
             onDeleteCause={handleDeleteCause}
             onDonate={(amount) =>
               donate(amount, activeProject?.id ?? "giving", activeProject?.title ?? "Giving")
+            }
+            onDonateCompleted={(amount, projectId, projectTitle) =>
+              donate(amount, projectId, projectTitle)
             }
             onEditDonation={editDonation}
             onDeleteDonation={deleteDonation}
@@ -548,7 +562,9 @@ function CauseTab({
   givingBalance,
   donations,
   causeJarBalances,
+  completedChallenges,
   onDonate,
+  onDonateCompleted,
   onEditDonation,
   onDeleteDonation,
   onShowCommunityChallenges,
@@ -562,6 +578,7 @@ function CauseTab({
   donations: DonationEvent[];
   causeJarBalances: Record<string, number> | undefined;
   causeGoalAmounts: Record<string, number> | undefined;
+  completedChallenges: { project: Project; balance: number; donated: number }[];
   onSelectCause: (p: Project) => void;
   onSetGoal: (causeId: string, amount: number) => Promise<void>;
   onDeactivateCause: () => Promise<void>;
@@ -569,6 +586,7 @@ function CauseTab({
   onEditCause: (projectId: string, data: { title: string; sponsor: string; location?: string; goalAmount: number; donationURL?: string; description?: string }) => Promise<void>;
   onDeleteCause: (projectId: string) => Promise<void>;
   onDonate: (amount: number) => Promise<void>;
+  onDonateCompleted: (amount: number, projectId: string, projectTitle: string) => Promise<void>;
   onEditDonation: (donation: DonationEvent, newAmount: number) => Promise<void>;
   onDeleteDonation: (donation: DonationEvent) => Promise<void>;
   onShowCommunityChallenges: () => void;
@@ -582,10 +600,15 @@ function CauseTab({
   const [editDonationAmountStr, setEditDonationAmountStr] = useState("");
   const [deletingDonationId, setDeletingDonationId] = useState<string | null>(null);
   const [donationWorking, setDonationWorking] = useState(false);
+  const [completedDonateId, setCompletedDonateId] = useState<string | null>(null);
+  const [completedDonateAmountStr, setCompletedDonateAmountStr] = useState("");
+  const [completedDonating, setCompletedDonating] = useState(false);
 
-  // Show other cause balances — only for projects we can identify by title
+  const completedIds = new Set(completedChallenges.map((c) => c.project.id));
+
+  // Show other cause balances — exclude active cause and completed challenges (shown separately)
   const otherBalances = Object.entries(causeJarBalances ?? {})
-    .filter(([id, bal]) => (bal as number) > 0 && id !== activeProject?.id)
+    .filter(([id, bal]) => (bal as number) > 0 && id !== activeProject?.id && !completedIds.has(id))
     .map(([id, bal]) => ({
       id,
       balance: bal as number,
@@ -654,16 +677,22 @@ function CauseTab({
             </div>
           ) : (
             <div className="flex gap-2">
+              {activeProject?.donationURL && (
+                <a
+                  href={activeProject.donationURL}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="flex-1 py-2.5 text-sm font-bold rounded-xl text-center"
+                  style={{ background: "#2ECC71", color: "#0B1A14", textDecoration: "none" }}
+                >Donate ↗</a>
+              )}
               <button
                 onClick={() => setShowLogDonation(true)}
                 className="flex-1 py-2.5 text-sm font-bold rounded-xl"
-                style={{ background: "#2ECC71", color: "#0B1A14" }}
+                style={activeProject?.donationURL
+                  ? { border: "1px solid rgba(46,204,113,0.4)", color: "#2ECC71" }
+                  : { background: "#2ECC71", color: "#0B1A14" }}
               >Log Donation</button>
-              <button
-                onClick={onShowCommunityChallenges}
-                className="flex-1 py-2.5 text-sm font-semibold rounded-xl"
-                style={{ border: "1px solid var(--border-default)", color: "var(--text-secondary)" }}
-              >Browse Challenges</button>
             </div>
           )}
         </div>
@@ -694,6 +723,87 @@ function CauseTab({
                   {project?.title ?? id}
                 </p>
                 <p className="text-sm font-black shrink-0" style={{ color: "#2ECC71" }}>{formatCurrency(balance)}</p>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Completed Challenges */}
+      {completedChallenges.length > 0 && (
+        <div className="rounded-2xl p-4" style={{ background: "var(--bg-surface-1)", border: "1px solid var(--border-default)" }}>
+          <p className="text-xs font-bold uppercase tracking-widest mb-3" style={{ color: "var(--text-muted)" }}>Completed Challenges</p>
+          <div className="space-y-4">
+            {completedChallenges.map(({ project: p, balance, donated }) => (
+              <div key={p.id}>
+                <p className="text-sm font-black leading-snug" style={{ color: "var(--text-primary)" }}>{p.groupName || p.title}</p>
+                <p className="text-xs mb-3" style={{ color: "var(--text-muted)" }}>{p.sponsor}</p>
+                <div className="grid grid-cols-3 gap-2 mb-3">
+                  {[
+                    { label: "Saved", value: formatCurrency(balance + donated), color: "var(--text-primary)" },
+                    { label: "Donated", value: formatCurrency(donated), color: "#2ECC71" },
+                    { label: "Remaining", value: formatCurrency(balance), color: "#F59E0B" },
+                  ].map((s) => (
+                    <div key={s.label} className="rounded-xl p-2.5 text-center" style={{ background: "var(--bg-surface-2)", border: "1px solid var(--border-default)" }}>
+                      <p className="text-[10px] font-bold uppercase tracking-wide mb-1" style={{ color: "var(--text-muted)" }}>{s.label}</p>
+                      <p className="text-sm font-extrabold" style={{ color: s.color }}>{s.value}</p>
+                    </div>
+                  ))}
+                </div>
+                {completedDonateId === p.id ? (
+                  <div className="flex gap-2">
+                    <div className="relative flex-1">
+                      <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm" style={{ color: "var(--text-muted)" }}>$</span>
+                      <input
+                        type="number"
+                        placeholder="0.00"
+                        value={completedDonateAmountStr}
+                        onChange={(e) => setCompletedDonateAmountStr(e.target.value)}
+                        className="w-full pl-7 rounded-xl px-3 py-2 text-sm focus:outline-none"
+                        style={{ background: "var(--bg-surface-2)", border: "1px solid #F59E0B", color: "var(--text-primary)" }}
+                        autoFocus
+                      />
+                    </div>
+                    <button
+                      onClick={async () => {
+                        const amt = parseFloat(completedDonateAmountStr);
+                        if (!amt || amt <= 0) return;
+                        setCompletedDonating(true);
+                        await onDonateCompleted(amt, p.id, p.groupName || p.title);
+                        setCompletedDonateAmountStr("");
+                        setCompletedDonateId(null);
+                        setCompletedDonating(false);
+                      }}
+                      disabled={completedDonating || !completedDonateAmountStr || parseFloat(completedDonateAmountStr) <= 0}
+                      className="px-3 py-2 rounded-xl text-sm font-bold disabled:opacity-50"
+                      style={{ background: "#F59E0B", color: "#0B1A14" }}
+                    >{completedDonating ? "…" : "✓"}</button>
+                    <button
+                      onClick={() => { setCompletedDonateId(null); setCompletedDonateAmountStr(""); }}
+                      className="px-3 py-2 rounded-xl text-sm"
+                      style={{ border: "1px solid var(--border-default)", color: "var(--text-secondary)" }}
+                    >✕</button>
+                  </div>
+                ) : (
+                  <div className="flex gap-2">
+                    {p.donationURL && (
+                      <a
+                        href={p.donationURL}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="flex-1 py-2.5 text-sm font-bold rounded-xl text-center"
+                        style={{ background: "#F59E0B", color: "#0B1A14", textDecoration: "none" }}
+                      >Donate ↗</a>
+                    )}
+                    <button
+                      onClick={() => { setCompletedDonateId(p.id); setCompletedDonateAmountStr(""); }}
+                      className="flex-1 py-2.5 text-sm font-bold rounded-xl"
+                      style={p.donationURL
+                        ? { border: "1px solid rgba(245,158,11,0.4)", color: "#F59E0B" }
+                        : { background: "#F59E0B", color: "#0B1A14" }}
+                    >Log Donation</button>
+                  </div>
+                )}
               </div>
             ))}
           </div>
@@ -1305,7 +1415,7 @@ function SplurgeTab({
                   </div>
                 ) : (
                   <div className="flex gap-2">
-                    {activeGoal.shoppingLink ? (
+                    {activeGoal.shoppingLink && (
                       <a
                         href={activeGoal.shoppingLink}
                         target="_blank"
@@ -1315,21 +1425,15 @@ function SplurgeTab({
                       >
                         Buy Now ↗
                       </a>
-                    ) : (
-                      <button
-                        onClick={() => { setPurchasingId(activeGoal.id); setPurchaseAmountStr(String(activeGoal.targetAmount)); }}
-                        className="flex-1 py-2.5 font-bold rounded-xl text-sm"
-                        style={{ background: "#8B5CF6", color: "white" }}
-                      >
-                        Log Purchase
-                      </button>
                     )}
                     <button
                       onClick={() => { setPurchasingId(activeGoal.id); setPurchaseAmountStr(String(activeGoal.targetAmount)); }}
-                      className="flex-1 py-2.5 font-semibold rounded-xl text-sm"
-                      style={{ border: "1px solid rgba(139,92,246,0.4)", color: "#8B5CF6" }}
+                      className="flex-1 py-2.5 font-bold rounded-xl text-sm"
+                      style={activeGoal.shoppingLink
+                        ? { border: "1px solid rgba(139,92,246,0.4)", color: "#8B5CF6" }
+                        : { background: "#8B5CF6", color: "white" }}
                     >
-                      I Bought It
+                      Log Purchase
                     </button>
                   </div>
                     )}
@@ -1452,7 +1556,7 @@ function SplurgeTab({
 
       {/* Rewards list */}
       {!showAddForm && !editingGoalId && (
-        <div>
+        <div className="mt-2">
           {/* Filter tabs */}
           <div className="flex gap-1.5 mb-3">
             {(["all", "prebuilt", "custom"] as const).map((f) => (

@@ -518,9 +518,12 @@ export default function ManageChallengePage() {
         ) : (
           <div className="space-y-3">
             <div className="rounded-xl p-3" style={{ background: "rgba(239,68,68,0.08)", border: "1px solid rgba(239,68,68,0.2)" }}>
-              <p className="text-sm font-bold mb-1" style={{ color: "#EF4444" }}>Are you sure?</p>
+              <p className="text-sm font-bold mb-1" style={{ color: "#EF4444" }}>Permanently delete this challenge?</p>
+              <p className="text-xs mb-2" style={{ color: "var(--text-secondary)" }}>
+                Members who saved toward this challenge <span className="font-bold" style={{ color: "#EF4444" }}>will not be able to donate</span> to the cause — their contribution link will be broken.
+              </p>
               <p className="text-xs" style={{ color: "var(--text-secondary)" }}>
-                This permanently deletes the challenge. Users will no longer see it and it cannot be undone.
+                If you just want to close it out, go back and choose <span className="font-semibold" style={{ color: "#EF8844" }}>End Challenge</span> instead — that preserves the donation flow for all members.
               </p>
             </div>
             <div className="flex gap-2">
@@ -537,7 +540,7 @@ export default function ManageChallengePage() {
                 className="flex-1 py-2 rounded-xl text-xs font-bold disabled:opacity-50"
                 style={{ background: "#EF4444", color: "white" }}
               >
-                {ending ? "Deleting..." : "Yes, Delete"}
+                {ending ? "Deleting..." : "Yes, Delete Permanently"}
               </button>
             </div>
           </div>

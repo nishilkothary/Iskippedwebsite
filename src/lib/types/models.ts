@@ -85,6 +85,7 @@ export interface Project {
   status?: "active" | "ended";
   imageURL: string | null;
   donationURL: string | null;
+  donationNote?: string | null; // shown when no donationURL — e.g. "Send via Venmo @username"
   learnMoreURL?: string | null;
   isCustom: boolean;
   location?: string;
