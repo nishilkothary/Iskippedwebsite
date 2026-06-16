@@ -6,6 +6,7 @@ import {
   serverTimestamp,
   increment,
   writeBatch,
+  runTransaction,
   collection,
   query,
   orderBy,
@@ -281,23 +282,26 @@ export async function recordDonation(uid: string, amount: number, projectId: str
   updateDoc(doc(db, "users", uid), { lastDonationDate: new Date().toISOString().slice(0, 10) }).catch(() => {});
 }
 
-export async function recordPurchase(uid: string, goalId: string, goalLabel: string, targetAmount: number, amount: number): Promise<void> {
-  const userSnap = await getDoc(doc(db, "users", uid));
-  const currentGoalBal: number = userSnap.data()?.goalJarBalances?.[goalId] ?? 0;
-  const jarDecrease = Math.min(amount, Math.max(0, currentGoalBal));
-  const batch = writeBatch(db);
-  batch.set(doc(collection(db, "users", uid, "spendingHistory")), {
-    goalId,
-    label: goalLabel,
-    targetAmount,
-    amountSaved: jarDecrease,
-    purchasedAt: serverTimestamp(),
+export async function recordPurchase(uid: string, goalId: string, goalLabel: string, targetAmount: number, amount: number): Promise<number> {
+  return runTransaction(db, async (tx) => {
+    const userRef = doc(db, "users", uid);
+    const userSnap = await tx.get(userRef);
+    const currentGoalBal: number = userSnap.data()?.goalJarBalances?.[goalId] ?? 0;
+    const jarDecrease = Math.min(amount, Math.max(0, currentGoalBal));
+    const historyRef = doc(collection(db, "users", uid, "spendingHistory"));
+    tx.set(historyRef, {
+      goalId,
+      label: goalLabel,
+      targetAmount,
+      amountSaved: jarDecrease,
+      purchasedAt: serverTimestamp(),
+    });
+    tx.update(userRef, {
+      totalSpent: increment(jarDecrease),
+      [`goalJarBalances.${goalId}`]: increment(-jarDecrease),
+    });
+    return jarDecrease;
   });
-  batch.update(doc(db, "users", uid), {
-    totalSpent: increment(jarDecrease),
-    [`goalJarBalances.${goalId}`]: increment(-jarDecrease),
-  });
-  await batch.commit();
 }
 
 export function subscribeToDonations(uid: string, callback: (donations: DonationEvent[]) => void): Unsubscribe {
@@ -324,11 +328,11 @@ export async function updateDonation(uid: string, donationId: string, newAmount:
   await batch.commit();
 }
 
-export async function deleteDonation(uid: string, donationId: string, amount: number, causeId: string): Promise<void> {
+export async function deleteDonation(uid: string, donationId: string, amount: number, causeId: string): Promise<number> {
   // Read jarDecrease stored at record time — restoring only what was actually taken from the jar.
   // Old donations without jarDecrease fall back to amount (prior behaviour).
   const donationSnap = await getDoc(doc(db, "users", uid, "donations", donationId));
-  const jarDecrease: number = donationSnap.data()?.jarDecrease ?? amount;
+  const jarDecrease: number = donationSnap.exists() ? (donationSnap.data()?.jarDecrease ?? amount) : amount;
   const batch = writeBatch(db);
   batch.delete(doc(db, "users", uid, "donations", donationId));
   batch.update(doc(db, "users", uid), {
@@ -336,6 +340,7 @@ export async function deleteDonation(uid: string, donationId: string, amount: nu
     [`causeJarBalances.${causeId}`]: increment(jarDecrease),
   });
   await batch.commit();
+  return jarDecrease;
 }
 
 export function subscribeToSpendingHistory(

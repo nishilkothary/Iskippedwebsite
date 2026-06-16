@@ -163,12 +163,12 @@ export function useSkips() {
 
   async function deleteDonation(donation: DonationEvent): Promise<void> {
     if (!user || !profile) return;
-    await firebaseDeleteDonation(user.uid, donation.id, donation.amount, donation.causeId);
+    const jarDecrease = await firebaseDeleteDonation(user.uid, donation.id, donation.amount, donation.causeId);
     updateProfile({
       totalDonated: profile.totalDonated - donation.amount,
       causeJarBalances: {
         ...(profile.causeJarBalances ?? {}),
-        [donation.causeId]: (profile.causeJarBalances?.[donation.causeId] ?? 0) + donation.amount,
+        [donation.causeId]: (profile.causeJarBalances?.[donation.causeId] ?? 0) + jarDecrease,
       },
     });
   }

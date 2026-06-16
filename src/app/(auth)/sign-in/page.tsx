@@ -103,10 +103,13 @@ export default function SignInPage() {
 
   async function handleEmailSubmit() {
     setError(null);
+    if (mode === "signup" && !name.trim()) { setError("Please enter your name."); return; }
+    if (!email.trim()) { setError("Please enter your email."); return; }
+    if (!password) { setError("Please enter your password."); return; }
     setEmailLoading(true);
     try {
       if (mode === "signup") {
-        await signUpWithEmail(email, password, name);
+        await signUpWithEmail(email, password, name.trim());
       } else {
         await signInWithEmail(email, password);
       }
@@ -119,6 +122,7 @@ export default function SignInPage() {
 
   async function handleResetPassword() {
     setError(null);
+    if (!email.trim()) { setError("Please enter your email address."); return; }
     setResetLoading(true);
     try {
       await resetPassword(email);
@@ -127,6 +131,12 @@ export default function SignInPage() {
       setError(friendlyAuthError(e));
       setResetLoading(false);
     }
+  }
+
+  function handleKeyDown(e: React.KeyboardEvent) {
+    if (e.key !== "Enter") return;
+    if (mode === "forgot") handleResetPassword();
+    else handleEmailSubmit();
   }
 
   if (isLoading) {
@@ -180,6 +190,8 @@ export default function SignInPage() {
                 placeholder="Email"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
+                onKeyDown={handleKeyDown}
+                maxLength={254}
                 className="w-full px-4 py-3 border border-[#E5E7EB] rounded-xl text-sm text-[#111827] focus:outline-none focus:ring-2 focus:ring-[#3D8B68]"
               />
               <button
@@ -228,6 +240,8 @@ export default function SignInPage() {
                 placeholder="Your name"
                 value={name}
                 onChange={(e) => setName(e.target.value)}
+                onKeyDown={handleKeyDown}
+                maxLength={50}
                 className="w-full px-4 py-3 border border-[#E5E7EB] rounded-xl text-sm text-[#111827] focus:outline-none focus:ring-2 focus:ring-[#3D8B68]"
               />
             )}
@@ -236,6 +250,8 @@ export default function SignInPage() {
               placeholder="Email"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
+              onKeyDown={handleKeyDown}
+              maxLength={254}
               className="w-full px-4 py-3 border border-[#E5E7EB] rounded-xl text-sm text-[#111827] focus:outline-none focus:ring-2 focus:ring-[#3D8B68]"
             />
             <input
@@ -243,6 +259,8 @@ export default function SignInPage() {
               placeholder="Password"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
+              onKeyDown={handleKeyDown}
+              maxLength={128}
               className="w-full px-4 py-3 border border-[#E5E7EB] rounded-xl text-sm text-[#111827] focus:outline-none focus:ring-2 focus:ring-[#3D8B68]"
             />
             {mode === "signin" && (

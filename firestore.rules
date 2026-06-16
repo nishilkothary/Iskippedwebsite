@@ -54,7 +54,11 @@ service cloud.firestore {
         && (!incomingData().diff(resource.data).affectedKeys().hasAny(["totalGiveAllocated"])
             || (incomingData().totalGiveAllocated is number
                 && incomingData().totalGiveAllocated >= resource.data.get("totalGiveAllocated", 0)
-                && incomingData().totalGiveAllocated - resource.data.get("totalGiveAllocated", 0) <= 10000));
+                && incomingData().totalGiveAllocated - resource.data.get("totalGiveAllocated", 0) <= 10000))
+        // totalLiveAllocated can decrease (skip deletes, transfer-to-give) but cap increases at 10000/write
+        && (!incomingData().diff(resource.data).affectedKeys().hasAny(["totalLiveAllocated"])
+            || (incomingData().totalLiveAllocated is number
+                && incomingData().totalLiveAllocated - resource.data.get("totalLiveAllocated", 0) <= 10000));
       allow delete: if false;
 
       // ─── Skips ──────────────────────────────────────────────────────────
@@ -134,13 +138,22 @@ service cloud.firestore {
             && (resource.data.totalRaised - incomingData().totalRaised) <= 5000
           )
           ||
-          // Any authenticated user can add only themselves to memberUids (arrayUnion pattern)
+          // Any authenticated user can add only themselves to memberUids (join)
           (
             incomingData().diff(resource.data).affectedKeys().hasOnly(["memberUids"])
             && incomingData().memberUids is list
             && incomingData().memberUids.hasAll(resource.data.get("memberUids", []))
             && incomingData().memberUids.removeAll(resource.data.get("memberUids", [])).hasOnly([request.auth.uid])
             && incomingData().memberUids.size() == resource.data.get("memberUids", []).size() + 1
+          )
+          ||
+          // Any authenticated user can remove only themselves from memberUids (leave)
+          (
+            incomingData().diff(resource.data).affectedKeys().hasOnly(["memberUids"])
+            && incomingData().memberUids is list
+            && resource.data.get("memberUids", []).hasAll(incomingData().memberUids)
+            && resource.data.get("memberUids", []).removeAll(incomingData().memberUids).hasOnly([request.auth.uid])
+            && incomingData().memberUids.size() == resource.data.get("memberUids", []).size() - 1
           )
         );
       allow delete: if isSignedIn()

@@ -53,6 +53,10 @@ function JarsPageInner() {
   // Must be declared before the early return to satisfy Rules of Hooks
   const [splitGive, setSplitGive] = useState(() => normalizeJarSplit(profile?.jarSplit as any).give);
   const [savingSplit, setSavingSplit] = useState(false);
+  // Sync slider when profile loads async or changes from another tab
+  useEffect(() => {
+    setSplitGive(normalizeJarSplit(profile?.jarSplit as any).give);
+  }, [profile?.jarSplit]);
 
   if (!profile || !user) return null;
 
@@ -215,8 +219,11 @@ function JarsPageInner() {
     onMoveToGive: handleMoveToGive,
     onPurchase: async (amount: number) => {
       if (!activeSpendingGoalId || !activeGoal) return;
-      await recordPurchase(user.uid, activeSpendingGoalId, activeGoal.label, activeGoal.targetAmount, amount);
-      updateProfile({ totalSpent: (profile.totalSpent ?? 0) + amount });
+      const jarDecrease = await recordPurchase(user.uid, activeSpendingGoalId, activeGoal.label, activeGoal.targetAmount, amount);
+      updateProfile({
+        totalSpent: (profile.totalSpent ?? 0) + jarDecrease,
+        goalJarBalances: { ...(profile.goalJarBalances ?? {}), [activeSpendingGoalId]: Math.max(0, (profile.goalJarBalances?.[activeSpendingGoalId] ?? 0) - jarDecrease) },
+      });
     },
     onEditHistory: (event: SpendingHistoryEvent, newAmount: number) => {
       updateProfile({ totalSpent: (profile.totalSpent ?? 0) + (newAmount - event.amountSaved) });
