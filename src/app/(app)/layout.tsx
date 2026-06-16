@@ -109,6 +109,7 @@ function MobileBottomNav() {
         background: "linear-gradient(180deg, #10241B, #0B1A14)",
         borderTop: "1px solid var(--border-default)",
         backdropFilter: "blur(12px)",
+        paddingBottom: "env(safe-area-inset-bottom)",
       }}
     >
       {NAV_ITEMS.map((item) => {
@@ -117,7 +118,7 @@ function MobileBottomNav() {
           <Link
             key={item.href}
             href={item.href}
-            className="flex-1 flex flex-col items-center justify-center py-2 gap-0.5 transition-colors"
+            className="flex-1 flex flex-col items-center justify-center py-3 gap-1 transition-colors"
             style={{ color: active ? "var(--gold-cta)" : "rgba(237,245,240,0.55)" }}
           >
             <span className="text-lg leading-none">{item.emoji}</span>
@@ -235,7 +236,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
         <SidebarNav onLogSkip={() => setShowSkipPicker(true)} />
       </Suspense>
 
-      <main className="flex-1 overflow-y-auto pb-16 md:pb-0">
+      <main className="flex-1 overflow-y-auto pb-24 md:pb-0">
         <ChallengeBanners />
         {children}
       </main>
@@ -245,7 +246,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
       {/* Floating skip button — mobile only */}
       <button
         onClick={() => setShowSkipPicker(true)}
-        className="md:hidden fixed bottom-20 right-4 z-20 flex items-center gap-1.5 px-4 py-3 rounded-full font-bold text-sm shadow-lg active:scale-95 transition-transform"
+        className="md:hidden fixed bottom-24 right-4 z-20 flex items-center gap-1.5 px-4 py-3 rounded-full font-bold text-sm shadow-lg active:scale-95 transition-transform"
         style={{
           background: "linear-gradient(135deg, var(--gold-cta), var(--gold-light))",
           color: "var(--bg-base)",

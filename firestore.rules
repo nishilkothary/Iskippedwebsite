@@ -138,6 +138,14 @@ service cloud.firestore {
             && (resource.data.totalRaised - incomingData().totalRaised) <= 5000
           )
           ||
+          // Any authenticated user can increment totalSkips by exactly 1 per write
+          (
+            incomingData().diff(resource.data).affectedKeys().hasOnly(["totalSkips"])
+            && incomingData().totalSkips is number
+            && incomingData().totalSkips >= resource.data.get("totalSkips", 0)
+            && (incomingData().totalSkips - resource.data.get("totalSkips", 0)) <= 1
+          )
+          ||
           // Any authenticated user can add only themselves to memberUids (join)
           (
             incomingData().diff(resource.data).affectedKeys().hasOnly(["memberUids"])

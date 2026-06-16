@@ -388,10 +388,22 @@ export default function ChallengesPage() {
 
   return (
     <div className="p-4 md:p-8 max-w-2xl mx-auto pb-24 md:pb-8">
-      <div className="flex md:hidden justify-center mb-5">
+      <div className="flex md:hidden items-center justify-between mb-5">
         <p className="text-3xl font-black tracking-tight" style={{ color: "var(--text-primary)" }}>
           i<span style={{ color: "var(--green-primary)" }}>skipped</span>
         </p>
+        <button
+          type="button"
+          onClick={() => setShowCreateForm(true)}
+          className="px-4 py-2.5 rounded-full text-sm font-black"
+          style={{
+            background: "linear-gradient(135deg, var(--gold-cta), var(--gold-light))",
+            color: "var(--bg-base)",
+            boxShadow: "0 4px 18px var(--gold-glow)",
+          }}
+        >
+          + Create
+        </button>
       </div>
 
       {selectedCategory !== "Archived" && <section className="mt-6">
@@ -438,7 +450,7 @@ export default function ChallengesPage() {
           <button
             key={category}
             onClick={() => setSelectedCategory(category)}
-            className="flex-shrink-0 px-3 py-1.5 rounded-full text-xs font-semibold transition-colors"
+            className="flex-shrink-0 px-4 py-2.5 rounded-full text-sm font-semibold transition-colors"
             style={selectedCategory === category
               ? { background: "#2ECC71", color: "#0B1A14" }
               : { border: "1px solid rgba(46,204,113,0.3)", color: "var(--text-secondary)" }

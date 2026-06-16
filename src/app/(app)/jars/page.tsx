@@ -293,8 +293,8 @@ function JarsPageInner() {
       {/* Tab bar */}
       <div className="flex rounded-2xl p-1 mb-5" style={{ background: "var(--bg-surface-1)", border: "1px solid var(--border-default)" }}>
         <button
-          onClick={() => router.push("/jars?tab=cause")}
-          className="flex-1 py-3 rounded-xl text-sm font-bold transition-all"
+          onClick={() => { setActiveTab("cause"); router.push("/jars?tab=cause"); }}
+          className="flex-1 py-4 rounded-xl text-sm font-bold transition-all"
           style={activeTab === "cause"
             ? { background: "var(--green-primary)", color: "#0B1A14" }
             : { color: "var(--text-muted)" }}
@@ -302,8 +302,8 @@ function JarsPageInner() {
           My Giving Jar
         </button>
         <button
-          onClick={() => router.push("/jars?tab=live")}
-          className="flex-1 py-3 rounded-xl text-sm font-bold transition-all"
+          onClick={() => { setActiveTab("live"); router.push("/jars?tab=live"); }}
+          className="flex-1 py-4 rounded-xl text-sm font-bold transition-all"
           style={activeTab === "live"
             ? { background: "#8B5CF6", color: "white" }
             : { color: "var(--text-muted)" }}
