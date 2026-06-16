@@ -242,6 +242,19 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
 
       {showSkipPicker && <SkipModal onClose={() => setShowSkipPicker(false)} />}
 
+      {/* Floating skip button — mobile only */}
+      <button
+        onClick={() => setShowSkipPicker(true)}
+        className="md:hidden fixed bottom-20 right-4 z-20 flex items-center gap-1.5 px-4 py-3 rounded-full font-bold text-sm shadow-lg active:scale-95 transition-transform"
+        style={{
+          background: "linear-gradient(135deg, var(--gold-cta), var(--gold-light))",
+          color: "var(--bg-base)",
+          boxShadow: "0 4px 20px var(--gold-glow)",
+        }}
+      >
+        <span className="text-base leading-none">✨</span> Skip
+      </button>
+
       <Suspense fallback={null}>
         <MobileBottomNav />
       </Suspense>
