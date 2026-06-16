@@ -35,7 +35,26 @@ service cloud.firestore {
         && isPositiveNumber(incomingData().streak);
       allow update: if isOwner(uid)
         // uid is immutable
-        && (!incomingData().keys().hasAny(["uid"]) || incomingData().uid == uid);
+        && (!incomingData().keys().hasAny(["uid"]) || incomingData().uid == uid)
+        // Interim financial guard: counters can only increase, capped per write.
+        // Root fix: move writes to Cloud Functions. These rules prevent the worst
+        // abuse (setting totalSaved=99999) without breaking the current client architecture.
+        && (!incomingData().diff(resource.data).affectedKeys().hasAny(["totalSaved"])
+            || (incomingData().totalSaved is number
+                && incomingData().totalSaved >= resource.data.get("totalSaved", 0)
+                && incomingData().totalSaved - resource.data.get("totalSaved", 0) <= 10000))
+        && (!incomingData().diff(resource.data).affectedKeys().hasAny(["totalSkips"])
+            || (incomingData().totalSkips is number
+                && incomingData().totalSkips >= resource.data.get("totalSkips", 0)
+                && incomingData().totalSkips - resource.data.get("totalSkips", 0) <= 100))
+        && (!incomingData().diff(resource.data).affectedKeys().hasAny(["totalDonated"])
+            || (incomingData().totalDonated is number
+                && incomingData().totalDonated >= resource.data.get("totalDonated", 0)
+                && incomingData().totalDonated - resource.data.get("totalDonated", 0) <= 10000))
+        && (!incomingData().diff(resource.data).affectedKeys().hasAny(["totalGiveAllocated"])
+            || (incomingData().totalGiveAllocated is number
+                && incomingData().totalGiveAllocated >= resource.data.get("totalGiveAllocated", 0)
+                && incomingData().totalGiveAllocated - resource.data.get("totalGiveAllocated", 0) <= 10000));
       allow delete: if false;
 
       // ─── Skips ──────────────────────────────────────────────────────────
