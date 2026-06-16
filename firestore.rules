@@ -105,16 +105,23 @@ service cloud.firestore {
           // Owner can edit their custom cause
           (resource.data.isCustom == true && resource.data.createdBy == request.auth.uid)
           ||
-          // Any authenticated user can update totalRaised (increment on skip/join, decrement on cause switch/delete)
+          // Any authenticated user can update totalRaised (increment on skip, decrement on cause switch/delete)
+          // Delta capped at ±5000 per write to prevent arbitrary value injection
           (
             incomingData().diff(resource.data).affectedKeys().hasOnly(["totalRaised"])
             && incomingData().totalRaised is number
             && incomingData().totalRaised >= 0
+            && (incomingData().totalRaised - resource.data.totalRaised) <= 5000
+            && (resource.data.totalRaised - incomingData().totalRaised) <= 5000
           )
           ||
-          // Any authenticated user can add themselves to memberUids when joining a challenge
+          // Any authenticated user can add only themselves to memberUids (arrayUnion pattern)
           (
             incomingData().diff(resource.data).affectedKeys().hasOnly(["memberUids"])
+            && incomingData().memberUids is list
+            && incomingData().memberUids.hasAll(resource.data.get("memberUids", []))
+            && incomingData().memberUids.removeAll(resource.data.get("memberUids", [])).hasOnly([request.auth.uid])
+            && incomingData().memberUids.size() == resource.data.get("memberUids", []).size() + 1
           )
         );
       allow delete: if isSignedIn()

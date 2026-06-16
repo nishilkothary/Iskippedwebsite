@@ -5,6 +5,7 @@ import { useAuthStore } from "@/store/authStore";
 import { subscribeToGlobalStats, deleteOldCommunityFeedItems } from "@/lib/services/firebase/social";
 import { getRecentSkips } from "@/lib/services/firebase/skips";
 import { UserProfile, Skip, GlobalStats } from "@/lib/types/models";
+import { getAuth } from "firebase/auth";
 
 const ADMIN_EMAIL = process.env.NEXT_PUBLIC_ADMIN_EMAIL ?? "";
 
@@ -44,10 +45,12 @@ export default function AdminPage() {
   useEffect(() => {
     if (!profile || profile.email !== ADMIN_EMAIL) return;
 
-    fetch("/api/admin/users", { headers: { "x-caller-email": profile.email } })
-      .then((r) => r.json())
-      .then((data) => { if (data.users) setUsers(data.users); else setUsersPermissionDenied(true); })
-      .catch(() => setUsersPermissionDenied(true));
+    getAuth().currentUser?.getIdToken().then((idToken) =>
+      fetch("/api/admin/users", { headers: { "Authorization": `Bearer ${idToken}` } })
+        .then((r) => r.json())
+        .then((data) => { if (data.users) setUsers(data.users); else setUsersPermissionDenied(true); })
+        .catch(() => setUsersPermissionDenied(true))
+    ).catch(() => setUsersPermissionDenied(true));
 
     const unsub = subscribeToGlobalStats(setStats);
     return () => unsub();

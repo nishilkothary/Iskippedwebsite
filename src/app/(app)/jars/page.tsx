@@ -50,6 +50,9 @@ function JarsPageInner() {
   const [editPurchaseAmountStr, setEditPurchaseAmountStr] = useState("");
   const [deletingPurchaseId, setDeletingPurchaseId] = useState<string | null>(null);
   const [purchaseWorking, setPurchaseWorking] = useState(false);
+  // Must be declared before the early return to satisfy Rules of Hooks
+  const [splitGive, setSplitGive] = useState(() => normalizeJarSplit(profile?.jarSplit as any).give);
+  const [savingSplit, setSavingSplit] = useState(false);
 
   if (!profile || !user) return null;
 
@@ -231,10 +234,6 @@ function JarsPageInner() {
       return deleteSpendingHistory(user.uid, event.id, event.amountSaved, event.goalId);
     },
   };
-
-  const currentSplit = normalizeJarSplit(profile.jarSplit as any);
-  const [splitGive, setSplitGive] = useState(currentSplit.give);
-  const [savingSplit, setSavingSplit] = useState(false);
 
   return (
     <div className="p-4 md:p-8 max-w-2xl mx-auto pb-20 md:pb-8">
