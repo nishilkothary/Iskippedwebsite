@@ -265,7 +265,7 @@ function JarsPageInner() {
           className="w-full mb-4"
           style={{ accentColor: "var(--green-primary)", height: 4 }}
         />
-        {splitGive !== currentSplit.give && (
+        {splitGive !== split.give && (
           <button
             disabled={savingSplit}
             onClick={async () => {
