@@ -105,7 +105,7 @@ export async function logSkip(params: LogSkipParams): Promise<{ skipId: string; 
   } else if (lastSkipDate === yesterdayStr) {
     newStreak = currentStreak + 1;
   } else {
-    newStreak = 0;
+    newStreak = 1;
   }
 
   const newLongestStreak = Math.max(currentLongestStreak, newStreak);

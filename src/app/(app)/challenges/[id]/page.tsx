@@ -188,7 +188,7 @@ export default function ChallengeDetailPage() {
   const params = useParams();
   const challengeId = typeof params?.id === "string" ? params.id : Array.isArray(params?.id) ? params.id[0] : "";
   const { user, profile, updateProfile } = useAuthStore();
-  const { projects } = useProjects();
+  const { projects, loading: projectsLoading } = useProjects();
   const [joining, setJoining] = useState(false);
   const [showJoinChoice, setShowJoinChoice] = useState(false);
   const [goalPickerProjectId, setGoalPickerProjectId] = useState<string | null>(null);
@@ -204,6 +204,13 @@ export default function ChallengeDetailPage() {
   }, [projects, challengeId]);
 
   if (!challenge) {
+    if (projectsLoading) {
+      return (
+        <div className="min-h-screen flex items-center justify-center" style={{ background: "var(--bg-base)" }}>
+          <div className="w-8 h-8 border-4 border-t-transparent rounded-full animate-spin" style={{ borderColor: "var(--green-primary)", borderTopColor: "transparent" }} />
+        </div>
+      );
+    }
     return (
       <div className="p-4 md:p-8 max-w-3xl mx-auto pb-24 md:pb-8">
         <button onClick={() => router.push("/challenges")} className="text-sm font-bold mb-5" style={{ color: "var(--green-primary)" }}>

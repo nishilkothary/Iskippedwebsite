@@ -402,7 +402,7 @@ export default function ChallengesPage() {
               key={challenge.project.id}
               challenge={challenge}
               isActive={challenge.project.id === profile?.activeProjectId}
-              isJoined={challenge.project.id === profile?.activeProjectId}
+              isJoined={joinedProjectIds.has(challenge.project.id)}
               isJoining={joiningId === challenge.project.id}
               canEdit={false}
               onOpen={() => router.push(`/challenges/${challenge.project.id}`)}
@@ -495,7 +495,7 @@ export default function ChallengesPage() {
               key={challenge.project.id}
               challenge={challenge}
               isActive={challenge.project.id === profile?.activeProjectId}
-              isJoined={challenge.project.id === profile?.activeProjectId}
+              isJoined={joinedProjectIds.has(challenge.project.id)}
               isJoining={joiningId === challenge.project.id}
               canEdit={challenge.project.createdBy === user?.uid}
               onOpen={() => router.push(`/challenges/${challenge.project.id}`)}

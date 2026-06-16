@@ -660,7 +660,7 @@ export default function HomePage() {
           const nudgeDismissedDaysAgo = nudgeDismissedAt
             ? Math.floor((Date.now() - parseInt(nudgeDismissedAt)) / 86400_000)
             : Infinity;
-          const showNudge = hasGivingBalance && daysSinceLastDonation >= 30 && nudgeDismissedDaysAgo >= 30;
+          const showNudge = !nudgeDismissed && hasGivingBalance && daysSinceLastDonation >= 30 && nudgeDismissedDaysAgo >= 30;
 
           if (!groupGoalReached && !personalGoalReached && !challengeEnded && !showNudge) return null;
 

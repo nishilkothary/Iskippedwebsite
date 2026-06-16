@@ -262,6 +262,7 @@ export async function recordDonation(uid: string, amount: number, projectId: str
     causeId: projectId,
     causeTitle: projectTitle,
     amount,
+    jarDecrease,
     ...(date ? { date } : {}),
     donatedAt: serverTimestamp(),
   });
@@ -281,17 +282,20 @@ export async function recordDonation(uid: string, amount: number, projectId: str
 }
 
 export async function recordPurchase(uid: string, goalId: string, goalLabel: string, targetAmount: number, amount: number): Promise<void> {
+  const userSnap = await getDoc(doc(db, "users", uid));
+  const currentGoalBal: number = userSnap.data()?.goalJarBalances?.[goalId] ?? 0;
+  const jarDecrease = Math.min(amount, Math.max(0, currentGoalBal));
   const batch = writeBatch(db);
   batch.set(doc(collection(db, "users", uid, "spendingHistory")), {
     goalId,
     label: goalLabel,
     targetAmount,
-    amountSaved: amount,
+    amountSaved: jarDecrease,
     purchasedAt: serverTimestamp(),
   });
   batch.update(doc(db, "users", uid), {
-    totalSpent: increment(amount),
-    [`goalJarBalances.${goalId}`]: increment(-amount),
+    totalSpent: increment(jarDecrease),
+    [`goalJarBalances.${goalId}`]: increment(-jarDecrease),
   });
   await batch.commit();
 }
@@ -321,11 +325,15 @@ export async function updateDonation(uid: string, donationId: string, newAmount:
 }
 
 export async function deleteDonation(uid: string, donationId: string, amount: number, causeId: string): Promise<void> {
+  // Read jarDecrease stored at record time — restoring only what was actually taken from the jar.
+  // Old donations without jarDecrease fall back to amount (prior behaviour).
+  const donationSnap = await getDoc(doc(db, "users", uid, "donations", donationId));
+  const jarDecrease: number = donationSnap.data()?.jarDecrease ?? amount;
   const batch = writeBatch(db);
   batch.delete(doc(db, "users", uid, "donations", donationId));
   batch.update(doc(db, "users", uid), {
     totalDonated: increment(-amount),
-    [`causeJarBalances.${causeId}`]: increment(amount),
+    [`causeJarBalances.${causeId}`]: increment(jarDecrease),
   });
   await batch.commit();
 }

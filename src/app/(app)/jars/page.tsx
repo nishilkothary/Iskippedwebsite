@@ -647,7 +647,7 @@ function CauseTab({
               <button
                 onClick={async () => {
                   const amt = parseFloat(donateAmountStr);
-                  if (!amt || amt <= 0) return;
+                  if (!amt || amt <= 0 || amt > givingBalance) return;
                   setDonating(true);
                   await onDonate(amt);
                   setDonateAmountStr("");
