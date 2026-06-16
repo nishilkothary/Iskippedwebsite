@@ -45,7 +45,9 @@ export default function AdminPage() {
   useEffect(() => {
     if (!profile || profile.email !== ADMIN_EMAIL) return;
 
-    getAuth().currentUser?.getIdToken().then((idToken) =>
+    const currentUser = getAuth().currentUser;
+    if (!currentUser) { setUsersPermissionDenied(true); return; }
+    currentUser.getIdToken().then((idToken) =>
       fetch("/api/admin/users", { headers: { "Authorization": `Bearer ${idToken}` } })
         .then((r) => r.json())
         .then((data) => { if (data.users) setUsers(data.users); else setUsersPermissionDenied(true); })

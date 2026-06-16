@@ -311,21 +311,22 @@ export function subscribeToDonations(uid: string, callback: (donations: Donation
 
 export async function updateDonation(uid: string, donationId: string, newAmount: number, oldAmount: number, causeId: string, date?: string): Promise<void> {
   const delta = newAmount - oldAmount;
-  const batch = writeBatch(db);
-  const donationUpdates: Record<string, any> = { amount: newAmount };
-  if (date !== undefined) donationUpdates.date = date;
-  batch.update(doc(db, "users", uid, "donations", donationId), donationUpdates);
-  if (delta !== 0) {
-    // If increasing the donation, cap the jar decrease so it doesn't go negative
-    const userSnap = await getDoc(doc(db, "users", uid));
-    const currentBal: number = userSnap.data()?.causeJarBalances?.[causeId] ?? 0;
-    const jarDelta = delta > 0 ? -Math.min(delta, Math.max(0, currentBal)) : -delta;
-    batch.update(doc(db, "users", uid), {
-      totalDonated: increment(delta),
-      [`causeJarBalances.${causeId}`]: increment(jarDelta),
-    });
-  }
-  await batch.commit();
+  if (delta === 0 && date === undefined) return;
+  await runTransaction(db, async (tx) => {
+    const donationUpdates: Record<string, any> = { amount: newAmount };
+    if (date !== undefined) donationUpdates.date = date;
+    tx.update(doc(db, "users", uid, "donations", donationId), donationUpdates);
+    if (delta !== 0) {
+      const userRef = doc(db, "users", uid);
+      const userSnap = await tx.get(userRef);
+      const currentBal: number = userSnap.data()?.causeJarBalances?.[causeId] ?? 0;
+      const jarDelta = delta > 0 ? -Math.min(delta, Math.max(0, currentBal)) : -delta;
+      tx.update(userRef, {
+        totalDonated: increment(delta),
+        [`causeJarBalances.${causeId}`]: increment(jarDelta),
+      });
+    }
+  });
 }
 
 export async function deleteDonation(uid: string, donationId: string, amount: number, causeId: string): Promise<number> {
