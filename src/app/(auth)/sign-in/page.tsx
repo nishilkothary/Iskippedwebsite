@@ -1,6 +1,6 @@
 "use client";
 import { useEffect, useState } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { signInWithGoogle, signUpWithEmail, signInWithEmail, resetPassword } from "@/lib/services/firebase/auth";
 import { useAuthStore } from "@/store/authStore";
@@ -68,11 +68,13 @@ function friendlyAuthError(e: any): string {
 
 export default function SignInPage() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const { user, isLoading } = useAuthStore();
   const [error, setError] = useState<string | null>(null);
   const [googleLoading, setGoogleLoading] = useState(false);
   const [emailLoading, setEmailLoading] = useState(false);
-  const [mode, setMode] = useState<"signup" | "signin" | "forgot">("signup");
+  const initialMode = searchParams.get("mode") === "signin" ? "signin" : "signup";
+  const [mode, setMode] = useState<"signup" | "signin" | "forgot">(initialMode);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [name, setName] = useState("");
@@ -80,9 +82,12 @@ export default function SignInPage() {
   const [resetLoading, setResetLoading] = useState(false);
   const [resetSent, setResetSent] = useState(false);
 
+  const redirectParam = searchParams.get("redirect");
+  const postAuthDestination = redirectParam?.startsWith("/") ? redirectParam : "/home";
+
   useEffect(() => {
-    if (!isLoading && user) router.replace("/home");
-  }, [user, isLoading, router]);
+    if (!isLoading && user) router.replace(postAuthDestination);
+  }, [user, isLoading, router, postAuthDestination]);
 
   useEffect(() => {
     const t = setTimeout(() => setCardsVisible(true), 200);
@@ -94,7 +99,7 @@ export default function SignInPage() {
     setGoogleLoading(true);
     try {
       await signInWithGoogle();
-      router.replace("/home");
+      router.replace(postAuthDestination);
     } catch (e: any) {
       setError(friendlyAuthError(e));
       setGoogleLoading(false);
@@ -113,7 +118,7 @@ export default function SignInPage() {
       } else {
         await signInWithEmail(email, password);
       }
-      router.replace("/home");
+      router.replace(postAuthDestination);
     } catch (e: any) {
       setError(friendlyAuthError(e));
       setEmailLoading(false);

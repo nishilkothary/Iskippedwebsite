@@ -1154,8 +1154,8 @@ function ShareChallengeModal({
   onClose: () => void;
 }) {
   const url = typeof window !== "undefined"
-    ? `${window.location.origin}/challenges/${challenge.project.id}`
-    : `/challenges/${challenge.project.id}`;
+    ? `${window.location.origin}/join/${challenge.project.id}`
+    : `/join/${challenge.project.id}`;
   const [copied, setCopied] = useState(false);
   const isPrivate = isPrivateChallenge(challenge.project);
   const canNativeShare = typeof navigator !== "undefined" && typeof navigator.share === "function";

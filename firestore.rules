@@ -114,10 +114,11 @@ service cloud.firestore {
     }
 
     // ─── Projects (Causes) ──────────────────────────────────────────────────
-    // Anyone signed in can browse causes. Custom causes can only be edited /
-    // deleted by the user who created them; built-in causes are read-only.
+    // Project data is public-facing content (challenge landing pages, share links).
+    // Custom causes can only be edited / deleted by the user who created them;
+    // built-in causes are read-only.
     match /projects/{projectId} {
-      allow read: if isSignedIn();
+      allow read: if true;
       allow create: if isSignedIn()
         && incomingData().isCustom == true
         && incomingData().createdBy == request.auth.uid

@@ -194,8 +194,8 @@ export default function ChallengeDetailPage() {
   const [goalPickerProjectId, setGoalPickerProjectId] = useState<string | null>(null);
   const [showShare, setShowShare] = useState(false);
   const challengeUrl = typeof window !== "undefined"
-    ? `${window.location.origin}/challenges/${challengeId}`
-    : `/challenges/${challengeId}`;
+    ? `${window.location.origin}/join/${challengeId}`
+    : `/join/${challengeId}`;
   const canNativeShare = typeof navigator !== "undefined" && typeof navigator.share === "function";
 
   const challenge = useMemo(() => {
