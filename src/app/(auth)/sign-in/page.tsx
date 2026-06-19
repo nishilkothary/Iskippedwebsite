@@ -1,5 +1,5 @@
 "use client";
-import { useEffect, useState } from "react";
+import { useEffect, useState, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { signInWithGoogle, signUpWithEmail, signInWithEmail, resetPassword } from "@/lib/services/firebase/auth";
@@ -66,7 +66,7 @@ function friendlyAuthError(e: any): string {
   return e?.message || "Something went wrong. Please try again.";
 }
 
-export default function SignInPage() {
+function SignInPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const { user, isLoading } = useAuthStore();
@@ -450,5 +450,19 @@ export default function SignInPage() {
         </div>
       </div>
     </div>
+  );
+}
+
+export default function SignInPageWrapper() {
+  return (
+    <Suspense
+      fallback={
+        <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-[#1a5c42] to-[#2d8b6a]">
+          <div className="w-8 h-8 border-4 border-white border-t-transparent rounded-full animate-spin" />
+        </div>
+      }
+    >
+      <SignInPage />
+    </Suspense>
   );
 }
