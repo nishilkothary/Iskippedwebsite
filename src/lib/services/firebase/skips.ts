@@ -9,6 +9,7 @@ import {
   orderBy,
   limit,
   getDocs,
+  getDoc,
   onSnapshot,
   Unsubscribe,
   updateDoc,
@@ -175,12 +176,11 @@ export async function logSkip(params: LogSkipParams): Promise<{ skipId: string; 
   await batch.commit();
 
   // Update project totals for challenge group tracking (non-atomic, best-effort).
-  // Firestore rule only allows changing totalRaised alone — split into separate writes.
+  // Firestore rule only allows changing one counter field per write — split into separate writes.
   if (projectId) {
-    // Rules only allow one counter field per write — must be split
-    setDoc(doc(db, "projects", projectId), { totalSkips: increment(1) }, { merge: true }).catch((e) => console.warn("[logSkip] project totalSkips update failed:", e));
+    updateDoc(doc(db, "projects", projectId), { totalSkips: increment(1) }).catch((e) => console.warn("[logSkip] project totalSkips update failed:", e));
     if (giveAmount > 0) {
-      setDoc(doc(db, "projects", projectId), { totalRaised: increment(giveAmount) }, { merge: true }).catch((e) => console.warn("[logSkip] project totalRaised update failed:", e));
+      updateDoc(doc(db, "projects", projectId), { totalRaised: increment(giveAmount) }).catch((e) => console.warn("[logSkip] project totalRaised update failed:", e));
     }
   }
 
@@ -299,9 +299,19 @@ export async function deleteSkip(
     ...(projectId ? { [`causeJarBalances.${projectId}`]: increment(-giveAllocAmount) } : {}),
   });
   await batch.commit();
-  // Keep project totalRaised in sync when a skip is deleted
+  // Keep project totalRaised in sync when a skip is deleted.
+  // Read current value first so we can clamp to 0 — the Firestore rule rejects writes
+  // that would make totalRaised negative, so blind increment(-x) fails when the counter
+  // has drifted below the expected value.
   if (projectId && giveAllocAmount > 0) {
-    setDoc(doc(db, "projects", projectId), { totalRaised: increment(-giveAllocAmount) }, { merge: true }).catch((e) => console.warn("[deleteSkip] project totalRaised update failed:", e));
+    getDoc(doc(db, "projects", projectId))
+      .then((snap) => {
+        const current = (snap.data()?.totalRaised ?? 0) as number;
+        return updateDoc(doc(db, "projects", projectId), {
+          totalRaised: Math.max(0, current - giveAllocAmount),
+        });
+      })
+      .catch((e) => console.warn("[deleteSkip] project totalRaised update failed:", e));
   }
 }
 
