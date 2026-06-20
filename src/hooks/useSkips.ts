@@ -110,13 +110,16 @@ export function useSkips() {
     const newLiveAlloc = newAmount * (newSplit.live / 100);
     const giveAllocDelta = newGiveAlloc - oldGiveAlloc;
     const liveAllocDelta = newLiveAlloc - oldLiveAlloc;
-    await firebaseUpdateSkip(user.uid, skip.id, updates, amountDelta, giveAllocDelta, liveAllocDelta);
+    await firebaseUpdateSkip(user.uid, skip.id, updates, amountDelta, giveAllocDelta, liveAllocDelta, skip.projectId);
     storeUpdateSkip(skip.id, updates);
     if (amountDelta !== 0 || giveAllocDelta !== 0 || liveAllocDelta !== 0) {
       updateProfile({
         totalSaved: profile.totalSaved + amountDelta,
         totalGiveAllocated: Math.max(0, (profile.totalGiveAllocated ?? 0) + giveAllocDelta),
         totalLiveAllocated: Math.max(0, (profile.totalLiveAllocated ?? 0) + liveAllocDelta),
+        causeJarBalances: skip.projectId && giveAllocDelta !== 0
+          ? { ...profile.causeJarBalances, [skip.projectId]: Math.max(0, (profile.causeJarBalances?.[skip.projectId] ?? 0) + giveAllocDelta) }
+          : profile.causeJarBalances,
       });
       // Sync community feed only if amount changed (fire-and-forget)
       if (amountDelta !== 0) updateCommunityFeedItem(skip.id, {

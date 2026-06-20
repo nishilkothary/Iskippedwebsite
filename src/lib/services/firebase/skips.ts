@@ -264,7 +264,8 @@ export async function updateSkip(
   updates: Partial<Pick<Skip, "category" | "categoryLabel" | "categoryEmoji" | "amount" | "projectId" | "projectTitle" | "whatSkipped" | "notes" | "jarSplit">>,
   amountDelta: number,
   giveAllocDelta = 0,
-  liveAllocDelta = 0
+  liveAllocDelta = 0,
+  projectId?: string | null
 ): Promise<void> {
   const batch = writeBatch(db);
   const cleanUpdates = Object.fromEntries(
@@ -275,10 +276,28 @@ export async function updateSkip(
   if (amountDelta !== 0) userUpdate.totalSaved = increment(amountDelta);
   if (giveAllocDelta !== 0) userUpdate.totalGiveAllocated = increment(giveAllocDelta);
   if (liveAllocDelta !== 0) userUpdate.totalLiveAllocated = increment(liveAllocDelta);
+  if (giveAllocDelta !== 0 && projectId) userUpdate[`causeJarBalances.${projectId}`] = increment(giveAllocDelta);
   if (Object.keys(userUpdate).length > 0) {
     batch.update(doc(db, "users", uid), userUpdate);
   }
   await batch.commit();
+
+  // Sync project totalRaised after the user batch commits
+  if (projectId && giveAllocDelta !== 0) {
+    if (giveAllocDelta > 0) {
+      updateDoc(doc(db, "projects", projectId), { totalRaised: increment(giveAllocDelta) })
+        .catch((e) => console.warn("[updateSkip] project totalRaised increment failed:", e));
+    } else {
+      getDoc(doc(db, "projects", projectId))
+        .then((snap) => {
+          const current = (snap.data()?.totalRaised ?? 0) as number;
+          return updateDoc(doc(db, "projects", projectId), {
+            totalRaised: Math.max(0, current + giveAllocDelta),
+          });
+        })
+        .catch((e) => console.warn("[updateSkip] project totalRaised decrement failed:", e));
+    }
+  }
 }
 
 export async function deleteSkip(
