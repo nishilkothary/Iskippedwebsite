@@ -371,6 +371,7 @@ export default function HomePage() {
   const [communityTotalSaved, setCommunityTotalSaved] = useState<number | null>(null);
   const [liveFeedIndex, setLiveFeedIndex] = useState(0);
   const [liveChallengeTotalRaised, setLiveChallengeTotalRaised] = useState<number>(0);
+  const [liveChallengeTotalSkips, setLiveChallengeTotalSkips] = useState<number>(0);
 
   useEffect(() => {
     return subscribeToCommunityFeed(setCommunityFeed);
@@ -410,12 +411,14 @@ export default function HomePage() {
 
   useEffect(() => {
     const activeProjectId = profile?.activeProjectId;
-    if (!activeProjectId) { setLiveChallengeTotalRaised(0); return; }
+    if (!activeProjectId) { setLiveChallengeTotalRaised(0); setLiveChallengeTotalSkips(0); return; }
     const proj = projects.find((p) => p.id === activeProjectId);
-    if (!proj || !(isChallengeProject(proj) || !proj.isCustom)) { setLiveChallengeTotalRaised(0); return; }
+    if (!proj || !(isChallengeProject(proj) || !proj.isCustom)) { setLiveChallengeTotalRaised(0); setLiveChallengeTotalSkips(0); return; }
     setLiveChallengeTotalRaised(proj.totalRaised ?? 0);
+    setLiveChallengeTotalSkips(proj.totalSkips ?? 0);
     return subscribeToProject(activeProjectId, (p) => {
       setLiveChallengeTotalRaised(p?.totalRaised ?? 0);
+      setLiveChallengeTotalSkips(p?.totalSkips ?? 0);
     });
   }, [profile?.activeProjectId, projects]);
 
@@ -465,13 +468,11 @@ export default function HomePage() {
   const challengeSkips = activeProject && isActiveChallenge
     ? recentSkips.filter((skip) => skip.projectId === activeProject.id)
     : [];
-  const hasCommunityUnit = !!(activeProject?.unitCost && activeProject.unitCost > 0);
-  const communityImpactLabel = hasCommunityUnit ? "Units Funded" : "Community $";
-  const communityImpactValue = hasCommunityUnit && activeProject
-    ? `${formatCommunityUnitCount(displayedGroupTotal, activeProject.unitCost ?? 0, activeProject.unitIsGoal)} ${activeProject.unitDisplay || activeProject.unitName || "units"}`
-    : formatCurrency(displayedGroupTotal);
+  // unitIsGoal=true means the unit IS the goal (e.g. one chromebook) — progress bar already shows that.
+  // Only count units for projects where each skip funds countable items (meals, books, etc.).
+  const hasCommunityUnit = !!(activeProject?.unitCost && activeProject.unitCost > 0 && !activeProject.unitIsGoal);
   const communityUnitCountDisplay = hasCommunityUnit && activeProject
-    ? formatCommunityUnitCount(displayedGroupTotal, activeProject.unitCost ?? 0, activeProject.unitIsGoal)
+    ? Math.floor(liveChallengeTotalRaised / (activeProject.unitCost ?? 1)).toLocaleString()
     : null;
   const communityUnitLabel = activeProject?.unitDisplay || activeProject?.unitName || "units";
   const challengeDonated = activeProject && isActiveChallenge
@@ -954,7 +955,7 @@ export default function HomePage() {
               <div style={{ display: "flex", gap: 14, alignItems: "flex-start", marginTop: 12 }}>
                 <div>
                   <p style={{ fontSize: 28, fontWeight: 900, color: "var(--text-primary)", lineHeight: 1 }}>
-                    {challengeCommunitySkipCount.toLocaleString()}
+                    {liveChallengeTotalSkips.toLocaleString()}
                   </p>
                   <p style={{ fontSize: 10, fontWeight: 800, letterSpacing: 1.2, textTransform: "uppercase", color: "var(--text-muted)", marginTop: 3 }}>
                     Skips
