@@ -135,8 +135,8 @@ service cloud.firestore {
             incomingData().diff(resource.data).affectedKeys().hasOnly(["totalRaised"])
             && incomingData().totalRaised is number
             && incomingData().totalRaised >= 0
-            && (incomingData().totalRaised - resource.data.totalRaised) <= 5000
-            && (resource.data.totalRaised - incomingData().totalRaised) <= 5000
+            && (incomingData().totalRaised - resource.data.get("totalRaised", 0)) <= 5000
+            && (resource.data.get("totalRaised", 0) - incomingData().totalRaised) <= 5000
           )
           ||
           // Any authenticated user can increment totalSkips by exactly 1 per write
