@@ -359,13 +359,12 @@ export default function ChallengeDetailPage() {
               /* Partner / open-ended challenge — show aggregate stats instead of a progress bar */
               (() => {
                 const totalSkips = challenge.project.totalSkips ?? 0;
-                const totalRaised = challenge.project.totalRaised ?? 0;
                 const unitCost = challenge.project.unitCost ?? 0;
                 const hasUnits = unitCost > 0;
                 const unitsPluralLabel = hasUnits && challenge.project.unitName
                   ? challenge.project.unitName.split(" ").slice(-1)[0].toLowerCase() + "s funded"
                   : "units funded";
-                const unitsCount = hasUnits ? Math.floor(totalRaised / unitCost) : 0;
+                const unitsCount = hasUnits ? Math.floor(pledgedAmount / unitCost) : 0;
                 return (
                   <div className={`grid gap-3 rounded-xl p-4 ${hasUnits ? "grid-cols-3" : "grid-cols-2"}`} style={{ background: "var(--bg-surface-2)", border: "1px solid var(--border-default)" }}>
                     <div className="text-center">
@@ -379,7 +378,7 @@ export default function ChallengeDetailPage() {
                       </div>
                     )}
                     <div className="text-center">
-                      <p className="text-xl font-black" style={{ color: "var(--coral-primary)" }}>{formatCurrency(totalRaised)}</p>
+                      <p className="text-xl font-black" style={{ color: "var(--coral-primary)" }}>{formatCurrency(pledgedAmount)}</p>
                       <p className="text-xs mt-0.5" style={{ color: "var(--text-muted)" }}>raised</p>
                     </div>
                   </div>

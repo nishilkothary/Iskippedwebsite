@@ -233,10 +233,10 @@ export default function JoinChallengePage() {
 
   const countdown = getChallengeCountdown(challenge.project);
   const totalSkips = challenge.project.totalSkips ?? 0;
-  const totalRaised = challenge.project.totalRaised ?? 0;
+  const displayedRaised = challenge.raised; // already Math.min(goal, totalRaised) from challengeFromProject
   const unitCost = challenge.project.unitCost ?? 0;
   const hasUnits = unitCost > 0;
-  const unitsCount = hasUnits ? Math.floor(totalRaised / unitCost) : 0;
+  const unitsCount = hasUnits ? Math.floor(displayedRaised / unitCost) : 0;
   const unitsPluralLabel = hasUnits && challenge.project.unitName
     ? challenge.project.unitName.split(" ").slice(-1)[0].toLowerCase() + "s funded"
     : "units funded";
@@ -318,7 +318,7 @@ export default function JoinChallengePage() {
                     </div>
                   )}
                   <div className="text-center">
-                    <p className="text-xl font-black" style={{ color: "var(--coral-primary)" }}>{formatCurrency(totalRaised)}</p>
+                    <p className="text-xl font-black" style={{ color: "var(--coral-primary)" }}>{formatCurrency(displayedRaised)}</p>
                     <p className="text-xs mt-0.5" style={{ color: "var(--text-muted)" }}>raised</p>
                   </div>
                 </div>
