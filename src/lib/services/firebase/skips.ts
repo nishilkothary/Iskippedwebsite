@@ -178,9 +178,9 @@ export async function logSkip(params: LogSkipParams): Promise<{ skipId: string; 
   // Firestore rule only allows changing totalRaised alone — split into separate writes.
   if (projectId) {
     // Rules only allow one counter field per write — must be split
-    setDoc(doc(db, "projects", projectId), { totalSkips: increment(1) }, { merge: true }).catch(() => {});
+    setDoc(doc(db, "projects", projectId), { totalSkips: increment(1) }, { merge: true }).catch((e) => console.warn("[logSkip] project totalSkips update failed:", e));
     if (giveAmount > 0) {
-      setDoc(doc(db, "projects", projectId), { totalRaised: increment(giveAmount) }, { merge: true }).catch(() => {});
+      setDoc(doc(db, "projects", projectId), { totalRaised: increment(giveAmount) }, { merge: true }).catch((e) => console.warn("[logSkip] project totalRaised update failed:", e));
     }
   }
 
@@ -301,7 +301,7 @@ export async function deleteSkip(
   await batch.commit();
   // Keep project totalRaised in sync when a skip is deleted
   if (projectId && giveAllocAmount > 0) {
-    setDoc(doc(db, "projects", projectId), { totalRaised: increment(-giveAllocAmount) }, { merge: true }).catch(() => {});
+    setDoc(doc(db, "projects", projectId), { totalRaised: increment(-giveAllocAmount) }, { merge: true }).catch((e) => console.warn("[deleteSkip] project totalRaised update failed:", e));
   }
 }
 

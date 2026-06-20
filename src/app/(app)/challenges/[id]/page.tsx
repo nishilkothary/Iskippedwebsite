@@ -233,7 +233,12 @@ export default function ChallengeDetailPage() {
   const giveTotal = profile ? (profile.totalGiveAllocated ?? profile.totalSaved * (split.give / 100)) : 0;
   const globalGivingBalance = profile ? Math.max(0, giveTotal - (profile.totalDonated ?? 0)) : 0;
   const profileChallengeBalance = profile?.causeJarBalances?.[challenge.project.id] ?? 0;
-  const pledgedAmount = Math.max(challenge.project.totalRaised || 0, profileChallengeBalance);
+  // Use totalRaised (server aggregate) as the source of truth for the challenge progress bar.
+  // profileChallengeBalance is kept as a floor only when totalRaised has never been written
+  // (e.g. legacy projects seeded before the counter existed).
+  const pledgedAmount = challenge.project.totalRaised > 0
+    ? challenge.project.totalRaised
+    : profileChallengeBalance;
 
   async function handleShare() {
     if (!challenge) return;
