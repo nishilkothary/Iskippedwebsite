@@ -468,14 +468,9 @@ export default function HomePage() {
   const challengeSkips = activeProject && isActiveChallenge
     ? recentSkips.filter((skip) => skip.projectId === activeProject.id)
     : [];
-  // unitIsGoal=true means the unit IS the goal (e.g. one chromebook) — progress bar covers it.
-  // Also catch the case where unitIsGoal isn't in Firestore: goalAmount≈unitCost means fund-one-item.
-  const isUnitGoalProject = !!(activeProject?.unitIsGoal
-    || (activeProject?.goalAmount && activeProject?.unitCost
-        && Math.abs(activeProject.goalAmount - activeProject.unitCost) < 0.01));
-  const hasCommunityUnit = !!(activeProject?.unitCost && activeProject.unitCost > 0 && !isUnitGoalProject);
+  const hasCommunityUnit = !!(activeProject?.unitCost && activeProject.unitCost > 0);
   const communityUnitCountDisplay = hasCommunityUnit && activeProject
-    ? Math.floor(liveChallengeTotalRaised / (activeProject.unitCost ?? 1)).toLocaleString()
+    ? formatCommunityUnitCount(displayedGroupTotal, activeProject.unitCost ?? 0, activeProject.unitIsGoal)
     : null;
   const communityUnitLabel = activeProject?.unitDisplay || activeProject?.unitName || "units";
   const challengeDonated = activeProject && isActiveChallenge

@@ -232,7 +232,7 @@ export default function ChallengeDetailPage() {
   const split = normalizeJarSplit(profile?.jarSplit as any);
   const giveTotal = profile ? (profile.totalGiveAllocated ?? profile.totalSaved * (split.give / 100)) : 0;
   const globalGivingBalance = profile ? Math.max(0, giveTotal - (profile.totalDonated ?? 0)) : 0;
-  const profileChallengeBalance = profile?.causeJarBalances?.[challenge.project.id] ?? 0;
+  const profileChallengeBalance = profile?.causeJarBalances?.[challenge.project.id] || globalGivingBalance;
   const pledgedAmount = Math.max(challenge.project.totalRaised || 0, profileChallengeBalance);
 
   async function handleShare() {

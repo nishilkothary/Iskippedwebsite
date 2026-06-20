@@ -1411,15 +1411,6 @@ function CreateChallengeWizard({
                   maxLength={100}
                 />
               </div>
-              <label className="flex items-center gap-3 cursor-pointer">
-                <input
-                  type="checkbox"
-                  checked={isOrg}
-                  onChange={(event) => setIsOrg(event.target.checked)}
-                  className="w-4 h-4 rounded accent-green-500"
-                />
-                <span className="text-sm font-semibold" style={{ color: "var(--text-primary)" }}>We are a Corporation or Non-Profit</span>
-              </label>
               <div>
                 <p className="text-xs font-bold uppercase tracking-wide mb-1.5" style={{ color: "var(--text-muted)" }}>About this challenge</p>
                 <textarea
@@ -1524,8 +1515,59 @@ function CreateChallengeWizard({
                   />
                 </div>
               </div>
+              <div className="rounded-xl p-4" style={{ background: "var(--bg-surface-2)", border: "1px solid var(--border-default)" }}>
+                <label className="flex items-start gap-3 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={useImpactUnit}
+                    onChange={(event) => setUseImpactUnit(event.target.checked)}
+                    className="mt-1"
+                  />
+                  <span>
+                    <span className="block text-sm font-black" style={{ color: "var(--text-primary)" }}>Add an impact unit</span>
+                    <span className="block text-xs mt-1" style={{ color: "var(--text-muted)" }}>
+                      Optional. Fill it in like a formula: 1 school day = $0.82.
+                    </span>
+                  </span>
+                </label>
+                {useImpactUnit && (
+                  <div className="mt-3">
+                    <div className="flex items-center gap-2">
+                      <span className="text-sm font-black shrink-0" style={{ color: "var(--text-primary)" }}>1</span>
+                      <input
+                        type="text"
+                        value={impactUnitName}
+                        onChange={(event) => setImpactUnitName(event.target.value)}
+                        placeholder="school day"
+                        aria-label="Impact unit name"
+                        className="min-w-0 flex-1 rounded-xl px-4 py-3 text-sm focus:outline-none"
+                        style={{ background: "var(--bg-surface-1)", border: "1px solid var(--border-default)", color: "var(--text-primary)" }}
+                        maxLength={60}
+                      />
+                      <span className="text-sm font-black shrink-0" style={{ color: "var(--text-primary)" }}>=</span>
+                      <div className="relative min-w-0 flex-1">
+                        <span className="absolute left-4 top-1/2 -translate-y-1/2 text-sm" style={{ color: "var(--text-muted)" }}>$</span>
+                        <input
+                          type="number"
+                          value={impactUnitCost}
+                          onChange={(event) => setImpactUnitCost(event.target.value)}
+                          placeholder="0.82"
+                          aria-label="Impact unit cost"
+                          className="w-full rounded-xl pl-8 pr-4 py-3 text-sm focus:outline-none"
+                          style={{ background: "var(--bg-surface-1)", border: "1px solid var(--border-default)", color: "var(--text-primary)" }}
+                        />
+                      </div>
+                    </div>
+                    <p className="text-xs mt-2" style={{ color: "var(--text-muted)" }}>
+                      Use dollars or cents. This will show people what one real outcome costs.
+                    </p>
+                  </div>
+                )}
+              </div>
               <div>
-                <p className="text-xs font-bold uppercase tracking-wide mb-2" style={{ color: "var(--text-muted)" }}>Donation Destination</p>
+                <p className="text-xs font-bold uppercase tracking-wide mb-2" style={{ color: "var(--text-muted)" }}>
+                  {noDonationLink ? "Instructions to Send Donation" : "Donation Destination"}
+                </p>
                 {!noDonationLink && (
                   <a
                     href={donationURL || undefined}
@@ -1567,55 +1609,6 @@ function CreateChallengeWizard({
                   />
                   <span className="text-xs font-semibold" style={{ color: "var(--text-secondary)" }}>I don&apos;t have a donation link</span>
                 </label>
-              </div>
-              <div className="rounded-xl p-4" style={{ background: "var(--bg-surface-2)", border: "1px solid var(--border-default)" }}>
-                <label className="flex items-start gap-3 cursor-pointer">
-                  <input
-                    type="checkbox"
-                    checked={useImpactUnit}
-                    onChange={(event) => setUseImpactUnit(event.target.checked)}
-                    className="mt-1"
-                  />
-                    <span>
-                      <span className="block text-sm font-black" style={{ color: "var(--text-primary)" }}>Add an impact unit</span>
-                      <span className="block text-xs mt-1" style={{ color: "var(--text-muted)" }}>
-                        Optional. Fill it in like a formula: 1 school day = $0.82.
-                      </span>
-                    </span>
-                  </label>
-                {useImpactUnit && (
-                  <div className="mt-3">
-                    <div className="flex items-center gap-2">
-                      <span className="text-sm font-black shrink-0" style={{ color: "var(--text-primary)" }}>1</span>
-                        <input
-                          type="text"
-                          value={impactUnitName}
-                          onChange={(event) => setImpactUnitName(event.target.value)}
-                          placeholder="school day"
-                          aria-label="Impact unit name"
-                          className="min-w-0 flex-1 rounded-xl px-4 py-3 text-sm focus:outline-none"
-                          style={{ background: "var(--bg-surface-1)", border: "1px solid var(--border-default)", color: "var(--text-primary)" }}
-                          maxLength={60}
-                      />
-                      <span className="text-sm font-black shrink-0" style={{ color: "var(--text-primary)" }}>=</span>
-                      <div className="relative min-w-0 flex-1">
-                        <span className="absolute left-4 top-1/2 -translate-y-1/2 text-sm" style={{ color: "var(--text-muted)" }}>$</span>
-                        <input
-                          type="number"
-                          value={impactUnitCost}
-                          onChange={(event) => setImpactUnitCost(event.target.value)}
-                          placeholder="0.82"
-                          aria-label="Impact unit cost"
-                          className="w-full rounded-xl pl-8 pr-4 py-3 text-sm focus:outline-none"
-                          style={{ background: "var(--bg-surface-1)", border: "1px solid var(--border-default)", color: "var(--text-primary)" }}
-                        />
-                      </div>
-                    </div>
-                    <p className="text-xs mt-2" style={{ color: "var(--text-muted)" }}>
-                      Use dollars or cents. This will show people what one real outcome costs.
-                    </p>
-                  </div>
-                )}
               </div>
               {!isEditing && (
                 <div>
