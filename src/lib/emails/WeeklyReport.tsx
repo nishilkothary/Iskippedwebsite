@@ -3,10 +3,8 @@ import {
   Button,
   Container,
   Head,
-  Heading,
   Hr,
   Html,
-  Img,
   Link,
   Preview,
   Row,
@@ -18,37 +16,39 @@ import * as React from "react";
 
 export interface WeeklyReportProps {
   displayName: string;
-  weekLabel: string; // e.g. "Jun 16 – Jun 22"
+  weekLabel: string;
   totalSaved: number;
   skipCount: number;
   streak: number;
-  streakChange: "kept" | "grew" | "new-record" | "none";
-  xpEarned: number;
-  currentLevel: number;
-  xpIntoLevel: number;
-  xpForNextLevel: number;
   topCategories: { emoji: string; label: string; amount: number }[];
   causeName: string | null;
   causeAmount: number;
-  causeImpactText: string | null; // e.g. "≈ 4 meals provided"
-  vsLastWeek: number | null; // delta vs prior week, null if no data
+  causeImpactText: string | null;
+  vsLastWeek: number | null;
   communityTotalSaved: number;
   communitySkipCount: number;
   communityUserCount: number;
+  communityTopCategory: { emoji: string; label: string; amount: number } | null;
   unsubscribeUrl: string;
   appUrl: string;
 }
 
 const GREEN = "#2ecc71";
 const CORAL = "#e8715a";
-const BG = "#f6f8f3";
+const BG = "#f4f6f3";
 const CARD_BG = "#ffffff";
-const TEXT_PRIMARY = "#1a1a1a";
-const TEXT_MUTED = "#666666";
-const BORDER = "#e5e7eb";
+const TEXT_PRIMARY = "#111827";
+const TEXT_MUTED = "#6B7280";
+const TEXT_LIGHT = "#9CA3AF";
+const BORDER = "#E5E7EB";
+const GREEN_DARK = "#1a3a1a";
 
 function dollars(n: number) {
   return `$${n.toFixed(2).replace(/\.00$/, "")}`;
+}
+
+function dollarsRound(n: number) {
+  return `$${Math.round(n).toLocaleString()}`;
 }
 
 export default function WeeklyReport({
@@ -57,11 +57,6 @@ export default function WeeklyReport({
   totalSaved,
   skipCount,
   streak,
-  streakChange,
-  xpEarned,
-  currentLevel,
-  xpIntoLevel,
-  xpForNextLevel,
   topCategories,
   causeName,
   causeAmount,
@@ -70,156 +65,144 @@ export default function WeeklyReport({
   communityTotalSaved,
   communitySkipCount,
   communityUserCount,
+  communityTopCategory,
   unsubscribeUrl,
   appUrl,
 }: WeeklyReportProps) {
-  const streakLabel =
-    streakChange === "new-record"
-      ? `🔥 ${streak}-day streak — new record!`
-      : streakChange === "grew"
-      ? `🔥 ${streak}-day streak — growing!`
-      : streakChange === "kept"
-      ? `🔥 ${streak}-day streak — kept alive!`
-      : null;
-
-  const progressPct = Math.min(100, Math.round((xpIntoLevel / xpForNextLevel) * 100));
-
   const vsLabel =
     vsLastWeek !== null
       ? vsLastWeek >= 0
-        ? `↑ ${dollars(vsLastWeek)} more saved than last week`
+        ? `↑ ${dollars(vsLastWeek)} more than last week`
         : `↓ ${dollars(Math.abs(vsLastWeek))} less than last week`
       : null;
 
   return (
     <Html>
       <Head />
-      <Preview>You saved {dollars(totalSaved)} last week — your iSkipped recap</Preview>
-      <Body style={{ backgroundColor: BG, fontFamily: "'Helvetica Neue', Helvetica, Arial, sans-serif", margin: 0, padding: "24px 0" }}>
-        <Container style={{ maxWidth: 560, margin: "0 auto" }}>
+      <Preview>Your iSkipped savings report for {weekLabel} — {dollars(totalSaved)} saved</Preview>
+      <Body style={{ backgroundColor: BG, fontFamily: "'Helvetica Neue', Helvetica, Arial, sans-serif", margin: 0, padding: "32px 0" }}>
+        <Container style={{ maxWidth: 540, margin: "0 auto" }}>
 
-          {/* Header */}
-          <Section style={{ textAlign: "center", paddingBottom: 16 }}>
-            <Img
-              src="https://iskipped.com/logo.png"
-              alt="iSkipped"
-              width={120}
-              style={{ display: "inline-block" }}
-            />
-            <Text style={{ color: TEXT_MUTED, fontSize: 13, margin: "4px 0 0" }}>
-              Your Weekly Savings Report · {weekLabel}
+          {/* Wordmark */}
+          <Section style={{ textAlign: "center", paddingBottom: 20 }}>
+            <Text style={{ fontSize: 28, fontWeight: 900, letterSpacing: "-0.5px", margin: "0 0 4px" }}>
+              <span style={{ color: TEXT_PRIMARY }}>i</span><span style={{ color: GREEN }}>skipped</span>
+            </Text>
+            <Text style={{ color: TEXT_MUTED, fontSize: 12, margin: 0, letterSpacing: "0.05em", textTransform: "uppercase" }}>
+              Weekly Savings Report · {weekLabel}
             </Text>
           </Section>
 
           {/* Hero */}
-          <Section style={{ backgroundColor: GREEN, borderRadius: 16, padding: "28px 32px", marginBottom: 12, textAlign: "center" }}>
-            <Text style={{ color: "#ffffff", fontSize: 13, fontWeight: 600, letterSpacing: "0.08em", textTransform: "uppercase", margin: "0 0 4px" }}>
-              Hey {displayName} 👋
+          <Section style={{ backgroundColor: GREEN, borderRadius: 16, padding: "32px", marginBottom: 10, textAlign: "center" }}>
+            <Text style={{ color: "rgba(255,255,255,0.8)", fontSize: 13, fontWeight: 600, margin: "0 0 6px", letterSpacing: "0.05em", textTransform: "uppercase" }}>
+              Hi {displayName} — here's your week
             </Text>
-            <Text style={{ color: "#ffffff", fontSize: 44, fontWeight: 800, margin: "0 0 4px", lineHeight: 1.1 }}>
+            <Text style={{ color: "#ffffff", fontSize: 52, fontWeight: 900, margin: "0 0 4px", lineHeight: 1 }}>
               {dollars(totalSaved)}
             </Text>
-            <Text style={{ color: "rgba(255,255,255,0.85)", fontSize: 16, margin: "0 0 12px" }}>
+            <Text style={{ color: "rgba(255,255,255,0.85)", fontSize: 15, margin: "0 0 16px" }}>
               saved across {skipCount} skip{skipCount !== 1 ? "s" : ""}
             </Text>
-            {streakLabel && (
-              <Text style={{ color: "#ffffff", fontSize: 15, fontWeight: 600, margin: 0 }}>
-                {streakLabel}
+            {streak > 0 && (
+              <Text style={{ color: "#ffffff", fontSize: 14, fontWeight: 600, margin: 0, backgroundColor: "rgba(0,0,0,0.15)", borderRadius: 50, padding: "6px 16px", display: "inline-block" }}>
+                🔥 {streak}-day streak
               </Text>
             )}
           </Section>
 
-          {/* Categories */}
-          {topCategories.length > 0 && (
-            <Section style={{ backgroundColor: CARD_BG, borderRadius: 12, padding: "20px 24px", marginBottom: 12 }}>
-              <Text style={{ color: TEXT_MUTED, fontSize: 11, fontWeight: 700, letterSpacing: "0.1em", textTransform: "uppercase", margin: "0 0 12px" }}>
-                Your Week
+          {vsLabel && (
+            <Section style={{ textAlign: "center", padding: "8px 0 10px" }}>
+              <Text style={{ color: vsLastWeek! >= 0 ? "#16a34a" : CORAL, fontSize: 13, fontWeight: 600, margin: 0 }}>
+                {vsLabel}
               </Text>
-              {topCategories.map((cat) => (
-                <Row key={cat.label} style={{ marginBottom: 8 }}>
-                  <Column style={{ width: "36px" }}>
-                    <Text style={{ fontSize: 20, margin: 0 }}>{cat.emoji}</Text>
+            </Section>
+          )}
+
+          {/* Savings Breakdown */}
+          {topCategories.length > 0 && (
+            <Section style={{ backgroundColor: CARD_BG, borderRadius: 12, padding: "22px 24px", marginBottom: 10 }}>
+              <Text style={{ color: TEXT_MUTED, fontSize: 10, fontWeight: 700, letterSpacing: "0.12em", textTransform: "uppercase", margin: "0 0 14px" }}>
+                Savings Breakdown
+              </Text>
+              {topCategories.map((cat, i) => (
+                <Row key={cat.label} style={{ marginBottom: i < topCategories.length - 1 ? 12 : 0 }}>
+                  <Column style={{ width: "32px" }}>
+                    <Text style={{ fontSize: 18, margin: 0 }}>{cat.emoji}</Text>
                   </Column>
                   <Column>
-                    <Text style={{ color: TEXT_PRIMARY, fontSize: 15, margin: 0 }}>{cat.label}</Text>
+                    <Text style={{ color: TEXT_PRIMARY, fontSize: 14, margin: 0, fontWeight: 500 }}>{cat.label}</Text>
                   </Column>
                   <Column style={{ textAlign: "right" }}>
-                    <Text style={{ color: TEXT_PRIMARY, fontSize: 15, fontWeight: 600, margin: 0 }}>{dollars(cat.amount)}</Text>
+                    <Text style={{ color: TEXT_PRIMARY, fontSize: 14, fontWeight: 700, margin: 0 }}>{dollars(cat.amount)}</Text>
                   </Column>
                 </Row>
               ))}
             </Section>
           )}
 
-          {/* XP */}
-          <Section style={{ backgroundColor: CARD_BG, borderRadius: 12, padding: "20px 24px", marginBottom: 12 }}>
-            <Row>
+          {/* Charitable Giving */}
+          {causeName && causeAmount > 0 && (
+            <Section style={{ backgroundColor: CARD_BG, borderRadius: 12, padding: "22px 24px", marginBottom: 10 }}>
+              <Text style={{ color: TEXT_MUTED, fontSize: 10, fontWeight: 700, letterSpacing: "0.12em", textTransform: "uppercase", margin: "0 0 10px" }}>
+                Charitable Giving
+              </Text>
+              <Row>
+                <Column>
+                  <Text style={{ color: TEXT_PRIMARY, fontSize: 14, margin: 0, fontWeight: 500 }}>{causeName}</Text>
+                  {causeImpactText && (
+                    <Text style={{ color: TEXT_MUTED, fontSize: 12, margin: "2px 0 0" }}>{causeImpactText}</Text>
+                  )}
+                </Column>
+                <Column style={{ textAlign: "right" }}>
+                  <Text style={{ color: GREEN, fontSize: 18, fontWeight: 800, margin: 0 }}>{dollars(causeAmount)}</Text>
+                </Column>
+              </Row>
+            </Section>
+          )}
+
+          {/* Community Impact */}
+          <Section style={{ backgroundColor: GREEN_DARK, borderRadius: 12, padding: "22px 24px", marginBottom: 10 }}>
+            <Text style={{ color: "rgba(255,255,255,0.5)", fontSize: 10, fontWeight: 700, letterSpacing: "0.12em", textTransform: "uppercase", margin: "0 0 14px" }}>
+              Community Impact
+            </Text>
+            <Row style={{ marginBottom: 12 }}>
               <Column>
-                <Text style={{ color: TEXT_MUTED, fontSize: 11, fontWeight: 700, letterSpacing: "0.1em", textTransform: "uppercase", margin: "0 0 4px" }}>
-                  XP Earned
-                </Text>
-                <Text style={{ color: TEXT_PRIMARY, fontSize: 22, fontWeight: 700, margin: "0 0 10px" }}>
-                  +{xpEarned} XP → Level {currentLevel}
-                </Text>
+                <Text style={{ color: "rgba(255,255,255,0.7)", fontSize: 12, margin: "0 0 2px" }}>Total saved together</Text>
+                <Text style={{ color: "#ffffff", fontSize: 22, fontWeight: 800, margin: 0 }}>{dollarsRound(communityTotalSaved)}</Text>
+              </Column>
+              <Column style={{ textAlign: "right" }}>
+                <Text style={{ color: "rgba(255,255,255,0.7)", fontSize: 12, margin: "0 0 2px" }}>Skips across</Text>
+                <Text style={{ color: "#ffffff", fontSize: 22, fontWeight: 800, margin: 0 }}>{communitySkipCount.toLocaleString()} skips</Text>
               </Column>
             </Row>
-            {/* Progress bar */}
-            <div style={{ backgroundColor: "#e5e7eb", borderRadius: 6, height: 10, overflow: "hidden" }}>
-              <div style={{ backgroundColor: CORAL, width: `${progressPct}%`, height: "100%", borderRadius: 6 }} />
-            </div>
-            <Text style={{ color: TEXT_MUTED, fontSize: 12, margin: "6px 0 0" }}>
-              {xpIntoLevel} / {xpForNextLevel} XP to Level {currentLevel + 1}
+            <Text style={{ color: "rgba(255,255,255,0.5)", fontSize: 12, margin: "0 0 10px" }}>
+              from {communityUserCount} member{communityUserCount !== 1 ? "s" : ""} this week
             </Text>
+            {communityTopCategory && (
+              <>
+                <Hr style={{ borderColor: "rgba(255,255,255,0.1)", margin: "12px 0" }} />
+                <Text style={{ color: "rgba(255,255,255,0.5)", fontSize: 10, fontWeight: 700, letterSpacing: "0.12em", textTransform: "uppercase", margin: "0 0 6px" }}>
+                  Most skipped this week
+                </Text>
+                <Text style={{ color: "#ffffff", fontSize: 14, fontWeight: 600, margin: 0 }}>
+                  {communityTopCategory.emoji} {communityTopCategory.label} — {dollarsRound(communityTopCategory.amount)} saved community-wide
+                </Text>
+              </>
+            )}
           </Section>
-
-          {/* Cause */}
-          {causeName && causeAmount > 0 && (
-            <Section style={{ backgroundColor: CARD_BG, borderRadius: 12, padding: "20px 24px", marginBottom: 12 }}>
-              <Text style={{ color: TEXT_MUTED, fontSize: 11, fontWeight: 700, letterSpacing: "0.1em", textTransform: "uppercase", margin: "0 0 8px" }}>
-                Cause Impact
-              </Text>
-              <Text style={{ color: TEXT_PRIMARY, fontSize: 18, fontWeight: 600, margin: "0 0 4px" }}>
-                {dollars(causeAmount)} → {causeName}
-              </Text>
-              {causeImpactText && (
-                <Text style={{ color: TEXT_MUTED, fontSize: 14, margin: 0 }}>{causeImpactText}</Text>
-              )}
-            </Section>
-          )}
-
-          {/* Community */}
-          <Section style={{ backgroundColor: "#1a2e1a", borderRadius: 12, padding: "20px 24px", marginBottom: 12, textAlign: "center" }}>
-            <Text style={{ color: "rgba(255,255,255,0.6)", fontSize: 11, fontWeight: 700, letterSpacing: "0.1em", textTransform: "uppercase", margin: "0 0 8px" }}>
-              🌍 Community This Week
-            </Text>
-            <Text style={{ color: "#ffffff", fontSize: 26, fontWeight: 800, margin: "0 0 4px" }}>
-              {dollars(communityTotalSaved)} saved together
-            </Text>
-            <Text style={{ color: "rgba(255,255,255,0.7)", fontSize: 14, margin: 0 }}>
-              {communitySkipCount} skips from {communityUserCount} people
-            </Text>
-          </Section>
-
-          {/* vs last week */}
-          {vsLabel && (
-            <Section style={{ textAlign: "center", padding: "4px 0 16px" }}>
-              <Text style={{ color: vsLastWeek! >= 0 ? GREEN : CORAL, fontSize: 15, fontWeight: 600, margin: 0 }}>
-                {vsLabel}
-              </Text>
-            </Section>
-          )}
 
           {/* CTA */}
-          <Section style={{ textAlign: "center", paddingBottom: 24 }}>
+          <Section style={{ textAlign: "center", padding: "20px 0 24px" }}>
             <Button
               href={appUrl}
               style={{
                 backgroundColor: GREEN,
                 color: "#ffffff",
-                fontSize: 15,
+                fontSize: 14,
                 fontWeight: 700,
                 borderRadius: 50,
-                padding: "14px 32px",
+                padding: "14px 36px",
                 textDecoration: "none",
                 display: "inline-block",
               }}
@@ -232,10 +215,10 @@ export default function WeeklyReport({
 
           {/* Footer */}
           <Section style={{ textAlign: "center" }}>
-            <Text style={{ color: TEXT_MUTED, fontSize: 12, margin: "0 0 4px" }}>
-              You're receiving this because you're an iSkipped member.
+            <Text style={{ color: TEXT_LIGHT, fontSize: 11, margin: "0 0 4px" }}>
+              You're receiving this as an iSkipped member.
             </Text>
-            <Link href={unsubscribeUrl} style={{ color: TEXT_MUTED, fontSize: 12 }}>
+            <Link href={unsubscribeUrl} style={{ color: TEXT_LIGHT, fontSize: 11 }}>
               Unsubscribe from weekly reports
             </Link>
           </Section>

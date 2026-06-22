@@ -3,14 +3,13 @@ import { Resend } from "resend";
 import { render } from "@react-email/components";
 import { getAdminDb } from "@/lib/services/firebaseAdmin";
 import WeeklyReport, { WeeklyReportProps } from "@/lib/emails/WeeklyReport";
-import { levelForXp, xpForLevel } from "@/lib/utils/xp";
 import crypto from "crypto";
 import * as React from "react";
 
 export const maxDuration = 300;
 
 const resend = new Resend(process.env.RESEND_API_KEY);
-const APP_URL = process.env.NEXT_PUBLIC_APP_URL ?? "https://iskipped.app";
+const APP_URL = process.env.NEXT_PUBLIC_APP_URL ?? "https://iskipped.com";
 
 function getWeekRange(): { start: string; end: string; label: string } {
   const now = new Date();
@@ -59,12 +58,11 @@ export async function GET(req: NextRequest) {
     users = users.filter((u) => u.email === "nkothary2@gmail.com");
   }
 
-  // Community totals — computed from skip sub-collections of users who skipped last week
   let communityTotalSaved = 0;
   let communitySkipCount = 0;
   let communityUserCount = 0;
+  const communityCategoryTotals: Record<string, { emoji: string; label: string; amount: number }> = {};
 
-  // Per-user weekly skip data
   type UserWeekData = {
     uid: string;
     email: string;
@@ -72,15 +70,11 @@ export async function GET(req: NextRequest) {
     weekSaved: number;
     skipCount: number;
     topCategories: { emoji: string; label: string; amount: number }[];
-    xpEarned: number;
     causeAmount: number;
   };
 
   const BATCH = 10;
-  const eligible = users.filter(
-    (u) => u.email && !u.weeklyEmailOptOut
-  );
-
+  const eligible = users.filter((u) => u.email && !u.weeklyEmailOptOut);
   const userWeekData: UserWeekData[] = [];
 
   for (let i = 0; i < eligible.length; i += BATCH) {
@@ -103,7 +97,6 @@ export async function GET(req: NextRequest) {
 
         const categoryTotals: Record<string, { emoji: string; label: string; amount: number }> = {};
         let causeAmount = 0;
-        let xpEarned = 0;
 
         for (const sk of skips) {
           const key = sk.category ?? sk.categoryLabel ?? "Other";
@@ -111,9 +104,15 @@ export async function GET(req: NextRequest) {
             categoryTotals[key] = { emoji: sk.categoryEmoji ?? "💰", label: sk.categoryLabel ?? key, amount: 0 };
           }
           categoryTotals[key].amount += sk.amount ?? 0;
+
+          // Also accumulate into community totals
+          if (!communityCategoryTotals[key]) {
+            communityCategoryTotals[key] = { emoji: sk.categoryEmoji ?? "💰", label: sk.categoryLabel ?? key, amount: 0 };
+          }
+          communityCategoryTotals[key].amount += sk.amount ?? 0;
+
           const give = sk.jarSplit?.give ?? (u.jarSplit?.give ?? 50);
           causeAmount += (sk.amount ?? 0) * (give / 100);
-          xpEarned += Math.floor((sk.amount ?? 0) * 2) + 10;
         }
 
         const topCategories = Object.values(categoryTotals)
@@ -124,7 +123,7 @@ export async function GET(req: NextRequest) {
         communitySkipCount += skipCount;
         communityUserCount += 1;
 
-        return { uid: u.uid, email: u.email, displayName: u.displayName ?? "there", weekSaved, skipCount, topCategories, xpEarned, causeAmount };
+        return { uid: u.uid, email: u.email, displayName: u.displayName ?? "there", weekSaved, skipCount, topCategories, causeAmount };
       })
     );
     for (const r of results) {
@@ -132,7 +131,10 @@ export async function GET(req: NextRequest) {
     }
   }
 
-  // Send emails in batches
+  const communityTopCategory =
+    Object.values(communityCategoryTotals).sort((a, b) => b.amount - a.amount)[0] ?? null;
+
+  // Send emails
   let sent = 0;
   let failed = 0;
 
@@ -142,22 +144,6 @@ export async function GET(req: NextRequest) {
       batch.map(async (data) => {
         const profile = eligible.find((u) => u.uid === data.uid);
         if (!profile) return;
-
-        const currentXp = profile.xp ?? 0;
-        const priorXp = Math.max(0, currentXp - data.xpEarned);
-        const currentLevel = levelForXp(currentXp);
-        const priorLevel = levelForXp(priorXp);
-        const xpIntoLevel = currentXp - xpForLevel(currentLevel);
-        const xpForNextLevel = xpForLevel(currentLevel + 1) - xpForLevel(currentLevel);
-
-        let streakChange: WeeklyReportProps["streakChange"] = "none";
-        if (data.skipCount > 0) {
-          const streak = profile.streak ?? 0;
-          const longestStreak = profile.longestStreak ?? 0;
-          if (streak >= longestStreak && streak > 1) streakChange = "new-record";
-          else if (currentLevel > priorLevel) streakChange = "grew";
-          else streakChange = "kept";
-        }
 
         // Cause name from activeProjectId
         let causeName: string | null = profile.activeCauseTitle ?? null;
@@ -176,11 +162,6 @@ export async function GET(req: NextRequest) {
           totalSaved: data.weekSaved,
           skipCount: data.skipCount,
           streak: profile.streak ?? 0,
-          streakChange,
-          xpEarned: data.xpEarned,
-          currentLevel,
-          xpIntoLevel,
-          xpForNextLevel,
           topCategories: data.topCategories,
           causeName,
           causeAmount: data.causeAmount,
@@ -189,6 +170,7 @@ export async function GET(req: NextRequest) {
           communityTotalSaved,
           communitySkipCount,
           communityUserCount,
+          communityTopCategory,
           unsubscribeUrl: getUnsubscribeUrl(data.uid),
           appUrl: APP_URL,
         };
@@ -198,7 +180,7 @@ export async function GET(req: NextRequest) {
           await resend.emails.send({
             from: "iSkipped <hello@iskipped.com>",
             to: data.email,
-            subject: `You saved $${data.weekSaved.toFixed(0)} last week 🔥 — your iSkipped recap`,
+            subject: `Your iSkipped savings report — ${week.label}`,
             html,
           });
           sent++;
