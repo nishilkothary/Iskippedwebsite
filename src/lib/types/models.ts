@@ -43,6 +43,7 @@ export interface UserProfile {
   goalJarBalances?: Record<string, number>;
   causeGoalAmounts?: Record<string, number>; // per-cause personal dollar goal set by user
   causeJarOverflowCounts?: Record<string, number>; // skips taken while give jar ≥ goal, per cause
+  weeklyEmailOptOut?: boolean;
 }
 
 export interface SkipCategory {
