@@ -69,8 +69,10 @@ export async function GET(req: NextRequest) {
     displayName: string;
     weekSaved: number;
     skipCount: number;
+    largestSkip: number;
     topCategories: { emoji: string; label: string; amount: number }[];
     causeAmount: number;
+    liveAmount: number;
   };
 
   const BATCH = 10;
@@ -97,22 +99,27 @@ export async function GET(req: NextRequest) {
 
         const categoryTotals: Record<string, { emoji: string; label: string; amount: number }> = {};
         let causeAmount = 0;
+        let liveAmount = 0;
+        let largestSkip = 0;
 
         for (const sk of skips) {
+          const amt = sk.amount ?? 0;
           const key = sk.category ?? sk.categoryLabel ?? "Other";
           if (!categoryTotals[key]) {
             categoryTotals[key] = { emoji: sk.categoryEmoji ?? "💰", label: sk.categoryLabel ?? key, amount: 0 };
           }
-          categoryTotals[key].amount += sk.amount ?? 0;
+          categoryTotals[key].amount += amt;
 
-          // Also accumulate into community totals
           if (!communityCategoryTotals[key]) {
             communityCategoryTotals[key] = { emoji: sk.categoryEmoji ?? "💰", label: sk.categoryLabel ?? key, amount: 0 };
           }
-          communityCategoryTotals[key].amount += sk.amount ?? 0;
+          communityCategoryTotals[key].amount += amt;
 
           const give = sk.jarSplit?.give ?? (u.jarSplit?.give ?? 50);
-          causeAmount += (sk.amount ?? 0) * (give / 100);
+          const live = sk.jarSplit?.live ?? (u.jarSplit?.live ?? 50);
+          causeAmount += amt * (give / 100);
+          liveAmount += amt * (live / 100);
+          if (amt > largestSkip) largestSkip = amt;
         }
 
         const topCategories = Object.values(categoryTotals)
@@ -123,7 +130,7 @@ export async function GET(req: NextRequest) {
         communitySkipCount += skipCount;
         communityUserCount += 1;
 
-        return { uid: u.uid, email: u.email, displayName: u.displayName ?? "there", weekSaved, skipCount, topCategories, causeAmount };
+        return { uid: u.uid, email: u.email, displayName: u.displayName ?? "there", weekSaved, skipCount, largestSkip, topCategories, causeAmount, liveAmount };
       })
     );
     for (const r of results) {
@@ -168,17 +175,20 @@ export async function GET(req: NextRequest) {
           weekLabel: week.label,
           totalSaved: data.weekSaved,
           skipCount: data.skipCount,
-          streak: profile.streak ?? 0,
+          largestSkip: data.largestSkip,
+          averageSkip: data.skipCount > 0 ? data.weekSaved / data.skipCount : 0,
           topCategories: data.topCategories,
+          streak: profile.streak ?? 0,
           causeName,
           causeAmount: data.causeAmount,
+          liveAmount: data.liveAmount,
           causeImpactText: null,
           causeTotalRaised,
           causeGoalAmount,
           communityTotalSaved,
           communitySkipCount,
-          communityUserCount,
           communityTopCategory,
+          groupName: null,
           unsubscribeUrl: getUnsubscribeUrl(data.uid),
           appUrl: APP_URL,
         };
