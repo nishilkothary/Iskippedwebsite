@@ -145,12 +145,19 @@ export async function GET(req: NextRequest) {
         const profile = eligible.find((u) => u.uid === data.uid);
         if (!profile) return;
 
-        // Cause name from activeProjectId
+        // Cause name + totals from activeProjectId
         let causeName: string | null = profile.activeCauseTitle ?? null;
-        if (!causeName && profile.activeProjectId) {
+        let causeTotalRaised: number | null = null;
+        let causeGoalAmount: number | null = null;
+        if (profile.activeProjectId) {
           try {
             const projDoc = await db.collection("projects").doc(profile.activeProjectId).get();
-            causeName = projDoc.data()?.title ?? null;
+            const proj = projDoc.data();
+            if (proj) {
+              causeName = causeName ?? proj.title ?? null;
+              causeTotalRaised = proj.totalRaised ?? proj.totalDonated ?? null;
+              causeGoalAmount = proj.goalAmount ?? null;
+            }
           } catch {
             // ignore
           }
@@ -166,7 +173,8 @@ export async function GET(req: NextRequest) {
           causeName,
           causeAmount: data.causeAmount,
           causeImpactText: null,
-          vsLastWeek: null,
+          causeTotalRaised,
+          causeGoalAmount,
           communityTotalSaved,
           communitySkipCount,
           communityUserCount,
