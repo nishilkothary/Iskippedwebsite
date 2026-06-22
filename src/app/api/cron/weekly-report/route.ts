@@ -49,10 +49,15 @@ export async function GET(req: NextRequest) {
 
   const db = getAdminDb();
   const week = getWeekRange();
+  const testMode = new URL(req.url).searchParams.get("test") === "true";
 
   // Fetch all users
   const usersSnap = await db.collection("users").get();
-  const users = usersSnap.docs.map((d) => d.data());
+  let users = usersSnap.docs.map((d) => d.data());
+
+  if (testMode) {
+    users = users.filter((u) => u.email === "nkothary2@gmail.com");
+  }
 
   // Community totals — computed from skip sub-collections of users who skipped last week
   let communityTotalSaved = 0;
