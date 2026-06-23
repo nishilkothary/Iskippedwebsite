@@ -157,6 +157,12 @@ export async function GET(req: NextRequest) {
         const profile = eligible.find((u) => u.uid === data.uid);
         if (!profile) return;
 
+        // Active reward name from spendingGoals
+        const rewardName: string | null =
+          profile.activeSpendingGoalId && profile.spendingGoals
+            ? (profile.spendingGoals as any[]).find((g: any) => g.id === profile.activeSpendingGoalId)?.label ?? null
+            : null;
+
         // Cause name + totals from activeProjectId
         let causeName: string | null = profile.activeCauseTitle ?? null;
         let causeTotalRaised: number | null = null;
@@ -187,6 +193,7 @@ export async function GET(req: NextRequest) {
           liveAmount: noSkipPreview ? 0 : data.liveAmount,
           streak: profile.streak ?? 0,
           causeName,
+          rewardName,
           causeImpactText: null,
           causeTotalRaised,
           causeGoalAmount,

@@ -26,6 +26,7 @@ export interface WeeklyReportProps {
   causeName: string | null;
   causeAmount: number;
   liveAmount: number;
+  rewardName: string | null;
   causeImpactText: string | null;
   causeTotalRaised: number | null;
   causeGoalAmount: number | null;
@@ -84,6 +85,7 @@ export default function WeeklyReport({
   causeName,
   causeAmount,
   liveAmount,
+  rewardName,
   causeImpactText,
   causeTotalRaised,
   causeGoalAmount,
@@ -212,42 +214,34 @@ export default function WeeklyReport({
             </Section>}
 
             {/* ── IMPACT OF MY SKIPS ── */}
-            {causeName && (causeAmount > 0 || liveAmount > 0 || causeTotalRaised !== null) && (
+            {causeName && (
               <Section style={{ backgroundColor: CARD_BG, borderRadius: 12, padding: "22px 22px", marginBottom: 14, borderLeft: `4px solid ${CORAL}` }}>
                 <Label color={CORAL}>Impact of My Skips</Label>
 
-                {(causeAmount > 0 || liveAmount > 0) && (
-                  <Row style={{ marginBottom: causeTotalRaised !== null ? 16 : 0 }}>
-                    {causeAmount > 0 && (
-                      <Column style={{ textAlign: "center" }}>
-                        <Text style={{ color: TEXT_MUTED, fontSize: 11, fontWeight: 600, margin: "0 0 4px" }}>
-                          {causeName}
-                        </Text>
-                        <Text style={{ color: CORAL, fontSize: 24, fontWeight: 900, margin: 0 }}>
-                          +{dollars(causeAmount)}
-                        </Text>
-                        {causeImpactText && (
-                          <Text style={{ color: TEXT_MUTED, fontSize: 11, margin: "3px 0 0" }}>{causeImpactText}</Text>
-                        )}
-                      </Column>
+                <Row style={{ marginBottom: causeTotalRaised !== null ? 16 : 0 }}>
+                  <Column style={{ textAlign: "center" }}>
+                    <Text style={{ color: TEXT_MUTED, fontSize: 11, fontWeight: 600, margin: "0 0 4px" }}>
+                      {causeName}
+                    </Text>
+                    <Text style={{ color: CORAL, fontSize: 24, fontWeight: 900, margin: 0 }}>
+                      +{dollars(causeAmount)}
+                    </Text>
+                    {causeImpactText && (
+                      <Text style={{ color: TEXT_MUTED, fontSize: 11, margin: "3px 0 0" }}>{causeImpactText}</Text>
                     )}
-                    {causeAmount > 0 && liveAmount > 0 && (
-                      <Column style={{ width: "1px", padding: "0 4px" }}>
-                        <div style={{ width: 1, height: 46, backgroundColor: BORDER, margin: "0 auto" }} />
-                      </Column>
-                    )}
-                    {liveAmount > 0 && (
-                      <Column style={{ textAlign: "center" }}>
-                        <Text style={{ color: TEXT_MUTED, fontSize: 11, fontWeight: 600, margin: "0 0 4px" }}>
-                          My Reward
-                        </Text>
-                        <Text style={{ color: GOLD, fontSize: 24, fontWeight: 900, margin: 0 }}>
-                          +{dollars(liveAmount)}
-                        </Text>
-                      </Column>
-                    )}
-                  </Row>
-                )}
+                  </Column>
+                  <Column style={{ width: "1px", padding: "0 4px" }}>
+                    <div style={{ width: 1, height: 46, backgroundColor: BORDER, margin: "0 auto" }} />
+                  </Column>
+                  <Column style={{ textAlign: "center" }}>
+                    <Text style={{ color: TEXT_MUTED, fontSize: 11, fontWeight: 600, margin: "0 0 4px" }}>
+                      {rewardName ?? "My Reward"}
+                    </Text>
+                    <Text style={{ color: GOLD, fontSize: 24, fontWeight: 900, margin: 0 }}>
+                      +{dollars(liveAmount)}
+                    </Text>
+                  </Column>
+                </Row>
 
                 {causeTotalRaised !== null && causeGoalAmount && (
                   <>
