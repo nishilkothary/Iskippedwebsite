@@ -136,11 +136,11 @@ export default function WeeklyReport({
               </Text>
             </Section>
           ) : (
-            <Section style={{ backgroundColor: "#1a1a1a", padding: "32px 32px 28px", textAlign: "center" }}>
+            <Section style={{ backgroundColor: GREEN, padding: "32px 32px 28px", textAlign: "center" }}>
               <Text style={{ color: "#ffffff", fontSize: 28, fontWeight: 800, margin: "0 0 8px" }}>
                 No skips this week
               </Text>
-              <Text style={{ color: "rgba(255,255,255,0.6)", fontSize: 15, margin: "0 0 20px" }}>
+              <Text style={{ color: "rgba(255,255,255,0.85)", fontSize: 15, margin: "0 0 20px" }}>
                 Every skip adds up — even a small one makes a difference to your cause.
               </Text>
               <Button
