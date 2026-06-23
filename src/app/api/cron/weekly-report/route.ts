@@ -49,6 +49,7 @@ export async function GET(req: NextRequest) {
   const db = getAdminDb();
   const week = getWeekRange();
   const testMode = new URL(req.url).searchParams.get("test") === "true";
+  const noSkipPreview = new URL(req.url).searchParams.get("preview") === "noskip";
 
   // Fetch all users
   const usersSnap = await db.collection("users").get();
@@ -177,11 +178,11 @@ export async function GET(req: NextRequest) {
         const props: WeeklyReportProps = {
           displayName: data.displayName,
           weekLabel: week.label,
-          totalSaved: data.weekSaved,
-          skipCount: data.skipCount,
-          largestSkip: data.largestSkip,
-          averageSkip: data.skipCount > 0 ? data.weekSaved / data.skipCount : 0,
-          topCategories: data.topCategories,
+          totalSaved: noSkipPreview ? 0 : data.weekSaved,
+          skipCount: noSkipPreview ? 0 : data.skipCount,
+          largestSkip: noSkipPreview ? 0 : data.largestSkip,
+          averageSkip: noSkipPreview ? 0 : (data.skipCount > 0 ? data.weekSaved / data.skipCount : 0),
+          topCategories: noSkipPreview ? [] : data.topCategories,
           streak: profile.streak ?? 0,
           causeName,
           causeAmount: data.causeAmount,
