@@ -138,28 +138,30 @@ export default function WeeklyReport({
               </Text>
             </Section>
           ) : (
-            <Section style={{ backgroundColor: GREEN, padding: "32px 32px 28px", textAlign: "center" }}>
-              <Text style={{ color: "#ffffff", fontSize: 28, fontWeight: 800, margin: "0 0 8px" }}>
-                No skips this week
-              </Text>
-              <Text style={{ color: "rgba(255,255,255,0.85)", fontSize: 15, margin: "0 0 20px" }}>
-                Every skip adds up — even a small one makes a difference to your cause.
-              </Text>
-              <Button
-                href={appUrl}
-                style={{
-                  backgroundColor: GREEN,
-                  color: "#ffffff",
-                  fontSize: 13,
-                  fontWeight: 700,
-                  borderRadius: 50,
-                  padding: "10px 24px",
-                  textDecoration: "none",
-                  display: "inline-block",
-                }}
-              >
-                Log a Skip This Week →
-              </Button>
+            <Section style={{ padding: "20px 16px 0" }}>
+              <Section style={{ backgroundColor: CARD_BG, borderRadius: 12, padding: "28px 24px", borderLeft: `4px solid ${GREEN}`, textAlign: "center" }}>
+                <Text style={{ color: TEXT_PRIMARY, fontSize: 22, fontWeight: 800, margin: "0 0 8px" }}>
+                  No skips this week
+                </Text>
+                <Text style={{ color: TEXT_MUTED, fontSize: 14, margin: "0 0 20px" }}>
+                  Every skip adds up — even a small one makes a difference to your cause.
+                </Text>
+                <Button
+                  href={appUrl}
+                  style={{
+                    backgroundColor: GREEN,
+                    color: "#ffffff",
+                    fontSize: 13,
+                    fontWeight: 700,
+                    borderRadius: 50,
+                    padding: "10px 24px",
+                    textDecoration: "none",
+                    display: "inline-block",
+                  }}
+                >
+                  Log a Skip This Week →
+                </Button>
+              </Section>
             </Section>
           )}
 
