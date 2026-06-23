@@ -219,7 +219,7 @@ export default function WeeklyReport({
                 <Label color={CORAL}>Impact of My Skips</Label>
 
                 <Row style={{ marginBottom: causeTotalRaised !== null ? 16 : 0 }}>
-                  <Column style={{ textAlign: "center" }}>
+                  <Column style={{ width: "50%", textAlign: "center", paddingRight: 8 }}>
                     <Text style={{ color: TEXT_MUTED, fontSize: 11, fontWeight: 600, margin: "0 0 4px" }}>
                       {causeName}
                     </Text>
@@ -230,10 +230,7 @@ export default function WeeklyReport({
                       <Text style={{ color: TEXT_MUTED, fontSize: 11, margin: "3px 0 0" }}>{causeImpactText}</Text>
                     )}
                   </Column>
-                  <Column style={{ width: "1px", padding: "0 4px" }}>
-                    <div style={{ width: 1, height: 46, backgroundColor: BORDER, margin: "0 auto" }} />
-                  </Column>
-                  <Column style={{ textAlign: "center" }}>
+                  <Column style={{ width: "50%", textAlign: "center", paddingLeft: 8, borderLeft: `1px solid ${BORDER}` }}>
                     <Text style={{ color: TEXT_MUTED, fontSize: 11, fontWeight: 600, margin: "0 0 4px" }}>
                       {rewardName ?? "My Reward"}
                     </Text>
