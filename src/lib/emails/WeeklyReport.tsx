@@ -317,7 +317,7 @@ export default function WeeklyReport({
             </Section>
 
             {/* ── STREAK ── */}
-            {streak > 0 && (
+            {streak > 0 && skipCount > 0 && (
               <Section style={{ backgroundColor: CARD_BG, borderRadius: 12, padding: "22px 22px", marginBottom: 14, borderLeft: `4px solid ${GOLD}`, textAlign: "center" }}>
                 <Label color={GOLD}>🔥 Your Streak</Label>
                 <Text style={{ color: TEXT_PRIMARY, fontSize: 42, fontWeight: 900, margin: "0 0 4px", lineHeight: 1 }}>
