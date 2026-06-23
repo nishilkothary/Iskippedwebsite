@@ -76,7 +76,13 @@ export async function GET(req: NextRequest) {
   };
 
   const BATCH = 10;
-  const eligible = users.filter((u) => u.email && !u.weeklyEmailOptOut);
+  const cutoff = new Date();
+  cutoff.setUTCDate(cutoff.getUTCDate() - 30);
+  const cutoffStr = cutoff.toISOString().slice(0, 10);
+
+  const eligible = users.filter(
+    (u) => u.email && !u.weeklyEmailOptOut && u.lastSkipDate && u.lastSkipDate >= cutoffStr
+  );
   const userWeekData: UserWeekData[] = [];
 
   for (let i = 0; i < eligible.length; i += BATCH) {
@@ -91,10 +97,8 @@ export async function GET(req: NextRequest) {
           .where("date", "<=", week.end)
           .get();
 
-        if (skipsSnap.empty) return null;
-
         const skips = skipsSnap.docs.map((d) => d.data());
-        const weekSaved = skips.reduce((s, sk) => s + (sk.amount ?? 0), 0);
+        const weekSaved = skips.reduce((s: number, sk: any) => s + (sk.amount ?? 0), 0);
         const skipCount = skips.length;
 
         const categoryTotals: Record<string, { emoji: string; label: string; amount: number }> = {};

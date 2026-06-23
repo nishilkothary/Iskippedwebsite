@@ -126,19 +126,30 @@ export default function WeeklyReport({
           </Section>
 
           {/* Hero — scoreboard */}
-          <Section style={{ backgroundColor: GREEN, padding: "32px 32px 28px", textAlign: "center" }}>
-            <Text style={{ color: "#ffffff", fontSize: 68, fontWeight: 900, margin: "0 0 6px", lineHeight: 1, letterSpacing: "-2px" }}>
-              {dollars(totalSaved)}
-            </Text>
-            <Text style={{ color: "rgba(255,255,255,0.85)", fontSize: 15, margin: 0 }}>
-              saved across <strong>{skipCount}</strong> skip{skipCount !== 1 ? "s" : ""} this week
-            </Text>
-          </Section>
+          {skipCount > 0 ? (
+            <Section style={{ backgroundColor: GREEN, padding: "32px 32px 28px", textAlign: "center" }}>
+              <Text style={{ color: "#ffffff", fontSize: 68, fontWeight: 900, margin: "0 0 6px", lineHeight: 1, letterSpacing: "-2px" }}>
+                {dollars(totalSaved)}
+              </Text>
+              <Text style={{ color: "rgba(255,255,255,0.85)", fontSize: 15, margin: 0 }}>
+                saved across <strong>{skipCount}</strong> skip{skipCount !== 1 ? "s" : ""} this week
+              </Text>
+            </Section>
+          ) : (
+            <Section style={{ backgroundColor: "#1a1a1a", padding: "32px 32px 28px", textAlign: "center" }}>
+              <Text style={{ color: "#ffffff", fontSize: 28, fontWeight: 800, margin: "0 0 8px" }}>
+                No skips this week 👀
+              </Text>
+              <Text style={{ color: "rgba(255,255,255,0.6)", fontSize: 15, margin: 0 }}>
+                The community kept going — see what you missed below
+              </Text>
+            </Section>
+          )}
 
           <Section style={{ padding: "20px 16px 0" }}>
 
             {/* ── MY SKIP REPORT ── */}
-            <Section style={{ backgroundColor: CARD_BG, borderRadius: 12, padding: "22px 22px", marginBottom: 14, borderLeft: `4px solid ${GREEN}` }}>
+            {skipCount > 0 && <Section style={{ backgroundColor: CARD_BG, borderRadius: 12, padding: "22px 22px", marginBottom: 14, borderLeft: `4px solid ${GREEN}` }}>
               <Label color={GREEN}>My Skip Report</Label>
 
               {biggestCat && (
@@ -183,7 +194,7 @@ export default function WeeklyReport({
                   </Text>
                 </Column>
               </Row>
-            </Section>
+            </Section>}
 
             {/* ── IMPACT OF MY SKIPS ── */}
             {causeName && (causeAmount > 0 || liveAmount > 0 || causeTotalRaised !== null) && (
