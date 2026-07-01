@@ -47,7 +47,7 @@ type CreateChallengeCategory =
 type ChallengeVisibility = "public" | "private" | "unlisted";
 type ChallengeAccessChoice = "public" | "private";
 
-const PARTNER_CHALLENGE_IDS = ["cfc", "kc", "kc-library", "pop-education", "stm-palestine"];
+const PARTNER_CHALLENGE_IDS = ["cfc", "kc", "kc-library", "pop-education", "stm-palestine", "new-incentives"];
 
 const CREATE_CATEGORY_OPTIONS: { value: CreateChallengeCategory; label: string }[] = [
   { value: "education", label: "Education & school" },
