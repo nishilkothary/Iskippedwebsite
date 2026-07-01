@@ -384,6 +384,18 @@ export default function ChallengesPage() {
     }
   }
 
+  async function handleShareChallenge(challenge: ChallengeCard) {
+    const url = `${window.location.origin}/join/${challenge.project.id}`;
+    const msg = `Join My iSkipped Group, ${challenge.title}, to help raise funds for ${challenge.project.title}. The challenge is simple, skip expenses in your daily life, and pledge some of your savings to this cause!`;
+    if (typeof navigator !== "undefined" && typeof navigator.share === "function") {
+      try {
+        await navigator.share({ title: challenge.title, text: msg, url });
+        return;
+      } catch { /* dismissed */ }
+    }
+    setShareChallenge(challenge);
+  }
+
   return (
     <div className="p-4 md:p-8 max-w-2xl mx-auto pb-24 md:pb-8">
       <div className="flex md:hidden items-center justify-between mb-5">
@@ -433,7 +445,7 @@ export default function ChallengesPage() {
               canEdit={false}
               onOpen={() => router.push(`/challenges/${challenge.project.id}`)}
               onEdit={() => {}}
-              onShare={() => setShareChallenge(challenge)}
+              onShare={() => handleShareChallenge(challenge)}
               onJoin={() => handleJoin(challenge)}
             />
           ))}
@@ -526,7 +538,7 @@ export default function ChallengesPage() {
               canEdit={challenge.project.createdBy === user?.uid}
               onOpen={() => router.push(`/challenges/${challenge.project.id}`)}
               onEdit={() => router.push(`/challenges/${challenge.project.id}/manage`)}
-              onShare={() => setShareChallenge(challenge)}
+              onShare={() => handleShareChallenge(challenge)}
               onJoin={() => handleJoin(challenge)}
             />
           ))}
@@ -1170,30 +1182,24 @@ function ShareChallengeModal({
   const url = typeof window !== "undefined"
     ? `${window.location.origin}/join/${challenge.project.id}`
     : `/join/${challenge.project.id}`;
-  const [copied, setCopied] = useState(false);
-  const isPrivate = isPrivateChallenge(challenge.project);
-  const canNativeShare = typeof navigator !== "undefined" && typeof navigator.share === "function";
+  const [copiedMsg, setCopiedMsg] = useState(false);
+  const [copiedLink, setCopiedLink] = useState(false);
+  const shareMessage = `Join My iSkipped Group, ${challenge.title}, to help raise funds for ${challenge.project.title}. The challenge is simple, skip expenses in your daily life, and pledge some of your savings to this cause! ${url}`;
 
-  async function handleCopy() {
+  async function handleCopyMessage() {
     try {
-      await navigator.clipboard.writeText(url);
-      setCopied(true);
-      setTimeout(() => setCopied(false), 2000);
-    } catch {
-      // fallback: select the input
-    }
+      await navigator.clipboard.writeText(shareMessage);
+      setCopiedMsg(true);
+      setTimeout(() => setCopiedMsg(false), 2000);
+    } catch {}
   }
 
-  async function handleNativeShare() {
+  async function handleCopyLink() {
     try {
-      await navigator.share({
-        title: challenge.title,
-        text: `Join my iSkipped challenge: ${challenge.title}`,
-        url,
-      });
-    } catch {
-      // dismissed or unsupported
-    }
+      await navigator.clipboard.writeText(url);
+      setCopiedLink(true);
+      setTimeout(() => setCopiedLink(false), 2000);
+    } catch {}
   }
 
   return (
@@ -1211,32 +1217,30 @@ function ShareChallengeModal({
           <button onClick={onClose} className="text-xl leading-none" style={{ color: "var(--text-muted)" }}>×</button>
         </div>
 
+        <div className="rounded-xl p-3 mb-3" style={{ background: "var(--bg-surface-2)", border: "1px solid var(--border-default)" }}>
+          <p className="text-xs font-bold uppercase tracking-wide mb-2" style={{ color: "var(--text-muted)" }}>Message</p>
+          <p className="text-sm leading-relaxed mb-3" style={{ color: "var(--text-secondary)" }}>{shareMessage}</p>
+          <button
+            type="button"
+            onClick={handleCopyMessage}
+            className="w-full py-2 rounded-lg text-xs font-black"
+            style={{ background: copiedMsg ? "rgba(46,204,113,0.15)" : "var(--bg-surface-3)", color: copiedMsg ? "#2ECC71" : "var(--text-primary)" }}
+          >
+            {copiedMsg ? "Copied!" : "Copy message"}
+          </button>
+        </div>
+
         <div className="flex items-center gap-2 rounded-xl px-3 py-2.5" style={{ background: "var(--bg-surface-2)", border: "1px solid var(--border-default)" }}>
           <span className="text-xs truncate flex-1 font-mono" style={{ color: "var(--text-secondary)" }}>{url}</span>
           <button
             type="button"
-            onClick={handleCopy}
+            onClick={handleCopyLink}
             className="px-3 py-1.5 rounded-lg text-xs font-black shrink-0"
-            style={{ background: copied ? "rgba(46,204,113,0.15)" : "var(--bg-surface-3)", color: copied ? "#2ECC71" : "var(--text-primary)" }}
+            style={{ background: copiedLink ? "rgba(46,204,113,0.15)" : "var(--bg-surface-3)", color: copiedLink ? "#2ECC71" : "var(--text-primary)" }}
           >
-            {copied ? "Copied!" : "Copy"}
+            {copiedLink ? "Copied!" : "Copy link"}
           </button>
         </div>
-
-        {canNativeShare && (
-          <button
-            type="button"
-            onClick={handleNativeShare}
-            className="mt-4 w-full py-3 rounded-full text-sm font-black"
-            style={{
-              background: "linear-gradient(135deg, var(--gold-cta), var(--gold-light))",
-              color: "var(--bg-base)",
-              boxShadow: "0 4px 18px var(--gold-glow)",
-            }}
-          >
-            Share Challenge
-          </button>
-        )}
       </div>
     </div>
   );
