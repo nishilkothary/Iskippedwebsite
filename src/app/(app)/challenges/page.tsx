@@ -145,7 +145,7 @@ export default function ChallengesPage() {
   const editId = searchParams.get("edit");
   const { user, profile, updateProfile } = useAuthStore();
   const { projects, refetch } = useProjects();
-  const [selectedCategory, setSelectedCategory] = useState<(typeof CATEGORY_OPTIONS)[number]>("All");
+  const [selectedCategory, setSelectedCategory] = useState<(typeof CATEGORY_OPTIONS)[number]>("My Challenges");
   const [joiningId, setJoiningId] = useState<string | null>(null);
   const [joinChoice, setJoinChoice] = useState<ChallengeCard | null>(null);
   const [showCreateForm, setShowCreateForm] = useState(false);
@@ -386,7 +386,8 @@ export default function ChallengesPage() {
 
   async function handleShareChallenge(challenge: ChallengeCard) {
     const url = `${window.location.origin}/join/${challenge.project.id}`;
-    const msg = `Join My iSkipped Group, ${challenge.title}, to help raise funds for ${challenge.project.title}. The challenge is simple, skip expenses in your daily life, and pledge some of your savings to this cause!`;
+    const groupName = challenge.project.groupName ?? challenge.title;
+    const msg = `Join My iSkipped Group, ${groupName}, to help raise funds for ${challenge.project.title}. The challenge is simple, skip expenses in your daily life, and pledge some of your savings to this cause!`;
     if (typeof navigator !== "undefined" && typeof navigator.share === "function") {
       try {
         await navigator.share({ title: challenge.title, text: msg, url });
@@ -1184,7 +1185,8 @@ function ShareChallengeModal({
     : `/join/${challenge.project.id}`;
   const [copiedMsg, setCopiedMsg] = useState(false);
   const [copiedLink, setCopiedLink] = useState(false);
-  const shareMessage = `Join My iSkipped Group, ${challenge.title}, to help raise funds for ${challenge.project.title}. The challenge is simple, skip expenses in your daily life, and pledge some of your savings to this cause! ${url}`;
+  const groupNameForMsg = challenge.project.groupName ?? challenge.title;
+  const shareMessage = `Join My iSkipped Group, ${groupNameForMsg}, to help raise funds for ${challenge.project.title}. The challenge is simple, skip expenses in your daily life, and pledge some of your savings to this cause! ${url}`;
 
   async function handleCopyMessage() {
     try {

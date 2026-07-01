@@ -238,7 +238,8 @@ export default function ChallengeDetailPage() {
     if (!challenge) return;
     if (canNativeShare) {
       try {
-        await navigator.share({ title: challenge.title, text: `Join My iSkipped Group, ${challenge.title}, to help raise funds for ${challenge.project.title}. The challenge is simple, skip expenses in your daily life, and pledge some of your savings to this cause!`, url: challengeUrl });
+        const groupName = challenge.project.groupName ?? challenge.title;
+        await navigator.share({ title: groupName, text: `Join My iSkipped Group, ${groupName}, to help raise funds for ${challenge.project.title}. The challenge is simple, skip expenses in your daily life, and pledge some of your savings to this cause!`, url: challengeUrl });
         return;
       } catch { /* dismissed */ }
     }
@@ -550,7 +551,7 @@ export default function ChallengeDetailPage() {
 
       {showShare && (
         <ShareDetailModal
-          title={challenge.title}
+          title={challenge.project.groupName ?? challenge.title}
           projectTitle={challenge.project.title}
           url={challengeUrl}
           password={challenge.project.visibility === "private" || challenge.project.visibility === "password" ? challenge.project.password ?? null : null}
