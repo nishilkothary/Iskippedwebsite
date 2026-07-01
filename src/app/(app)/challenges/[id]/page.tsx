@@ -239,7 +239,7 @@ export default function ChallengeDetailPage() {
     if (!challenge) return;
     if (canNativeShare) {
       try {
-        await navigator.share({ title: challenge.title, text: `Hey! I'm skipping small expenses to help fund ${challenge.project.title}. Every coffee, takeout, or impulse buy I skip goes toward something real. Join the challenge and let's make it count!`, url: challengeUrl });
+        await navigator.share({ title: challenge.title, text: `Join My iSkipped Group, ${challenge.title}, to help raise funds for ${challenge.project.title}. The challenge is simple, skip expenses in your daily life, and pledge some of your savings to this cause!`, url: challengeUrl });
         return;
       } catch { /* dismissed */ }
     }
@@ -676,7 +676,7 @@ function ShareDetailModal({
 }) {
   const [copiedLink, setCopiedLink] = useState(false);
   const [copiedMsg, setCopiedMsg] = useState(false);
-  const shareMessage = `Hey! I'm skipping small expenses to help fund ${projectTitle}. Every coffee, takeout, or impulse buy I skip goes toward something real. Join the challenge and let's make it count! ${url}`;
+  const shareMessage = `Join My iSkipped Group, ${title}, to help raise funds for ${projectTitle}. The challenge is simple, skip expenses in your daily life, and pledge some of your savings to this cause! ${url}`;
 
   async function handleCopyLink() {
     try {

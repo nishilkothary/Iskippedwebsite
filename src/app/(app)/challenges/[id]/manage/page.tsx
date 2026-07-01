@@ -167,7 +167,7 @@ export default function ManageChallengePage() {
     try {
       await navigator.share({
         title: challenge.title,
-        text: `Hey! I'm skipping small expenses to help fund ${challenge.title}. Every coffee, takeout, or impulse buy I skip goes toward something real. Join the challenge and let's make it count!`,
+        text: `Join My iSkipped Group, ${challenge.groupName ?? challenge.title}, to help raise funds for ${challenge.title}. The challenge is simple, skip expenses in your daily life, and pledge some of your savings to this cause!`,
         url: challengeUrl,
       });
     } catch {}
