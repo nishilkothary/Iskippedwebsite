@@ -843,7 +843,7 @@ function ChallengeListCard({
           <p className="text-xs mt-1.5 font-bold" style={{ color: "var(--text-secondary)" }}>{challenge.skipChallengeLine}</p>
         )}
         {challenge.project.groupName && (
-          <p className="text-xs mt-1.5 font-semibold truncate" style={{ color: "var(--text-secondary)" }}>
+          <p className="text-xs mt-1.5 font-semibold truncate" style={{ color: "var(--green-primary)" }}>
             Skipping for: {challenge.project.title}
           </p>
         )}
