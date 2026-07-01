@@ -134,6 +134,7 @@ export const OFFICIAL_PROJECTS: Project[] = [
     id: "new-incentives",
     title: "Infant Vaccination Program in Nigeria",
     sponsor: "New Incentives",
+    groupName: "Child Vaccination in Nigeria",
     imagePosition: "left center",
     description: "New Incentives saves lives in northern Nigeria by providing small cash incentives to caregivers who bring their children to government clinics for routine vaccinations. The program has enrolled over 7.1 million infants and encouraged over 110 million vaccinations to date.",
     goalAmount: 0,

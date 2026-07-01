@@ -66,6 +66,7 @@ const CREATE_CATEGORY_OPTIONS: { value: CreateChallengeCategory; label: string }
 
 function challengeTitle(project: Project): string {
   if (project.isCustom) return project.title;
+  if (project.groupName) return project.groupName;
   if (project.tags?.includes("food")) return "Meals for Families";
   if (project.tags?.includes("health") || project.sponsor === "Malaria Consortium") return "Malaria Prevention Challenge";
   if (project.id === "kc" || project.id === "kc-library") return project.title.replace(/^A /, "").replace(/ for /i, " for ");

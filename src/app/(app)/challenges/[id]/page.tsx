@@ -32,6 +32,7 @@ type ChallengeView = {
 
 function challengeTitle(project: Project): string {
   if (project.isCustom) return project.title;
+  if (project.groupName) return project.groupName;
   if (project.tags?.includes("food")) return "Meals for Families";
   if (project.tags?.includes("health") || project.sponsor === "Malaria Consortium") return "Malaria Prevention Challenge";
   if (project.id === "kc" || project.id === "kc-library") return project.title.replace(/^A /, "").replace(/ for /i, " for ");
@@ -362,7 +363,9 @@ export default function ChallengeDetailPage() {
                 const unitCost = challenge.project.unitCost ?? 0;
                 const hasUnits = unitCost > 0;
                 const unitsPluralLabel = hasUnits && challenge.project.unitName
-                  ? challenge.project.unitName.split(" ").slice(-1)[0].toLowerCase() + "s funded"
+                  ? (challenge.project.unitDisplay
+                    ? challenge.project.unitDisplay + " funded"
+                    : challenge.project.unitName.split(" ").slice(-1)[0].toLowerCase() + "s funded")
                   : "units funded";
                 // Wait for profile so pledgedAmount includes jar balance (not just totalRaised)
                 const statsReady = profile !== null;
