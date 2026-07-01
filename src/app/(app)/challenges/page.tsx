@@ -47,7 +47,7 @@ type CreateChallengeCategory =
 type ChallengeVisibility = "public" | "private" | "unlisted";
 type ChallengeAccessChoice = "public" | "private";
 
-const PARTNER_CHALLENGE_IDS = ["cfc", "kc", "pop-education", "stm-palestine", "new-incentives"];
+const PARTNER_CHALLENGE_IDS = ["cfc", "kc", "pop-education", "new-incentives"];
 
 const CREATE_CATEGORY_OPTIONS: { value: CreateChallengeCategory; label: string }[] = [
   { value: "education", label: "Education & school" },
@@ -68,7 +68,6 @@ function challengeTitle(project: Project): string {
   if (project.isCustom) return project.title;
   if (project.tags?.includes("food")) return "Meals for Families";
   if (project.sponsor === "Malaria Consortium") return "Malaria Prevention Challenge";
-  if (project.id === "kc" || project.id === "kc-library") return project.title.replace(/^A /, "").replace(/ for /i, " for ");
   return project.groupName ?? project.title;
 }
 

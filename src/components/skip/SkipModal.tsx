@@ -431,6 +431,10 @@ export function SkipModal({ onClose }: Props) {
                     if (activeProjectLive?.unitCost && !activeProjectLive.unitIsGoal) {
                       const units = formatUnits(skipGiveLive, activeProjectLive.unitCost, activeProjectLive.unitName!);
                       return activeProjectLive.location ? `${units} in ${activeProjectLive.location}` : units;
+                    } else if (activeProjectLive?.unitCost && activeProjectLive.unitIsGoal) {
+                      const pct = Math.max(1, Math.round((skipGiveLive / activeProjectLive.unitCost) * 100));
+                      const unitLabel = activeProjectLive.unitName ?? "unit";
+                      return `${pct}% of a ${unitLabel} funded`;
                     } else if (activeProjectLive && giveGoalAmount > 0) {
                       return `${giveContribPctLive.toFixed(1)}% toward ${activeProjectLive.title}`;
                     } else if (activeProjectLive) {

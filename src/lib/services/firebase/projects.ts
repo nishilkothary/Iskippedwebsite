@@ -38,7 +38,8 @@ export const OFFICIAL_PROJECTS: Project[] = [
   },
   {
     id: "kc",
-    title: "Chromebooks for Students",
+    title: "Laptops for Students",
+    groupName: "Chromebooks for Students",
     sponsor: "Kenya Connect",
     description: "Help equip students in remote Kenyan villages with a Chromebook, unlocking digital learning and new opportunities.",
     goalAmount: 0,
@@ -47,7 +48,7 @@ export const OFFICIAL_PROJECTS: Project[] = [
     donationURL: "https://www.kenyaconnect.org/donate",
     isCustom: false,
     location: "Kenya",
-    unitName: "Chromebooks",
+    unitName: "Chromebook",
     unitDisplay: "chromebooks",
     unitCost: 250,
     unitIsGoal: true,
