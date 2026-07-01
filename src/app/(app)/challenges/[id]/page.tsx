@@ -239,7 +239,7 @@ export default function ChallengeDetailPage() {
     if (!challenge) return;
     if (canNativeShare) {
       try {
-        await navigator.share({ title: challenge.title, text: `Join my iSkipped challenge: ${challenge.title}`, url: challengeUrl });
+        await navigator.share({ title: challenge.title, text: `Hey! I'm skipping small expenses to help fund ${challenge.project.title}. Every coffee, takeout, or impulse buy I skip goes toward something real. Join the challenge and let's make it count!`, url: challengeUrl });
         return;
       } catch { /* dismissed */ }
     }
@@ -552,6 +552,7 @@ export default function ChallengeDetailPage() {
       {showShare && (
         <ShareDetailModal
           title={challenge.title}
+          projectTitle={challenge.project.title}
           url={challengeUrl}
           password={challenge.project.visibility === "private" || challenge.project.visibility === "password" ? challenge.project.password ?? null : null}
           onClose={() => setShowShare(false)}
@@ -662,22 +663,34 @@ function PersonalGoalPickerModal({
 
 function ShareDetailModal({
   title,
+  projectTitle,
   url,
   password,
   onClose,
 }: {
   title: string;
+  projectTitle: string;
   url: string;
   password: string | null;
   onClose: () => void;
 }) {
-  const [copied, setCopied] = useState(false);
+  const [copiedLink, setCopiedLink] = useState(false);
+  const [copiedMsg, setCopiedMsg] = useState(false);
+  const shareMessage = `Hey! I'm skipping small expenses to help fund ${projectTitle}. Every coffee, takeout, or impulse buy I skip goes toward something real. Join the challenge and let's make it count! ${url}`;
 
-  async function handleCopy() {
+  async function handleCopyLink() {
     try {
       await navigator.clipboard.writeText(url);
-      setCopied(true);
-      setTimeout(() => setCopied(false), 2000);
+      setCopiedLink(true);
+      setTimeout(() => setCopiedLink(false), 2000);
+    } catch { /* ignore */ }
+  }
+
+  async function handleCopyMessage() {
+    try {
+      await navigator.clipboard.writeText(shareMessage);
+      setCopiedMsg(true);
+      setTimeout(() => setCopiedMsg(false), 2000);
     } catch { /* ignore */ }
   }
 
@@ -696,15 +709,28 @@ function ShareDetailModal({
           <button onClick={onClose} className="text-xl leading-none" style={{ color: "var(--text-muted)" }}>×</button>
         </div>
 
+        <div className="rounded-xl p-3 mb-3" style={{ background: "var(--bg-surface-2)", border: "1px solid var(--border-default)" }}>
+          <p className="text-xs font-bold uppercase tracking-wide mb-2" style={{ color: "var(--text-muted)" }}>Message</p>
+          <p className="text-sm leading-relaxed mb-3" style={{ color: "var(--text-secondary)" }}>{shareMessage}</p>
+          <button
+            type="button"
+            onClick={handleCopyMessage}
+            className="w-full py-2 rounded-lg text-xs font-black"
+            style={{ background: copiedMsg ? "rgba(46,204,113,0.15)" : "var(--bg-surface-3)", color: copiedMsg ? "#2ECC71" : "var(--text-primary)" }}
+          >
+            {copiedMsg ? "Copied!" : "Copy message"}
+          </button>
+        </div>
+
         <div className="flex items-center gap-2 rounded-xl px-3 py-2.5" style={{ background: "var(--bg-surface-2)", border: "1px solid var(--border-default)" }}>
           <span className="text-xs truncate flex-1 font-mono" style={{ color: "var(--text-secondary)" }}>{url}</span>
           <button
             type="button"
-            onClick={handleCopy}
+            onClick={handleCopyLink}
             className="px-3 py-1.5 rounded-lg text-xs font-black shrink-0"
-            style={{ background: copied ? "rgba(46,204,113,0.15)" : "var(--bg-surface-3)", color: copied ? "#2ECC71" : "var(--text-primary)" }}
+            style={{ background: copiedLink ? "rgba(46,204,113,0.15)" : "var(--bg-surface-3)", color: copiedLink ? "#2ECC71" : "var(--text-primary)" }}
           >
-            {copied ? "Copied!" : "Copy"}
+            {copiedLink ? "Copied!" : "Copy link"}
           </button>
         </div>
 

@@ -31,7 +31,7 @@ function isVisibleChallenge(project: Project): boolean {
   return isChallengeProject(project);
 }
 
-const CATEGORY_OPTIONS = ["All", "Public", "Private", "My Challenges", "Archived"] as const;
+const CATEGORY_OPTIONS = ["All", "Public", "My Challenges", "Archived"] as const;
 type CreateChallengeCategory =
   | "education"
   | "food"
@@ -208,7 +208,6 @@ export default function ChallengesPage() {
     if (challenge.project.status === "ended") return false;
     if (selectedCategory === "All") return !isPrivateChallenge(challenge.project) || joinedProjectIds.has(challenge.project.id);
     if (selectedCategory === "Public") return !isPrivateChallenge(challenge.project);
-    if (selectedCategory === "Private") return isPrivateChallenge(challenge.project) && joinedProjectIds.has(challenge.project.id);
     if (selectedCategory === "My Challenges") return challenge.project.createdBy === user?.uid || joinedProjectIds.has(challenge.project.id);
     return true;
   });

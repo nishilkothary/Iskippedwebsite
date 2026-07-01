@@ -167,7 +167,7 @@ export default function ManageChallengePage() {
     try {
       await navigator.share({
         title: challenge.title,
-        text: `Join my iSkipped challenge: ${challenge.title}`,
+        text: `Hey! I'm skipping small expenses to help fund ${challenge.title}. Every coffee, takeout, or impulse buy I skip goes toward something real. Join the challenge and let's make it count!`,
         url: challengeUrl,
       });
     } catch {}
@@ -178,7 +178,7 @@ export default function ManageChallengePage() {
       {/* Header */}
       <div className="flex items-center gap-3 mb-6">
         <button
-          onClick={() => router.back()}
+          onClick={() => router.push("/challenges")}
           className="w-9 h-9 rounded-full flex items-center justify-center text-lg shrink-0"
           style={{ background: "var(--bg-surface-2)", color: "var(--text-primary)" }}
         >
