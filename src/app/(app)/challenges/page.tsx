@@ -1301,8 +1301,8 @@ function CreateChallengeWizard({
   const [donationNote, setDonationNote] = useState(initialProject?.donationNote ?? "");
 
   const parsedImpactUnitCost = parseFloat(impactUnitCost);
-  const canContinueBasics = title.trim().length > 0;
-  const canContinueImpact = (noDonationLink || donationURL.trim().length > 0) && (!useImpactUnit || (impactUnitName.trim().length > 0 && parsedImpactUnitCost > 0));
+  const canContinueBasics = groupName.trim().length > 0;
+  const canContinueImpact = title.trim().length > 0 && (noDonationLink || donationURL.trim().length > 0) && (!useImpactUnit || (impactUnitName.trim().length > 0 && parsedImpactUnitCost > 0));
   const canCreate = canContinueBasics && canContinueImpact;
 
   function handleImageFile(file: File | undefined) {
@@ -1403,18 +1403,6 @@ function CreateChallengeWizard({
                 />
               </div>
               <div>
-                <p className="text-xs font-bold uppercase tracking-wide mb-1.5" style={{ color: "var(--text-muted)" }}>A Skip Helps Fund...</p>
-                <input
-                  type="text"
-                  value={title}
-                  onChange={(event) => setTitle(event.target.value)}
-                  placeholder="e.g. A Child's Education"
-                  className="w-full rounded-xl px-4 py-3 text-sm focus:outline-none"
-                  style={{ background: "var(--bg-surface-2)", border: "1px solid var(--border-default)", color: "var(--text-primary)" }}
-                  maxLength={100}
-                />
-              </div>
-              <div>
                 <p className="text-xs font-bold uppercase tracking-wide mb-1.5" style={{ color: "var(--text-muted)" }}>Who is organizing</p>
                 <input
                   type="text"
@@ -1510,9 +1498,22 @@ function CreateChallengeWizard({
           )}
 
           {step === 2 && (
-            <>
+            <div className="space-y-6">
               <div>
                 <p className="text-sm font-black mb-1" style={{ color: "var(--text-primary)" }}>Impact</p>
+              </div>
+              <div>
+                <p className="text-xs font-bold uppercase tracking-wide mb-1.5" style={{ color: "var(--text-muted)" }}>A Skip Helps Fund...</p>
+                <input
+                  type="text"
+                  value={title}
+                  onChange={(event) => setTitle(event.target.value)}
+                  placeholder="e.g. A Child's Education"
+                  className="w-full rounded-xl px-4 py-3 text-sm focus:outline-none"
+                  style={{ background: "var(--bg-surface-2)", border: "1px solid var(--border-default)", color: "var(--text-primary)" }}
+                  maxLength={100}
+                  autoFocus
+                />
               </div>
               <div>
                 <p className="text-xs font-bold uppercase tracking-wide mb-2" style={{ color: "var(--text-muted)" }}>Group Fundraising Target</p>
@@ -1672,7 +1673,7 @@ function CreateChallengeWizard({
                   )}
                 </div>
               )}
-            </>
+            </div>
           )}
 
           {step === 3 && (
