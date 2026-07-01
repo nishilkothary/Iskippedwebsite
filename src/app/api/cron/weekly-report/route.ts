@@ -78,7 +78,7 @@ export async function GET(req: NextRequest) {
 
   const BATCH = 10;
   const cutoff = new Date();
-  cutoff.setUTCDate(cutoff.getUTCDate() - 30);
+  cutoff.setUTCDate(cutoff.getUTCDate() - 42);
   const cutoffStr = cutoff.toISOString().slice(0, 10);
 
   const eligible = users.filter(
