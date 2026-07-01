@@ -803,11 +803,6 @@ function ChallengeListCard({
               </p>
               <Badge>{accessBadgeLabel(challenge)}</Badge>
             </div>
-            {challenge.project.groupName && (
-              <p className="text-xs mt-0.5 font-semibold truncate" style={{ color: "var(--green-primary)" }}>
-                Skipping for: {challenge.project.title}
-              </p>
-            )}
             <p className="text-xs mt-0.5 truncate" style={{ color: "var(--text-muted)" }}>{challenge.project.sponsor || challenge.beneficiary}</p>
           </div>
           <div className="flex items-center gap-1.5 shrink-0">
@@ -847,7 +842,12 @@ function ChallengeListCard({
         {challenge.skipChallengeLine && (
           <p className="text-xs mt-1.5 font-bold" style={{ color: "var(--text-secondary)" }}>{challenge.skipChallengeLine}</p>
         )}
-        {challenge.impactLine && <p className="text-xs mt-1.5 font-semibold" style={{ color: "var(--green-primary)" }}>{challenge.impactLine}</p>}
+        {challenge.project.groupName && (
+          <p className="text-xs mt-1.5 font-semibold truncate" style={{ color: "var(--text-secondary)" }}>
+            Skipping for: {challenge.project.title}
+          </p>
+        )}
+        {challenge.impactLine && <p className="text-xs mt-1 font-semibold" style={{ color: "var(--green-primary)" }}>{challenge.impactLine}</p>}
         {(challenge.project.goalAmount ?? 0) > 0
           ? <ProgressBar challenge={challenge} className="mt-2" />
           : (challenge.project.totalRaised ?? 0) > 0 || (challenge.project.totalSkips ?? 0) > 0
