@@ -609,6 +609,9 @@ function CauseTab({
   const [completedDonateId, setCompletedDonateId] = useState<string | null>(null);
   const [completedDonateAmountStr, setCompletedDonateAmountStr] = useState("");
   const [completedDonating, setCompletedDonating] = useState(false);
+  const [editingGivingGoal, setEditingGivingGoal] = useState(false);
+  const [givingGoalStr, setGivingGoalStr] = useState("");
+  const [savingGivingGoal, setSavingGivingGoal] = useState(false);
 
   const completedIds = new Set(completedChallenges.map((c) => c.project.id));
 
@@ -637,6 +640,64 @@ function CauseTab({
               <p className="text-lg font-extrabold leading-tight" style={{ color: "#2ECC71" }}>{formatCurrency(givingBalance)}</p>
             </div>
           </div>
+          {/* Personal giving goal */}
+          {editingGivingGoal ? (
+            <div className="flex gap-2 mb-4">
+              <div className="relative flex-1">
+                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm" style={{ color: "var(--text-muted)" }}>$</span>
+                <input
+                  type="number"
+                  placeholder="e.g. 50"
+                  value={givingGoalStr}
+                  onChange={(e) => setGivingGoalStr(e.target.value)}
+                  className="w-full pl-7 rounded-xl px-3 py-2 text-sm focus:outline-none"
+                  style={{ background: "var(--bg-surface-2)", border: "1px solid rgba(46,204,113,0.5)", color: "var(--text-primary)" }}
+                  autoFocus
+                />
+              </div>
+              <button
+                onClick={async () => {
+                  const amt = parseFloat(givingGoalStr);
+                  if (!amt || amt <= 0) return;
+                  setSavingGivingGoal(true);
+                  await onSetGoal(activeProject.id, amt);
+                  setGivingGoalStr("");
+                  setEditingGivingGoal(false);
+                  setSavingGivingGoal(false);
+                }}
+                disabled={savingGivingGoal || !givingGoalStr || parseFloat(givingGoalStr) <= 0}
+                className="px-3 py-2 rounded-xl text-sm font-bold disabled:opacity-50"
+                style={{ background: "#2ECC71", color: "#0B1A14" }}
+              >{savingGivingGoal ? "…" : "✓"}</button>
+              <button
+                onClick={() => { setEditingGivingGoal(false); setGivingGoalStr(""); }}
+                className="px-3 py-2 rounded-xl text-sm"
+                style={{ border: "1px solid var(--border-default)", color: "var(--text-secondary)" }}
+              >✕</button>
+            </div>
+          ) : (
+            <div className="flex items-center justify-between mb-4">
+              <p className="text-xs" style={{ color: "var(--text-muted)" }}>
+                Giving goal:{" "}
+                <span className="font-bold" style={{ color: "var(--text-primary)" }}>
+                  {(causeGoalAmounts?.[activeProject.id] ?? 0) > 0
+                    ? `$${causeGoalAmounts![activeProject.id].toLocaleString()}`
+                    : "Not set"}
+                </span>
+              </p>
+              <button
+                onClick={() => {
+                  setGivingGoalStr(causeGoalAmounts?.[activeProject.id] ? String(causeGoalAmounts[activeProject.id]) : "");
+                  setEditingGivingGoal(true);
+                }}
+                className="text-xs font-bold"
+                style={{ color: "var(--green-primary)", background: "transparent", border: "none", cursor: "pointer" }}
+              >
+                {(causeGoalAmounts?.[activeProject.id] ?? 0) > 0 ? "Edit" : "Set goal"}
+              </button>
+            </div>
+          )}
+
           {showLogDonation ? (
             <div className="flex gap-2">
               <div className="relative flex-1">

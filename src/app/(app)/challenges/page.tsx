@@ -587,13 +587,7 @@ export default function ChallengesPage() {
           pledgeAmount={givingBalance}
           isJoining={joiningId === joinChoice.project.id}
           onClose={() => setJoinChoice(null)}
-          onDonateNow={() => {
-            if (activeProject?.donationURL) {
-              window.open(activeProject.donationURL, "_blank", "noopener,noreferrer");
-              return;
-            }
-            router.push("/jars?tab=cause");
-          }}
+          onDonateNow={() => router.push("/jars?tab=cause")}
 
           onMovePledge={() => completeJoin(joinChoice, true)}
         />
@@ -1019,7 +1013,7 @@ function JoinChoiceModal({
               boxShadow: "0 4px 18px var(--gold-glow)",
             }}
           >
-            Donate now
+            Donate funds
           </button>
           <button
             type="button"
@@ -1028,7 +1022,7 @@ function JoinChoiceModal({
             className="text-xs font-bold underline disabled:opacity-60"
             style={{ color: "var(--text-secondary)", background: "transparent", border: "none", cursor: "pointer" }}
           >
-            I&apos;d like to move my savings to this {destinationType} instead
+            Move balance to this {destinationType}
           </button>
         </div>
       </div>
