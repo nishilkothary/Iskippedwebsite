@@ -142,6 +142,17 @@ export default function AboutPage() {
           >
             Browse challenges →
           </button>
+          <button
+            onClick={() => router.push("/community")}
+            className="mt-3 w-full py-3 rounded-2xl text-sm font-semibold"
+            style={{
+              border: "1px solid var(--border-emphasis)",
+              color: "var(--green-primary)",
+              background: "transparent",
+            }}
+          >
+            See what everyone is skipping →
+          </button>
         </section>
 
         {/* How iSkipped works note */}
