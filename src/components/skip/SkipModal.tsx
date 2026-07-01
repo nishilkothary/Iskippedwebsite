@@ -147,7 +147,12 @@ export function SkipModal({ onClose }: Props) {
     } else {
       impactDisplay = `${formatCurrency(amount)} saved`;
     }
-    const shareText = `I skipped ${itemLabel}${impactClause}. Join the movement at https://iskipped.com`;
+    const challengeURL = successActiveProject
+      ? `${typeof window !== "undefined" ? window.location.origin : "https://iskipped.com"}/join/${successActiveProject.id}`
+      : "https://iskipped.com";
+    const shareText = successActiveProject
+      ? `I skipped ${itemLabel}${impactClause}. Join the challenge and skip an expense for a good cause: ${challengeURL}`
+      : `I skipped ${itemLabel}${impactClause}. Join the movement at https://iskipped.com`;
 
     // Show jar-full celebration when give jar hits/exceeds goal (first time, then every 3rd skip)
     const overflowCount = successOverflowCount ?? 0;
@@ -269,19 +274,20 @@ export function SkipModal({ onClose }: Props) {
             )}
 
             <div className="mt-8 text-left">
-              <p className="text-xs mb-1 uppercase tracking-wide" style={{ color: "var(--text-muted)" }}>Challenge Your Friends to Start Skipping!</p>
-              <textarea
-                readOnly
-                value={shareText}
-                onFocus={(e) => e.target.select()}
-                rows={5}
-                className="w-full rounded-xl px-3 py-2 text-sm resize-none focus:outline-none"
-                style={{
-                  background: "var(--bg-surface-2)",
-                  border: "1px solid var(--border-default)",
-                  color: "var(--text-primary)",
-                }}
-              />
+              <p className="text-xs mb-3 uppercase tracking-wide" style={{ color: "var(--text-muted)" }}>Challenge Your Friends to Start Skipping!</p>
+              {typeof navigator !== "undefined" && typeof navigator.share === "function" && (
+                <button
+                  onClick={() => navigator.share({ title: "iSkipped", text: shareText, url: challengeURL })}
+                  className="w-full font-black py-3 rounded-xl text-sm mb-2"
+                  style={{
+                    background: "linear-gradient(135deg, var(--gold-cta), var(--gold-light))",
+                    color: "var(--bg-base)",
+                    boxShadow: "0 4px 18px var(--gold-glow)",
+                  }}
+                >
+                  Share Challenge ↗
+                </button>
+              )}
               <button
                 onClick={() => {
                   navigator.clipboard.writeText(shareText).then(() => {
@@ -289,7 +295,7 @@ export function SkipModal({ onClose }: Props) {
                     setTimeout(() => setCopied(false), 2000);
                   });
                 }}
-                className="mt-2 w-full font-semibold py-2 rounded-xl text-sm transition-colors"
+                className="w-full font-semibold py-2 rounded-xl text-sm transition-colors"
                 style={{
                   border: "1px solid var(--border-emphasis)",
                   color: "var(--green-primary)",

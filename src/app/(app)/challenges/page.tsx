@@ -47,7 +47,7 @@ type CreateChallengeCategory =
 type ChallengeVisibility = "public" | "private" | "unlisted";
 type ChallengeAccessChoice = "public" | "private";
 
-const PARTNER_CHALLENGE_IDS = ["cfc", "kc", "kc-library", "pop-education", "stm-palestine", "new-incentives"];
+const PARTNER_CHALLENGE_IDS = ["cfc", "kc", "pop-education", "stm-palestine", "new-incentives"];
 
 const CREATE_CATEGORY_OPTIONS: { value: CreateChallengeCategory; label: string }[] = [
   { value: "education", label: "Education & school" },
@@ -392,6 +392,22 @@ export default function ChallengesPage() {
         <p className="text-3xl font-black tracking-tight" style={{ color: "var(--text-primary)" }}>
           i<span style={{ color: "var(--green-primary)" }}>skipped</span>
         </p>
+        <button
+          type="button"
+          onClick={() => setShowCreateForm(true)}
+          className="px-4 py-2.5 rounded-full text-sm font-black"
+          style={{
+            background: "linear-gradient(135deg, var(--gold-cta), var(--gold-light))",
+            color: "var(--bg-base)",
+            boxShadow: "0 4px 18px var(--gold-glow)",
+          }}
+        >
+          + Create
+        </button>
+      </div>
+
+      <div className="hidden md:flex items-center justify-between mb-6">
+        <p className="text-3xl font-black tracking-tight" style={{ color: "var(--text-primary)" }}>Challenges</p>
         <button
           type="button"
           onClick={() => setShowCreateForm(true)}
@@ -1372,7 +1388,6 @@ function CreateChallengeWizard({
             <>
               <div>
                 <p className="text-sm font-black mb-1" style={{ color: "var(--text-primary)" }}>Basics</p>
-                <p className="text-xs" style={{ color: "var(--text-muted)" }}>Name the outcome, add the story, and choose how it should be grouped.</p>
               </div>
               <div>
                 <p className="text-xs font-bold uppercase tracking-wide mb-1.5" style={{ color: "var(--text-muted)" }}>Group Name</p>
@@ -1388,7 +1403,7 @@ function CreateChallengeWizard({
                 />
               </div>
               <div>
-                <p className="text-xs font-bold uppercase tracking-wide mb-1.5" style={{ color: "var(--text-muted)" }}>Skipping For</p>
+                <p className="text-xs font-bold uppercase tracking-wide mb-1.5" style={{ color: "var(--text-muted)" }}>A Skip Helps Fund...</p>
                 <input
                   type="text"
                   value={title}
@@ -1498,7 +1513,6 @@ function CreateChallengeWizard({
             <>
               <div>
                 <p className="text-sm font-black mb-1" style={{ color: "var(--text-primary)" }}>Impact</p>
-                <p className="text-xs" style={{ color: "var(--text-muted)" }}>Set where donations should go and optionally add an impact unit.</p>
               </div>
               <div>
                 <p className="text-xs font-bold uppercase tracking-wide mb-2" style={{ color: "var(--text-muted)" }}>Group Fundraising Target</p>
@@ -1665,7 +1679,6 @@ function CreateChallengeWizard({
             <>
               <div>
                 <p className="text-sm font-black mb-1" style={{ color: "var(--text-primary)" }}>Access and preview</p>
-                <p className="text-xs" style={{ color: "var(--text-muted)" }}>Choose how people can find this challenge.</p>
               </div>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                 {[

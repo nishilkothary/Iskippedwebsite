@@ -472,6 +472,9 @@ export default function HomePage() {
   const communityUnitCountDisplay = hasCommunityUnit && activeProject
     ? formatCommunityUnitCount(displayedGroupTotal, activeProject.unitCost ?? 0, activeProject.unitIsGoal)
     : null;
+  const personalUnitCountDisplay = hasCommunityUnit && activeProject
+    ? formatCommunityUnitCount(userChallengeBalance, activeProject.unitCost ?? 0, activeProject.unitIsGoal)
+    : null;
   const communityUnitLabel = activeProject?.unitDisplay || activeProject?.unitName || "units";
   const challengeDonated = activeProject && isActiveChallenge
     ? profile.causeStats?.[activeProject.id]?.donated ?? 0
@@ -953,18 +956,18 @@ export default function HomePage() {
               <div style={{ display: "flex", gap: 14, alignItems: "flex-start", marginTop: 12 }}>
                 <div>
                   <p style={{ fontSize: 28, fontWeight: 900, color: "var(--text-primary)", lineHeight: 1 }}>
-                    {liveChallengeTotalSkips.toLocaleString()}
+                    {challengeSkips.length.toLocaleString()}
                   </p>
                   <p style={{ fontSize: 10, fontWeight: 800, letterSpacing: 1.2, textTransform: "uppercase", color: "var(--text-muted)", marginTop: 3 }}>
                     Skips
                   </p>
                 </div>
-                {hasCommunityUnit && communityUnitCountDisplay !== null && (
+                {hasCommunityUnit && personalUnitCountDisplay !== null && (
                   <>
                     <div style={{ width: 1, background: "rgba(255,255,255,0.12)", height: 44, marginBottom: 18 }} />
                     <div style={{ minWidth: 0 }}>
                       <p style={{ fontSize: 28, fontWeight: 900, color: "var(--green-primary)", lineHeight: 1 }}>
-                        {communityUnitCountDisplay}
+                        {personalUnitCountDisplay}
                       </p>
                       <p style={{ fontSize: 10, fontWeight: 800, letterSpacing: 1.2, textTransform: "uppercase", color: "var(--text-muted)", marginTop: 3 }}>
                         {communityUnitLabel} Funded
@@ -972,12 +975,12 @@ export default function HomePage() {
                     </div>
                   </>
                 )}
-                {communityGoal === 0 && displayedGroupTotal > 0 && (
+                {communityGoal === 0 && userChallengeBalance > 0 && (
                   <>
                     <div style={{ width: 1, background: "rgba(255,255,255,0.12)", height: 44, marginBottom: 18 }} />
                     <div>
                       <p style={{ fontSize: 28, fontWeight: 900, color: "var(--gold-cta)", lineHeight: 1 }}>
-                        ${Math.round(displayedGroupTotal).toLocaleString()}
+                        ${Math.round(userChallengeBalance).toLocaleString()}
                       </p>
                       <p style={{ fontSize: 10, fontWeight: 800, letterSpacing: 1.2, textTransform: "uppercase", color: "var(--text-muted)", marginTop: 3 }}>
                         Pledged
