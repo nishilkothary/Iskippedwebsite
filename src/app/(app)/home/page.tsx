@@ -442,7 +442,7 @@ export default function HomePage() {
   const isActiveChallenge = activeProject ? (isChallengeProject(activeProject) || !activeProject.isCustom) : false;
   // Per-challenge balance: what the user has pledged specifically to their active challenge
   const userChallengeBalance = isActiveChallenge && activeProject
-    ? (profile.causeJarBalances?.[activeProject.id] || givingBalance)
+    ? (profile.causeJarBalances?.[activeProject.id] ?? 0)
     : 0;
   const challengeContribution = userChallengeBalance;
   // Group total: use project's totalRaised, floored by the user's own challenge balance
@@ -471,9 +471,6 @@ export default function HomePage() {
   const hasCommunityUnit = !!(activeProject?.unitCost && activeProject.unitCost > 0);
   const communityUnitCountDisplay = hasCommunityUnit && activeProject
     ? formatCommunityUnitCount(displayedGroupTotal, activeProject.unitCost ?? 0, activeProject.unitIsGoal)
-    : null;
-  const personalUnitCountDisplay = hasCommunityUnit && activeProject
-    ? formatCommunityUnitCount(userChallengeBalance, activeProject.unitCost ?? 0, activeProject.unitIsGoal)
     : null;
   const communityUnitLabel = activeProject?.unitDisplay || activeProject?.unitName || "units";
   const challengeDonated = activeProject && isActiveChallenge
@@ -956,18 +953,18 @@ export default function HomePage() {
               <div style={{ display: "flex", gap: 14, alignItems: "flex-start", marginTop: 12 }}>
                 <div>
                   <p style={{ fontSize: 28, fontWeight: 900, color: "var(--text-primary)", lineHeight: 1 }}>
-                    {challengeSkips.length.toLocaleString()}
+                    {liveChallengeTotalSkips.toLocaleString()}
                   </p>
                   <p style={{ fontSize: 10, fontWeight: 800, letterSpacing: 1.2, textTransform: "uppercase", color: "var(--text-muted)", marginTop: 3 }}>
                     Skips
                   </p>
                 </div>
-                {hasCommunityUnit && personalUnitCountDisplay !== null && (
+                {hasCommunityUnit && communityUnitCountDisplay !== null && (
                   <>
                     <div style={{ width: 1, background: "rgba(255,255,255,0.12)", height: 44, marginBottom: 18 }} />
                     <div style={{ minWidth: 0 }}>
                       <p style={{ fontSize: 28, fontWeight: 900, color: "var(--green-primary)", lineHeight: 1 }}>
-                        {personalUnitCountDisplay}
+                        {communityUnitCountDisplay}
                       </p>
                       <p style={{ fontSize: 10, fontWeight: 800, letterSpacing: 1.2, textTransform: "uppercase", color: "var(--text-muted)", marginTop: 3 }}>
                         {communityUnitLabel} Funded
@@ -975,12 +972,12 @@ export default function HomePage() {
                     </div>
                   </>
                 )}
-                {communityGoal === 0 && userChallengeBalance > 0 && (
+                {communityGoal === 0 && displayedGroupTotal > 0 && (
                   <>
                     <div style={{ width: 1, background: "rgba(255,255,255,0.12)", height: 44, marginBottom: 18 }} />
                     <div>
                       <p style={{ fontSize: 28, fontWeight: 900, color: "var(--gold-cta)", lineHeight: 1 }}>
-                        ${Math.round(userChallengeBalance).toLocaleString()}
+                        ${Math.round(displayedGroupTotal).toLocaleString()}
                       </p>
                       <p style={{ fontSize: 10, fontWeight: 800, letterSpacing: 1.2, textTransform: "uppercase", color: "var(--text-muted)", marginTop: 3 }}>
                         Pledged
