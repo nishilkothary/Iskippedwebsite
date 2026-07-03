@@ -21,9 +21,11 @@ export function DonationLogModal({ projectId, projectTitle, onClose }: Props) {
     if (!num || num < 1) return;
     setLoading(true);
     try {
-      await donate(num, projectId, projectTitle, date);
-      setDone(true);
-      setTimeout(onClose, 2000);
+      const ok = await donate(num, projectId, projectTitle, date);
+      if (ok) {
+        setDone(true);
+        setTimeout(onClose, 2000);
+      }
     } finally {
       setLoading(false);
     }
