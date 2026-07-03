@@ -89,6 +89,15 @@ New `achievements` map on `UserProfile`, awarded server-side in the (now server-
 - Opt-in web push (FCM) with three notification types, individually toggleable: streak-at-risk (evening, only if no skip today), weekly summary, challenge milestone reached.
 - Zero notifications sent without explicit opt-in; unsubscribe works from notification settings on Profile.
 
+**Install-prompt strategy** (today `InstallPrompt` is a passive text link at the bottom of Home — `src/app/(app)/home/page.tsx:1252` — never proactively shown). Deliberately NOT prompted at signup: pre-value asks convert poorly and compete with logging the first skip. Prompt at moments of demonstrated value instead:
+- **First-skip success screen**: after the user's first-ever logged skip, the success screen (in `SkipModal.tsx`) offers install ("so the next one is one tap"). This is the primary ask.
+- **Streak moment**: if not installed and a 2+-day streak exists, Home shows a one-time banner framing install as the way to get streak reminders (iOS push requires Home Screen install).
+- Dismissals remembered in `localStorage` (reuse the existing 30-day donation-nudge dismissal pattern in `home/page.tsx`); never re-ask within 14 days; max 2 distinct asks total, after which only the passive link remains.
+- Never shown when already running standalone (`display-mode: standalone` / `navigator.standalone` — the iOS check already exists in `InstallPrompt.tsx`).
+- On Android, accepting triggers the native `beforeinstallprompt` flow already wired in `InstallPrompt.tsx`; on iOS it opens the existing step-by-step sheet.
+- Post-install (or next standalone launch), ask for notification permission in context ("want a nudge when your streak is at risk?") — never a cold browser permission dialog.
+- Install prompt impressions/accepts/dismissals tracked in GA so conversion is measurable.
+
 ---
 
 ## Phase 2 — Growth: make groups and sharing the engine
