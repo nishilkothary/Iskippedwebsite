@@ -8,7 +8,6 @@ import * as React from "react";
 
 export const maxDuration = 300;
 
-const resend = new Resend(process.env.RESEND_API_KEY);
 const APP_URL = process.env.NEXT_PUBLIC_APP_URL ?? "https://iskipped.com";
 
 function getWeekRange(): { start: string; end: string; label: string } {
@@ -46,6 +45,7 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
+  const resend = new Resend(process.env.RESEND_API_KEY);
   const db = getAdminDb();
   const week = getWeekRange();
   const testMode = new URL(req.url).searchParams.get("test") === "true";
