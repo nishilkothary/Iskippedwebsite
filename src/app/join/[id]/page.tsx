@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import { useRouter, useParams } from "next/navigation";
 import { getDoc, doc } from "firebase/firestore";
 import { db } from "@/lib/services/firebase/config";
+import { OFFICIAL_PROJECTS } from "@/lib/services/firebase/projects";
 import { useAuthStore } from "@/store/authStore";
 import { Project } from "@/lib/types/models";
 import { formatCurrency } from "@/lib/utils/currency";
@@ -192,15 +193,25 @@ export default function JoinChallengePage() {
 
   useEffect(() => {
     if (!challengeId) { setNotFound(true); setLoading(false); return; }
+    // Official projects live in code (OFFICIAL_PROJECTS); their Firestore doc
+    // may not exist yet or may be a bare seed missing title/description/image.
+    // Merge the static official entry with whatever Firestore has (Firestore
+    // wins for live fields like totalRaised) so shared links to official causes
+    // resolve instead of showing "Challenge not found".
+    const official = OFFICIAL_PROJECTS.find((p) => p.id === challengeId) ?? null;
     getDoc(doc(db, "projects", challengeId))
       .then((snap) => {
-        if (snap.exists()) {
-          setProjectData({ id: snap.id, ...snap.data() } as Project);
+        const fsData = snap.exists() ? snap.data() : null;
+        if (official || fsData) {
+          setProjectData({ ...(official ?? {}), ...(fsData ?? {}), id: challengeId } as Project);
         } else {
           setNotFound(true);
         }
       })
-      .catch(() => setNotFound(true))
+      .catch(() => {
+        if (official) setProjectData({ ...official, id: challengeId } as Project);
+        else setNotFound(true);
+      })
       .finally(() => setLoading(false));
   }, [challengeId]);
 
