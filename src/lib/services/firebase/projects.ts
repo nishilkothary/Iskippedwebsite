@@ -153,24 +153,6 @@ export const OFFICIAL_PROJECTS: Project[] = [
     tags: ["health", "children", "nigeria"],
     visibility: "public" as const,
   },
-  {
-    id: "mc-nets",
-    title: "Malaria Mosquito Nets",
-    sponsor: "Malaria Consortium",
-    description: "Long-lasting insecticidal nets that protect families from malaria-carrying mosquitoes while they sleep.",
-    goalAmount: 0,
-    totalRaised: 0,
-    imageURL: null,
-    donationURL: "https://www.malariaconsortium.org/donate-to-malaria-consortium",
-    learnMoreURL: "https://www.malariaconsortium.org/about-us/who-we-are",
-    isCustom: false,
-    unitName: "Mosquito Net",
-    unitDisplay: "nets",
-    unitCost: 2.27,
-    createdBy: null,
-    tags: ["official", "health"],
-    visibility: "public" as const,
-  },
 ];
 
 function mergeWithOfficials(firestoreDocs: Project[]): Project[] {
