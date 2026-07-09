@@ -35,7 +35,6 @@ type ChallengeView = {
 function challengeTitle(project: Project): string {
   if (project.isCustom) return project.title;
   if (project.tags?.includes("food")) return "Meals for Families";
-  if (project.sponsor === "Malaria Consortium") return "Malaria Prevention Challenge";
   return project.groupName ?? project.title;
 }
 
