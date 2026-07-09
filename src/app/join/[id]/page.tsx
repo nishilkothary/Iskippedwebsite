@@ -35,9 +35,8 @@ type ChallengeView = {
 function challengeTitle(project: Project): string {
   if (project.isCustom) return project.title;
   if (project.tags?.includes("food")) return "Meals for Families";
-  if (project.tags?.includes("health") || project.sponsor === "Malaria Consortium") return "Malaria Prevention Challenge";
-  if (project.id === "kc" || project.id === "kc-library") return project.title.replace(/^A /, "").replace(/ for /i, " for ");
-  return "School Days Challenge";
+  if (project.sponsor === "Malaria Consortium") return "Malaria Prevention Challenge";
+  return project.groupName ?? project.title;
 }
 
 function challengeCategory(project: Project): ChallengeCategory {
