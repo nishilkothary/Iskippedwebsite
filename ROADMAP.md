@@ -2,6 +2,10 @@
 
 A prioritized assessment of the app based on a full codebase review (July 2026). Organized into four tiers: **trust**, **growth**, **retention**, and **engineering health** — in that order, because a giving app lives or dies on trust.
 
+> **How to use this roadmap:** [`PROMPTS.md`](./PROMPTS.md) contains a ready-to-paste prompt for every open item below. Open a Claude Code session (any model — Opus works well) in this repository, copy the prompt for the item you want, and paste it. Each prompt is self-contained and tells the model to read this repo's docs first.
+>
+> **Status:** ✅ 1.2 (error handling) and the manifest half of 2.4 are done — see those sections.
+
 ---
 
 ## Top 5 Most Important
@@ -41,11 +45,10 @@ All writes (`logSkip`, `recordDonation`, `switchCause`, jar mutations) run clien
 
 **Fix:** move skip/donation/jar mutations behind API routes using the existing Admin SDK (`src/lib/services/firebaseAdmin.ts`) with server-computed `increment()`s, then lock down `firestore.rules` so clients can't touch totals directly.
 
-### 1.2 Visible error handling
-- `useSkips.log()` (`src/hooks/useSkips.ts`) has `try/finally` with **no catch**; `SkipModal.handleSubmit` doesn't handle write failures — a failed skip just leaves the modal sitting there.
-- No toast/notification system exists anywhere; many service calls swallow errors into `console.warn` or empty `catch {}`.
+### 1.2 Visible error handling — ✅ DONE (commit `21f54db`)
+Implemented: `sonner` toast system mounted in the root layout (styled with app CSS variables); catch blocks + user-facing error toasts in `useSkips.log`, donation logging, purchases, goal completion, jar transfers, and cause/goal switching. Modals only advance to success states when writes actually succeed.
 
-**Fix:** add a toast system; catch and surface failures in the skip, donation, and goal flows.
+Remaining (minor): `edit`/`delete` flows for skips and donation history still lack toasts — covered by the 1.2 follow-up prompt in `PROMPTS.md`.
 
 ### 1.3 Real or verifiable donations
 No payment processor exists. Users open a charity's external URL and self-report the amount. Options:
@@ -74,9 +77,10 @@ New users get zeroed stats, no cause, and an empty home screen. The only guidanc
 - Invite links exist but there's no referral tracking, no credit/reward for inviter or invitee, and sharing is generic `navigator.share` / clipboard only.
 - **Fix:** referral codes on invite links, track attribution, reward both sides (XP/badge), add WhatsApp/X/Instagram share intents, and auto-generate shareable "I skipped X, saved $Y for [cause]" cards.
 
-### 2.4 Fix the PWA
-- `src/components/InstallPrompt.tsx` exists but there is **no web app manifest**, so Android's `beforeinstallprompt` never fires — the install path is broken.
-- **Fix:** add `src/app/manifest.ts` + icon set; then a service worker + web push for streak reminders and challenge activity (see 3.x).
+### 2.4 Fix the PWA — ✅ manifest DONE (commit `46dee35`) / push notifications OPEN
+Done: `src/app/manifest.ts` (standalone display, `/home` start URL, brand colors), 192/512 + maskable PNG icons in `public/icons/`, and `src/app/apple-icon.png` — Android's `beforeinstallprompt` can now fire, unblocking `src/components/InstallPrompt.tsx`.
+
+Still open: service worker + web push for streak reminders and challenge activity (see the 2.4b prompt in `PROMPTS.md`).
 
 ---
 
