@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { toast } from "sonner";
 import { useRouter } from "next/navigation";
 import { useAuthStore } from "@/store/authStore";
 import { useProjects } from "@/hooks/useProjects";
@@ -134,6 +135,9 @@ function ParkedJarCard({
       await recordDonation(uid, balance, jarId, title);
       onDonate(balance);
       setResolved(true);
+    } catch (err) {
+      console.error("recordDonation failed", err);
+      toast.error("Couldn't record your donation — check your connection and try again.");
     } finally {
       setDonating(false);
       setDonateConfirm(false);
@@ -146,6 +150,9 @@ function ParkedJarCard({
       await transferJarBalance(uid, jarId, toId);
       onResolved({ [jarId]: 0 });
       setResolved(true);
+    } catch (err) {
+      console.error("transferJarBalance failed", err);
+      toast.error("Couldn't transfer your jar — check your connection and try again.");
     } finally {
       setTransferring(false);
       setShowTransferPicker(false);
