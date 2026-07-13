@@ -5,7 +5,6 @@ import { useSkipStore } from "@/store/skipStore";
 import { subscribeToSkips, logSkip, LogSkipParams, updateSkip as firebaseUpdateSkip, deleteSkip as firebaseDeleteSkip } from "@/lib/services/firebase/skips";
 import { normalizeJarSplit, normalizeSpendingGoals } from "@/lib/services/firebase/users";
 import { recordDonation, subscribeToDonations, updateDonation as firebaseUpdateDonation, deleteDonation as firebaseDeleteDonation } from "@/lib/services/firebase/users";
-import { deleteCommunityFeedItem, updateCommunityFeedItem } from "@/lib/services/firebase/social";
 import { DEMO_MODE } from "@/lib/constants/demo";
 import { today } from "@/lib/utils/dates";
 import { getImpactMessage } from "@/lib/constants/impactMessages";
@@ -121,11 +120,6 @@ export function useSkips() {
           ? { ...profile.causeJarBalances, [skip.projectId]: Math.max(0, (profile.causeJarBalances?.[skip.projectId] ?? 0) + giveAllocDelta) }
           : profile.causeJarBalances,
       });
-      // Sync community feed only if amount changed (fire-and-forget)
-      if (amountDelta !== 0) updateCommunityFeedItem(skip.id, {
-        skipAmount: updates.amount,
-        message: `skipped ${updates.categoryLabel ?? skip.categoryLabel} and saved $${(updates.amount ?? skip.amount).toFixed(2)}`,
-      });
     }
   }
 
@@ -145,8 +139,6 @@ export function useSkips() {
         ? { ...profile.causeJarBalances, [skip.projectId]: Math.max(0, (profile.causeJarBalances?.[skip.projectId] ?? 0) - giveAllocAmount) }
         : profile.causeJarBalances,
     });
-    // Sync community feed (fire-and-forget; may not exist for old/unshared skips)
-    deleteCommunityFeedItem(skip.id);
   }
 
   async function editDonation(donation: DonationEvent, newAmount: number, date?: string): Promise<void> {

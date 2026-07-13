@@ -4,9 +4,6 @@ import {
   setDoc,
   updateDoc,
   serverTimestamp,
-  increment,
-  writeBatch,
-  runTransaction,
   collection,
   query,
   orderBy,
@@ -19,7 +16,7 @@ import {
 import { User } from "firebase/auth";
 import { db } from "./config";
 import { UserProfile, DonationEvent, SpendingHistoryEvent, SpendingGoal } from "@/lib/types/models";
-import { xpForSkip, levelForXp } from "@/lib/utils/xp";
+import { apiRequest } from "./apiClient";
 
 export function normalizeSpendingGoals(profile: UserProfile): {
   goals: SpendingGoal[];
@@ -68,27 +65,7 @@ export async function completeGoal(
   currentGoals: SpendingGoal[],
   currentActiveGoalId: string | null
 ): Promise<void> {
-  const newGoals = currentGoals.filter((g) => g.id !== goalId);
-  const newActiveId =
-    currentActiveGoalId === goalId
-      ? (newGoals[0]?.id ?? null)
-      : currentActiveGoalId;
-  const batch = writeBatch(db);
-  batch.set(doc(collection(db, "users", uid, "spendingHistory")), {
-    goalId,
-    label,
-    targetAmount,
-    amountSaved,
-    purchasedAt: serverTimestamp(),
-  });
-  batch.update(doc(db, "users", uid), {
-    totalSpent: increment(amountSaved),
-    spendingGoals: newGoals,
-    activeSpendingGoalId: newActiveId,
-    spendingGoal: null,
-    [`goalJarBalances.${goalId}`]: 0,
-  });
-  await batch.commit();
+  await apiRequest("/api/goals/complete", "POST", { goalId, label, targetAmount });
 }
 
 export async function transferLiveToGive(
@@ -99,15 +76,7 @@ export async function transferLiveToGive(
   currentActiveGoalId: string | null
 ): Promise<void> {
   if (amount <= 0) return;
-  const newGoals = goals.filter((g) => g.id !== goalId);
-  const newActiveId =
-    currentActiveGoalId === goalId ? (newGoals[0]?.id ?? null) : currentActiveGoalId;
-  await updateDoc(doc(db, "users", uid), {
-    totalLiveAllocated: increment(-amount),
-    totalGiveAllocated: increment(amount),
-    spendingGoals: newGoals,
-    activeSpendingGoalId: newActiveId,
-  });
+  await apiRequest("/api/goals/transfer-to-give", "POST", { goalId });
 }
 
 export function normalizeJarSplit(
@@ -181,35 +150,8 @@ export async function switchCause(
   oldCauseId: string | null,
   newCauseId: string,
 ): Promise<Record<string, number> | null> {
-  const updates: Record<string, unknown> = { activeProjectId: newCauseId, joinedProjectIds: arrayUnion(newCauseId) };
-  const balanceTransfer: Record<string, number> = {};
-  let totalTransferred = 0;
-
-  // Consolidate ALL orphaned cause jar balances (not just the immediately-previous one)
-  // so users always see their full giving balance reflected in their active challenge.
-  const snap = await getDoc(doc(db, "users", uid));
-  const allJarBalances: Record<string, number> = snap.data()?.causeJarBalances ?? {};
-  for (const [causeId, bal] of Object.entries(allJarBalances)) {
-    const amount = Math.max(0, Number(bal) || 0);
-    if (causeId === newCauseId || amount === 0) continue;
-    updates[`causeJarBalances.${causeId}`] = 0;
-    balanceTransfer[causeId] = 0;
-    totalTransferred += amount;
-    // Decrement old project's totalRaised (best-effort — setDoc+merge so missing doc fails cleanly)
-    setDoc(doc(db, "projects", causeId), { totalRaised: increment(-amount) }, { merge: true }).catch(() => {});
-  }
-  if (totalTransferred > 0) {
-    updates[`causeJarBalances.${newCauseId}`] = increment(totalTransferred);
-    balanceTransfer[newCauseId] = (allJarBalances[newCauseId] ?? 0) + totalTransferred;
-  }
-
-  await updateDoc(doc(db, "users", uid), updates);
-  // Keep destination project totalRaised in sync (split write — rule only allows totalRaised alone)
-  if (totalTransferred > 0) {
-    setDoc(doc(db, "projects", newCauseId), { totalRaised: increment(totalTransferred) }, { merge: true }).catch(() => {});
-  }
-  setDoc(doc(db, "projects", newCauseId), { memberUids: arrayUnion(uid) }, { merge: true }).catch(() => {});
-  return Object.keys(balanceTransfer).length > 0 ? balanceTransfer : null;
+  const result = await apiRequest<{ balanceTransfer: Record<string, number> | null }>("/api/causes/switch", "POST", { newCauseId });
+  return result.balanceTransfer;
 }
 
 export async function switchGoal(
@@ -219,89 +161,22 @@ export async function switchGoal(
   moveFunds: boolean,
   goals: SpendingGoal[]
 ): Promise<Record<string, number> | null> {
-  const updates: Record<string, unknown> = {
-    activeSpendingGoalId: newGoalId,
-    spendingGoals: goals,
-  };
-  let balanceTransfer: Record<string, number> | null = null;
-  if (moveFunds && oldGoalId) {
-    const snap = await getDoc(doc(db, "users", uid));
-    const oldBal: number = snap.data()?.goalJarBalances?.[oldGoalId] ?? 0;
-    if (oldBal > 0) {
-      updates[`goalJarBalances.${newGoalId}`] = increment(oldBal);
-      updates[`goalJarBalances.${oldGoalId}`] = 0;
-      balanceTransfer = { [oldGoalId]: 0, [newGoalId]: oldBal };
-    }
-  }
-  await updateDoc(doc(db, "users", uid), updates);
-  return balanceTransfer;
+  const result = await apiRequest<{ balanceTransfer: Record<string, number> | null }>("/api/goals/switch", "POST", { oldGoalId, newGoalId, moveFunds });
+  return result.balanceTransfer;
 }
 
-
 export async function transferJarBalance(uid: string, fromProjectId: string, toProjectId: string): Promise<void> {
-  const snap = await getDoc(doc(db, "users", uid));
-  const bal: number = snap.data()?.causeJarBalances?.[fromProjectId] ?? 0;
-  if (bal <= 0) return;
-  await updateDoc(doc(db, "users", uid), {
-    [`causeJarBalances.${toProjectId}`]: increment(bal),
-    [`causeJarBalances.${fromProjectId}`]: 0,
-  });
-  // Keep project totals in sync (best-effort — setDoc+merge so missing doc fails cleanly)
-  setDoc(doc(db, "projects", fromProjectId), { totalRaised: increment(-bal) }, { merge: true }).catch(() => {});
-  setDoc(doc(db, "projects", toProjectId), { totalRaised: increment(bal) }, { merge: true }).catch(() => {});
+  await apiRequest("/api/causes/transfer-jar", "POST", { fromProjectId, toProjectId });
 }
 
 export async function recordDonation(uid: string, amount: number, projectId: string, projectTitle: string, date?: string): Promise<void> {
   if (amount <= 0) throw new Error("Donation amount must be greater than zero");
-  const userRef = doc(db, "users", uid);
-  const userSnap = await getDoc(userRef);
-  // Cap jar decrease at current balance so it never goes negative
-  const currentBal: number = userSnap.data()?.causeJarBalances?.[projectId] ?? 0;
-  const jarDecrease = Math.min(amount, Math.max(0, currentBal));
-  const batch = writeBatch(db);
-  batch.set(doc(collection(db, "users", uid, "donations")), {
-    causeId: projectId,
-    causeTitle: projectTitle,
-    amount,
-    jarDecrease,
-    ...(date ? { date } : {}),
-    donatedAt: serverTimestamp(),
-  });
-  batch.update(userRef, {
-    totalDonated: increment(amount),
-    savedTowardActiveCause: 0,
-    [`causeJarBalances.${projectId}`]: increment(-jarDecrease),
-    [`causeJarOverflowCounts.${projectId}`]: 0,
-  });
-  // NOTE: project.totalRaised is NOT incremented here — it was already counted when the skip was logged.
-  // Donating converts the pledged jar amount to an actual donation; no new money enters the cause total.
-  await batch.commit();
-  // Track total donated on the project doc so organizers can see it (best-effort)
-  updateDoc(doc(db, "projects", projectId), { totalDonated: increment(amount) }).catch(() => {});
-  // Record last donation date for 30-day nudge logic (best-effort)
-  updateDoc(doc(db, "users", uid), { lastDonationDate: new Date().toISOString().slice(0, 10) }).catch(() => {});
+  await apiRequest("/api/donations", "POST", { amount, projectId, projectTitle, date });
 }
 
 export async function recordPurchase(uid: string, goalId: string, goalLabel: string, targetAmount: number, amount: number): Promise<number> {
-  return runTransaction(db, async (tx) => {
-    const userRef = doc(db, "users", uid);
-    const userSnap = await tx.get(userRef);
-    const currentGoalBal: number = userSnap.data()?.goalJarBalances?.[goalId] ?? 0;
-    const jarDecrease = Math.min(amount, Math.max(0, currentGoalBal));
-    const historyRef = doc(collection(db, "users", uid, "spendingHistory"));
-    tx.set(historyRef, {
-      goalId,
-      label: goalLabel,
-      targetAmount,
-      amountSaved: jarDecrease,
-      purchasedAt: serverTimestamp(),
-    });
-    tx.update(userRef, {
-      totalSpent: increment(jarDecrease),
-      [`goalJarBalances.${goalId}`]: increment(-jarDecrease),
-    });
-    return jarDecrease;
-  });
+  const result = await apiRequest<{ jarDecrease: number }>("/api/spending-history", "POST", { goalId, goalLabel, targetAmount, amount });
+  return result.jarDecrease;
 }
 
 export function subscribeToDonations(uid: string, callback: (donations: DonationEvent[]) => void): Unsubscribe {
@@ -312,36 +187,12 @@ export function subscribeToDonations(uid: string, callback: (donations: Donation
 export async function updateDonation(uid: string, donationId: string, newAmount: number, oldAmount: number, causeId: string, date?: string): Promise<void> {
   const delta = newAmount - oldAmount;
   if (delta === 0 && date === undefined) return;
-  await runTransaction(db, async (tx) => {
-    const donationUpdates: Record<string, any> = { amount: newAmount };
-    if (date !== undefined) donationUpdates.date = date;
-    tx.update(doc(db, "users", uid, "donations", donationId), donationUpdates);
-    if (delta !== 0) {
-      const userRef = doc(db, "users", uid);
-      const userSnap = await tx.get(userRef);
-      const currentBal: number = userSnap.data()?.causeJarBalances?.[causeId] ?? 0;
-      const jarDelta = delta > 0 ? -Math.min(delta, Math.max(0, currentBal)) : -delta;
-      tx.update(userRef, {
-        totalDonated: increment(delta),
-        [`causeJarBalances.${causeId}`]: increment(jarDelta),
-      });
-    }
-  });
+  await apiRequest(`/api/donations/${donationId}`, "PATCH", { newAmount, date });
 }
 
 export async function deleteDonation(uid: string, donationId: string, amount: number, causeId: string): Promise<number> {
-  // Read jarDecrease stored at record time — restoring only what was actually taken from the jar.
-  // Old donations without jarDecrease fall back to amount (prior behaviour).
-  const donationSnap = await getDoc(doc(db, "users", uid, "donations", donationId));
-  const jarDecrease: number = donationSnap.exists() ? (donationSnap.data()?.jarDecrease ?? amount) : amount;
-  const batch = writeBatch(db);
-  batch.delete(doc(db, "users", uid, "donations", donationId));
-  batch.update(doc(db, "users", uid), {
-    totalDonated: increment(-amount),
-    [`causeJarBalances.${causeId}`]: increment(jarDecrease),
-  });
-  await batch.commit();
-  return jarDecrease;
+  const result = await apiRequest<{ jarDecrease: number }>(`/api/donations/${donationId}`, "DELETE");
+  return result.jarDecrease;
 }
 
 export function subscribeToSpendingHistory(
@@ -364,11 +215,7 @@ export async function updateSpendingHistory(
   newAmountSaved: number,
   oldAmountSaved: number
 ): Promise<void> {
-  const delta = newAmountSaved - oldAmountSaved;
-  const batch = writeBatch(db);
-  batch.update(doc(db, "users", uid, "spendingHistory", eventId), { amountSaved: newAmountSaved });
-  if (delta !== 0) batch.update(doc(db, "users", uid), { totalSpent: increment(delta) });
-  await batch.commit();
+  await apiRequest(`/api/spending-history/${eventId}`, "PATCH", { newAmountSaved });
 }
 
 export async function deleteSpendingHistory(
@@ -377,12 +224,7 @@ export async function deleteSpendingHistory(
   amountSaved: number,
   goalId?: string
 ): Promise<void> {
-  const batch = writeBatch(db);
-  batch.delete(doc(db, "users", uid, "spendingHistory", eventId));
-  const updates: Record<string, any> = { totalSpent: increment(-amountSaved) };
-  if (goalId) updates[`goalJarBalances.${goalId}`] = increment(amountSaved);
-  batch.update(doc(db, "users", uid), updates);
-  await batch.commit();
+  await apiRequest(`/api/spending-history/${eventId}`, "DELETE");
 }
 
 export async function resetActiveProjectIfRemoved(uid: string, activeProjectId: string): Promise<void> {
@@ -403,71 +245,5 @@ export async function recalculateTotals(
   uid: string,
   defaultSplit: { give: number; live: number }
 ): Promise<{ totalSaved: number; totalSkips: number; totalGiveAllocated: number; totalLiveAllocated: number; totalDonated: number; totalSpent: number; causeJarBalances: Record<string, number> }> {
-  const { getAllSkips } = await import("./skips");
-
-  // Sum all skips
-  const skips = await getAllSkips(uid);
-  const skipTotals = skips.reduce(
-    (acc, skip) => {
-      const split = skip.jarSplit ?? defaultSplit;
-      return {
-        totalSaved: acc.totalSaved + skip.amount,
-        totalSkips: acc.totalSkips + 1,
-        totalGiveAllocated: acc.totalGiveAllocated + skip.amount * (split.give / 100),
-        totalLiveAllocated: acc.totalLiveAllocated + skip.amount * (split.live / 100),
-        xp: acc.xp + xpForSkip(skip.amount),
-      };
-    },
-    { totalSaved: 0, totalSkips: 0, totalGiveAllocated: 0, totalLiveAllocated: 0, xp: 0 }
-  );
-  const recalcLevel = levelForXp(skipTotals.xp);
-
-  // Sum all donations
-  const donationsSnap = await getDocs(collection(db, "users", uid, "donations"));
-  const totalDonated = donationsSnap.docs.reduce((sum, d) => sum + ((d.data().amount as number) ?? 0), 0);
-
-  // Sum all spending history
-  const spendingSnap = await getDocs(collection(db, "users", uid, "spendingHistory"));
-  const totalSpent = spendingSnap.docs.reduce((sum, d) => sum + ((d.data().amountSaved as number) ?? 0), 0);
-
-  // Rebuild per-cause jar balances from skip history minus donations per cause
-  const causeJarBalances: Record<string, number> = {};
-  skips.forEach((skip) => {
-    const split = skip.jarSplit ?? defaultSplit;
-    if (skip.projectId) {
-      causeJarBalances[skip.projectId] = (causeJarBalances[skip.projectId] ?? 0) + skip.amount * (split.give / 100);
-    }
-  });
-  donationsSnap.docs.forEach((d) => {
-    const { causeId, amount: donAmt } = d.data() as { causeId?: string; amount?: number };
-    if (causeId) {
-      causeJarBalances[causeId] = Math.max(0, (causeJarBalances[causeId] ?? 0) - (donAmt ?? 0));
-    }
-  });
-
-  // Consolidate: when a user switches causes they always move or donate, so any
-  // non-active balance rebuilt from raw skip history is a phantom from that transfer.
-  // Exception: expired challenge balances are intentionally parked (awaiting donation).
-  const profileSnap = await getDoc(doc(db, "users", uid));
-  const activeProjectId: string | null = profileSnap.data()?.activeProjectId ?? null;
-  const nonActiveIds = Object.keys(causeJarBalances).filter((id) => id !== activeProjectId && causeJarBalances[id] > 0);
-  if (nonActiveIds.length > 0) {
-    const { getDoc: getProjectDoc, doc: projectDoc } = await import("firebase/firestore");
-    for (const id of nonActiveIds) {
-      const projSnap = await getProjectDoc(projectDoc(db, "projects", id));
-      const projData = projSnap.data();
-      const isExpiredChallenge =
-        projData?.projectKind === "challenge" &&
-        projData?.endDate?.toMillis != null &&
-        projData.endDate.toMillis() < Date.now();
-      if (!isExpiredChallenge && activeProjectId) {
-        causeJarBalances[activeProjectId] = (causeJarBalances[activeProjectId] ?? 0) + causeJarBalances[id];
-        causeJarBalances[id] = 0;
-      }
-    }
-  }
-
-  const totals = { ...skipTotals, totalDonated, totalSpent, causeJarBalances, level: recalcLevel };
-  await updateDoc(doc(db, "users", uid), totals);
-  return totals;
+  return apiRequest<{ totalSaved: number; totalSkips: number; totalGiveAllocated: number; totalLiveAllocated: number; totalDonated: number; totalSpent: number; causeJarBalances: Record<string, number> }>("/api/users/recalculate", "POST", { defaultSplit });
 }

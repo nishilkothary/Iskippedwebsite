@@ -1,27 +1,15 @@
 import {
   collection,
-  addDoc,
-  serverTimestamp,
-  writeBatch,
-  doc,
-  increment,
   query,
   orderBy,
   limit,
   getDocs,
-  getDoc,
   onSnapshot,
   Unsubscribe,
-  updateDoc,
-  setDoc,
 } from "firebase/firestore";
-import { ref, runTransaction } from "firebase/database";
-import { db, rtdb } from "./config";
+import { db } from "./config";
 import { Skip } from "@/lib/types/models";
-import { getImpactMessage } from "@/lib/constants/impactMessages";
-import { xpForSkip, levelForXp } from "@/lib/utils/xp";
-import { today, yesterday } from "@/lib/utils/dates";
-import { formatUnits } from "@/lib/utils/impact";
+import { apiRequest } from "./apiClient";
 
 export interface LogSkipParams {
   uid: string;
@@ -57,193 +45,7 @@ export interface LogSkipParams {
 }
 
 export async function logSkip(params: LogSkipParams): Promise<{ skipId: string; newTotal: number; newXp: number; newLevel: number; newStreak: number; giveJarOverflowCount?: number }> {
-  const {
-    uid, category, categoryLabel, categoryEmoji, amount,
-    projectId, projectTitle, projectLocation,
-    projectUnitName, projectUnitCost, projectUnitDisplay, projectUnitIsGoal,
-    currentTotalSaved, currentTotalSkips,
-    currentXp, currentStreak, currentLongestStreak, lastSkipDate,
-    savedTowardActiveCause, shareWithCommunity, whatSkipped, notes,
-    jarSplit, defaultJarSplit, displayName, photoURL, activeGoalId,
-  } = params;
-  // Validate and normalize: clamp give to [0,100], derive live = 100 - give
-  const rawGive = jarSplit?.give ?? defaultJarSplit?.give ?? 50;
-  const clampedGive = Math.min(100, Math.max(0, rawGive));
-  const effectiveSplit = { give: clampedGive, live: 100 - clampedGive };
-
-  const giveAmountForMessage = amount * (effectiveSplit.give / 100);
-  let causeSuffix = "";
-  if (projectTitle && projectUnitName && projectUnitCost && !projectUnitIsGoal) {
-    // Count mode: "to help pledge 25 Emergency Meals in Ukraine"
-    const unitsStr = formatUnits(giveAmountForMessage, projectUnitCost, projectUnitName);
-    causeSuffix = ` to help pledge ${unitsStr}${projectLocation ? ` in ${projectLocation}` : ""}`;
-  } else if (projectTitle && projectUnitName && projectUnitCost && projectUnitIsGoal) {
-    // % mode: "to help pledge 8% of A Chromebook for a Student to Learn Coding"
-    const pct = Math.max(1, Math.round((giveAmountForMessage / projectUnitCost) * 100));
-    causeSuffix = ` to help pledge ${pct}% of ${projectTitle}`;
-  } else if (projectTitle) {
-    causeSuffix = ` to help pledge toward ${projectTitle}`;
-  }
-
-  const giveAmount = amount * (effectiveSplit.give / 100);
-  const liveAmount = amount * (effectiveSplit.live / 100);
-
-  const todayStr = today();
-  const impactMessage = getImpactMessage(amount);
-  const xpEarned = xpForSkip(amount);
-  const newXp = currentXp + xpEarned;
-  const newLevel = levelForXp(newXp);
-  const newTotalSaved = currentTotalSaved + amount;
-  const newTotalSkips = currentTotalSkips + 1;
-  const newSavedToward = (projectId ? savedTowardActiveCause + amount : savedTowardActiveCause);
-
-  // Calculate streak
-  let newStreak = currentStreak;
-  const yesterdayStr = yesterday();
-
-  if (lastSkipDate === todayStr) {
-    // Already skipped today, no streak change
-  } else if (lastSkipDate === yesterdayStr) {
-    newStreak = currentStreak + 1;
-  } else {
-    newStreak = 1;
-  }
-
-  const newLongestStreak = Math.max(currentLongestStreak, newStreak);
-
-  // Overflow count: tracks skips taken while give jar is at/above goal
-  let newOverflowCount: number | undefined;
-  if (projectId && (params.causeGoalAmount ?? 0) > 0 && giveAmount > 0) {
-    const newJarBal = (params.causeJarBalance ?? 0) + giveAmount;
-    if (newJarBal >= params.causeGoalAmount!) {
-      newOverflowCount = (params.causeJarOverflowCount ?? 0) + 1;
-    }
-  }
-
-  // Batch write
-  const batch = writeBatch(db);
-
-  // 1. Add skip document
-  const skipRef = doc(collection(db, "users", uid, "skips"));
-  batch.set(skipRef, {
-    uid,
-    category,
-    categoryLabel,
-    categoryEmoji,
-    amount,
-    date: todayStr,
-    projectId,
-    projectTitle,
-    impactMessage,
-    createdAt: serverTimestamp(),
-    ...(whatSkipped ? { whatSkipped } : {}),
-    ...(notes ? { notes } : {}),
-    ...(jarSplit ? { jarSplit } : {}),
-  });
-
-  // 2. Update user stats
-  batch.update(doc(db, "users", uid), {
-    totalSaved: newTotalSaved,
-    totalSkips: newTotalSkips,
-    xp: newXp,
-    level: newLevel,
-    streak: newStreak,
-    longestStreak: newLongestStreak,
-    lastSkipDate: todayStr,
-    savedTowardActiveCause: newSavedToward,
-    totalGiveAllocated: increment(giveAmount),
-    totalLiveAllocated: increment(liveAmount),
-    ...(projectId    ? { [`causeJarBalances.${projectId}`]:   increment(giveAmount)  } : {}),
-    ...(activeGoalId ? { [`goalJarBalances.${activeGoalId}`]: increment(liveAmount) } : {}),
-    ...(newOverflowCount !== undefined && projectId ? { [`causeJarOverflowCounts.${projectId}`]: newOverflowCount } : {}),
-  });
-
-  // 3. Fan-out to feed
-  const feedRef = doc(collection(db, "feed", uid, "items"));
-  batch.set(feedRef, {
-    uid,
-    displayName: displayName || "Skipper",
-    ...(photoURL ? { photoURL } : {}),
-    type: "skip",
-    skipAmount: amount,
-    skipCategory: category,
-    skipEmoji: categoryEmoji,
-    projectTitle,
-    message: `skipped ${whatSkipped || categoryLabel}${causeSuffix}`,
-    createdAt: serverTimestamp(),
-  });
-
-  await batch.commit();
-
-  // Update project totals for challenge group tracking (non-atomic, best-effort).
-  // Firestore rule only allows changing one counter field per write — split into separate writes.
-  if (projectId) {
-    updateDoc(doc(db, "projects", projectId), { totalSkips: increment(1) }).catch((e) => console.warn("[logSkip] project totalSkips update failed:", e));
-    if (giveAmount > 0) {
-      updateDoc(doc(db, "projects", projectId), { totalRaised: increment(giveAmount) }).catch((e) => console.warn("[logSkip] project totalRaised update failed:", e));
-    }
-  }
-
-  // 4. Update global counters in Realtime DB
-  try {
-    const statsRef = ref(rtdb, "globalStats");
-    await runTransaction(statsRef, (current) => {
-      if (!current) {
-        return { totalSaved: amount, totalSkips: 1, totalUsers: 0 };
-      }
-      return {
-        ...current,
-        totalSaved: (current.totalSaved || 0) + amount,
-        totalSkips: (current.totalSkips || 0) + 1,
-      };
-    });
-  } catch (e) {
-    // Non-critical, continue
-  }
-
-  // 5. Community share — always visible, identity is opt-in
-  try {
-    const shareName = shareWithCommunity ?? false;
-    // Write to community feed — use skip ID as doc ID so edits/deletes can find it
-    const communityFeedRef = doc(db, "communityFeed", skipRef.id);
-    const communityBatch = writeBatch(db);
-    communityBatch.set(communityFeedRef, {
-      uid,
-      displayName: shareName ? (displayName || "Skipper") : "Anonymous",
-      ...(shareName && photoURL ? { photoURL } : {}),
-      type: "skip",
-      skipId: skipRef.id,
-      skipAmount: amount,
-      giveAmount,
-      skipCategory: category,
-      skipEmoji: categoryEmoji,
-      skipLabel: whatSkipped || categoryLabel,
-      projectId,
-      projectTitle,
-      ...(projectLocation ? { projectLocation } : {}),
-      shareName,
-      message: `skipped ${whatSkipped || categoryLabel}${causeSuffix}`,
-      createdAt: serverTimestamp(),
-    });
-    await communityBatch.commit();
-
-    // Cause counter only when identity is shared (preserves original behavior)
-    if (shareName && projectId) {
-      const causeTotalRef = ref(rtdb, `causeTotals/${projectId}`);
-      await runTransaction(causeTotalRef, (current) => (current || 0) + amount);
-    }
-  } catch (e) {
-    // Non-critical, continue
-  }
-
-  return {
-    skipId: skipRef.id,
-    newTotal: newTotalSaved,
-    newXp,
-    newLevel,
-    newStreak,
-    giveJarOverflowCount: newOverflowCount,
-  };
+  return apiRequest<{ skipId: string; newTotal: number; newXp: number; newLevel: number; newStreak: number; giveJarOverflowCount?: number }>("/api/skips", "POST", params);
 }
 
 export function subscribeToSkips(uid: string, callback: (skips: Skip[]) => void): Unsubscribe {
@@ -267,37 +69,10 @@ export async function updateSkip(
   liveAllocDelta = 0,
   projectId?: string | null
 ): Promise<void> {
-  const batch = writeBatch(db);
   const cleanUpdates = Object.fromEntries(
     Object.entries(updates).filter(([, v]) => v !== undefined)
   ) as typeof updates;
-  batch.update(doc(db, "users", uid, "skips", skipId), cleanUpdates);
-  const userUpdate: Record<string, unknown> = {};
-  if (amountDelta !== 0) userUpdate.totalSaved = increment(amountDelta);
-  if (giveAllocDelta !== 0) userUpdate.totalGiveAllocated = increment(giveAllocDelta);
-  if (liveAllocDelta !== 0) userUpdate.totalLiveAllocated = increment(liveAllocDelta);
-  if (giveAllocDelta !== 0 && projectId) userUpdate[`causeJarBalances.${projectId}`] = increment(giveAllocDelta);
-  if (Object.keys(userUpdate).length > 0) {
-    batch.update(doc(db, "users", uid), userUpdate);
-  }
-  await batch.commit();
-
-  // Sync project totalRaised after the user batch commits
-  if (projectId && giveAllocDelta !== 0) {
-    if (giveAllocDelta > 0) {
-      updateDoc(doc(db, "projects", projectId), { totalRaised: increment(giveAllocDelta) })
-        .catch((e) => console.warn("[updateSkip] project totalRaised increment failed:", e));
-    } else {
-      getDoc(doc(db, "projects", projectId))
-        .then((snap) => {
-          const current = (snap.data()?.totalRaised ?? 0) as number;
-          return updateDoc(doc(db, "projects", projectId), {
-            totalRaised: Math.max(0, current + giveAllocDelta),
-          });
-        })
-        .catch((e) => console.warn("[updateSkip] project totalRaised decrement failed:", e));
-    }
-  }
+  await apiRequest(`/api/skips/${skipId}`, "PATCH", { updates: cleanUpdates });
 }
 
 export async function deleteSkip(
@@ -308,30 +83,7 @@ export async function deleteSkip(
   liveAllocAmount = 0,
   projectId?: string | null
 ): Promise<void> {
-  const batch = writeBatch(db);
-  batch.delete(doc(db, "users", uid, "skips", skipId));
-  batch.update(doc(db, "users", uid), {
-    totalSaved: increment(-amount),
-    totalSkips: increment(-1),
-    totalGiveAllocated: increment(-giveAllocAmount),
-    totalLiveAllocated: increment(-liveAllocAmount),
-    ...(projectId ? { [`causeJarBalances.${projectId}`]: increment(-giveAllocAmount) } : {}),
-  });
-  await batch.commit();
-  // Keep project totalRaised in sync when a skip is deleted.
-  // Read current value first so we can clamp to 0 — the Firestore rule rejects writes
-  // that would make totalRaised negative, so blind increment(-x) fails when the counter
-  // has drifted below the expected value.
-  if (projectId && giveAllocAmount > 0) {
-    getDoc(doc(db, "projects", projectId))
-      .then((snap) => {
-        const current = (snap.data()?.totalRaised ?? 0) as number;
-        return updateDoc(doc(db, "projects", projectId), {
-          totalRaised: Math.max(0, current - giveAllocAmount),
-        });
-      })
-      .catch((e) => console.warn("[deleteSkip] project totalRaised update failed:", e));
-  }
+  await apiRequest(`/api/skips/${skipId}`, "DELETE");
 }
 
 export async function getRecentSkips(uid: string, count = 10): Promise<Skip[]> {

@@ -1,6 +1,7 @@
 import { initializeApp, getApps, cert, App } from "firebase-admin/app";
 import { getFirestore } from "firebase-admin/firestore";
 import { getAuth } from "firebase-admin/auth";
+import { getDatabase } from "firebase-admin/database";
 import fs from "fs";
 
 function getAdminApp(): App {
@@ -13,7 +14,10 @@ function getAdminApp(): App {
   } else {
     throw new Error("No Firebase service account configured");
   }
-  return initializeApp({ credential: cert(serviceAccount as any) });
+  return initializeApp({
+    credential: cert(serviceAccount as any),
+    databaseURL: process.env.NEXT_PUBLIC_FIREBASE_DATABASE_URL,
+  });
 }
 
 export function getAdminDb() {
@@ -22,4 +26,8 @@ export function getAdminDb() {
 
 export function getAdminAuth() {
   return getAuth(getAdminApp());
+}
+
+export function getAdminRtdb() {
+  return getDatabase(getAdminApp());
 }

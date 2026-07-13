@@ -36,72 +36,34 @@ service cloud.firestore {
       allow update: if isOwner(uid)
         // uid is immutable
         && (!incomingData().keys().hasAny(["uid"]) || incomingData().uid == uid)
-        // Financial guards: cap the magnitude of each change, floor at 0.
-        // Allows both increments (log skip) and decrements (delete skip / edit).
-        && (!incomingData().diff(resource.data).affectedKeys().hasAny(["totalSaved"])
-            || (incomingData().totalSaved is number
-                && incomingData().totalSaved >= 0
-                && (incomingData().totalSaved - resource.data.get("totalSaved", 0)) <= 10000
-                && (resource.data.get("totalSaved", 0) - incomingData().totalSaved) <= 10000))
-        && (!incomingData().diff(resource.data).affectedKeys().hasAny(["totalSkips"])
-            || (incomingData().totalSkips is number
-                && incomingData().totalSkips >= 0
-                && (incomingData().totalSkips - resource.data.get("totalSkips", 0)) <= 1
-                && (resource.data.get("totalSkips", 0) - incomingData().totalSkips) <= 1))
-        && (!incomingData().diff(resource.data).affectedKeys().hasAny(["totalDonated"])
-            || (incomingData().totalDonated is number
-                && incomingData().totalDonated >= 0
-                && (incomingData().totalDonated - resource.data.get("totalDonated", 0)) <= 10000
-                && (resource.data.get("totalDonated", 0) - incomingData().totalDonated) <= 10000))
-        && (!incomingData().diff(resource.data).affectedKeys().hasAny(["totalGiveAllocated"])
-            || (incomingData().totalGiveAllocated is number
-                && incomingData().totalGiveAllocated >= 0
-                && (incomingData().totalGiveAllocated - resource.data.get("totalGiveAllocated", 0)) <= 10000
-                && (resource.data.get("totalGiveAllocated", 0) - incomingData().totalGiveAllocated) <= 10000))
-        && (!incomingData().diff(resource.data).affectedKeys().hasAny(["totalLiveAllocated"])
-            || (incomingData().totalLiveAllocated is number
-                && (incomingData().totalLiveAllocated - resource.data.get("totalLiveAllocated", 0)) <= 10000
-                && (resource.data.get("totalLiveAllocated", 0) - incomingData().totalLiveAllocated) <= 10000));
+        // Money/derived fields are exclusively server-computed (Admin SDK writes bypass
+        // these rules). Clients may no longer touch them directly.
+        && !incomingData().diff(resource.data).affectedKeys().hasAny([
+             "totalSaved", "totalSkips", "totalDonated", "totalSpent",
+             "totalGiveAllocated", "totalLiveAllocated", "savedTowardActiveCause",
+             "xp", "level", "streak", "longestStreak", "lastSkipDate",
+             "causeJarBalances", "goalJarBalances", "causeJarOverflowCounts"
+           ]);
       allow delete: if false;
 
       // ─── Skips ──────────────────────────────────────────────────────────
+      // Written exclusively by the server (Admin SDK) via /api/skips so totals
+      // computed from this subcollection (recalculate) can't be gamed by forged docs.
       match /skips/{skipId} {
-        allow read:   if isOwner(uid);
-        allow create: if isOwner(uid)
-          && incomingData().uid == uid
-          && incomingData().amount is number
-          && incomingData().amount > 0
-          && incomingData().category is string;
-        allow update: if isOwner(uid)
-          && (!incomingData().keys().hasAny(["uid"]) || incomingData().uid == uid);
-        allow delete: if isOwner(uid);
+        allow read: if isOwner(uid);
+        allow create, update, delete: if false;
       }
 
       // ─── Donations ──────────────────────────────────────────────────────
       match /donations/{donationId} {
-        allow read:   if isOwner(uid);
-        allow create: if isOwner(uid)
-          && incomingData().amount is number
-          && incomingData().amount > 0
-          && incomingData().causeId is string
-          && incomingData().causeTitle is string;
-        allow update: if isOwner(uid)
-          && incomingData().amount is number
-          && incomingData().amount > 0;
-        allow delete: if isOwner(uid);
+        allow read: if isOwner(uid);
+        allow create, update, delete: if false;
       }
 
       // ─── Spending History ────────────────────────────────────────────────
       match /spendingHistory/{eventId} {
-        allow read:   if isOwner(uid);
-        allow create: if isOwner(uid)
-          && incomingData().label is string
-          && incomingData().amountSaved is number
-          && incomingData().amountSaved > 0;
-        allow update: if isOwner(uid)
-          && incomingData().amountSaved is number
-          && incomingData().amountSaved > 0;
-        allow delete: if isOwner(uid);
+        allow read: if isOwner(uid);
+        allow create, update, delete: if false;
       }
 
       // ─── Social Graph ────────────────────────────────────────────────────
@@ -127,28 +89,15 @@ service cloud.firestore {
         && incomingData().createdBy == request.auth.uid
         && incomingData().title is string
         && incomingData().title.size() > 0;
+      // totalRaised and totalSkips are exclusively server-computed (Admin SDK writes via
+      // /api/skips, /api/causes/*, /api/goals/* bypass these rules) — clients may no longer
+      // touch them directly, closing the prior "any authenticated user can mutate any
+      // project's totalRaised" gap.
       allow update: if isSignedIn()
+        && !incomingData().diff(resource.data).affectedKeys().hasAny(["totalRaised", "totalSkips"])
         && (
           // Owner can edit their custom cause
           (resource.data.isCustom == true && resource.data.createdBy == request.auth.uid)
-          ||
-          // Any authenticated user can update totalRaised (increment on skip, decrement on cause switch/delete)
-          // Delta capped at ±5000 per write to prevent arbitrary value injection
-          (
-            incomingData().diff(resource.data).affectedKeys().hasOnly(["totalRaised"])
-            && incomingData().totalRaised is number
-            && incomingData().totalRaised >= 0
-            && (incomingData().totalRaised - resource.data.get("totalRaised", 0)) <= 5000
-            && (resource.data.get("totalRaised", 0) - incomingData().totalRaised) <= 5000
-          )
-          ||
-          // Any authenticated user can increment totalSkips by exactly 1 per write
-          (
-            incomingData().diff(resource.data).affectedKeys().hasOnly(["totalSkips"])
-            && incomingData().totalSkips is number
-            && incomingData().totalSkips >= resource.data.get("totalSkips", 0)
-            && (incomingData().totalSkips - resource.data.get("totalSkips", 0)) <= 1
-          )
           ||
           // Any authenticated user can add only themselves to memberUids (join)
           (
@@ -174,28 +123,19 @@ service cloud.firestore {
     }
 
     // ─── Personal Fan-out Feed ───────────────────────────────────────────────
-    // The feed owner reads their own feed. The owner also writes (feed items
-    // are created client-side in the same batch as the skip document).
+    // The feed owner reads their own feed. Written exclusively by the server
+    // (Admin SDK) as part of logging a skip.
     match /feed/{uid}/items/{itemId} {
-      allow read:   if isOwner(uid);
-      allow create: if isOwner(uid) && incomingData().uid == uid;
-      allow update: if isOwner(uid) && incomingData().uid == uid;
-      allow delete: if isOwner(uid);
+      allow read: if isOwner(uid);
+      allow create, update, delete: if false;
     }
 
     // ─── Community Feed ──────────────────────────────────────────────────────
-    // All signed-in users can read. A user can create a feed item if the doc ID
-    // matches their skip (document ID = skipId, uid field = caller). They can
-    // only delete or update their own items.
+    // All signed-in users can read. Written exclusively by the server (Admin SDK)
+    // as part of the skip create/update/delete API routes.
     match /communityFeed/{skipId} {
-      allow read:   if isSignedIn();
-      allow create: if isSignedIn()
-        && incomingData().uid == request.auth.uid;
-      allow update: if isSignedIn()
-        && resource.data.uid == request.auth.uid
-        && incomingData().uid == request.auth.uid;
-      allow delete: if isSignedIn()
-        && resource.data.uid == request.auth.uid;
+      allow read: if isSignedIn();
+      allow create, update, delete: if false;
     }
 
     // ─── Deny everything else ────────────────────────────────────────────────

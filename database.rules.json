@@ -4,12 +4,12 @@
     ".write": false,
     "globalStats": {
       ".read": true,
-      ".write": "auth !== null"
+      ".write": false
     },
     "causeTotals": {
       ".read": true,
       "$projectId": {
-        ".write": "auth !== null"
+        ".write": false
       }
     }
   }
