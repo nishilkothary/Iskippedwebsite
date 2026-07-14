@@ -6,7 +6,7 @@ import { useAuthStore } from "@/store/authStore";
 import { useProjects } from "@/hooks/useProjects";
 import { Project } from "@/lib/types/models";
 import { joinProject, switchCause, setUserCauseGoal, normalizeJarSplit } from "@/lib/services/firebase/users";
-import { isChallengeProject } from "@/lib/services/firebase/projects";
+import { isChallengeProject, getProject } from "@/lib/services/firebase/projects";
 import { formatCurrency } from "@/lib/utils/currency";
 import { getChallengeCountdown } from "@/lib/utils/dates";
 
@@ -33,7 +33,6 @@ type ChallengeView = {
 function challengeTitle(project: Project): string {
   if (project.isCustom) return project.title;
   if (project.tags?.includes("food")) return "Meals for Families";
-  if (project.sponsor === "Malaria Consortium") return "Malaria Prevention Challenge";
   return project.groupName ?? project.title;
 }
 
@@ -197,13 +196,39 @@ export default function ChallengeDetailPage() {
     : `/join/${challengeId}`;
   const canNativeShare = typeof navigator !== "undefined" && typeof navigator.share === "function";
 
+  // The projects list comes from a whole-collection snapshot that fires from
+  // the local cache first (without a just-created challenge) and only later
+  // from the server. To avoid flashing "Challenge not found" for a freshly
+  // shared link, fall back to a direct single-doc lookup for this exact id and
+  // hold judgement until that definitive lookup has completed.
+  const listedProject = useMemo(
+    () => projects.find((item) => item.id === challengeId) ?? null,
+    [projects, challengeId],
+  );
+  const [fallbackProject, setFallbackProject] = useState<Project | null>(null);
+  const [fallbackChecked, setFallbackChecked] = useState(false);
+
+  useEffect(() => {
+    if (!challengeId || listedProject) {
+      setFallbackChecked(Boolean(listedProject));
+      return;
+    }
+    let cancelled = false;
+    setFallbackChecked(false);
+    getProject(challengeId)
+      .then((project) => { if (!cancelled) setFallbackProject(project); })
+      .catch(() => { if (!cancelled) setFallbackProject(null); })
+      .finally(() => { if (!cancelled) setFallbackChecked(true); });
+    return () => { cancelled = true; };
+  }, [challengeId, listedProject]);
+
   const challenge = useMemo(() => {
-    const project = projects.find((item) => item.id === challengeId);
+    const project = listedProject ?? fallbackProject;
     return project && (isChallengeProject(project) || !project.isCustom) ? challengeFromProject(project) : null;
-  }, [projects, challengeId]);
+  }, [listedProject, fallbackProject]);
 
   if (!challenge) {
-    if (projectsLoading) {
+    if (projectsLoading || !fallbackChecked) {
       return (
         <div className="min-h-screen flex items-center justify-center" style={{ background: "var(--bg-base)" }}>
           <div className="w-8 h-8 border-4 border-t-transparent rounded-full animate-spin" style={{ borderColor: "var(--green-primary)", borderTopColor: "transparent" }} />

@@ -1,5 +1,6 @@
 ﻿"use client";
 import { useEffect, useState, Suspense } from "react";
+import { toast } from "sonner";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useAuthStore } from "@/store/authStore";
 import { useSkips } from "@/hooks/useSkips";
@@ -85,7 +86,14 @@ function JarsPageInner() {
   const spendingBalance = globalSpendingBalance;
 
   async function handleSelectCause(project: Project) {
-    const transfer = await switchCause(user!.uid, activeProject?.id ?? null, project.id);
+    let transfer;
+    try {
+      transfer = await switchCause(user!.uid, activeProject?.id ?? null, project.id);
+    } catch (err) {
+      console.error("switchCause failed", err);
+      toast.error("Couldn't switch your cause — check your connection and try again.");
+      return;
+    }
     const currentBalances = profile!.causeJarBalances ?? {};
     const newCauseJarBalances = transfer
       ? Object.fromEntries(
@@ -150,7 +158,14 @@ function JarsPageInner() {
   }
 
   async function handleSetActiveGoal(goalId: string, moveFunds = false) {
-    const transfer = await switchGoal(user!.uid, activeSpendingGoalId, goalId, moveFunds, spendingGoals);
+    let transfer;
+    try {
+      transfer = await switchGoal(user!.uid, activeSpendingGoalId, goalId, moveFunds, spendingGoals);
+    } catch (err) {
+      console.error("switchGoal failed", err);
+      toast.error("Couldn't switch your reward — check your connection and try again.");
+      return;
+    }
     const currentBalances = profile!.goalJarBalances ?? {};
     const newGoalJarBalances = transfer
       ? Object.fromEntries(
@@ -163,15 +178,21 @@ function JarsPageInner() {
   async function handleCompleteGoal(goalId: string) {
     const goal = spendingGoals.find((g) => g.id === goalId);
     if (!goal) return;
-    await completeGoal(
-      user!.uid,
-      goalId,
-      goal.label,
-      goal.targetAmount,
-      spendingBalance,
-      spendingGoals,
-      activeSpendingGoalId
-    );
+    try {
+      await completeGoal(
+        user!.uid,
+        goalId,
+        goal.label,
+        goal.targetAmount,
+        spendingBalance,
+        spendingGoals,
+        activeSpendingGoalId
+      );
+    } catch (err) {
+      console.error("completeGoal failed", err);
+      toast.error("Couldn't complete your reward — check your connection and try again.");
+      return;
+    }
     const newGoals = spendingGoals.filter((g) => g.id !== goalId);
     const newActiveId =
       activeSpendingGoalId === goalId ? (newGoals[0]?.id ?? null) : activeSpendingGoalId;
@@ -189,7 +210,13 @@ function JarsPageInner() {
   }
 
   async function handleMoveToGive(goalId: string) {
-    await transferLiveToGive(user!.uid, spendingBalance, spendingGoals, goalId, activeSpendingGoalId);
+    try {
+      await transferLiveToGive(user!.uid, spendingBalance, spendingGoals, goalId, activeSpendingGoalId);
+    } catch (err) {
+      console.error("transferLiveToGive failed", err);
+      toast.error("Couldn't move your funds — check your connection and try again.");
+      return;
+    }
     const newGoals = spendingGoals.filter((g) => g.id !== goalId);
     const newActiveId =
       activeSpendingGoalId === goalId ? (newGoals[0]?.id ?? null) : activeSpendingGoalId;
@@ -219,11 +246,19 @@ function JarsPageInner() {
     onMoveToGive: handleMoveToGive,
     onPurchase: async (amount: number) => {
       if (!activeSpendingGoalId || !activeGoal) return;
-      const jarDecrease = await recordPurchase(user.uid, activeSpendingGoalId, activeGoal.label, activeGoal.targetAmount, amount);
+      let jarDecrease: number;
+      try {
+        jarDecrease = await recordPurchase(user.uid, activeSpendingGoalId, activeGoal.label, activeGoal.targetAmount, amount);
+      } catch (err) {
+        console.error("recordPurchase failed", err);
+        toast.error("Couldn't log your purchase — check your connection and try again.");
+        return;
+      }
       updateProfile({
         totalSpent: (profile.totalSpent ?? 0) + jarDecrease,
         goalJarBalances: { ...(profile.goalJarBalances ?? {}), [activeSpendingGoalId]: Math.max(0, (profile.goalJarBalances?.[activeSpendingGoalId] ?? 0) - jarDecrease) },
       });
+      toast.success("Purchase logged.");
     },
     onEditHistory: (event: SpendingHistoryEvent, newAmount: number) => {
       updateProfile({ totalSpent: (profile.totalSpent ?? 0) + (newAmount - event.amountSaved) });
@@ -334,12 +369,12 @@ function JarsPageInner() {
               await refetch();
             }}
             onDeleteCause={handleDeleteCause}
-            onDonate={(amount) =>
-              donate(amount, activeProject?.id ?? "giving", activeProject?.title ?? "Giving")
-            }
-            onDonateCompleted={(amount, projectId, projectTitle) =>
-              donate(amount, projectId, projectTitle)
-            }
+            onDonate={async (amount) => {
+              await donate(amount, activeProject?.id ?? "giving", activeProject?.title ?? "Giving");
+            }}
+            onDonateCompleted={async (amount, projectId, projectTitle) => {
+              await donate(amount, projectId, projectTitle);
+            }}
             onEditDonation={editDonation}
             onDeleteDonation={deleteDonation}
             onShowCommunityChallenges={() => router.push("/challenges")}

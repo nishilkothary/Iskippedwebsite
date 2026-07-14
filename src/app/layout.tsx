@@ -1,6 +1,7 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import { Geist } from "next/font/google";
 import Script from "next/script";
+import { Toaster } from "sonner";
 import "./globals.css";
 import { AuthProvider } from "@/components/AuthProvider";
 
@@ -34,6 +35,10 @@ export const metadata: Metadata = {
   },
 };
 
+export const viewport: Viewport = {
+  themeColor: "#0B1A14",
+};
+
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="en" className={`${geistSans.variable} h-full antialiased`}>
@@ -46,6 +51,17 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           gtag('config', 'G-WSEL7FDPLJ');
         `}</Script>
         <AuthProvider>{children}</AuthProvider>
+        <Toaster
+          position="bottom-center"
+          toastOptions={{
+            style: {
+              background: "var(--bg-surface-1)",
+              border: "1px solid var(--border-emphasis)",
+              color: "var(--text-primary)",
+              borderRadius: "14px",
+            },
+          }}
+        />
       </body>
     </html>
   );

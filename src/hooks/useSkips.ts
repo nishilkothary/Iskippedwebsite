@@ -1,5 +1,6 @@
 "use client";
 import { useEffect, useState } from "react";
+import { toast } from "sonner";
 import { useAuthStore } from "@/store/authStore";
 import { useSkipStore } from "@/store/skipStore";
 import { subscribeToSkips, logSkip, LogSkipParams, updateSkip as firebaseUpdateSkip, deleteSkip as firebaseDeleteSkip } from "@/lib/services/firebase/skips";
@@ -74,14 +75,24 @@ export function useSkips() {
         });
       }
       return result;
+    } catch (err) {
+      console.error("logSkip failed", err);
+      toast.error("Couldn't save your skip — check your connection and try again.");
+      return null;
     } finally {
       setLogging(false);
     }
   }
 
-  async function donate(amount: number, projectId: string, projectTitle: string, date?: string): Promise<void> {
-    if (!user || !profile) return;
-    await recordDonation(user.uid, amount, projectId, projectTitle, date);
+  async function donate(amount: number, projectId: string, projectTitle: string, date?: string): Promise<boolean> {
+    if (!user || !profile) return false;
+    try {
+      await recordDonation(user.uid, amount, projectId, projectTitle, date);
+    } catch (err) {
+      console.error("recordDonation failed", err);
+      toast.error("Couldn't log your donation — check your connection and try again.");
+      return false;
+    }
     const prevDonated = profile.causeStats?.[projectId]?.donated ?? 0;
     const prevJarBal = profile.causeJarBalances?.[projectId] ?? 0;
     updateProfile({
@@ -90,6 +101,7 @@ export function useSkips() {
       causeJarBalances: { ...profile.causeJarBalances, [projectId]: Math.max(0, prevJarBal - amount) },
       causeJarOverflowCounts: { ...(profile.causeJarOverflowCounts ?? {}), [projectId]: 0 },
     });
+    return true;
   }
 
   async function edit(
