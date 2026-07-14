@@ -113,6 +113,7 @@ export async function createOrUpdateUser(user: User): Promise<void> {
       favoriteCauseIds: [],
       jarSplit: { give: 50, live: 50 },
       spendingGoal: null,
+      emailVerified: user.emailVerified,
       createdAt: serverTimestamp(),
     };
     await setDoc(ref, profile);

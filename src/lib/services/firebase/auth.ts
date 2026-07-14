@@ -6,6 +6,7 @@ import {
   createUserWithEmailAndPassword,
   signInWithEmailAndPassword,
   sendPasswordResetEmail,
+  sendEmailVerification,
   updateProfile,
   User,
 } from "firebase/auth";
@@ -25,6 +26,11 @@ export async function signUpWithEmail(email: string, password: string, name?: st
     await updateProfile(result.user, { displayName: name.trim() });
   }
   await createOrUpdateUser(result.user);
+  try {
+    await sendEmailVerification(result.user);
+  } catch {
+    // Non-critical — the user can request another verification email from the app banner
+  }
   return result.user;
 }
 
@@ -35,6 +41,10 @@ export async function signInWithEmail(email: string, password: string): Promise<
 
 export async function resetPassword(email: string): Promise<void> {
   await sendPasswordResetEmail(auth, email);
+}
+
+export async function resendVerificationEmail(user: User): Promise<void> {
+  await sendEmailVerification(user);
 }
 
 export async function signOut(): Promise<void> {

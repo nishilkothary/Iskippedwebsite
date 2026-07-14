@@ -34,6 +34,9 @@ export function useAuth() {
           if (authUser.displayName && (!data.displayName || data.displayName === "Skipper")) {
             updateDoc(doc(db, "users", authUser.uid), { displayName: authUser.displayName });
           }
+          if (authUser.emailVerified && !data.emailVerified) {
+            updateDoc(doc(db, "users", authUser.uid), { emailVerified: true });
+          }
           if (!causeChecked.current && data.activeProjectId) {
             causeChecked.current = true;
             resetActiveProjectIfRemoved(authUser.uid, data.activeProjectId);

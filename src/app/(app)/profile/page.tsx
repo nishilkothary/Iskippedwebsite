@@ -1,11 +1,14 @@
 "use client";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
+import { toast } from "sonner";
 import { useAuthStore } from "@/store/authStore";
 import { signOut } from "@/lib/services/firebase/auth";
+import { deleteAccount } from "@/lib/services/firebase/account";
 import { formatCurrency } from "@/lib/utils/currency";
 import { normalizeJarSplit, recalculateTotals } from "@/lib/services/firebase/users";
 import { useSkips } from "@/hooks/useSkips";
+import { DeleteAccountModal } from "@/components/profile/DeleteAccountModal";
 
 export default function ProfilePage() {
   const router = useRouter();
@@ -13,6 +16,26 @@ export default function ProfilePage() {
   const { recentSkips } = useSkips();
   const [recalcState, setRecalcState] = useState<"idle" | "loading" | "done" | "error">("idle");
   const [recalcResult, setRecalcResult] = useState<{ totalSkips: number; totalSaved: number } | null>(null);
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
+
+  async function handleDeleteAccount() {
+    try {
+      await deleteAccount();
+    } catch (e: any) {
+      toast.error(e?.message || "Couldn't delete your account. Please try again.");
+      throw e;
+    }
+    toast.success("Your account has been deleted.");
+    setShowDeleteModal(false);
+    try {
+      await signOut();
+    } catch {
+      // The Auth record is already gone server-side — clear local state regardless.
+    }
+    setUser(null);
+    setProfile(null);
+    router.replace("/sign-in");
+  }
 
   if (!profile || !user) return null;
 
@@ -187,6 +210,21 @@ export default function ProfilePage() {
       >
         Sign Out
       </button>
+
+      <button
+        onClick={() => setShowDeleteModal(true)}
+        className="w-full mt-3 py-3 rounded-xl font-semibold text-sm transition-colors hover:bg-red-500/10"
+        style={{ border: "none", color: "var(--text-muted)" }}
+      >
+        Delete account
+      </button>
+
+      {showDeleteModal && (
+        <DeleteAccountModal
+          onClose={() => setShowDeleteModal(false)}
+          onConfirmed={handleDeleteAccount}
+        />
+      )}
     </div>
   );
 }
