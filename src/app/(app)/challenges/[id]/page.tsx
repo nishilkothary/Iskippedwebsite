@@ -9,6 +9,8 @@ import { switchCause, setUserCauseGoal, normalizeJarSplit } from "@/lib/services
 import { isChallengeProject, getProject } from "@/lib/services/firebase/projects";
 import { formatCurrency } from "@/lib/utils/currency";
 import { getChallengeCountdown } from "@/lib/utils/dates";
+import { appendRefParam } from "@/lib/utils/share";
+import { ShareLinksRow } from "@/components/share/ShareLinksRow";
 
 type ChallengeCategory = "Education" | "Meals" | "Health" | "Community";
 
@@ -191,9 +193,10 @@ export default function ChallengeDetailPage() {
   const [showJoinChoice, setShowJoinChoice] = useState(false);
   const [goalPickerProjectId, setGoalPickerProjectId] = useState<string | null>(null);
   const [showShare, setShowShare] = useState(false);
-  const challengeUrl = typeof window !== "undefined"
-    ? `${window.location.origin}/join/${challengeId}`
-    : `/join/${challengeId}`;
+  const challengeUrl = appendRefParam(
+    typeof window !== "undefined" ? `${window.location.origin}/join/${challengeId}` : `/join/${challengeId}`,
+    user?.uid
+  );
   const canNativeShare = typeof navigator !== "undefined" && typeof navigator.share === "function";
 
   // The projects list comes from a whole-collection snapshot that fires from
@@ -687,6 +690,7 @@ function ShareDetailModal({
   const [copiedLink, setCopiedLink] = useState(false);
   const [copiedMsg, setCopiedMsg] = useState(false);
   const shareMessage = `Join My iSkipped Group, ${title}, to help raise funds for ${projectTitle}. The challenge is simple, skip expenses in your daily life, and pledge some of your savings to this cause! ${url}`;
+  const shareIntentText = `Join My iSkipped Group, ${title}, to help raise funds for ${projectTitle}. The challenge is simple, skip expenses in your daily life, and pledge some of your savings to this cause!`;
 
   async function handleCopyLink() {
     try {
@@ -742,6 +746,10 @@ function ShareDetailModal({
           >
             {copiedLink ? "Copied!" : "Copy link"}
           </button>
+        </div>
+
+        <div className="mt-3">
+          <ShareLinksRow url={url} text={shareIntentText} />
         </div>
 
         {password && (

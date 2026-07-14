@@ -131,10 +131,11 @@ export default function ProfilePage() {
             </div>
           ))}
         </div>
-        <div className="grid grid-cols-2 gap-3">
+        <div className="grid grid-cols-3 gap-2">
           {[
             { label: "Longest Streak", value: `${profile.longestStreak} days`, emoji: "🏆" },
             { label: "Current Streak", value: `${profile.streak} days`, emoji: "🔥" },
+            { label: "Friends Joined", value: String(profile.referralCount ?? 0), emoji: "🤝" },
           ].map((s) => (
             <div key={s.label} className="p-4" style={cardStyle}>
               <p className="text-lg mb-1">{s.emoji}</p>

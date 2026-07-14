@@ -8,6 +8,8 @@ import { Project } from "@/lib/types/models";
 import { switchCause, setUserCauseGoal } from "@/lib/services/firebase/users";
 import { addCustomProject, isChallengeProject, isProjectEnded, updateCustomProject, OFFICIAL_PROJECTS, PARTNER_CHALLENGE_IDS } from "@/lib/services/firebase/projects";
 import { formatCurrency } from "@/lib/utils/currency";
+import { appendRefParam } from "@/lib/utils/share";
+import { ShareLinksRow } from "@/components/share/ShareLinksRow";
 
 type ChallengeCard = {
   project: Project;
@@ -365,7 +367,7 @@ export default function ChallengesPage() {
   }
 
   async function handleShareChallenge(challenge: ChallengeCard) {
-    const url = `${window.location.origin}/join/${challenge.project.id}`;
+    const url = appendRefParam(`${window.location.origin}/join/${challenge.project.id}`, user?.uid);
     const groupName = challenge.project.groupName ?? challenge.title;
     const msg = `Join My iSkipped Group, ${groupName}, to help raise funds for ${challenge.project.title}. The challenge is simple, skip expenses in your daily life, and pledge some of your savings to this cause!`;
     if (typeof navigator !== "undefined" && typeof navigator.share === "function") {
@@ -573,6 +575,7 @@ export default function ChallengesPage() {
       {shareChallenge && (
         <ShareChallengeModal
           challenge={shareChallenge}
+          inviterUid={user?.uid ?? null}
           onClose={() => setShareChallenge(null)}
         />
       )}
@@ -1144,18 +1147,24 @@ function ChallengeDetailModal({
 
 function ShareChallengeModal({
   challenge,
+  inviterUid,
   onClose,
 }: {
   challenge: ChallengeCard;
+  inviterUid: string | null;
   onClose: () => void;
 }) {
-  const url = typeof window !== "undefined"
-    ? `${window.location.origin}/join/${challenge.project.id}`
-    : `/join/${challenge.project.id}`;
+  const url = appendRefParam(
+    typeof window !== "undefined"
+      ? `${window.location.origin}/join/${challenge.project.id}`
+      : `/join/${challenge.project.id}`,
+    inviterUid
+  );
   const [copiedMsg, setCopiedMsg] = useState(false);
   const [copiedLink, setCopiedLink] = useState(false);
   const groupNameForMsg = challenge.project.groupName ?? challenge.title;
   const shareMessage = `Join My iSkipped Group, ${groupNameForMsg}, to help raise funds for ${challenge.project.title}. The challenge is simple, skip expenses in your daily life, and pledge some of your savings to this cause! ${url}`;
+  const shareIntentText = `Join My iSkipped Group, ${groupNameForMsg}, to help raise funds for ${challenge.project.title}. The challenge is simple, skip expenses in your daily life, and pledge some of your savings to this cause!`;
 
   async function handleCopyMessage() {
     try {
@@ -1211,6 +1220,10 @@ function ShareChallengeModal({
           >
             {copiedLink ? "Copied!" : "Copy link"}
           </button>
+        </div>
+
+        <div className="mt-3">
+          <ShareLinksRow url={url} text={shareIntentText} />
         </div>
       </div>
     </div>

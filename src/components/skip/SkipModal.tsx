@@ -10,6 +10,8 @@ import { normalizeJarSplit, normalizeSpendingGoals } from "@/lib/services/fireba
 import { formatUnits } from "@/lib/utils/impact";
 import { isChallengeProject } from "@/lib/services/firebase/projects";
 import { getChallengeCountdown } from "@/lib/utils/dates";
+import { appendRefParam } from "@/lib/utils/share";
+import { ShareLinksRow } from "@/components/share/ShareLinksRow";
 
 interface Props {
   onClose: () => void;
@@ -148,11 +150,16 @@ export function SkipModal({ onClose }: Props) {
       impactDisplay = `${formatCurrency(amount)} saved`;
     }
     const challengeURL = successActiveProject
-      ? `${typeof window !== "undefined" ? window.location.origin : "https://iskipped.com"}/join/${successActiveProject.id}`
+      ? appendRefParam(`${typeof window !== "undefined" ? window.location.origin : "https://iskipped.com"}/join/${successActiveProject.id}`, profile?.uid)
       : "https://iskipped.com";
     const shareText = successActiveProject
       ? `I skipped ${itemLabel}${impactClause}. Join the challenge and skip an expense for a good cause: ${challengeURL}`
       : `I skipped ${itemLabel}${impactClause}. Join the movement at https://iskipped.com`;
+    // Same as shareText but without the trailing URL — WhatsApp/X intents append/attach the url themselves.
+    const shareIntentText = successActiveProject
+      ? `I skipped ${itemLabel}${impactClause}. Join the challenge and skip an expense for a good cause!`
+      : `I skipped ${itemLabel}${impactClause}. Join the movement!`;
+    const shareCardURL = `/api/share-card?amount=${encodeURIComponent(amount.toFixed(2))}&item=${encodeURIComponent(itemLabel)}${causeTitle ? `&cause=${encodeURIComponent(causeTitle)}` : ""}`;
 
     // Show jar-full celebration when give jar hits/exceeds goal (first time, then every 3rd skip)
     const overflowCount = successOverflowCount ?? 0;
@@ -304,6 +311,18 @@ export function SkipModal({ onClose }: Props) {
               >
                 {copied ? "Copied!" : "Copy text"}
               </button>
+              <div className="mt-2">
+                <ShareLinksRow url={challengeURL} text={shareIntentText} />
+              </div>
+              <a
+                href={shareCardURL}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="mt-2 block text-center text-xs font-semibold hover:underline"
+                style={{ color: "var(--text-muted)" }}
+              >
+                View shareable image →
+              </a>
             </div>
           </div>
         </div>

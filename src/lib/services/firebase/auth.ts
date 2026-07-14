@@ -12,11 +12,27 @@ import {
 } from "firebase/auth";
 import { auth } from "./config";
 import { createOrUpdateUser } from "./users";
+import { apiRequest } from "./apiClient";
+import { consumeReferralCode, clearReferralCode } from "@/lib/utils/referral";
+
+async function attributeReferralIfNew(isNew: boolean, uid: string): Promise<void> {
+  if (!isNew) return;
+  const code = consumeReferralCode();
+  if (!code || code === uid) return;
+  try {
+    await apiRequest("/api/referrals/attribute", "POST", { code });
+  } catch {
+    // Non-critical — referral attribution is best-effort
+  } finally {
+    clearReferralCode();
+  }
+}
 
 export async function signInWithGoogle(): Promise<User> {
   const provider = new GoogleAuthProvider();
   const result = await signInWithPopup(auth, provider);
-  await createOrUpdateUser(result.user);
+  const isNew = await createOrUpdateUser(result.user);
+  await attributeReferralIfNew(isNew, result.user.uid);
   return result.user;
 }
 
@@ -25,7 +41,8 @@ export async function signUpWithEmail(email: string, password: string, name?: st
   if (name?.trim()) {
     await updateProfile(result.user, { displayName: name.trim() });
   }
-  await createOrUpdateUser(result.user);
+  const isNew = await createOrUpdateUser(result.user);
+  await attributeReferralIfNew(isNew, result.user.uid);
   try {
     await sendEmailVerification(result.user);
   } catch {

@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { useRouter, useParams } from "next/navigation";
+import { useRouter, useParams, useSearchParams } from "next/navigation";
 import { getDoc, doc } from "firebase/firestore";
 import { db } from "@/lib/services/firebase/config";
 import { OFFICIAL_PROJECTS } from "@/lib/services/firebase/projects";
@@ -9,6 +9,7 @@ import { useAuthStore } from "@/store/authStore";
 import { Project } from "@/lib/types/models";
 import { formatCurrency } from "@/lib/utils/currency";
 import { getChallengeCountdown } from "@/lib/utils/dates";
+import { captureReferralCode } from "@/lib/utils/referral";
 import Link from "next/link";
 
 // ── Local helpers (mirror of challenges/[id]/page.tsx) ──────────────────────
@@ -177,9 +178,17 @@ function SkipChallenge({ project }: { project: Project }) {
 export default function JoinChallengePage() {
   const router = useRouter();
   const params = useParams();
+  const searchParams = useSearchParams();
   const challengeId = typeof params?.id === "string" ? params.id : Array.isArray(params?.id) ? params.id[0] : "";
 
   const { user, isLoading: authLoading } = useAuthStore();
+
+  // Capture referral attribution as soon as the invite link lands, before the
+  // visitor navigates off to sign up — persisted to localStorage (first-touch)
+  // and redeemed by signUpWithEmail/signInWithGoogle once the account exists.
+  useEffect(() => {
+    captureReferralCode(searchParams.get("ref"));
+  }, [searchParams]);
   const [projectData, setProjectData] = useState<Project | null>(null);
   const [loading, setLoading] = useState(true);
   const [notFound, setNotFound] = useState(false);

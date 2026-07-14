@@ -15,6 +15,7 @@ import { isChallengeProject, subscribeToProject } from "@/lib/services/firebase/
 import { subscribeToCommunityFeed, subscribeToGlobalStats, getCommunityTotalSaved } from "@/lib/services/firebase/social";
 import { EditSkipModal } from "@/components/skip/EditSkipModal";
 import { FeedItem, GlobalStats, Project, Skip } from "@/lib/types/models";
+import { appendRefParam, buildWhatsAppShareUrl, buildXShareUrl } from "@/lib/utils/share";
 
 // ─── SVG Jar ───────────────────────────────────────────────────────────────
 interface JarProps {
@@ -928,7 +929,7 @@ export default function HomePage() {
               <div style={{ display: "flex", gap: 8, flexShrink: 0 }}>
                 <button
                   onClick={async () => {
-                    const url = `${window.location.origin}/challenges/${activeProject.id}`;
+                    const url = appendRefParam(`${window.location.origin}/challenges/${activeProject.id}`, user?.uid);
                     if (typeof navigator.share === "function") {
                       try { await navigator.share({ title: activeProject.title, text: `Join my iSkipped challenge: ${activeProject.title}`, url }); return; } catch { /* dismissed */ }
                     }
@@ -938,6 +939,22 @@ export default function HomePage() {
                 >
                   ↗ Invite
                 </button>
+                <a
+                  href={buildWhatsAppShareUrl(`Join my iSkipped challenge: ${activeProject.title}`, appendRefParam(`${typeof window !== "undefined" ? window.location.origin : "https://iskipped.com"}/challenges/${activeProject.id}`, user?.uid))}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  style={{ background: "rgba(37,211,102,0.12)", border: "1px solid rgba(37,211,102,0.3)", borderRadius: 999, color: "#25D366", fontSize: 11, fontWeight: 900, padding: "6px 10px", whiteSpace: "nowrap" }}
+                >
+                  WA
+                </a>
+                <a
+                  href={buildXShareUrl(`Join my iSkipped challenge: ${activeProject.title}`, appendRefParam(`${typeof window !== "undefined" ? window.location.origin : "https://iskipped.com"}/challenges/${activeProject.id}`, user?.uid))}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  style={{ background: "var(--bg-surface-3)", border: "1px solid var(--border-default)", borderRadius: 999, color: "var(--text-primary)", fontSize: 11, fontWeight: 900, padding: "6px 10px", whiteSpace: "nowrap" }}
+                >
+                  X
+                </a>
                 <button
                   onClick={() => router.push(`/challenges/${activeProject.id}`)}
                   style={{ background: "rgba(46,204,113,0.12)", border: "1px solid rgba(46,204,113,0.25)", borderRadius: 999, color: "var(--green-primary)", fontSize: 11, fontWeight: 900, padding: "6px 10px", whiteSpace: "nowrap" }}

@@ -32,17 +32,22 @@ service cloud.firestore {
                                          "totalSaved", "totalSkips", "streak"])
         && isPositiveNumber(incomingData().totalSaved)
         && isPositiveNumber(incomingData().totalSkips)
-        && isPositiveNumber(incomingData().streak);
+        && isPositiveNumber(incomingData().streak)
+        // referredBy/referralCount are set exclusively by /api/referrals/attribute and
+        // /api/skips (Admin SDK, bypasses these rules) — never by the client's initial write.
+        && !incomingData().keys().hasAny(["referredBy", "referralCount"]);
       allow update: if isOwner(uid)
         // uid is immutable
         && (!incomingData().keys().hasAny(["uid"]) || incomingData().uid == uid)
-        // Money/derived fields are exclusively server-computed (Admin SDK writes bypass
-        // these rules). Clients may no longer touch them directly.
+        // Money/derived/referral fields are exclusively server-computed (Admin SDK writes
+        // bypass these rules). Clients may no longer touch them directly — this keeps
+        // referredBy immutable and self-referral-proof once attributed.
         && !incomingData().diff(resource.data).affectedKeys().hasAny([
              "totalSaved", "totalSkips", "totalDonated", "totalSpent",
              "totalGiveAllocated", "totalLiveAllocated", "savedTowardActiveCause",
              "xp", "level", "streak", "longestStreak", "lastSkipDate",
-             "causeJarBalances", "goalJarBalances", "causeJarOverflowCounts"
+             "causeJarBalances", "goalJarBalances", "causeJarOverflowCounts",
+             "referredBy", "referralCount"
            ]);
       allow delete: if false;
 

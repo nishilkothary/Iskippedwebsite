@@ -11,6 +11,8 @@ import { getChallengeCountdown } from "@/lib/utils/dates";
 import { doc, getDoc } from "firebase/firestore";
 import { db } from "@/lib/services/firebase/config";
 import { Project, FeedItem } from "@/lib/types/models";
+import { appendRefParam } from "@/lib/utils/share";
+import { ShareLinksRow } from "@/components/share/ShareLinksRow";
 
 export default function ManageChallengePage() {
   const params = useParams();
@@ -73,9 +75,10 @@ export default function ManageChallengePage() {
     .filter((item) => item.projectId === challengeId || item.projectTitle === challenge.title)
     .slice(0, 10);
 
-  const challengeUrl = typeof window !== "undefined"
-    ? `${window.location.origin}/challenges/${challengeId}`
-    : `/challenges/${challengeId}`;
+  const challengeUrl = appendRefParam(
+    typeof window !== "undefined" ? `${window.location.origin}/challenges/${challengeId}` : `/challenges/${challengeId}`,
+    user?.uid
+  );
 
   const canNativeShare = typeof navigator !== "undefined" && typeof navigator.share === "function";
   const progressPct = challenge.goalAmount > 0
@@ -84,6 +87,7 @@ export default function ManageChallengePage() {
 
   const groupLabel = challenge.groupName ? `Group - ${challenge.groupName}` : challenge.title;
   const nudgeMessage = `I'm creating an iSkipped challenge ${groupLabel}. Every time we skip a purchase we save toward this goal together: ${challenge.title}\nJoin me: ${challengeUrl}`;
+  const shareIntentText = `Join My iSkipped Group, ${challenge.groupName ?? challenge.title}, to help raise funds for ${challenge.title}. The challenge is simple, skip expenses in your daily life, and pledge some of your savings to this cause!`;
 
   async function handleArchive() {
     if (!challenge || !user) return;
@@ -329,6 +333,7 @@ export default function ManageChallengePage() {
               ↗ Share via...
             </button>
           )}
+          <ShareLinksRow url={challengeUrl} text={shareIntentText} />
         </div>
       </section>
 

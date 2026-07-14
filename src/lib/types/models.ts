@@ -47,6 +47,10 @@ export interface UserProfile {
   emailVerified?: boolean;
   /** null once profile is created for a new user, set to a timestamp when the first-run onboarding flow is completed/skipped. Absent (undefined) on profiles created before onboarding existed. */
   onboardingCompletedAt?: Timestamp | null;
+  /** uid of the inviter, set once via /api/referrals/attribute on signup. Immutable — server-only write. */
+  referredBy?: string | null;
+  /** Count of referred users whose first skip reward has been granted ("Friends joined"). Server-only write. */
+  referralCount?: number;
 }
 
 export interface SkipCategory {

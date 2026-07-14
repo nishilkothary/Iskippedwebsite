@@ -87,10 +87,11 @@ export function normalizeJarSplit(
   return { give: raw.giving ?? 50, live: raw.spending ?? 50 };
 }
 
-export async function createOrUpdateUser(user: User): Promise<void> {
+export async function createOrUpdateUser(user: User): Promise<boolean> {
   const ref = doc(db, "users", user.uid);
   const snap = await getDoc(ref);
-  if (!snap.exists()) {
+  const isNew = !snap.exists();
+  if (isNew) {
     const profile: Omit<UserProfile, "createdAt"> & { createdAt: any } = {
       uid: user.uid,
       displayName: user.displayName || "Skipper",
@@ -119,6 +120,7 @@ export async function createOrUpdateUser(user: User): Promise<void> {
     };
     await setDoc(ref, profile);
   }
+  return isNew;
 }
 
 export async function completeOnboarding(uid: string): Promise<void> {

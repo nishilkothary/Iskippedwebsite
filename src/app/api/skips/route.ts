@@ -4,7 +4,7 @@ import { getAdminDb, getAdminRtdb } from "@/lib/services/firebaseAdmin";
 import { requireUid, ApiError, handleApiError } from "@/lib/services/apiAuth";
 import { normalizeJarSplitServer, normalizeSpendingGoalsServer, validateAmount, validateNonEmptyString } from "@/lib/services/serverProfileDefaults";
 import { getImpactMessage } from "@/lib/constants/impactMessages";
-import { xpForSkip, levelForXp } from "@/lib/utils/xp";
+import { xpForSkip, levelForXp, REFERRAL_BONUS_XP } from "@/lib/utils/xp";
 import { today, yesterday } from "@/lib/utils/dates";
 import { formatUnits } from "@/lib/utils/impact";
 import { UserProfile } from "@/lib/types/models";
@@ -44,6 +44,14 @@ export async function POST(req: NextRequest) {
       if (!userSnap.exists) throw new ApiError(404, "User not found");
       const profile = userSnap.data() as UserProfile;
 
+      // Referral reward: only on the referee's FIRST logged skip (prevents empty-account
+      // farming). Read the referrer doc now — all transaction reads must precede writes.
+      const isFirstSkip = (profile.totalSkips ?? 0) === 0;
+      const referrerRef = isFirstSkip && profile.referredBy ? db.collection("users").doc(profile.referredBy) : null;
+      const referrerSnap = referrerRef ? await tx.get(referrerRef) : null;
+      const referrerProfile = referrerSnap?.exists ? (referrerSnap.data() as UserProfile) : null;
+      const referralBonusXp = referrerProfile ? REFERRAL_BONUS_XP : 0;
+
       const defaultJarSplit = normalizeJarSplitServer(profile.jarSplit as any);
       const rawGive = rawJarSplit?.give ?? defaultJarSplit.give;
       const clampedGive = Math.min(100, Math.max(0, rawGive));
@@ -53,7 +61,7 @@ export async function POST(req: NextRequest) {
 
       const activeGoalId = normalizeSpendingGoalsServer(profile).activeId;
 
-      const xpEarned = xpForSkip(amount);
+      const xpEarned = xpForSkip(amount) + referralBonusXp;
       const newXp = (profile.xp ?? 0) + xpEarned;
       const newLevel = levelForXp(newXp);
       const newTotalSaved = (profile.totalSaved ?? 0) + amount;
@@ -138,6 +146,15 @@ export async function POST(req: NextRequest) {
         message,
         createdAt: FieldValue.serverTimestamp(),
       });
+
+      if (referrerRef && referrerProfile) {
+        const referrerNewXp = (referrerProfile.xp ?? 0) + REFERRAL_BONUS_XP;
+        tx.update(referrerRef, {
+          xp: referrerNewXp,
+          level: levelForXp(referrerNewXp),
+          referralCount: FieldValue.increment(1),
+        });
+      }
 
       return { giveAmount, newTotalSaved, newXp, newLevel, newStreak, newOverflowCount, message };
     });
