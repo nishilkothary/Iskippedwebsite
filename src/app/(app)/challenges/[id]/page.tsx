@@ -5,7 +5,7 @@ import { useParams, useRouter } from "next/navigation";
 import { useAuthStore } from "@/store/authStore";
 import { useProjects } from "@/hooks/useProjects";
 import { Project } from "@/lib/types/models";
-import { joinProject, switchCause, setUserCauseGoal, normalizeJarSplit } from "@/lib/services/firebase/users";
+import { switchCause, setUserCauseGoal, normalizeJarSplit } from "@/lib/services/firebase/users";
 import { isChallengeProject, getProject } from "@/lib/services/firebase/projects";
 import { formatCurrency } from "@/lib/utils/currency";
 import { getChallengeCountdown } from "@/lib/utils/dates";
@@ -249,7 +249,6 @@ export default function ChallengeDetailPage() {
   }
 
   const isActive = challenge.project.id === profile?.activeProjectId;
-  const isJoined = new Set([...(profile?.joinedProjectIds ?? []), ...(profile?.activeProjectId ? [profile.activeProjectId] : [])]).has(challenge.project.id);
   const countdown = getChallengeCountdown(challenge.project);
   const activeChallenge = projects.find((item) => item.id === profile?.activeProjectId);
   const activePledgeBalance = profile?.activeProjectId ? profile?.causeJarBalances?.[profile.activeProjectId] ?? 0 : 0;
@@ -286,27 +285,22 @@ export default function ChallengeDetailPage() {
       setShowJoinChoice(true);
       return;
     }
-    await completeJoin(true);
+    await completeJoin();
   }
 
-  async function completeJoin(makeActive: boolean) {
+  async function completeJoin() {
     if (!user || !challenge || joining) return;
     setJoining(true);
     try {
-      if (makeActive) {
-        const balanceTransfer = await switchCause(user.uid, profile?.activeProjectId ?? null, challenge.project.id);
-        updateProfile({
-          activeProjectId: challenge.project.id,
-          joinedProjectIds: Array.from(new Set([...(profile?.joinedProjectIds ?? []), challenge.project.id])),
-          ...(balanceTransfer
-            ? { causeJarBalances: { ...(profile?.causeJarBalances ?? {}), ...balanceTransfer } }
-            : {}),
-        });
-        setGoalPickerProjectId(challenge.project.id);
-      } else {
-        await joinProject(user.uid, challenge.project.id, false);
-        updateProfile({ joinedProjectIds: Array.from(new Set([...(profile?.joinedProjectIds ?? []), challenge.project.id])) });
-      }
+      const balanceTransfer = await switchCause(user.uid, profile?.activeProjectId ?? null, challenge.project.id);
+      updateProfile({
+        activeProjectId: challenge.project.id,
+        joinedProjectIds: Array.from(new Set([...(profile?.joinedProjectIds ?? []), challenge.project.id])),
+        ...(balanceTransfer
+          ? { causeJarBalances: { ...(profile?.causeJarBalances ?? {}), ...balanceTransfer } }
+          : {}),
+      });
+      setGoalPickerProjectId(challenge.project.id);
       setShowJoinChoice(false);
     } finally {
       setJoining(false);
@@ -537,7 +531,7 @@ export default function ChallengeDetailPage() {
               {activePledgeBalance > 0 && (
                 <button
                   type="button"
-                  onClick={() => completeJoin(true)}
+                  onClick={() => completeJoin()}
                   disabled={joining}
                   className="py-3 rounded-full text-sm font-black disabled:opacity-60"
                   style={{ border: "1px solid var(--border-emphasis)", color: "var(--green-primary)" }}
@@ -545,19 +539,10 @@ export default function ChallengeDetailPage() {
                   Keep pledge and move it here
                 </button>
               )}
-              <button
-                type="button"
-                onClick={() => completeJoin(false)}
-                disabled={joining}
-                className="py-3 rounded-full text-sm font-black disabled:opacity-60"
-                style={{ border: "1px solid var(--border-emphasis)", color: "var(--green-primary)" }}
-              >
-                Join Only
-              </button>
               {activePledgeBalance === 0 && (
                 <button
                   type="button"
-                  onClick={() => completeJoin(true)}
+                  onClick={() => completeJoin()}
                   disabled={joining}
                   className="py-3 rounded-full text-sm font-black disabled:opacity-60"
                   style={{

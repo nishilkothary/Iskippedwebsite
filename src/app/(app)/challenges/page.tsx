@@ -5,7 +5,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { useAuthStore } from "@/store/authStore";
 import { useProjects } from "@/hooks/useProjects";
 import { Project } from "@/lib/types/models";
-import { joinProject, switchCause, setUserCauseGoal } from "@/lib/services/firebase/users";
+import { switchCause, setUserCauseGoal } from "@/lib/services/firebase/users";
 import { addCustomProject, isChallengeProject, isProjectEnded, updateCustomProject, OFFICIAL_PROJECTS } from "@/lib/services/firebase/projects";
 import { formatCurrency } from "@/lib/utils/currency";
 
@@ -219,7 +219,7 @@ export default function ChallengesPage() {
       setJoinChoice(challenge);
       return;
     }
-    await completeJoin(challenge, true);
+    await completeJoin(challenge);
   }
 
   async function handleJoin(challenge: ChallengeCard) {
@@ -227,36 +227,22 @@ export default function ChallengesPage() {
     await beginJoin(challenge);
   }
 
-  async function completeJoin(challenge: ChallengeCard, makeActive: boolean) {
+  async function completeJoin(challenge: ChallengeCard) {
     if (!user || joiningId) return;
     // Close any choice modal immediately so the user gets instant feedback
     setJoinChoice(null);
     setJoiningId(challenge.project.id);
     try {
-      if (makeActive) {
-        const balanceTransfer = await switchCause(user.uid, profile?.activeProjectId ?? null, challenge.project.id);
-        // Merge balance transfer into local state:
-        // - old cause: set to 0 (final value)
-        // - new cause: add the transferred amount (delta) to whatever was already there
-        const newCauseBalances = { ...(profile?.causeJarBalances ?? {}) };
-        if (balanceTransfer) {
-          const oldId = profile?.activeProjectId;
-          if (oldId) newCauseBalances[oldId] = 0;
-          const transferred = balanceTransfer[challenge.project.id];
-          if (transferred && transferred > 0) {
-            newCauseBalances[challenge.project.id] = (newCauseBalances[challenge.project.id] ?? 0) + transferred;
-          }
-        }
-        updateProfile({
-          activeProjectId: challenge.project.id,
-          joinedProjectIds: Array.from(new Set([...(profile?.joinedProjectIds ?? []), challenge.project.id])),
-          causeJarBalances: newCauseBalances,
-        });
-        setGoalPickerProjectId(challenge.project.id);
-      } else {
-        await joinProject(user.uid, challenge.project.id, false);
-        updateProfile({ joinedProjectIds: Array.from(new Set([...(profile?.joinedProjectIds ?? []), challenge.project.id])) });
-      }
+      const balanceTransfer = await switchCause(user.uid, profile?.activeProjectId ?? null, challenge.project.id);
+      const causeJarBalances = balanceTransfer
+        ? { ...(profile?.causeJarBalances ?? {}), ...balanceTransfer }
+        : profile?.causeJarBalances;
+      updateProfile({
+        activeProjectId: challenge.project.id,
+        joinedProjectIds: Array.from(new Set([...(profile?.joinedProjectIds ?? []), challenge.project.id])),
+        ...(causeJarBalances ? { causeJarBalances } : {}),
+      });
+      setGoalPickerProjectId(challenge.project.id);
     } catch (err) {
       console.error("completeJoin failed:", err);
     } finally {
@@ -277,7 +263,7 @@ export default function ChallengesPage() {
       setJoinChoice(challenge);
       shareAfterJoinId.current = challenge.project.id;
     } else {
-      await completeJoin(challenge, true);
+      await completeJoin(challenge);
       setPendingShareId(challenge.project.id);
     }
   }
@@ -329,9 +315,6 @@ export default function ChallengesPage() {
         durationDays: data.durationDays ?? null,
       });
       await refetch();
-      updateProfile({
-        joinedProjectIds: Array.from(new Set([...(profile?.joinedProjectIds ?? []), projectId])),
-      });
       setSelectedCategory("My Challenges");
       setShowCreateForm(false);
       setPendingActivationProjectId(projectId);
@@ -440,7 +423,6 @@ export default function ChallengesPage() {
               key={challenge.project.id}
               challenge={challenge}
               isActive={challenge.project.id === profile?.activeProjectId}
-              isJoined={joinedProjectIds.has(challenge.project.id)}
               isJoining={joiningId === challenge.project.id}
               canEdit={false}
               onOpen={() => router.push(`/challenges/${challenge.project.id}`)}
@@ -497,7 +479,6 @@ export default function ChallengesPage() {
                   <ChallengeListCard
                     challenge={challenge}
                     isActive={false}
-                    isJoined={true}
                     isJoining={false}
                     canEdit={false}
                     onOpen={() => router.push(`/challenges/${challenge.project.id}`)}
@@ -533,7 +514,6 @@ export default function ChallengesPage() {
               key={challenge.project.id}
               challenge={challenge}
               isActive={challenge.project.id === profile?.activeProjectId}
-              isJoined={joinedProjectIds.has(challenge.project.id)}
               isJoining={joiningId === challenge.project.id}
               canEdit={challenge.project.createdBy === user?.uid}
               onOpen={() => router.push(`/challenges/${challenge.project.id}`)}
@@ -588,7 +568,7 @@ export default function ChallengesPage() {
           onClose={() => setJoinChoice(null)}
           onDonateNow={() => router.push("/jars?tab=cause")}
 
-          onMovePledge={() => completeJoin(joinChoice, true)}
+          onMovePledge={() => completeJoin(joinChoice)}
         />
       )}
 
@@ -768,7 +748,6 @@ function ChallengeImage({ challenge, className }: { challenge: ChallengeCard; cl
 function ChallengeListCard({
   challenge,
   isActive,
-  isJoined,
   isJoining,
   canEdit,
   onOpen,
@@ -778,7 +757,6 @@ function ChallengeListCard({
 }: {
   challenge: ChallengeCard;
   isActive: boolean;
-  isJoined: boolean;
   isJoining: boolean;
   canEdit: boolean;
   onOpen: () => void;
@@ -788,7 +766,7 @@ function ChallengeListCard({
 }) {
   const endDateMs = challenge.project.endDate?.toMillis?.();
   const isExpired = challenge.project.status === "ended" || (endDateMs ? endDateMs < Date.now() : false);
-  const joinLabel = isActive || isJoined ? "Joined" : isJoining ? "Joining..." : "Join Challenge";
+  const joinLabel = isActive ? "Active" : isJoining ? "Joining..." : "Join Challenge";
   const showImage = Boolean(challenge.imageURL || !challenge.project.isCustom);
 
   return (
@@ -892,9 +870,9 @@ function ChallengeListCard({
               event.stopPropagation();
               onJoin();
             }}
-            disabled={isActive || isJoined || isJoining}
+            disabled={isActive || isJoining}
             className="mt-3 w-full py-2 rounded-xl text-xs font-bold disabled:opacity-70"
-            style={isActive || isJoined
+            style={isActive
               ? { border: "1px solid var(--border-emphasis)", color: "var(--green-primary)", background: "rgba(46,204,113,0.12)" }
               : { background: "#2ECC71", color: "#0B1A14" }
             }
