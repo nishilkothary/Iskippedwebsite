@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useAuthStore } from "@/store/authStore";
 import { useUIStore } from "@/store/uiStore";
 import { SkipModal } from "@/components/skip/SkipModal";
+import { OnboardingFlow } from "@/components/onboarding/OnboardingFlow";
 import { EmailVerificationBanner } from "@/components/EmailVerificationBanner";
 import { useProjects } from "@/hooks/useProjects";
 import { isChallengeProject, isProjectEnded } from "@/lib/services/firebase/projects";
@@ -210,8 +211,14 @@ function ChallengeBanners() {
 
 export default function AppLayout({ children }: { children: React.ReactNode }) {
   const router = useRouter();
+  const pathname = usePathname();
   const { user, profile, isLoading } = useAuthStore();
   const { showSkipPicker, setShowSkipPicker } = useUIStore();
+  const [onboardingDismissed, setOnboardingDismissed] = useState(false);
+  // Don't cover a challenge page a new user landed on via a referral/join link — let them
+  // join the specific cause they were invited to instead of steering them into the generic picker.
+  const onChallengeDetailPage = pathname.startsWith("/challenges/");
+  const showOnboarding = !onboardingDismissed && !onChallengeDetailPage && profile?.onboardingCompletedAt === null;
 
   useEffect(() => {
     if (!isLoading && !user) {
@@ -261,6 +268,8 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
       <Suspense fallback={null}>
         <MobileBottomNav />
       </Suspense>
+
+      {showOnboarding && <OnboardingFlow onDone={() => setOnboardingDismissed(true)} />}
     </div>
   );
 }

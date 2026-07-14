@@ -45,6 +45,8 @@ export interface UserProfile {
   causeJarOverflowCounts?: Record<string, number>; // skips taken while give jar ≥ goal, per cause
   weeklyEmailOptOut?: boolean;
   emailVerified?: boolean;
+  /** null once profile is created for a new user, set to a timestamp when the first-run onboarding flow is completed/skipped. Absent (undefined) on profiles created before onboarding existed. */
+  onboardingCompletedAt?: Timestamp | null;
 }
 
 export interface SkipCategory {

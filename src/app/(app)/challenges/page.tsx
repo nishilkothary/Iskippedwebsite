@@ -6,7 +6,7 @@ import { useAuthStore } from "@/store/authStore";
 import { useProjects } from "@/hooks/useProjects";
 import { Project } from "@/lib/types/models";
 import { switchCause, setUserCauseGoal } from "@/lib/services/firebase/users";
-import { addCustomProject, isChallengeProject, isProjectEnded, updateCustomProject, OFFICIAL_PROJECTS } from "@/lib/services/firebase/projects";
+import { addCustomProject, isChallengeProject, isProjectEnded, updateCustomProject, OFFICIAL_PROJECTS, PARTNER_CHALLENGE_IDS } from "@/lib/services/firebase/projects";
 import { formatCurrency } from "@/lib/utils/currency";
 
 type ChallengeCard = {
@@ -46,8 +46,6 @@ type CreateChallengeCategory =
   | "personal";
 type ChallengeVisibility = "public" | "private" | "unlisted";
 type ChallengeAccessChoice = "public" | "private";
-
-const PARTNER_CHALLENGE_IDS = ["cfc", "kc", "pop-education", "new-incentives"];
 
 const CREATE_CATEGORY_OPTIONS: { value: CreateChallengeCategory; label: string }[] = [
   { value: "education", label: "Education & school" },

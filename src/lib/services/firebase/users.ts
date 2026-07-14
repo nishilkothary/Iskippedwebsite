@@ -114,10 +114,15 @@ export async function createOrUpdateUser(user: User): Promise<void> {
       jarSplit: { give: 50, live: 50 },
       spendingGoal: null,
       emailVerified: user.emailVerified,
+      onboardingCompletedAt: null,
       createdAt: serverTimestamp(),
     };
     await setDoc(ref, profile);
   }
+}
+
+export async function completeOnboarding(uid: string): Promise<void> {
+  await updateDoc(doc(db, "users", uid), { onboardingCompletedAt: serverTimestamp() });
 }
 
 export async function updateJarSettings(

@@ -155,6 +155,9 @@ export const OFFICIAL_PROJECTS: Project[] = [
   },
 ];
 
+/** Official causes actively offered to users (pick-a-cause grids, partner challenges). The rest of OFFICIAL_PROJECTS is kept for existing users' history but no longer promoted. */
+export const PARTNER_CHALLENGE_IDS = ["cfc", "kc", "pop-education", "new-incentives"];
+
 function mergeWithOfficials(firestoreDocs: Project[]): Project[] {
   const firestoreById = new Map(firestoreDocs.map((d) => [d.id, d]));
   const officials = OFFICIAL_PROJECTS.map((p) => {
