@@ -1,0 +1,45 @@
+{
+  "version": 1,
+  "updatedAt": "2026-07-15",
+  "note": "Merchant checkout-detection config for the iSkipped extension. The extension fetches this daily, so selector fixes ship with a site deploy — no Chrome Web Store re-review. Bump `version` on every change.",
+  "merchants": [
+    {
+      "id": "amazon",
+      "label": "Amazon",
+      "hosts": ["www.amazon.com", "amazon.com"],
+      "checkoutUrlPatterns": ["/gp/cart", "/cart/", "/gp/buy", "/checkout"],
+      "cartTotalSelectors": [
+        "#sc-subtotal-amount-activecart .sc-price",
+        "#sc-subtotal-amount-buybox .sc-price",
+        ".order-summary-line-definition",
+        "#subtotals .a-color-price"
+      ],
+      "defaultCategory": "shopping",
+      "spa": false
+    },
+    {
+      "id": "doordash",
+      "label": "DoorDash",
+      "hosts": ["www.doordash.com", "doordash.com"],
+      "checkoutUrlPatterns": ["/checkout", "/cart"],
+      "cartTotalSelectors": [
+        "[data-testid='CartSubtotal'] span",
+        "[data-anchor-id='CheckoutTotal']"
+      ],
+      "defaultCategory": "food",
+      "spa": true
+    },
+    {
+      "id": "ubereats",
+      "label": "Uber Eats",
+      "hosts": ["www.ubereats.com", "ubereats.com"],
+      "checkoutUrlPatterns": ["/checkout", "/cart"],
+      "cartTotalSelectors": [
+        "[data-testid='cart-subtotal'] span",
+        "[data-testid='order-summary-total']"
+      ],
+      "defaultCategory": "food",
+      "spa": true
+    }
+  ]
+}

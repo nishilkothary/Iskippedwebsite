@@ -76,6 +76,8 @@ export interface Skip {
   whatSkipped?: string;
   notes?: string;
   jarSplit?: { give: number; live: number };
+  /** Where the skip was logged from. Absent = web app. */
+  source?: "extension";
 }
 
 export interface Project {

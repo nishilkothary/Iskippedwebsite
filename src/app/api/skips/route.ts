@@ -27,6 +27,7 @@ export async function POST(req: NextRequest) {
     const shareWithCommunity: boolean = body.shareWithCommunity === true;
     const whatSkipped: string | undefined = typeof body.whatSkipped === "string" ? body.whatSkipped : undefined;
     const notes: string | undefined = typeof body.notes === "string" ? body.notes : undefined;
+    const source: "extension" | undefined = body.source === "extension" ? "extension" : undefined;
     const displayName: string | undefined = typeof body.displayName === "string" ? body.displayName : undefined;
     const photoURL: string | null | undefined = typeof body.photoURL === "string" ? body.photoURL : undefined;
     const rawJarSplit = body.jarSplit && typeof body.jarSplit.give === "number" ? body.jarSplit : undefined;
@@ -116,6 +117,7 @@ export async function POST(req: NextRequest) {
         ...(whatSkipped ? { whatSkipped } : {}),
         ...(notes ? { notes } : {}),
         ...(rawJarSplit ? { jarSplit: effectiveSplit } : {}),
+        ...(source ? { source } : {}),
       });
 
       tx.update(userRef, {
