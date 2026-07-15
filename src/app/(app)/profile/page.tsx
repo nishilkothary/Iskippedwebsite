@@ -7,7 +7,7 @@ import { signOut } from "@/lib/services/firebase/auth";
 import { deleteAccount } from "@/lib/services/firebase/account";
 import { formatCurrency } from "@/lib/utils/currency";
 import { normalizeJarSplit, recalculateTotals } from "@/lib/services/firebase/users";
-import { isPushSupported, registerForPush, unregisterPush } from "@/lib/services/firebase/push";
+import { isPushSupported, registerForPush, unregisterPush, getPushUnsupportedReason } from "@/lib/services/firebase/push";
 import { useSkips } from "@/hooks/useSkips";
 import { DeleteAccountModal } from "@/components/profile/DeleteAccountModal";
 
@@ -20,9 +20,11 @@ export default function ProfilePage() {
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [pushSupported, setPushSupported] = useState(false);
   const [pushBusy, setPushBusy] = useState(false);
+  const [pushUnsupportedReason, setPushUnsupportedReason] = useState<string | null>(null);
 
   useEffect(() => {
     isPushSupported().then(setPushSupported);
+    getPushUnsupportedReason().then(setPushUnsupportedReason);
   }, []);
 
   async function handleTogglePush() {
@@ -256,6 +258,12 @@ export default function ProfilePage() {
               </button>
             </div>
           </div>
+        )}
+
+        {!pushSupported && pushUnsupportedReason && (
+          <p className="text-[11px] mt-3 text-center" style={{ color: "var(--text-muted)" }}>
+            (debug: push hidden — {pushUnsupportedReason})
+          </p>
         )}
       </div>
 

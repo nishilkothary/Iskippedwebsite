@@ -15,14 +15,21 @@ function isIOSNotInstalled(): boolean {
 
 /** Whether the push toggle should be shown at all — false hides it entirely (e.g. iOS Safari not added to home screen). */
 export async function isPushSupported(): Promise<boolean> {
-  if (typeof window === "undefined") return false;
-  if (!VAPID_KEY) return false;
-  if (!("serviceWorker" in navigator) || !("Notification" in window)) return false;
-  if (isIOSNotInstalled()) return false;
+  return (await getPushUnsupportedReason()) === null;
+}
+
+/** Same checks as isPushSupported, but returns *why* it failed instead of a bare boolean. Temporary debug aid — TODO remove once live push is confirmed working. */
+export async function getPushUnsupportedReason(): Promise<string | null> {
+  if (typeof window === "undefined") return "no window (server render)";
+  if (!VAPID_KEY) return "NEXT_PUBLIC_FIREBASE_VAPID_KEY is not set";
+  if (!("serviceWorker" in navigator)) return "no serviceWorker API in this browser";
+  if (!("Notification" in window)) return "no Notification API in this browser";
+  if (isIOSNotInstalled()) return "iOS but not opened from Home Screen (not standalone)";
   try {
-    return await isSupported();
-  } catch {
-    return false;
+    const supported = await isSupported();
+    return supported ? null : "firebase isSupported() returned false";
+  } catch (e) {
+    return `isSupported() threw: ${e instanceof Error ? e.message : String(e)}`;
   }
 }
 
