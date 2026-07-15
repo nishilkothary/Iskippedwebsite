@@ -51,6 +51,10 @@ export interface UserProfile {
   referredBy?: string | null;
   /** Count of referred users whose first skip reward has been granted ("Friends joined"). Server-only write. */
   referralCount?: number;
+  /** True once the user has explicitly opted in to push notifications via the profile toggle. Server-only write (via /api/push/token). */
+  pushOptIn?: boolean;
+  /** Registered FCM device tokens for this user. Server-only write (via /api/push/token). */
+  fcmTokens?: string[];
 }
 
 export interface SkipCategory {

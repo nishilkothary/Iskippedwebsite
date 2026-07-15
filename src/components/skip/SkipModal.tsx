@@ -1,6 +1,7 @@
 "use client";
 import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
+import { toast } from "sonner";
 import { useSkips } from "@/hooks/useSkips";
 import { useProjects } from "@/hooks/useProjects";
 import { useAuthStore } from "@/store/authStore";
@@ -12,6 +13,7 @@ import { isChallengeProject } from "@/lib/services/firebase/projects";
 import { getChallengeCountdown } from "@/lib/utils/dates";
 import { appendRefParam } from "@/lib/utils/share";
 import { ShareLinksRow } from "@/components/share/ShareLinksRow";
+import { isPushSupported, registerForPush } from "@/lib/services/firebase/push";
 
 interface Props {
   onClose: () => void;
@@ -21,7 +23,7 @@ export function SkipModal({ onClose }: Props) {
   const router = useRouter();
   const { log, isLogging } = useSkips();
   const { projects } = useProjects();
-  const { profile } = useAuthStore();
+  const { profile, updateProfile } = useAuthStore();
 
   const profileSplit = normalizeJarSplit(profile?.jarSplit as any);
 
@@ -43,6 +45,9 @@ export function SkipModal({ onClose }: Props) {
   const [skipGivePct, setSkipGivePct] = useState(profileSplit.give);
   const [successOverflowCount, setSuccessOverflowCount] = useState<number | undefined>(undefined);
   const [successJarBalance, setSuccessJarBalance] = useState(0);
+  const [pushSupported, setPushSupported] = useState(false);
+  const [showPushPrompt, setShowPushPrompt] = useState(false);
+  const [pushPromptBusy, setPushPromptBusy] = useState(false);
   const activeProjectForSkip = projects.find((p) => p.id === projectId) ?? null;
   const isActiveChallenge = activeProjectForSkip ? isChallengeProject(activeProjectForSkip) : false;
   // If the active project has expired, don't credit this skip to its jar
@@ -55,6 +60,10 @@ export function SkipModal({ onClose }: Props) {
       setShareWithCommunity(true);
     }
   }, [isActiveChallenge]);
+
+  useEffect(() => {
+    isPushSupported().then(setPushSupported);
+  }, []);
 
   function handleCatSelect(cat: typeof defaultCat) {
     setSelectedCat(cat);
@@ -110,6 +119,65 @@ export function SkipModal({ onClose }: Props) {
   if (success) {
     const skipGive = amount * (skipGivePct / 100);
     const successActiveProject = projects.find((p) => p.id === profile?.activeProjectId) ?? null;
+    const postLogSkipCount = (profile?.totalSkips ?? 0) + 1;
+    const isFirstSkip = postLogSkipCount === 1;
+
+    // Neutral dismiss (×, backdrop, "Maybe later") — on a first-ever skip, offer to turn on
+    // reminders before actually closing. Deliberate CTA navigations (Donate Now, Pick a cause)
+    // bypass this and close straight through.
+    function dismissSuccess() {
+      if (isFirstSkip && pushSupported && !profile?.pushOptIn) {
+        setShowPushPrompt(true);
+        return;
+      }
+      onClose();
+    }
+
+    if (showPushPrompt) {
+      return (
+        <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4" onClick={onClose}>
+          <div
+            className="rounded-2xl p-8 text-center max-w-sm w-full shadow-2xl relative"
+            style={{ background: "var(--bg-surface-1)", border: "1px solid var(--border-default)" }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <button onClick={onClose} className="absolute top-4 right-4 text-2xl leading-none" style={{ color: "var(--text-muted)" }}>×</button>
+            <div className="text-6xl mb-3">🔥</div>
+            <p className="text-2xl font-bold" style={{ color: "var(--text-primary)" }}>You&apos;re starting to make a difference</p>
+            <p className="text-sm mt-3" style={{ color: "var(--text-secondary)" }}>
+              Keep growing your savings and continue to make a difference in the world by turning on iSkipped reminders.
+            </p>
+            <button
+              onClick={async () => {
+                setPushPromptBusy(true);
+                try {
+                  await registerForPush();
+                  updateProfile({ pushOptIn: true });
+                  toast.success("Reminders are on — let's keep this going!");
+                } catch (e: any) {
+                  toast.error(e?.message || "Couldn't turn on reminders.");
+                } finally {
+                  setPushPromptBusy(false);
+                  onClose();
+                }
+              }}
+              disabled={pushPromptBusy}
+              className="mt-5 w-full font-bold py-3 rounded-xl text-sm disabled:opacity-60 disabled:cursor-not-allowed"
+              style={{ background: "#2ECC71", color: "#0B1A14", border: "none", cursor: "pointer", fontSize: 15 }}
+            >
+              {pushPromptBusy ? "Turning on…" : "🔔 Turn on reminders"}
+            </button>
+            <button
+              onClick={onClose}
+              className="mt-2 w-full py-2 text-sm"
+              style={{ background: "none", border: "none", cursor: "pointer", color: "var(--text-muted)" }}
+            >
+              Not now
+            </button>
+          </div>
+        </div>
+      );
+    }
 
     // Goal progress for "x% towards your reward" line
     const { goals: successSpendingGoals, activeId: successActiveGoalId } = normalizeSpendingGoals(profile ?? {} as any);
@@ -167,13 +235,13 @@ export function SkipModal({ onClose }: Props) {
 
     if (showJarFull && successActiveProject) {
       return (
-        <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4" onClick={onClose}>
+        <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4" onClick={dismissSuccess}>
           <div
             className="rounded-2xl p-8 text-center max-w-sm w-full shadow-2xl relative"
             style={{ background: "var(--bg-surface-1)", border: "1px solid var(--border-default)" }}
             onClick={(e) => e.stopPropagation()}
           >
-            <button onClick={onClose} className="absolute top-4 right-4 text-2xl leading-none" style={{ color: "var(--text-muted)" }}>×</button>
+            <button onClick={dismissSuccess} className="absolute top-4 right-4 text-2xl leading-none" style={{ color: "var(--text-muted)" }}>×</button>
             <div className="text-6xl mb-3">🫙</div>
             <p className="text-2xl font-bold" style={{ color: "var(--text-primary)" }}>Giving Jar Full!</p>
             <p className="font-bold text-lg mt-1" style={{ color: "#2ECC71" }}>Congratulations!</p>
@@ -192,7 +260,7 @@ export function SkipModal({ onClose }: Props) {
               Donate Now →
             </button>
             <button
-              onClick={onClose}
+              onClick={dismissSuccess}
               className="mt-2 w-full py-2 text-sm"
               style={{ background: "none", border: "none", cursor: "pointer", color: "var(--text-muted)" }}
             >
@@ -204,7 +272,6 @@ export function SkipModal({ onClose }: Props) {
     }
 
     // Show cause nudge INSTEAD of great job on skip #1 and every 3rd skip (until cause is chosen)
-    const postLogSkipCount = (profile?.totalSkips ?? 0) + 1;
     const showCauseNudge = !successActiveProject && (postLogSkipCount === 1 || postLogSkipCount % 3 === 1);
 
     if (showCauseNudge) {
@@ -212,13 +279,13 @@ export function SkipModal({ onClose }: Props) {
       const nudgePalestine = projects.find((p) => p.id === "stm-palestine");
       const nudgeUkraine = projects.find((p) => p.id === "stm-ukraine");
       return (
-        <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4" onClick={onClose}>
+        <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4" onClick={dismissSuccess}>
           <div
             className="rounded-2xl p-8 text-center max-w-sm w-full shadow-2xl relative"
             style={{ background: "var(--bg-surface-1)", border: "1px solid var(--border-default)" }}
             onClick={(e) => e.stopPropagation()}
           >
-            <button onClick={onClose} className="absolute top-4 right-4 text-2xl leading-none" style={{ color: "var(--text-muted)" }}>×</button>
+            <button onClick={dismissSuccess} className="absolute top-4 right-4 text-2xl leading-none" style={{ color: "var(--text-muted)" }}>×</button>
             <div className="text-6xl mb-3">🌍</div>
             <p className="text-2xl font-bold" style={{ color: "var(--text-primary)" }}>Your skips can change lives</p>
             <p className="font-bold text-lg mt-1" style={{ color: "var(--green-primary)" }}>{formatCurrency(amount)} saved</p>
@@ -239,7 +306,7 @@ export function SkipModal({ onClose }: Props) {
               Pick a cause →
             </button>
             <button
-              onClick={onClose}
+              onClick={dismissSuccess}
               className="mt-2 w-full py-2 text-sm"
               style={{ background: "none", border: "none", cursor: "pointer", color: "var(--text-muted)" }}
             >
@@ -252,7 +319,7 @@ export function SkipModal({ onClose }: Props) {
 
     const causeImageURL = successActiveProject?.imageURL ?? null;
     return (
-      <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4" onClick={onClose}>
+      <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4" onClick={dismissSuccess}>
         <div
           className="rounded-2xl overflow-hidden text-center max-w-sm w-full shadow-2xl relative"
           style={{ background: "var(--bg-surface-1)", border: "1px solid var(--border-default)" }}
@@ -261,10 +328,10 @@ export function SkipModal({ onClose }: Props) {
           {causeImageURL ? (
             <div className="relative">
               <img src={causeImageURL} className="w-full h-40 object-cover" alt={successProjectTitle ?? ""} />
-              <button onClick={onClose} className="absolute top-3 right-3 text-xl leading-none w-8 h-8 flex items-center justify-center rounded-full" style={{ background: "rgba(0,0,0,0.4)", color: "#fff" }}>×</button>
+              <button onClick={dismissSuccess} className="absolute top-3 right-3 text-xl leading-none w-8 h-8 flex items-center justify-center rounded-full" style={{ background: "rgba(0,0,0,0.4)", color: "#fff" }}>×</button>
             </div>
           ) : (
-            <button onClick={onClose} className="absolute top-4 right-4 text-2xl leading-none" style={{ color: "var(--text-muted)" }}>×</button>
+            <button onClick={dismissSuccess} className="absolute top-4 right-4 text-2xl leading-none" style={{ color: "var(--text-muted)" }}>×</button>
           )}
           <div className="px-8 pb-8" style={{ paddingTop: causeImageURL ? 20 : 0 }}>
             {!causeImageURL && <div className="text-6xl mb-3">🎉</div>}
@@ -318,10 +385,14 @@ export function SkipModal({ onClose }: Props) {
                 href={shareCardURL}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="mt-2 block text-center text-xs font-semibold hover:underline"
-                style={{ color: "var(--text-muted)" }}
+                className="mt-2 w-full flex items-center justify-center gap-2 font-semibold py-2 rounded-xl text-sm transition-colors"
+                style={{
+                  border: "1px solid var(--border-emphasis)",
+                  color: "var(--text-secondary)",
+                  background: "transparent",
+                }}
               >
-                View shareable image →
+                <span aria-hidden>🖼️</span> Save shareable image
               </a>
             </div>
           </div>

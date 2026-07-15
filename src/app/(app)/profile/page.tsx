@@ -1,12 +1,13 @@
 "use client";
 import { useRouter } from "next/navigation";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { toast } from "sonner";
 import { useAuthStore } from "@/store/authStore";
 import { signOut } from "@/lib/services/firebase/auth";
 import { deleteAccount } from "@/lib/services/firebase/account";
 import { formatCurrency } from "@/lib/utils/currency";
 import { normalizeJarSplit, recalculateTotals } from "@/lib/services/firebase/users";
+import { isPushSupported, registerForPush, unregisterPush } from "@/lib/services/firebase/push";
 import { useSkips } from "@/hooks/useSkips";
 import { DeleteAccountModal } from "@/components/profile/DeleteAccountModal";
 
@@ -17,6 +18,32 @@ export default function ProfilePage() {
   const [recalcState, setRecalcState] = useState<"idle" | "loading" | "done" | "error">("idle");
   const [recalcResult, setRecalcResult] = useState<{ totalSkips: number; totalSaved: number } | null>(null);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [pushSupported, setPushSupported] = useState(false);
+  const [pushBusy, setPushBusy] = useState(false);
+
+  useEffect(() => {
+    isPushSupported().then(setPushSupported);
+  }, []);
+
+  async function handleTogglePush() {
+    if (pushBusy) return;
+    setPushBusy(true);
+    try {
+      if (profile?.pushOptIn) {
+        await unregisterPush();
+        updateProfile({ pushOptIn: false });
+        toast.success("Push notifications turned off.");
+      } else {
+        await registerForPush();
+        updateProfile({ pushOptIn: true });
+        toast.success("Push notifications turned on.");
+      }
+    } catch (e: any) {
+      toast.error(e?.message || "Couldn't update push notification settings.");
+    } finally {
+      setPushBusy(false);
+    }
+  }
 
   async function handleDeleteAccount() {
     try {
@@ -196,7 +223,40 @@ export default function ProfilePage() {
           </button>
         </div>
 
-
+        {pushSupported && (
+          <div className="p-5" style={{ ...cardStyle, borderRadius: 20 }}>
+            <div className="flex items-center justify-between gap-4">
+              <div>
+                <p className="text-sm font-bold" style={{ color: "var(--text-primary)" }}>🔔 Push notifications</p>
+                <p className="text-xs mt-1" style={{ color: "var(--text-secondary)" }}>
+                  Streak reminders and challenge activity, sent to this device.
+                </p>
+              </div>
+              <button
+                onClick={handleTogglePush}
+                disabled={pushBusy}
+                role="switch"
+                aria-checked={!!profile.pushOptIn}
+                aria-label="Toggle push notifications"
+                className="relative flex-shrink-0 w-12 h-7 rounded-full transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                style={{
+                  background: profile.pushOptIn ? "var(--green-primary)" : "var(--bg-surface-3)",
+                  border: "1px solid var(--border-default)",
+                  cursor: pushBusy ? "default" : "pointer",
+                }}
+              >
+                <span
+                  className="absolute top-0.5 w-5 h-5 rounded-full transition-transform"
+                  style={{
+                    background: "#fff",
+                    left: 2,
+                    transform: profile.pushOptIn ? "translateX(20px)" : "translateX(0)",
+                  }}
+                />
+              </button>
+            </div>
+          </div>
+        )}
       </div>
 
       <button

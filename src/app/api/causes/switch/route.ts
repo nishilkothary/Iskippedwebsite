@@ -2,7 +2,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { FieldValue } from "firebase-admin/firestore";
 import { getAdminDb } from "@/lib/services/firebaseAdmin";
 import { requireUid, ApiError, handleApiError } from "@/lib/services/apiAuth";
-import { validateNonEmptyString } from "@/lib/services/serverProfileDefaults";
+import { validateNonEmptyString, isChallengeProjectServer } from "@/lib/services/serverProfileDefaults";
+import { sendPushToUser } from "@/lib/services/push";
 import { UserProfile } from "@/lib/types/models";
 
 export async function POST(req: NextRequest) {
@@ -14,7 +15,7 @@ export async function POST(req: NextRequest) {
     const db = getAdminDb();
     const userRef = db.collection("users").doc(uid);
 
-    const balanceTransfer = await db.runTransaction(async (tx) => {
+    const { balanceTransfer, displayName } = await db.runTransaction(async (tx) => {
       const userSnap = await tx.get(userRef);
       if (!userSnap.exists) throw new ApiError(404, "User not found");
       const profile = userSnap.data() as UserProfile;
@@ -47,8 +48,26 @@ export async function POST(req: NextRequest) {
         { merge: true }
       );
 
-      return Object.keys(balanceTransfer).length > 0 ? balanceTransfer : null;
+      return {
+        balanceTransfer: Object.keys(balanceTransfer).length > 0 ? balanceTransfer : null,
+        displayName: profile.displayName,
+      };
     });
+
+    // Challenge-activity push: best-effort, never fails the join itself.
+    try {
+      const projSnap = await db.collection("projects").doc(newCauseId).get();
+      const proj = projSnap.data();
+      if (proj?.createdBy && proj.createdBy !== uid && isChallengeProjectServer(proj)) {
+        await sendPushToUser(proj.createdBy, {
+          title: "🎉 New challenge member",
+          body: `${displayName || "Someone"} just joined "${proj.title || "your challenge"}"!`,
+          url: `/challenges/${newCauseId}/manage`,
+        });
+      }
+    } catch (e) {
+      console.warn("[causes/switch] challenge-join push failed:", e);
+    }
 
     return NextResponse.json({ balanceTransfer });
   } catch (e) {

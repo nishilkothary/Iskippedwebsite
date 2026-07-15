@@ -44,6 +44,15 @@ export function yesterday(): string {
   return d.toISOString().split("T")[0];
 }
 
+/** Date string (YYYY-MM-DD) for Monday of the current week — same local-Date semantics as today()/yesterday() so lastSkipDate comparisons stay consistent. */
+export function startOfWeek(): string {
+  const d = new Date();
+  const day = d.getDay(); // 0=Sun..6=Sat
+  const diffToMonday = day === 0 ? 6 : day - 1;
+  d.setDate(d.getDate() - diffToMonday);
+  return d.toISOString().split("T")[0];
+}
+
 export function formatRelativeTime(date: Date): string {
   const now = new Date();
   const diff = now.getTime() - date.getTime();

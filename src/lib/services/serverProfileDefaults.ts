@@ -52,3 +52,9 @@ export function validateNonEmptyString(value: unknown, field: string): string {
   }
   return value;
 }
+
+/** Mirror of isChallengeProject in firebase/projects.ts — dependency-free so API routes never bundle the client Firebase SDK. */
+export function isChallengeProjectServer(project: { projectKind?: string; tags?: string[]; isCustom?: boolean }): boolean {
+  if (project.projectKind) return project.projectKind === "challenge";
+  return !!project.tags?.includes("challenge") || !!project.isCustom;
+}

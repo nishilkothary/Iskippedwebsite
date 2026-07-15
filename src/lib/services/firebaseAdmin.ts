@@ -2,6 +2,7 @@ import { initializeApp, getApps, cert, App } from "firebase-admin/app";
 import { getFirestore } from "firebase-admin/firestore";
 import { getAuth } from "firebase-admin/auth";
 import { getDatabase } from "firebase-admin/database";
+import { getMessaging } from "firebase-admin/messaging";
 import fs from "fs";
 
 function getAdminApp(): App {
@@ -30,4 +31,8 @@ export function getAdminAuth() {
 
 export function getAdminRtdb() {
   return getDatabase(getAdminApp());
+}
+
+export function getAdminMessaging() {
+  return getMessaging(getAdminApp());
 }
