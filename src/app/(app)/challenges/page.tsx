@@ -9,7 +9,7 @@ import { switchCause, setUserCauseGoal } from "@/lib/services/firebase/users";
 import { addCustomProject, isChallengeProject, isProjectEnded, updateCustomProject, OFFICIAL_PROJECTS, PARTNER_CHALLENGE_IDS } from "@/lib/services/firebase/projects";
 import { formatCurrency } from "@/lib/utils/currency";
 import { appendRefParam } from "@/lib/utils/share";
-import { ShareLinksRow } from "@/components/share/ShareLinksRow";
+import { ShareButton } from "@/components/share/ShareButton";
 
 type ChallengeCard = {
   project: Project;
@@ -382,9 +382,7 @@ export default function ChallengesPage() {
   return (
     <div className="p-4 md:p-8 max-w-2xl mx-auto pb-24 md:pb-8">
       <div className="flex md:hidden items-center justify-between mb-5">
-        <p className="text-3xl font-black tracking-tight" style={{ color: "var(--text-primary)" }}>
-          i<span style={{ color: "var(--green-primary)" }}>skipped</span>
-        </p>
+        <img src="/logo-white.png" alt="iSkipped" style={{ height: 30, width: "auto" }} />
         <button
           type="button"
           onClick={() => setShowCreateForm(true)}
@@ -1224,7 +1222,7 @@ function ShareChallengeModal({
         </div>
 
         <div className="mt-3">
-          <ShareLinksRow url={url} text={shareIntentText} />
+          <ShareButton url={url} text={shareIntentText} title={groupNameForMsg} />
         </div>
       </div>
     </div>

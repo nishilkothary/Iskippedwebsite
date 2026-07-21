@@ -10,7 +10,7 @@ import { isChallengeProject, getProject } from "@/lib/services/firebase/projects
 import { formatCurrency } from "@/lib/utils/currency";
 import { getChallengeCountdown } from "@/lib/utils/dates";
 import { appendRefParam } from "@/lib/utils/share";
-import { ShareLinksRow } from "@/components/share/ShareLinksRow";
+import { ShareButton } from "@/components/share/ShareButton";
 
 type ChallengeCategory = "Education" | "Meals" | "Health" | "Community";
 
@@ -749,7 +749,7 @@ function ShareDetailModal({
         </div>
 
         <div className="mt-3">
-          <ShareLinksRow url={url} text={shareIntentText} />
+          <ShareButton url={url} text={shareIntentText} title={title} />
         </div>
 
         {password && (

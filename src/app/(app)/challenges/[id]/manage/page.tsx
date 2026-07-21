@@ -12,7 +12,7 @@ import { doc, getDoc } from "firebase/firestore";
 import { db } from "@/lib/services/firebase/config";
 import { Project, FeedItem } from "@/lib/types/models";
 import { appendRefParam } from "@/lib/utils/share";
-import { ShareLinksRow } from "@/components/share/ShareLinksRow";
+import { ShareButton } from "@/components/share/ShareButton";
 
 export default function ManageChallengePage() {
   const params = useParams();
@@ -333,7 +333,7 @@ export default function ManageChallengePage() {
               ↗ Share via...
             </button>
           )}
-          <ShareLinksRow url={challengeUrl} text={shareIntentText} />
+          <ShareButton url={challengeUrl} text={shareIntentText} title={challenge.groupName ?? challenge.title} />
         </div>
       </section>
 
