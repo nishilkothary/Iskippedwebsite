@@ -45,9 +45,7 @@ function SidebarNav({ onLogSkip }: { onLogSkip: () => void }) {
       }}
     >
       <div className="px-6 py-5" style={{ borderBottom: "1px solid var(--border-default)" }}>
-        <p className="text-2xl font-black tracking-tight" style={{ color: "var(--text-primary)" }}>
-          i<span style={{ color: "var(--green-primary)" }}>skipped</span>
-        </p>
+        <img src="/logo-white.png" alt="iSkipped" style={{ height: 26, width: "auto" }} />
       </div>
 
       <nav className="flex-1 px-3 py-4 space-y-1">
