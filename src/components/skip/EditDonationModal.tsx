@@ -2,6 +2,7 @@
 import { useState } from "react";
 import { DonationEvent } from "@/lib/types/models";
 import { useSkips } from "@/hooks/useSkips";
+import { useModalA11y } from "@/hooks/useModalA11y";
 
 interface Props {
   donation: DonationEvent;
@@ -13,6 +14,7 @@ export function EditDonationModal({ donation, onClose }: Props) {
   const [amount, setAmount] = useState(donation.amount.toString());
   const [date, setDate] = useState(donation.date ?? (donation.donatedAt?.toDate ? donation.donatedAt.toDate().toISOString().slice(0, 10) : ""));
   const [loading, setLoading] = useState(false);
+  const dialogRef = useModalA11y(onClose);
 
   async function handleSave() {
     const num = parseFloat(amount);
@@ -40,13 +42,18 @@ export function EditDonationModal({ donation, onClose }: Props) {
   return (
     <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4" onClick={onClose}>
       <div
+        ref={dialogRef}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="edit-donation-title"
+        tabIndex={-1}
         className="rounded-2xl shadow-2xl w-full max-w-sm"
-        style={{ background: "var(--bg-surface-1)", border: "1px solid var(--border-default)" }}
+        style={{ background: "var(--bg-surface-1)", border: "1px solid var(--border-default)", outline: "none" }}
         onClick={(e) => e.stopPropagation()}
       >
         <div className="flex items-center justify-between px-6 py-5" style={{ borderBottom: "1px solid var(--border-default)" }}>
-          <h2 className="text-lg font-bold" style={{ color: "var(--text-primary)" }}>Edit Donation</h2>
-          <button onClick={onClose} className="text-2xl leading-none" style={{ color: "var(--text-muted)" }}>×</button>
+          <h2 id="edit-donation-title" className="text-lg font-bold" style={{ color: "var(--text-primary)" }}>Edit Donation</h2>
+          <button onClick={onClose} aria-label="Close" className="text-2xl leading-none" style={{ color: "var(--text-muted)" }}>×</button>
         </div>
         <div className="px-6 py-5 space-y-4">
           <p className="text-sm" style={{ color: "var(--text-secondary)" }}>Donated to {donation.causeTitle}</p>

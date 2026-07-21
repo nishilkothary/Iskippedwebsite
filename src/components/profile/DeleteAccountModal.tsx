@@ -1,5 +1,6 @@
 "use client";
 import { useState } from "react";
+import { useModalA11y } from "@/hooks/useModalA11y";
 
 interface Props {
   onClose: () => void;
@@ -10,6 +11,8 @@ export function DeleteAccountModal({ onClose, onConfirmed }: Props) {
   const [confirmText, setConfirmText] = useState("");
   const [deleting, setDeleting] = useState(false);
   const canDelete = confirmText.trim().toUpperCase() === "DELETE";
+  // Match the backdrop/close behaviour: no dismissing while a delete is in flight.
+  const dialogRef = useModalA11y(deleting ? () => {} : onClose);
 
   async function handleDelete() {
     if (!canDelete || deleting) return;
@@ -29,14 +32,19 @@ export function DeleteAccountModal({ onClose, onConfirmed }: Props) {
       onClick={deleting ? undefined : onClose}
     >
       <div
+        ref={dialogRef}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="delete-account-title"
+        tabIndex={-1}
         className="rounded-2xl shadow-2xl w-full max-w-md"
-        style={{ background: "var(--bg-surface-1)", border: "1px solid var(--border-default)" }}
+        style={{ background: "var(--bg-surface-1)", border: "1px solid var(--border-default)", outline: "none" }}
         onClick={(e) => e.stopPropagation()}
       >
         <div className="flex items-center justify-between px-6 py-5" style={{ borderBottom: "1px solid var(--border-default)" }}>
-          <h2 className="text-lg font-bold" style={{ color: "var(--text-primary)" }}>Delete account</h2>
+          <h2 id="delete-account-title" className="text-lg font-bold" style={{ color: "var(--text-primary)" }}>Delete account</h2>
           {!deleting && (
-            <button onClick={onClose} className="text-2xl leading-none" style={{ color: "var(--text-muted)" }}>×</button>
+            <button onClick={onClose} aria-label="Close" className="text-2xl leading-none" style={{ color: "var(--text-muted)" }}>×</button>
           )}
         </div>
 

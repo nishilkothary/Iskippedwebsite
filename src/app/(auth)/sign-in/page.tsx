@@ -18,31 +18,6 @@ const trustPills = [
   "You stay in control",
 ];
 
-function MiniJar({ fillPct }: { fillPct: number }) {
-  const [display, setDisplay] = useState(0);
-  useEffect(() => {
-    const t = setTimeout(() => setDisplay(fillPct), 400);
-    return () => clearTimeout(t);
-  }, [fillPct]);
-  return (
-    <div className="relative flex-shrink-0" style={{ width: 44, height: 58 }}>
-      <div className="absolute inset-0 rounded-b-xl rounded-t-lg border-2 border-white/30 overflow-hidden bg-white/10">
-        <div
-          className="absolute bottom-0 left-0 right-0 bg-emerald-300"
-          style={{ height: `${display}%`, transition: "height 2s cubic-bezier(0.34,1.3,0.64,1)" }}
-        />
-        <div className="absolute inset-0 flex items-center justify-center">
-          <span className="text-[10px] font-black text-white drop-shadow">{fillPct}%</span>
-        </div>
-      </div>
-      <div
-        className="absolute top-0 left-1/2 -translate-x-1/2 border-t-2 border-x-2 border-white/30 bg-white/10 rounded-t"
-        style={{ width: "75%", height: 8 }}
-      />
-    </div>
-  );
-}
-
 function friendlyAuthError(e: any): string {
   const code = e?.code ?? "";
   if (code === "auth/popup-closed-by-user" || code === "auth/cancelled-popup-request")
@@ -365,9 +340,9 @@ function SignInPage() {
 
         {/* Community stat pill */}
         <div className="flex items-center gap-4 bg-white/10 backdrop-blur border border-white/20 rounded-2xl p-4">
-          <MiniJar fillPct={68} />
+          <span className="text-3xl flex-shrink-0" aria-hidden>🫙</span>
           <div>
-            <p className="text-white font-bold text-sm">1,247 skips logged this week</p>
+            <p className="text-white font-bold text-sm">Every skip fills your jar</p>
             <p className="text-emerald-200 text-xs mt-0.5">Join a community saving with purpose</p>
           </div>
         </div>

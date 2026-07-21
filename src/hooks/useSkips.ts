@@ -6,7 +6,6 @@ import { useSkipStore } from "@/store/skipStore";
 import { subscribeToSkips, logSkip, LogSkipParams, updateSkip as firebaseUpdateSkip, deleteSkip as firebaseDeleteSkip } from "@/lib/services/firebase/skips";
 import { normalizeJarSplit, normalizeSpendingGoals } from "@/lib/services/firebase/users";
 import { recordDonation, subscribeToDonations, updateDonation as firebaseUpdateDonation, deleteDonation as firebaseDeleteDonation } from "@/lib/services/firebase/users";
-import { DEMO_MODE } from "@/lib/constants/demo";
 import { today } from "@/lib/utils/dates";
 import { getImpactMessage } from "@/lib/constants/impactMessages";
 import { xpForSkip, levelForXp } from "@/lib/utils/xp";
@@ -18,13 +17,13 @@ export function useSkips() {
   const [donations, setDonations] = useState<DonationEvent[]>([]);
 
   useEffect(() => {
-    if (DEMO_MODE || !user) return;
+    if (!user) return;
     const unsub = subscribeToSkips(user.uid, setRecentSkips);
     return unsub;
   }, [user?.uid]);
 
   useEffect(() => {
-    if (DEMO_MODE || !user) return;
+    if (!user) return;
     const unsub = subscribeToDonations(user.uid, setDonations);
     return unsub;
   }, [user?.uid]);

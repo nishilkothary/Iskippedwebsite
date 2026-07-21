@@ -1,6 +1,7 @@
 "use client";
 import { useState } from "react";
 import { useSkips } from "@/hooks/useSkips";
+import { useModalA11y } from "@/hooks/useModalA11y";
 import { today } from "@/lib/utils/dates";
 
 interface Props {
@@ -15,6 +16,7 @@ export function DonationLogModal({ projectId, projectTitle, onClose }: Props) {
   const [date, setDate] = useState(today());
   const [loading, setLoading] = useState(false);
   const [done, setDone] = useState(false);
+  const dialogRef = useModalA11y(onClose);
 
   async function handleLog() {
     const num = parseFloat(amount);
@@ -34,13 +36,18 @@ export function DonationLogModal({ projectId, projectTitle, onClose }: Props) {
   return (
     <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4" onClick={onClose}>
       <div
+        ref={dialogRef}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="donation-log-title"
+        tabIndex={-1}
         className="rounded-2xl shadow-2xl w-full max-w-sm"
-        style={{ background: "var(--bg-surface-1)", border: "1px solid var(--border-default)" }}
+        style={{ background: "var(--bg-surface-1)", border: "1px solid var(--border-default)", outline: "none" }}
         onClick={(e) => e.stopPropagation()}
       >
         <div className="flex items-center justify-between px-6 py-5" style={{ borderBottom: "1px solid var(--border-default)" }}>
-          <h2 className="text-lg font-bold" style={{ color: "var(--text-primary)" }}>Log a Donation</h2>
-          <button onClick={onClose} className="text-2xl leading-none" style={{ color: "var(--text-muted)" }}>×</button>
+          <h2 id="donation-log-title" className="text-lg font-bold" style={{ color: "var(--text-primary)" }}>Log a Donation</h2>
+          <button onClick={onClose} aria-label="Close" className="text-2xl leading-none" style={{ color: "var(--text-muted)" }}>×</button>
         </div>
 
         <div className="px-6 py-5">

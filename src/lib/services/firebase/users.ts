@@ -113,7 +113,6 @@ export async function createOrUpdateUser(user: User): Promise<boolean> {
       lastSkipDate: null,
       favoriteCauseIds: [],
       jarSplit: { give: 50, live: 50 },
-      spendingGoal: null,
       emailVerified: user.emailVerified,
       onboardingCompletedAt: null,
       createdAt: serverTimestamp(),
@@ -129,10 +128,9 @@ export async function completeOnboarding(uid: string): Promise<void> {
 
 export async function updateJarSettings(
   uid: string,
-  jarSplit: { give: number; live: number },
-  spendingGoal: { label: string; targetAmount: number } | null
+  jarSplit: { give: number; live: number }
 ): Promise<void> {
-  await updateDoc(doc(db, "users", uid), { jarSplit, spendingGoal });
+  await updateDoc(doc(db, "users", uid), { jarSplit });
 }
 
 export async function setActiveProject(uid: string, projectId: string | null): Promise<void> {

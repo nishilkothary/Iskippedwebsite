@@ -496,7 +496,7 @@ export default function ChallengeDetailPage() {
               <p className="text-xl font-black" style={{ color: "var(--text-primary)" }}>{activePledgeBalance > 0 ? "Before you switch" : "Join challenge"}</p>
               <p className="text-sm mt-1" style={{ color: "var(--text-muted)" }}>{challenge.title}</p>
               </div>
-              <button onClick={() => setShowJoinChoice(false)} className="text-xl leading-none" style={{ color: "var(--text-muted)" }}>x</button>
+              <button onClick={() => setShowJoinChoice(false)} aria-label="Close" className="text-xl leading-none" style={{ color: "var(--text-muted)" }}>x</button>
             </div>
 
             <div className="rounded-xl p-4 mt-4" style={{ background: "var(--bg-surface-2)", border: "1px solid var(--border-default)" }}>
@@ -622,7 +622,7 @@ function PersonalGoalPickerModal({
             <p className="text-xl font-black" style={{ color: "var(--text-primary)" }}>You&apos;re in! 🙌</p>
             <p className="text-sm mt-1" style={{ color: "var(--text-muted)" }}>Set a personal savings goal. Your jar will show your progress toward it.</p>
           </div>
-          <button onClick={onClose} className="text-xl leading-none" style={{ color: "var(--text-muted)" }}>×</button>
+          <button onClick={onClose} aria-label="Close" className="text-xl leading-none" style={{ color: "var(--text-muted)" }}>×</button>
         </div>
 
         <div className="grid grid-cols-4 gap-2 mb-4">
@@ -720,7 +720,7 @@ function ShareDetailModal({
             <p className="text-xl font-black" style={{ color: "var(--text-primary)" }}>Invite friends</p>
             <p className="text-sm mt-1" style={{ color: "var(--text-muted)" }}>{title}</p>
           </div>
-          <button onClick={onClose} className="text-xl leading-none" style={{ color: "var(--text-muted)" }}>×</button>
+          <button onClick={onClose} aria-label="Close" className="text-xl leading-none" style={{ color: "var(--text-muted)" }}>×</button>
         </div>
 
         <div className="rounded-xl p-3 mb-3" style={{ background: "var(--bg-surface-2)", border: "1px solid var(--border-default)" }}>

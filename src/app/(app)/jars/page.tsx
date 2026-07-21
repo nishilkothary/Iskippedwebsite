@@ -313,7 +313,7 @@ function JarsPageInner() {
             onClick={async () => {
               setSavingSplit(true);
               const { updateJarSettings } = await import("@/lib/services/firebase/users");
-              await updateJarSettings(user.uid, { give: splitGive, live: 100 - splitGive }, null);
+              await updateJarSettings(user.uid, { give: splitGive, live: 100 - splitGive });
               updateProfile({ jarSplit: { give: splitGive, live: 100 - splitGive } });
               setSavingSplit(false);
             }}
@@ -1313,7 +1313,7 @@ function SplurgeTab({
         <div className="fixed inset-0 bg-black/60 z-50 flex items-end sm:items-center justify-center p-4" onClick={() => setSwitchTarget(null)}>
           <div className="rounded-2xl w-full max-w-sm shadow-2xl" style={{ background: "var(--bg-surface-1)", border: "1px solid var(--border-default)" }} onClick={(e) => e.stopPropagation()}>
             <div className="px-5 pt-5 pb-4 relative" style={{ borderBottom: "1px solid var(--border-default)" }}>
-              <button onClick={() => setSwitchTarget(null)} className="absolute top-4 right-4 text-xl leading-none" style={{ color: "var(--text-muted)" }}>×</button>
+              <button onClick={() => setSwitchTarget(null)} aria-label="Close" className="absolute top-4 right-4 text-xl leading-none" style={{ color: "var(--text-muted)" }}>×</button>
               <p className="text-lg font-bold pr-6" style={{ color: "var(--text-primary)" }}>Switch active goal?</p>
               <p className="text-xs mt-1.5" style={{ color: "var(--text-secondary)" }}>
                 You have <span className="font-semibold" style={{ color: "#8B5CF6" }}>{formatCurrency(spendingBalance)}</span> saved toward <span className="font-semibold">{activeGoal?.label}</span>. What would you like to do with it?
@@ -1351,7 +1351,7 @@ function SplurgeTab({
         <div className="fixed inset-0 bg-black/60 z-50 flex items-end sm:items-center justify-center p-4" onClick={() => setDeactivatingGoal(false)}>
           <div className="rounded-2xl w-full max-w-sm shadow-2xl" style={{ background: "var(--bg-surface-1)", border: "1px solid var(--border-default)" }} onClick={(e) => e.stopPropagation()}>
             <div className="px-5 pt-5 pb-4 relative" style={{ borderBottom: "1px solid var(--border-default)" }}>
-              <button onClick={() => setDeactivatingGoal(false)} className="absolute top-4 right-4 text-xl leading-none" style={{ color: "var(--text-muted)" }}>×</button>
+              <button onClick={() => setDeactivatingGoal(false)} aria-label="Close" className="absolute top-4 right-4 text-xl leading-none" style={{ color: "var(--text-muted)" }}>×</button>
               <p className="text-lg font-bold pr-6" style={{ color: "var(--text-primary)" }}>Deactivate this goal?</p>
               <p className="text-xs mt-1.5" style={{ color: "var(--text-secondary)" }}>
                 Deactivating will park your {formatCurrency(spendingBalance)} Reward Jar balance until you pick a new reward.

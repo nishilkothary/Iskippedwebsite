@@ -630,7 +630,7 @@ function PersonalGoalPickerModal({
             <p className="text-xl font-black" style={{ color: "var(--text-primary)" }}>You&apos;re in! 🙌</p>
             <p className="text-sm mt-1" style={{ color: "var(--text-muted)" }}>Set a personal savings goal for this challenge. Your jar will show your progress toward it.</p>
           </div>
-          <button onClick={onClose} className="text-xl leading-none" style={{ color: "var(--text-muted)" }}>×</button>
+          <button onClick={onClose} aria-label="Close" className="text-xl leading-none" style={{ color: "var(--text-muted)" }}>×</button>
         </div>
 
         <div className="grid grid-cols-4 gap-2 mb-4">
@@ -965,7 +965,7 @@ function JoinChoiceModal({
         onClick={(event) => event.stopPropagation()}
       >
         <div className="px-5 pt-5 pb-4 relative" style={{ borderBottom: "1px solid var(--border-default)" }}>
-          <button onClick={onClose} className="absolute top-4 right-4 text-xl leading-none" style={{ color: "var(--text-muted)" }}>×</button>
+          <button onClick={onClose} aria-label="Close" className="absolute top-4 right-4 text-xl leading-none" style={{ color: "var(--text-muted)" }}>×</button>
           <p className="text-2xl font-black pr-6" style={{ color: "var(--text-primary)" }}>Before you switch to:</p>
           <p className="text-sm mt-1 font-bold" style={{ color: "var(--green-primary)" }}>{challenge.project.groupName ?? challenge.title}</p>
         </div>
@@ -1043,6 +1043,7 @@ function ChallengeDetailModal({
           <ChallengeImage challenge={challenge} className="h-48 rounded-t-2xl" />
           <button
             onClick={onClose}
+            aria-label="Close"
             className="absolute top-3 right-3 w-8 h-8 rounded-full text-xl leading-none"
             style={{ background: "rgba(0,0,0,0.45)", color: "#fff" }}
           >
@@ -1194,7 +1195,7 @@ function ShareChallengeModal({
             <p className="text-xl font-black" style={{ color: "var(--text-primary)" }}>Invite friends</p>
             <p className="text-sm mt-1" style={{ color: "var(--text-muted)" }}>{challenge.title}</p>
           </div>
-          <button onClick={onClose} className="text-xl leading-none" style={{ color: "var(--text-muted)" }}>×</button>
+          <button onClick={onClose} aria-label="Close" className="text-xl leading-none" style={{ color: "var(--text-muted)" }}>×</button>
         </div>
 
         <div className="rounded-xl p-3 mb-3" style={{ background: "var(--bg-surface-2)", border: "1px solid var(--border-default)" }}>
@@ -1355,7 +1356,7 @@ function CreateChallengeWizard({
         onClick={(event) => event.stopPropagation()}
       >
         <div className="px-5 pt-5 pb-4 relative" style={{ borderBottom: "1px solid var(--border-default)" }}>
-          <button onClick={onClose} className="absolute top-4 right-4 text-xl leading-none" style={{ color: "var(--text-muted)" }}>x</button>
+          <button onClick={onClose} aria-label="Close" className="absolute top-4 right-4 text-xl leading-none" style={{ color: "var(--text-muted)" }}>x</button>
           <p className="text-xl font-black pr-8" style={{ color: "var(--text-primary)" }}>{isEditing ? "Edit Challenge" : "Create Challenge"}</p>
           <p className="text-sm mt-1" style={{ color: "var(--text-muted)" }}>Step {step} of 3</p>
           <div className="flex gap-2 mt-4 pr-8">

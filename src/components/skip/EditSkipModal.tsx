@@ -2,6 +2,7 @@
 import { useState } from "react";
 import { Skip } from "@/lib/types/models";
 import { useSkips } from "@/hooks/useSkips";
+import { useModalA11y } from "@/hooks/useModalA11y";
 import { useAuthStore } from "@/store/authStore";
 import { SKIP_CATEGORIES } from "@/lib/constants/skipCategories";
 interface Props {
@@ -26,6 +27,7 @@ export function EditSkipModal({ skip, onClose }: Props) {
   const [notes, setNotes] = useState(skip.notes ?? "");
   const [loading, setLoading] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
+  const dialogRef = useModalA11y(onClose);
 
   const num = parseFloat(amount) || 0;
 
@@ -65,14 +67,19 @@ export function EditSkipModal({ skip, onClose }: Props) {
   return (
     <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4" onClick={onClose}>
       <div
+        ref={dialogRef}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="edit-skip-title"
+        tabIndex={-1}
         className="rounded-2xl shadow-2xl w-full max-w-lg max-h-[90vh] overflow-y-auto"
-        style={{ background: "var(--bg-surface-1)", border: "1px solid var(--border-default)" }}
+        style={{ background: "var(--bg-surface-1)", border: "1px solid var(--border-default)", outline: "none" }}
         onClick={(e) => e.stopPropagation()}
       >
         {/* Header */}
         <div className="flex items-center justify-between px-6 py-5" style={{ borderBottom: "1px solid var(--border-default)" }}>
-          <h2 className="text-lg font-bold" style={{ color: "var(--text-primary)" }}>Edit Skip</h2>
-          <button onClick={onClose} className="text-2xl leading-none" style={{ color: "var(--text-muted)" }}>×</button>
+          <h2 id="edit-skip-title" className="text-lg font-bold" style={{ color: "var(--text-primary)" }}>Edit Skip</h2>
+          <button onClick={onClose} aria-label="Close" className="text-2xl leading-none" style={{ color: "var(--text-muted)" }}>×</button>
         </div>
 
         <div className="px-6 py-5 space-y-5">

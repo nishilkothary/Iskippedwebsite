@@ -4,6 +4,7 @@ import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { useSkips } from "@/hooks/useSkips";
 import { useProjects } from "@/hooks/useProjects";
+import { useModalA11y } from "@/hooks/useModalA11y";
 import { useAuthStore } from "@/store/authStore";
 import { SKIP_CATEGORIES } from "@/lib/constants/skipCategories";
 import { formatCurrency } from "@/lib/utils/currency";
@@ -48,6 +49,7 @@ export function SkipModal({ onClose }: Props) {
   const [pushSupported, setPushSupported] = useState(false);
   const [showPushPrompt, setShowPushPrompt] = useState(false);
   const [pushPromptBusy, setPushPromptBusy] = useState(false);
+  const dialogRef = useModalA11y(onClose);
   const activeProjectForSkip = projects.find((p) => p.id === projectId) ?? null;
   const isActiveChallenge = activeProjectForSkip ? isChallengeProject(activeProjectForSkip) : false;
   // If the active project has expired, don't credit this skip to its jar
@@ -137,13 +139,18 @@ export function SkipModal({ onClose }: Props) {
       return (
         <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4" onClick={onClose}>
           <div
+            ref={dialogRef}
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="skip-push-title"
+            tabIndex={-1}
             className="rounded-2xl p-8 text-center max-w-sm w-full shadow-2xl relative"
-            style={{ background: "var(--bg-surface-1)", border: "1px solid var(--border-default)" }}
+            style={{ background: "var(--bg-surface-1)", border: "1px solid var(--border-default)", outline: "none" }}
             onClick={(e) => e.stopPropagation()}
           >
-            <button onClick={onClose} className="absolute top-4 right-4 text-2xl leading-none" style={{ color: "var(--text-muted)" }}>×</button>
+            <button onClick={onClose} aria-label="Close" className="absolute top-4 right-4 text-2xl leading-none" style={{ color: "var(--text-muted)" }}>×</button>
             <div className="text-6xl mb-3">🔥</div>
-            <p className="text-2xl font-bold" style={{ color: "var(--text-primary)" }}>You&apos;re starting to make a difference</p>
+            <p id="skip-push-title" className="text-2xl font-bold" style={{ color: "var(--text-primary)" }}>You&apos;re starting to make a difference</p>
             <p className="text-sm mt-3" style={{ color: "var(--text-secondary)" }}>
               Keep growing your savings and continue to make a difference in the world by turning on iSkipped reminders.
             </p>
@@ -237,13 +244,18 @@ export function SkipModal({ onClose }: Props) {
       return (
         <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4" onClick={dismissSuccess}>
           <div
+            ref={dialogRef}
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="skip-jarfull-title"
+            tabIndex={-1}
             className="rounded-2xl p-8 text-center max-w-sm w-full shadow-2xl relative"
-            style={{ background: "var(--bg-surface-1)", border: "1px solid var(--border-default)" }}
+            style={{ background: "var(--bg-surface-1)", border: "1px solid var(--border-default)", outline: "none" }}
             onClick={(e) => e.stopPropagation()}
           >
-            <button onClick={dismissSuccess} className="absolute top-4 right-4 text-2xl leading-none" style={{ color: "var(--text-muted)" }}>×</button>
+            <button onClick={dismissSuccess} aria-label="Close" className="absolute top-4 right-4 text-2xl leading-none" style={{ color: "var(--text-muted)" }}>×</button>
             <div className="text-6xl mb-3">🫙</div>
-            <p className="text-2xl font-bold" style={{ color: "var(--text-primary)" }}>Giving Jar Full!</p>
+            <p id="skip-jarfull-title" className="text-2xl font-bold" style={{ color: "var(--text-primary)" }}>Giving Jar Full!</p>
             <p className="font-bold text-lg mt-1" style={{ color: "#2ECC71" }}>Congratulations!</p>
             <p className="text-sm mt-3" style={{ color: "var(--text-secondary)" }}>
               You&apos;ve pledged 100% of your <strong style={{ color: "var(--text-primary)" }}>{successActiveProject.title}</strong>{" "}giving jar.
@@ -281,13 +293,18 @@ export function SkipModal({ onClose }: Props) {
       return (
         <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4" onClick={dismissSuccess}>
           <div
+            ref={dialogRef}
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="skip-nudge-title"
+            tabIndex={-1}
             className="rounded-2xl p-8 text-center max-w-sm w-full shadow-2xl relative"
-            style={{ background: "var(--bg-surface-1)", border: "1px solid var(--border-default)" }}
+            style={{ background: "var(--bg-surface-1)", border: "1px solid var(--border-default)", outline: "none" }}
             onClick={(e) => e.stopPropagation()}
           >
-            <button onClick={dismissSuccess} className="absolute top-4 right-4 text-2xl leading-none" style={{ color: "var(--text-muted)" }}>×</button>
+            <button onClick={dismissSuccess} aria-label="Close" className="absolute top-4 right-4 text-2xl leading-none" style={{ color: "var(--text-muted)" }}>×</button>
             <div className="text-6xl mb-3">🌍</div>
-            <p className="text-2xl font-bold" style={{ color: "var(--text-primary)" }}>Your skips can change lives</p>
+            <p id="skip-nudge-title" className="text-2xl font-bold" style={{ color: "var(--text-primary)" }}>Your skips can change lives</p>
             <p className="font-bold text-lg mt-1" style={{ color: "var(--green-primary)" }}>{formatCurrency(amount)} saved</p>
             <p className="text-sm mt-3" style={{ color: "var(--text-secondary)" }}>
               You could pledge {formatCurrency(skipGive)} from this skip toward:
@@ -321,24 +338,29 @@ export function SkipModal({ onClose }: Props) {
     return (
       <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4" onClick={dismissSuccess}>
         <div
+          ref={dialogRef}
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="skip-success-title"
+          tabIndex={-1}
           className="rounded-2xl overflow-hidden text-center max-w-sm w-full shadow-2xl relative"
-          style={{ background: "var(--bg-surface-1)", border: "1px solid var(--border-default)" }}
+          style={{ background: "var(--bg-surface-1)", border: "1px solid var(--border-default)", outline: "none" }}
           onClick={(e) => e.stopPropagation()}
         >
           {causeImageURL ? (
             <div className="relative">
               <img src={causeImageURL} className="w-full h-40 object-cover" alt={successProjectTitle ?? ""} />
-              <button onClick={dismissSuccess} className="absolute top-3 right-3 text-xl leading-none w-8 h-8 flex items-center justify-center rounded-full" style={{ background: "rgba(0,0,0,0.4)", color: "#fff" }}>×</button>
+              <button onClick={dismissSuccess} aria-label="Close" className="absolute top-3 right-3 text-xl leading-none w-8 h-8 flex items-center justify-center rounded-full" style={{ background: "rgba(0,0,0,0.4)", color: "#fff" }}>×</button>
             </div>
           ) : (
-            <button onClick={dismissSuccess} className="absolute top-4 right-4 text-2xl leading-none" style={{ color: "var(--text-muted)" }}>×</button>
+            <button onClick={dismissSuccess} aria-label="Close" className="absolute top-4 right-4 text-2xl leading-none" style={{ color: "var(--text-muted)" }}>×</button>
           )}
           <div className="px-8 pb-8" style={{ paddingTop: causeImageURL ? 20 : 0 }}>
             {!causeImageURL && <div className="text-6xl mb-3">🎉</div>}
             {hasCauseImpact && (
               <p className="text-sm uppercase tracking-wide font-semibold mb-1" style={{ color: "var(--text-muted)" }}>Thank you for pledging</p>
             )}
-            <p className="text-2xl font-bold leading-tight" style={{ color: "var(--green-primary)" }}>{impactDisplay}</p>
+            <p id="skip-success-title" className="text-2xl font-bold leading-tight" style={{ color: "var(--green-primary)" }}>{impactDisplay}</p>
             {hasCauseImpact && goalPctDisplay !== null && successActiveGoal && (
               <p className="text-sm mt-3 font-semibold" style={{ color: "var(--text-secondary)" }}>
                 Your Skip has also brought you{" "}
@@ -415,14 +437,19 @@ export function SkipModal({ onClose }: Props) {
   return (
     <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4" onClick={onClose}>
       <div
+        ref={dialogRef}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="skip-form-title"
+        tabIndex={-1}
         className="rounded-2xl shadow-2xl w-full max-w-lg max-h-[90vh] overflow-y-auto"
-        style={{ background: "var(--bg-surface-1)", border: "1px solid var(--border-default)" }}
+        style={{ background: "var(--bg-surface-1)", border: "1px solid var(--border-default)", outline: "none" }}
         onClick={(e) => e.stopPropagation()}
       >
         {/* Header */}
         <div className="flex items-center justify-between px-6 py-5" style={{ borderBottom: "1px solid var(--border-default)" }}>
-          <h2 className="text-lg font-bold" style={{ color: "var(--text-primary)" }}>Log a Skip</h2>
-          <button onClick={onClose} className="text-2xl leading-none" style={{ color: "var(--text-muted)" }}>×</button>
+          <h2 id="skip-form-title" className="text-lg font-bold" style={{ color: "var(--text-primary)" }}>Log a Skip</h2>
+          <button onClick={onClose} aria-label="Close" className="text-2xl leading-none" style={{ color: "var(--text-muted)" }}>×</button>
         </div>
 
         <div className="px-6 py-5 space-y-5">

@@ -73,7 +73,7 @@ export function OnboardingFlow({ onDone }: Props) {
     const split = { give: splitGive, live: 100 - splitGive };
     setSaving(true);
     try {
-      await updateJarSettings(user!.uid, split, null);
+      await updateJarSettings(user!.uid, split);
       updateProfile({ jarSplit: split });
     } catch {
       toast.error("Couldn't save your split — you can adjust it anytime from Jars.");
