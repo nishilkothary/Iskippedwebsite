@@ -288,7 +288,9 @@ function SignInPage() {
 
         {/* Brand */}
         <div>
-          <img src="/logo-white.png" alt="iSkipped" style={{ height: 30, width: "auto" }} />
+          <p className="text-2xl font-black text-white tracking-tight">
+            i<span className="text-[#2ECC71]">skipped</span>
+          </p>
         </div>
 
         {/* Hero copy */}
@@ -351,7 +353,9 @@ function SignInPage() {
         {/* Mobile hero (hidden on desktop) */}
         <div className="lg:hidden bg-gradient-to-br from-[#1a5c42] to-[#2d8b6a] px-6 pt-10 pb-8">
           <div className="flex justify-center mb-5">
-            <img src="/logo-white.png" alt="iSkipped" style={{ height: 34, width: "auto" }} />
+            <p className="text-3xl font-black text-white tracking-tight">
+              i<span className="text-[#2ECC71]">skipped</span>
+            </p>
           </div>
           <h1 className="text-2xl font-black text-white text-center leading-tight mb-2">
             Skip, Save, <span className="text-emerald-300">Give.</span>
@@ -396,7 +400,9 @@ function SignInPage() {
         <div className="flex-1 flex flex-col justify-center px-6 py-8 sm:px-10">
           {/* Desktop logo + heading */}
           <div className="hidden lg:block text-center mb-8">
-            <img src="/logo.png" alt="iSkipped" className="mx-auto mb-5" style={{ height: 40, width: "auto" }} />
+            <p className="text-3xl font-black tracking-tight mb-5">
+              <span className="text-[#111827]">i</span><span className="text-emerald-500">skipped</span>
+            </p>
             <h1 className="text-2xl font-bold text-[#111827]">
               {mode === "forgot" ? "Reset your password" : "Welcome — let's get started"}
             </h1>

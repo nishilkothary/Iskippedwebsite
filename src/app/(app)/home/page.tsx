@@ -541,7 +541,9 @@ export default function HomePage() {
 
       {/* Mobile logo — hidden on desktop (sidebar has it) */}
       <div className="flex md:hidden justify-center mb-5">
-        <img src="/logo-white.png" alt="iSkipped" style={{ height: 32, width: "auto" }} />
+        <p className="text-3xl font-black tracking-tight" style={{ color: "var(--text-primary)" }}>
+          i<span style={{ color: "var(--green-primary)" }}>skipped</span>
+        </p>
       </div>
 
       {/* Greeting + CTA */}
