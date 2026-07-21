@@ -44,13 +44,16 @@ export async function POST(req: NextRequest) {
       if (!userSnap.exists) throw new ApiError(404, "User not found");
       const profile = userSnap.data() as UserProfile;
 
-      // Referral reward: only on the referee's FIRST logged skip (prevents empty-account
-      // farming). Read the referrer doc now — all transaction reads must precede writes.
+      // Referral: the inviter is credited the give-portion of EVERY skip this invitee logs
+      // (feeds the inviter's Impact Score). The one-time XP/referralCount bonus is still gated
+      // to the invitee's FIRST skip (prevents empty-account farming). Read the referrer doc now —
+      // all transaction reads must precede writes.
       const isFirstSkip = (profile.totalSkips ?? 0) === 0;
-      const referrerRef = isFirstSkip && profile.referredBy ? db.collection("users").doc(profile.referredBy) : null;
+      const referrerRef = profile.referredBy ? db.collection("users").doc(profile.referredBy) : null;
       const referrerSnap = referrerRef ? await tx.get(referrerRef) : null;
       const referrerProfile = referrerSnap?.exists ? (referrerSnap.data() as UserProfile) : null;
-      const referralBonusXp = referrerProfile ? REFERRAL_BONUS_XP : 0;
+      // First-skip XP bonus only applies to both parties on the invitee's first skip.
+      const referralBonusXp = referrerProfile && isFirstSkip ? REFERRAL_BONUS_XP : 0;
 
       const defaultJarSplit = normalizeJarSplitServer(profile.jarSplit as any);
       const rawGive = rawJarSplit?.give ?? defaultJarSplit.give;
@@ -147,12 +150,22 @@ export async function POST(req: NextRequest) {
         createdAt: FieldValue.serverTimestamp(),
       });
 
-      if (referrerRef && referrerProfile) {
-        const referrerNewXp = (referrerProfile.xp ?? 0) + REFERRAL_BONUS_XP;
+      // Credit the inviter: always roll up this skip's give-dollars into their Impact Score;
+      // on the invitee's first skip only, also grant the one-time XP + Friends-Joined bonus.
+      if (referrerRef && referrerProfile && (isFirstSkip || giveAmount > 0)) {
+        const firstSkipBonus = isFirstSkip
+          ? (() => {
+              const referrerNewXp = (referrerProfile.xp ?? 0) + REFERRAL_BONUS_XP;
+              return {
+                xp: referrerNewXp,
+                level: levelForXp(referrerNewXp),
+                referralCount: FieldValue.increment(1),
+              };
+            })()
+          : {};
         tx.update(referrerRef, {
-          xp: referrerNewXp,
-          level: levelForXp(referrerNewXp),
-          referralCount: FieldValue.increment(1),
+          referralImpactPoints: FieldValue.increment(giveAmount),
+          ...firstSkipBonus,
         });
       }
 

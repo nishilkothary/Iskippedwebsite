@@ -6,6 +6,7 @@ import { useAuthStore } from "@/store/authStore";
 import { signOut } from "@/lib/services/firebase/auth";
 import { deleteAccount } from "@/lib/services/firebase/account";
 import { formatCurrency } from "@/lib/utils/currency";
+import { impactScore, pointsForDollars, referralPledgedDollars } from "@/lib/utils/impactScore";
 import { normalizeJarSplit, recalculateTotals } from "@/lib/services/firebase/users";
 import { isPushSupported, registerForPush, unregisterPush } from "@/lib/services/firebase/push";
 import { useSkips } from "@/hooks/useSkips";
@@ -143,6 +144,17 @@ export default function ProfilePage() {
             <p className="text-xs font-semibold uppercase tracking-wide" style={{ color: "var(--text-secondary)" }}>Total Skipped</p>
             <p className="text-2xl font-bold mt-0.5" style={{ color: "var(--text-primary)" }}>{formatCurrency(profile.totalSaved)}</p>
             <p className="text-xs mt-0.5" style={{ color: "var(--text-muted)" }}>across {profile.totalSkips} skip{profile.totalSkips !== 1 ? "s" : ""}</p>
+          </div>
+        </div>
+        <div className="px-5 py-4 mb-3 flex items-center justify-between" style={{ borderRadius: 20, background: "linear-gradient(150deg, rgba(46,204,113,0.14), rgba(46,204,113,0.03))", border: "1px solid var(--border-emphasis)" }}>
+          <div>
+            <p className="text-xs font-semibold uppercase tracking-wide" style={{ color: "var(--text-secondary)" }}>⚡ Impact Score</p>
+            <p className="text-2xl font-bold mt-0.5" style={{ color: "var(--green-primary)" }}>{impactScore(profile).toLocaleString()}</p>
+            <p className="text-xs mt-0.5" style={{ color: "var(--text-muted)" }}>
+              {referralPledgedDollars(profile) > 0
+                ? `includes ${pointsForDollars(referralPledgedDollars(profile)).toLocaleString()} from friends you invited`
+                : "1 point for every $0.10 pledged — invite friends to grow it faster"}
+            </p>
           </div>
         </div>
         <div className="grid grid-cols-3 gap-2 mb-3">

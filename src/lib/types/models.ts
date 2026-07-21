@@ -51,6 +51,8 @@ export interface UserProfile {
   referredBy?: string | null;
   /** Count of referred users whose first skip reward has been granted ("Friends joined"). Server-only write. */
   referralCount?: number;
+  /** Cumulative give-portion dollars pledged by this user's direct invitees. Feeds the Impact Score. Server-only write. */
+  referralImpactPoints?: number;
   /** True once the user has explicitly opted in to push notifications via the profile toggle. Server-only write (via /api/push/token). */
   pushOptIn?: boolean;
   /** Registered FCM device tokens for this user. Server-only write (via /api/push/token). */
