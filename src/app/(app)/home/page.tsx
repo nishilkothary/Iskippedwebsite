@@ -12,7 +12,7 @@ import { InstallPrompt } from "@/components/InstallPrompt";
 import { normalizeJarSplit, normalizeSpendingGoals } from "@/lib/services/firebase/users";
 import { levelForXp } from "@/lib/utils/xp";
 import { isChallengeProject, subscribeToProject } from "@/lib/services/firebase/projects";
-import { subscribeToCommunityFeed, subscribeToGlobalStats, getCommunityTotalSaved } from "@/lib/services/firebase/social";
+import { subscribeToCommunityFeed, subscribeToGlobalStats } from "@/lib/services/firebase/social";
 import { EditSkipModal } from "@/components/skip/EditSkipModal";
 import { FeedItem, GlobalStats, Project, Skip } from "@/lib/types/models";
 import { appendRefParam } from "@/lib/utils/share";
@@ -370,17 +370,12 @@ export default function HomePage() {
   const [editingSkip, setEditingSkip] = useState<Skip | null>(null);
   const [communityFeed, setCommunityFeed] = useState<FeedItem[]>([]);
   const [globalStats, setGlobalStats] = useState<GlobalStats | null>(null);
-  const [communityTotalSaved, setCommunityTotalSaved] = useState<number | null>(null);
   const [liveFeedIndex, setLiveFeedIndex] = useState(0);
   const [liveChallengeTotalRaised, setLiveChallengeTotalRaised] = useState<number>(0);
   const [liveChallengeTotalSkips, setLiveChallengeTotalSkips] = useState<number>(0);
 
   useEffect(() => {
     return subscribeToCommunityFeed(setCommunityFeed);
-  }, []);
-
-  useEffect(() => {
-    getCommunityTotalSaved().then(setCommunityTotalSaved).catch(() => {});
   }, []);
 
   useEffect(() => {
@@ -494,6 +489,7 @@ export default function HomePage() {
         : communityFeed)
     : communityFeed;
   const liveTotalSkips = globalStats?.totalSkips ?? communityFeed.length;
+  const communityTotalSaved = globalStats?.totalSaved ?? null;
   const liveFeedFallbacks = recentSkips.slice(0, 3).map((skip) => ({
     id: skip.id,
     displayName: "You",

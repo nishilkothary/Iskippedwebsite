@@ -3,6 +3,7 @@ import { FieldValue } from "firebase-admin/firestore";
 import { getAdminDb } from "@/lib/services/firebaseAdmin";
 import { requireUid, ApiError, handleApiError } from "@/lib/services/apiAuth";
 import { normalizeJarSplitServer } from "@/lib/services/serverProfileDefaults";
+import { adjustGlobalStats } from "@/lib/services/globalStats";
 import { UserProfile, Skip } from "@/lib/types/models";
 
 type RouteContext = { params: Promise<{ skipId: string }> };
@@ -83,6 +84,7 @@ export async function PATCH(req: NextRequest, ctx: RouteContext) {
 
     // Sync community feed message/amount if the amount changed (best-effort)
     if (amountDelta !== 0) {
+      await adjustGlobalStats(amountDelta, 0);
       db.collection("communityFeed").doc(skipId).update({
         skipAmount: resolvedAmount,
         message: `skipped ${resolvedCategoryLabel} and saved $${resolvedAmount.toFixed(2)}`,
@@ -104,7 +106,7 @@ export async function DELETE(req: NextRequest, ctx: RouteContext) {
     const userRef = db.collection("users").doc(uid);
     const skipRef = userRef.collection("skips").doc(skipId);
 
-    const { projectId, giveAllocAmount } = await db.runTransaction(async (tx) => {
+    const { projectId, giveAllocAmount, deletedAmount } = await db.runTransaction(async (tx) => {
       const [skipSnap, userSnap] = await Promise.all([tx.get(skipRef), tx.get(userRef)]);
       if (!skipSnap.exists) throw new ApiError(404, "Skip not found");
       const skip = skipSnap.data() as Skip;
@@ -122,19 +124,25 @@ export async function DELETE(req: NextRequest, ctx: RouteContext) {
         ...(skip.projectId ? { [`causeJarBalances.${skip.projectId}`]: FieldValue.increment(-giveAllocAmount) } : {}),
       });
 
-      return { projectId: skip.projectId, giveAllocAmount };
+      return { projectId: skip.projectId, giveAllocAmount, deletedAmount: skip.amount };
     });
+
+    await adjustGlobalStats(-deletedAmount, -1);
 
     db.collection("communityFeed").doc(skipId).delete().catch(() => {});
 
-    if (projectId && giveAllocAmount > 0) {
+    if (projectId) {
       const projectRef = db.collection("projects").doc(projectId);
       projectRef.get()
         .then((snap) => {
           const current = (snap.data()?.totalRaised ?? 0) as number;
-          return projectRef.update({ totalRaised: Math.max(0, current - giveAllocAmount) });
+          const currentSkips = (snap.data()?.totalSkips ?? 0) as number;
+          return projectRef.update({
+            totalRaised: Math.max(0, current - giveAllocAmount),
+            totalSkips: Math.max(0, currentSkips - 1),
+          });
         })
-        .catch((e) => console.warn("[skips] project totalRaised update failed:", e));
+        .catch((e) => console.warn("[skips] project totals update failed:", e));
     }
 
     return NextResponse.json({}, { status: 200 });

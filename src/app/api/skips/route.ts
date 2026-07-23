@@ -7,6 +7,7 @@ import { getImpactMessage } from "@/lib/constants/impactMessages";
 import { xpForSkip, levelForXp, REFERRAL_BONUS_XP } from "@/lib/utils/xp";
 import { today, yesterday } from "@/lib/utils/dates";
 import { formatUnits } from "@/lib/utils/impact";
+import { adjustGlobalStats } from "@/lib/services/globalStats";
 import { UserProfile } from "@/lib/types/models";
 
 export async function POST(req: NextRequest) {
@@ -182,20 +183,7 @@ export async function POST(req: NextRequest) {
     }
 
     // Global counters in Realtime DB
-    try {
-      const rtdb = getAdminRtdb();
-      const statsRef = rtdb.ref("globalStats");
-      await statsRef.transaction((current) => {
-        if (!current) return { totalSaved: amount, totalSkips: 1, totalUsers: 0 };
-        return {
-          ...current,
-          totalSaved: (current.totalSaved || 0) + amount,
-          totalSkips: (current.totalSkips || 0) + 1,
-        };
-      });
-    } catch {
-      // Non-critical, continue
-    }
+    await adjustGlobalStats(amount, 1);
 
     // Community share — always visible, identity is opt-in
     try {

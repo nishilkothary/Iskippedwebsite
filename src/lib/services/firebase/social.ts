@@ -7,8 +7,6 @@ import {
   onSnapshot,
   Unsubscribe,
   where,
-  getAggregateFromServer,
-  sum,
   doc,
   deleteDoc,
   updateDoc,
@@ -49,20 +47,6 @@ export function subscribeToGlobalStats(callback: (stats: GlobalStats) => void): 
       callback(snap.val() as GlobalStats);
     }
   });
-}
-
-export async function getCommunityTotalSaved(): Promise<number> {
-  const snap = await getAggregateFromServer(collection(db, "users"), {
-    totalSaved: sum("totalSaved"),
-  });
-  return snap.data().totalSaved ?? 0;
-}
-
-export async function getCommunityFeedTotal(): Promise<number> {
-  const snap = await getAggregateFromServer(collection(db, "communityFeed"), {
-    total: sum("skipAmount"),
-  });
-  return snap.data().total ?? 0;
 }
 
 export async function deleteCommunityFeedItem(skipId: string): Promise<void> {

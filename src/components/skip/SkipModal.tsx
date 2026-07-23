@@ -9,7 +9,7 @@ import { useAuthStore } from "@/store/authStore";
 import { SKIP_CATEGORIES } from "@/lib/constants/skipCategories";
 import { formatCurrency } from "@/lib/utils/currency";
 import { normalizeJarSplit, normalizeSpendingGoals } from "@/lib/services/firebase/users";
-import { formatUnits } from "@/lib/utils/impact";
+import { formatUnits, oneUnitPhrase } from "@/lib/utils/impact";
 import { isChallengeProject } from "@/lib/services/firebase/projects";
 import { getChallengeCountdown } from "@/lib/utils/dates";
 import { appendRefParam } from "@/lib/utils/share";
@@ -73,7 +73,7 @@ export function SkipModal({ onClose }: Props) {
     isPushSupported().then(setPushSupported);
   }, []);
 
-  // Live community momentum for the share card ("join N skippers · $X saved").
+  // Live community momentum for the share card ("$X saved across N skips").
   useEffect(() => subscribeToGlobalStats(setGlobalStats), []);
 
   function handleCatSelect(cat: typeof defaultCat) {
@@ -229,8 +229,10 @@ export function SkipModal({ onClose }: Props) {
       impactClause = ` to help pledge ${unitsStr}${locationSuffix}`;
     } else if (causeTitle && successProjectUnitName && successProjectUnitCost && successActiveProject?.unitIsGoal) {
       const pct = Math.max(1, Math.round((skipGive / successProjectUnitCost) * 100));
-      impactDisplay = `${pct}% of ${causeTitle}`;
-      impactClause = ` to help pledge ${pct}% of ${causeTitle}`;
+      // One unit IS the goal here, so phrase it in the singular: "88% of a Chromebook for a student"
+      const unitPhrase = successActiveProject.unitPhrase ?? oneUnitPhrase(successProjectUnitName);
+      impactDisplay = `${pct}% of ${unitPhrase}`;
+      impactClause = ` to help pledge ${pct}% of ${unitPhrase}`;
     } else if (causeTitle) {
       impactDisplay = causeTitle;
       impactClause = ` to help pledge toward ${causeTitle}`;
@@ -247,7 +249,6 @@ export function SkipModal({ onClose }: Props) {
     const shareIntentText = successActiveProject
       ? `I skipped ${itemLabel}${impactClause}. Join the challenge and skip an expense for a good cause!`
       : `I skipped ${itemLabel}${impactClause}. Join the movement!`;
-    const shareCardURL = `/api/share-card?amount=${encodeURIComponent(amount.toFixed(2))}&item=${encodeURIComponent(itemLabel)}${causeTitle ? `&cause=${encodeURIComponent(causeTitle)}` : ""}`;
 
     // Show jar-full celebration when give jar hits/exceeds goal (first time, then every 3rd skip)
     const overflowCount = successOverflowCount ?? 0;
@@ -434,12 +435,11 @@ export function SkipModal({ onClose }: Props) {
                   url={challengeURL}
                   text={shareIntentText}
                   title={successActiveProject?.title ?? "iSkipped"}
-                  imageUrl={shareCardURL}
                 />
               </div>
               {momentumSkips > 0 && (
                 <p className="text-[11px] mt-2.5 text-center font-semibold" style={{ color: "var(--text-muted)" }}>
-                  Join {momentumSkips.toLocaleString()} skippers · {formatCurrency(momentumSaved)} saved together
+                  {formatCurrency(momentumSaved)} saved across {momentumSkips.toLocaleString()} skips
                 </p>
               )}
             </div>
@@ -581,8 +581,9 @@ export function SkipModal({ onClose }: Props) {
                       return activeProjectLive.location ? `${units} in ${activeProjectLive.location}` : units;
                     } else if (activeProjectLive?.unitCost && activeProjectLive.unitIsGoal) {
                       const pct = Math.max(1, Math.round((skipGiveLive / activeProjectLive.unitCost) * 100));
-                      const unitLabel = activeProjectLive.unitName ?? "unit";
-                      return `${pct}% of a ${unitLabel} funded`;
+                      const unitPhrase = activeProjectLive.unitPhrase
+                        ?? (activeProjectLive.unitName ? oneUnitPhrase(activeProjectLive.unitName) : "a unit");
+                      return `${pct}% of ${unitPhrase} funded`;
                     } else if (activeProjectLive && giveGoalAmount > 0) {
                       return `${giveContribPctLive.toFixed(1)}% toward ${activeProjectLive.title}`;
                     } else if (activeProjectLive) {

@@ -107,6 +107,7 @@ export interface Project {
   unitDisplay?: string; // short plural for jar SVG: "days", "meals"
   unitCost?: number;    // dollars per unit, e.g. 0.822
   unitIsGoal?: boolean; // true = 1 unit IS the full goal (e.g. Chromebook $250 = 1 unit); shows % mode
+  unitPhrase?: string;  // unitIsGoal only — one unit written out for "88% of ___" copy, e.g. "a Chromebook for a student". Defaults to oneUnitPhrase(unitName).
   skipMilestones?: { level1: number; level2: number; level3: number };
   visibility?: "public" | "private" | "unlisted" | "password";
   password?: string | null;

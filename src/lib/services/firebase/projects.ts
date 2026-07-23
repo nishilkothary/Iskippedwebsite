@@ -52,6 +52,7 @@ export const OFFICIAL_PROJECTS: Project[] = [
     unitDisplay: "chromebooks",
     unitCost: 250,
     unitIsGoal: true,
+    unitPhrase: "a Chromebook for a student",
     createdBy: null,
     tags: ["education", "technology", "kenya"],
     visibility: "public" as const,

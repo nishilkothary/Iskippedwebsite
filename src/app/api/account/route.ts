@@ -1,8 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
 import { FieldValue } from "firebase-admin/firestore";
 import type { Firestore, Query } from "firebase-admin/firestore";
-import { getAdminDb, getAdminAuth, getAdminRtdb } from "@/lib/services/firebaseAdmin";
+import { getAdminDb, getAdminAuth } from "@/lib/services/firebaseAdmin";
 import { requireUid, ApiError, handleApiError } from "@/lib/services/apiAuth";
+import { adjustGlobalStats } from "@/lib/services/globalStats";
 import { UserProfile } from "@/lib/types/models";
 
 export const maxDuration = 60;
@@ -52,18 +53,7 @@ export async function DELETE(req: NextRequest) {
     }
 
     // Best-effort: remove this user's contribution from the sitewide counters
-    try {
-      await getAdminRtdb().ref("globalStats").transaction((current) => {
-        if (!current) return current;
-        return {
-          ...current,
-          totalSaved: Math.max(0, (current.totalSaved || 0) - (profile.totalSaved || 0)),
-          totalSkips: Math.max(0, (current.totalSkips || 0) - (profile.totalSkips || 0)),
-        };
-      });
-    } catch {
-      // Non-critical
-    }
+    await adjustGlobalStats(-(profile.totalSaved || 0), -(profile.totalSkips || 0));
 
     // Deletes the user doc plus every subcollection (skips, donations, spendingHistory, following)
     await db.recursiveDelete(userRef);

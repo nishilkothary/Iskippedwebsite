@@ -1,6 +1,6 @@
 "use client";
 import { useEffect, useState } from "react";
-import { subscribeToCommunityFeed, subscribeToGlobalStats, getCommunityTotalSaved } from "@/lib/services/firebase/social";
+import { subscribeToCommunityFeed, subscribeToGlobalStats } from "@/lib/services/firebase/social";
 import { FeedItem, GlobalStats } from "@/lib/types/models";
 import { formatCurrencyShort, formatCurrency } from "@/lib/utils/currency";
 import { formatRelativeTime } from "@/lib/utils/dates";
@@ -8,12 +8,10 @@ import { formatRelativeTime } from "@/lib/utils/dates";
 export default function CommunityPage() {
   const [feed, setFeed] = useState<FeedItem[]>([]);
   const [stats, setStats] = useState<GlobalStats | null>(null);
-  const [communityTotalSaved, setCommunityTotalSaved] = useState<number>(0);
 
   useEffect(() => {
     const unsubFeed = subscribeToCommunityFeed(setFeed);
     const unsubStats = subscribeToGlobalStats(setStats);
-    getCommunityTotalSaved().then(setCommunityTotalSaved);
     return () => {
       unsubFeed();
       unsubStats();
@@ -35,7 +33,7 @@ export default function CommunityPage() {
       {stats && (
         <div className="grid grid-cols-2 gap-4 mb-8">
           <div className="rounded-2xl p-5 text-center" style={cardStyle}>
-            <p className="text-2xl font-bold" style={{ color: "var(--green-primary)" }}>{formatCurrencyShort(communityTotalSaved)}</p>
+            <p className="text-2xl font-bold" style={{ color: "var(--green-primary)" }}>{formatCurrencyShort(stats.totalSaved ?? 0)}</p>
             <p className="text-xs mt-1" style={{ color: "var(--text-muted)" }}>Total Skipped</p>
           </div>
           <div className="rounded-2xl p-5 text-center" style={cardStyle}>
