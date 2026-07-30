@@ -2,7 +2,8 @@
 import { useEffect, useState, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
-import { signInWithGoogle, signUpWithEmail, signInWithEmail, resetPassword } from "@/lib/services/firebase/auth";
+import { toast } from "sonner";
+import { signInWithGoogle, signUpWithEmail, signInWithEmail, resetPassword, signOut } from "@/lib/services/firebase/auth";
 import { useAuthStore } from "@/store/authStore";
 
 const previewSkips = [
@@ -20,8 +21,25 @@ const trustPills = [
 
 function friendlyAuthError(e: any): string {
   const code = e?.code ?? "";
+  const message = typeof e?.message === "string" ? e.message : "";
+  const normalized = `${code} ${message}`.toLowerCase();
   if (code === "auth/popup-closed-by-user" || code === "auth/cancelled-popup-request")
     return "Google sign-in was cancelled. Try again or use email below.";
+  if (
+    code === "auth/unauthorized-domain" ||
+    code === "auth/app-not-authorized" ||
+    code === "auth/auth-domain-config-required" ||
+    normalized.includes("unauthorized domain")
+  )
+    return "Google sign-in is not enabled for this website domain yet. Please contact support.";
+  if (
+    code === "auth/operation-not-allowed" ||
+    code === "auth/invalid-oauth-client-id" ||
+    code === "auth/configuration-not-found" ||
+    normalized.includes("configuration_not_found") ||
+    normalized.includes("40504")
+  )
+    return "Google sign-in needs a Firebase setup update. Please contact support or use email sign-in for now.";
   if (code === "auth/account-exists-with-different-credential")
     return "An account already exists with that email. Try signing in with email and password instead.";
   if (code === "auth/email-already-in-use")
@@ -56,20 +74,32 @@ function SignInPage() {
   const [cardsVisible, setCardsVisible] = useState(false);
   const [resetLoading, setResetLoading] = useState(false);
   const [resetSent, setResetSent] = useState(false);
+  const [signupVerificationSent, setSignupVerificationSent] = useState(false);
+  const [emailSignupInProgress, setEmailSignupInProgress] = useState(false);
 
   const redirectParam = searchParams.get("redirect");
   const postAuthDestination = redirectParam?.startsWith("/") ? redirectParam : "/home";
 
   useEffect(() => {
-    if (!isLoading && user) router.replace(postAuthDestination);
-  }, [user, isLoading, router, postAuthDestination]);
+    if (!isLoading && user && !emailSignupInProgress && !signupVerificationSent) router.replace(postAuthDestination);
+  }, [user, isLoading, emailSignupInProgress, signupVerificationSent, router, postAuthDestination]);
 
   useEffect(() => {
     const t = setTimeout(() => setCardsVisible(true), 200);
     return () => clearTimeout(t);
   }, []);
 
+  useEffect(() => {
+    function handlePageShow() {
+      setGoogleLoading(false);
+    }
+
+    window.addEventListener("pageshow", handlePageShow);
+    return () => window.removeEventListener("pageshow", handlePageShow);
+  }, []);
+
   async function handleGoogleSignIn() {
+    if (googleLoading) return;
     setError(null);
     setGoogleLoading(true);
     try {
@@ -87,16 +117,27 @@ function SignInPage() {
     if (!email.trim()) { setError("Please enter your email."); return; }
     if (!password) { setError("Please enter your password."); return; }
     setEmailLoading(true);
+    setEmailSignupInProgress(mode === "signup");
     try {
       if (mode === "signup") {
-        await signUpWithEmail(email, password, name.trim());
+        const { verificationEmailSent } = await signUpWithEmail(email, password, name.trim());
+        await signOut();
+        if (verificationEmailSent) {
+          toast.success("Verification email sent — check your inbox.");
+          setSignupVerificationSent(true);
+          setPassword("");
+        } else {
+          setError("Account created, but we couldn't send the verification email. Sign in to resend it from the banner.");
+        }
       } else {
         await signInWithEmail(email, password);
+        router.replace(postAuthDestination);
       }
-      router.replace(postAuthDestination);
     } catch (e: any) {
       setError(friendlyAuthError(e));
+    } finally {
       setEmailLoading(false);
+      setEmailSignupInProgress(false);
     }
   }
 
@@ -133,7 +174,7 @@ function SignInPage() {
       {mode !== "forgot" && (
         <div className="flex bg-[#F3F4F6] rounded-xl p-1 mb-5">
           <button
-            onClick={() => { setMode("signup"); setError(null); }}
+            onClick={() => { setMode("signup"); setError(null); setSignupVerificationSent(false); }}
             className={`flex-1 py-2 rounded-lg text-sm font-semibold transition ${
               mode === "signup" ? "bg-white text-[#3D8B68] shadow-sm" : "text-[#6B7280] hover:text-[#111827]"
             }`}
@@ -141,7 +182,7 @@ function SignInPage() {
             Sign Up
           </button>
           <button
-            onClick={() => { setMode("signin"); setError(null); }}
+            onClick={() => { setMode("signin"); setError(null); setSignupVerificationSent(false); }}
             className={`flex-1 py-2 rounded-lg text-sm font-semibold transition ${
               mode === "signin" ? "bg-white text-[#3D8B68] shadow-sm" : "text-[#6B7280] hover:text-[#111827]"
             }`}
@@ -155,8 +196,22 @@ function SignInPage() {
         <div className="mb-4 p-3 bg-red-50 text-red-600 rounded-lg text-sm">{error}</div>
       )}
 
-      {/* Forgot password flow */}
-      {mode === "forgot" ? (
+      {signupVerificationSent ? (
+        <div className="space-y-3">
+          <div className="p-4 bg-emerald-50 border border-emerald-200 rounded-xl text-sm text-emerald-700 text-center">
+            Check your inbox — we sent a verification link to <span className="font-semibold">{email}</span>.
+          </div>
+          <p className="text-sm text-[#6B7280] text-center">
+            After verifying, come back and sign in with your email and password.
+          </p>
+          <button
+            onClick={() => { setMode("signin"); setError(null); setSignupVerificationSent(false); }}
+            className="w-full px-4 py-3 bg-gradient-to-r from-[#3D8B68] to-[#34A87A] text-white rounded-xl font-semibold text-sm hover:opacity-90 transition shadow-md"
+          >
+            Back to Sign In
+          </button>
+        </div>
+      ) : mode === "forgot" ? (
         <div className="space-y-3">
           {resetSent ? (
             <div className="p-4 bg-emerald-50 border border-emerald-200 rounded-xl text-sm text-emerald-700 text-center">

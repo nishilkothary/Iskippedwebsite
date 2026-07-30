@@ -36,19 +36,25 @@ export async function signInWithGoogle(): Promise<User> {
   return result.user;
 }
 
-export async function signUpWithEmail(email: string, password: string, name?: string): Promise<User> {
+export async function signUpWithEmail(
+  email: string,
+  password: string,
+  name?: string
+): Promise<{ user: User; verificationEmailSent: boolean }> {
   const result = await createUserWithEmailAndPassword(auth, email, password);
   if (name?.trim()) {
     await updateProfile(result.user, { displayName: name.trim() });
   }
   const isNew = await createOrUpdateUser(result.user);
   await attributeReferralIfNew(isNew, result.user.uid);
+  let verificationEmailSent = false;
   try {
     await sendEmailVerification(result.user);
+    verificationEmailSent = true;
   } catch {
     // Non-critical — the user can request another verification email from the app banner
   }
-  return result.user;
+  return { user: result.user, verificationEmailSent };
 }
 
 export async function signInWithEmail(email: string, password: string): Promise<User> {
