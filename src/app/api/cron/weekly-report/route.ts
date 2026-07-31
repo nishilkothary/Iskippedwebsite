@@ -1,14 +1,68 @@
 import { NextRequest, NextResponse } from "next/server";
 import { Resend } from "resend";
 import { render } from "@react-email/components";
-import { getAdminDb } from "@/lib/services/firebaseAdmin";
+import { getAdminDb, getAdminRtdb } from "@/lib/services/firebaseAdmin";
 import WeeklyReport, { WeeklyReportProps } from "@/lib/emails/WeeklyReport";
+import { formatUnits, oneUnitPhrase } from "@/lib/utils/impact";
 import crypto from "crypto";
 import * as React from "react";
 
 export const maxDuration = 300;
 
 const APP_URL = process.env.NEXT_PUBLIC_APP_URL ?? "https://iskipped.com";
+
+type ProjectImpactDetails = {
+  title: string;
+  unitName?: string | null;
+  unitCost?: number | null;
+  unitIsGoal?: boolean | null;
+  unitPhrase?: string | null;
+};
+
+const OFFICIAL_PROJECT_IMPACT: Record<string, ProjectImpactDetails> = {
+  cfc: {
+    title: "A Student's Education in Cambodia",
+    unitName: "Day of Education",
+    unitCost: 300 / 365,
+  },
+  kc: {
+    title: "Chromebooks for Students",
+    unitName: "Chromebook",
+    unitCost: 250,
+    unitIsGoal: true,
+    unitPhrase: "a Chromebook for a student",
+  },
+  "pop-education": {
+    title: "Educational Opportunities For a Student",
+    unitName: "Day of Education",
+    unitCost: 0.27,
+  },
+  "stm-palestine": {
+    title: "Life-Saving Meals in Palestine",
+    unitName: "Life-Saving Meal",
+    unitCost: 0.8,
+  },
+  "stm-ukraine": {
+    title: "Emergency Meals in Ukraine",
+    unitName: "Emergency Meal",
+    unitCost: 0.8,
+  },
+  "stm-syria": {
+    title: "Meals in Syria",
+    unitName: "Meal",
+    unitCost: 0.8,
+  },
+  "new-incentives": {
+    title: "Child Vaccination in Nigeria",
+    unitName: "Child Vaccination Enrollment",
+    unitCost: 16,
+    unitIsGoal: true,
+  },
+};
+
+function dollars(n: number) {
+  return `$${n.toFixed(2).replace(/\.00$/, "")}`;
+}
 
 function getWeekRange(): { start: string; end: string; label: string } {
   const now = new Date();
@@ -26,7 +80,7 @@ function getWeekRange(): { start: string; end: string; label: string } {
   return {
     start: lastMonday.toISOString().slice(0, 10),
     end: lastSunday.toISOString().slice(0, 10),
-    label: `${fmt(lastMonday)} – ${fmt(lastSunday)}`,
+    label: `${fmt(lastMonday)} - ${fmt(lastSunday)}`,
   };
 }
 
@@ -36,6 +90,28 @@ function getUnsubscribeUrl(uid: string): string {
     .update(uid)
     .digest("hex");
   return `${APP_URL}/api/unsubscribe?uid=${uid}&token=${token}`;
+}
+
+function formatCauseImpact(
+  amount: number,
+  causeName: string | null,
+  project: ProjectImpactDetails | null
+): string | null {
+  if (amount <= 0) return null;
+
+  const unitName = project?.unitName;
+  const unitCost = project?.unitCost;
+  if (unitName && unitCost && unitCost > 0) {
+    if (project?.unitIsGoal) {
+      const pct = (amount / unitCost) * 100;
+      const pctText = pct >= 10 ? `${Math.round(pct)}` : `${parseFloat(pct.toFixed(1))}`;
+      const phrase = project.unitPhrase ?? oneUnitPhrase(unitName);
+      return `${pctText}% of ${phrase} pledged`;
+    }
+    return `${formatUnits(amount, unitCost, unitName)} pledged`;
+  }
+
+  return causeName ? `${dollars(amount)} pledged` : null;
 }
 
 export async function GET(req: NextRequest) {
@@ -51,29 +127,31 @@ export async function GET(req: NextRequest) {
   const testMode = new URL(req.url).searchParams.get("test") === "true";
   const noSkipPreview = new URL(req.url).searchParams.get("preview") === "noskip";
 
-  // Fetch all users
   const usersSnap = await db.collection("users").get();
-  let users = usersSnap.docs.map((d) => d.data());
+  const allUsers = usersSnap.docs.map((d) => d.data());
+  let users = allUsers;
 
   if (testMode) {
     users = users.filter((u) => u.email === "nkothary2@gmail.com");
   }
 
-  let communityTotalSaved = 0;
-  let communitySkipCount = 0;
-  let communityUserCount = 0;
-  const communityCategoryTotals: Record<string, { emoji: string; label: string; amount: number }> = {};
+  const globalStatsSnap = await getAdminRtdb().ref("globalStats").get().catch(() => null);
+  const globalStats = globalStatsSnap?.exists() ? globalStatsSnap.val() : null;
+  const communityTotalSaved =
+    typeof globalStats?.totalSaved === "number"
+      ? globalStats.totalSaved
+      : allUsers.reduce((sum: number, u) => sum + (u.totalSaved ?? 0), 0);
+  const communitySkipCount =
+    typeof globalStats?.totalSkips === "number"
+      ? globalStats.totalSkips
+      : allUsers.reduce((sum: number, u) => sum + (u.totalSkips ?? 0), 0);
 
   type UserWeekData = {
     uid: string;
     email: string;
-    displayName: string;
     weekSaved: number;
     skipCount: number;
-    largestSkip: number;
-    topCategories: { emoji: string; label: string; amount: number }[];
     causeAmount: number;
-    liveAmount: number;
   };
 
   const BATCH = 10;
@@ -106,41 +184,15 @@ export async function GET(req: NextRequest) {
         const skips = skipsSnap.docs.map((d) => d.data());
         const weekSaved = skips.reduce((s: number, sk: any) => s + (sk.amount ?? 0), 0);
         const skipCount = skips.length;
-
-        const categoryTotals: Record<string, { emoji: string; label: string; amount: number }> = {};
         let causeAmount = 0;
-        let liveAmount = 0;
-        let largestSkip = 0;
 
         for (const sk of skips) {
           const amt = sk.amount ?? 0;
-          const key = sk.category ?? sk.categoryLabel ?? "Other";
-          if (!categoryTotals[key]) {
-            categoryTotals[key] = { emoji: sk.categoryEmoji ?? "💰", label: sk.categoryLabel ?? key, amount: 0 };
-          }
-          categoryTotals[key].amount += amt;
-
-          if (!communityCategoryTotals[key]) {
-            communityCategoryTotals[key] = { emoji: sk.categoryEmoji ?? "💰", label: sk.categoryLabel ?? key, amount: 0 };
-          }
-          communityCategoryTotals[key].amount += amt;
-
           const give = sk.jarSplit?.give ?? (u.jarSplit?.give ?? 50);
-          const live = sk.jarSplit?.live ?? (u.jarSplit?.live ?? 50);
           causeAmount += amt * (give / 100);
-          liveAmount += amt * (live / 100);
-          if (amt > largestSkip) largestSkip = amt;
         }
 
-        const topCategories = Object.values(categoryTotals)
-          .sort((a, b) => b.amount - a.amount)
-          .slice(0, 3);
-
-        communityTotalSaved += weekSaved;
-        communitySkipCount += skipCount;
-        communityUserCount += 1;
-
-        return { uid: u.uid, email: u.email, displayName: u.displayName ?? "there", weekSaved, skipCount, largestSkip, topCategories, causeAmount, liveAmount };
+        return { uid: u.uid, email: u.email, weekSaved, skipCount, causeAmount };
       })
     );
     for (const r of results) {
@@ -148,10 +200,6 @@ export async function GET(req: NextRequest) {
     }
   }
 
-  const communityTopCategory =
-    Object.values(communityCategoryTotals).sort((a, b) => b.amount - a.amount)[0] ?? null;
-
-  // Send emails
   let sent = 0;
   let failed = 0;
 
@@ -162,50 +210,40 @@ export async function GET(req: NextRequest) {
         const profile = eligible.find((u) => u.uid === data.uid);
         if (!profile) return;
 
-        // Active reward name from spendingGoals
-        const rewardName: string | null =
-          profile.activeSpendingGoalId && profile.spendingGoals
-            ? (profile.spendingGoals as any[]).find((g: any) => g.id === profile.activeSpendingGoalId)?.label ?? null
-            : null;
-
-        // Cause name + totals from activeProjectId
         let causeName: string | null = profile.activeCauseTitle ?? null;
-        let causeTotalRaised: number | null = null;
-        let causeGoalAmount: number | null = null;
+        let projectImpact: ProjectImpactDetails | null =
+          profile.activeProjectId ? OFFICIAL_PROJECT_IMPACT[profile.activeProjectId] ?? null : null;
+        causeName = causeName ?? projectImpact?.title ?? null;
         if (profile.activeProjectId) {
           try {
             const projDoc = await db.collection("projects").doc(profile.activeProjectId).get();
             const proj = projDoc.data();
             if (proj) {
-              causeName = causeName ?? proj.title ?? null;
-              causeTotalRaised = proj.totalRaised ?? proj.totalDonated ?? null;
-              causeGoalAmount = proj.goalAmount ?? null;
+              causeName = causeName ?? proj.groupName ?? proj.title ?? null;
+              projectImpact = {
+                title: causeName ?? proj.groupName ?? proj.title ?? projectImpact?.title ?? "Cause",
+                unitName: proj.unitName ?? projectImpact?.unitName ?? null,
+                unitCost: proj.unitCost ?? projectImpact?.unitCost ?? null,
+                unitIsGoal: proj.unitIsGoal ?? projectImpact?.unitIsGoal ?? null,
+                unitPhrase: proj.unitPhrase ?? projectImpact?.unitPhrase ?? null,
+              };
             }
           } catch {
-            // ignore
+            // Ignore missing cause details; the template can still show dollars pledged.
           }
         }
 
+        const causeAmount = noSkipPreview ? 0 : data.causeAmount;
         const props: WeeklyReportProps = {
-          displayName: data.displayName,
           weekLabel: week.label,
           totalSaved: noSkipPreview ? 0 : data.weekSaved,
           skipCount: noSkipPreview ? 0 : data.skipCount,
-          largestSkip: noSkipPreview ? 0 : data.largestSkip,
-          averageSkip: noSkipPreview ? 0 : (data.skipCount > 0 ? data.weekSaved / data.skipCount : 0),
-          topCategories: noSkipPreview ? [] : data.topCategories,
-          causeAmount: noSkipPreview ? 0 : data.causeAmount,
-          liveAmount: noSkipPreview ? 0 : data.liveAmount,
+          causeAmount,
           streak: profile.streak ?? 0,
           causeName,
-          rewardName,
-          causeImpactText: null,
-          causeTotalRaised,
-          causeGoalAmount,
+          causeImpactText: formatCauseImpact(causeAmount, causeName, projectImpact),
           communityTotalSaved,
           communitySkipCount,
-          communityTopCategory,
-          groupName: null,
           unsubscribeUrl: getUnsubscribeUrl(data.uid),
           appUrl: APP_URL,
         };
@@ -215,7 +253,7 @@ export async function GET(req: NextRequest) {
           await resend.emails.send({
             from: "iSkipped <hello@iskipped.com>",
             to: data.email,
-            subject: `Your iSkipped savings report — ${week.label}`,
+            subject: `Your iSkipped savings report - ${week.label}`,
             html,
           });
           sent++;
