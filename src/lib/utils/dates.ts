@@ -44,13 +44,73 @@ export function yesterday(): string {
   return d.toISOString().split("T")[0];
 }
 
-/** Date string (YYYY-MM-DD) for Monday of the current week — same local-Date semantics as today()/yesterday() so lastSkipDate comparisons stay consistent. */
-export function startOfWeek(): string {
-  const d = new Date();
-  const day = d.getDay(); // 0=Sun..6=Sat
-  const diffToMonday = day === 0 ? 6 : day - 1;
-  d.setDate(d.getDate() - diffToMonday);
+function dateKeyToUtcDate(dateKey: string): Date {
+  const [year, month, day] = dateKey.split("-").map(Number);
+  return new Date(Date.UTC(year, month - 1, day));
+}
+
+function addDaysToDateKey(dateKey: string, days: number): string {
+  const d = dateKeyToUtcDate(dateKey);
+  d.setUTCDate(d.getUTCDate() + days);
   return d.toISOString().split("T")[0];
+}
+
+/** Date string (YYYY-MM-DD) for Monday of the current week. */
+export function startOfWeek(dateKey = today()): string {
+  const d = dateKeyToUtcDate(dateKey);
+  const day = d.getUTCDay(); // 0=Sun..6=Sat
+  const diffToMonday = day === 0 ? 6 : day - 1;
+  d.setUTCDate(d.getUTCDate() - diffToMonday);
+  return d.toISOString().split("T")[0];
+}
+
+export function previousWeekStart(dateKey = today()): string {
+  return addDaysToDateKey(startOfWeek(dateKey), -7);
+}
+
+export function isSameWeek(dateKey: string | null | undefined, referenceDateKey = today()): boolean {
+  return !!dateKey && startOfWeek(dateKey) === startOfWeek(referenceDateKey);
+}
+
+export function isPreviousWeek(dateKey: string | null | undefined, referenceDateKey = today()): boolean {
+  return !!dateKey && startOfWeek(dateKey) === previousWeekStart(referenceDateKey);
+}
+
+export function getConsecutiveWeeklyStreak(dateKeys: Array<string | null | undefined>, referenceDateKey = today()): number {
+  const weekStarts = new Set(
+    dateKeys
+      .filter((dateKey): dateKey is string => !!dateKey)
+      .map((dateKey) => startOfWeek(dateKey))
+  );
+  let cursor = startOfWeek(referenceDateKey);
+  if (!weekStarts.has(cursor)) return 0;
+
+  let streak = 0;
+  while (weekStarts.has(cursor)) {
+    streak += 1;
+    cursor = previousWeekStart(cursor);
+  }
+  return streak;
+}
+
+export function getLongestWeeklyStreak(dateKeys: Array<string | null | undefined>): number {
+  const sortedWeekStarts = Array.from(new Set(
+    dateKeys
+      .filter((dateKey): dateKey is string => !!dateKey)
+      .map((dateKey) => startOfWeek(dateKey))
+  )).sort();
+
+  let longest = 0;
+  let current = 0;
+  let previous: string | null = null;
+
+  for (const weekStart of sortedWeekStarts) {
+    current = previous && previousWeekStart(weekStart) === previous ? current + 1 : 1;
+    longest = Math.max(longest, current);
+    previous = weekStart;
+  }
+
+  return longest;
 }
 
 export function formatRelativeTime(date: Date): string {

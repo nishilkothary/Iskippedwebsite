@@ -5,7 +5,7 @@ import { requireUid, ApiError, handleApiError } from "@/lib/services/apiAuth";
 import { normalizeJarSplitServer, normalizeSpendingGoalsServer, validateAmount, validateNonEmptyString } from "@/lib/services/serverProfileDefaults";
 import { getImpactMessage } from "@/lib/constants/impactMessages";
 import { xpForSkip, levelForXp, REFERRAL_BONUS_XP } from "@/lib/utils/xp";
-import { today, yesterday } from "@/lib/utils/dates";
+import { getConsecutiveWeeklyStreak, getLongestWeeklyStreak, today } from "@/lib/utils/dates";
 import { formatUnits } from "@/lib/utils/impact";
 import { adjustGlobalStats } from "@/lib/services/globalStats";
 import { UserProfile } from "@/lib/types/models";
@@ -38,7 +38,6 @@ export async function POST(req: NextRequest) {
     const feedRef = db.collection("feed").doc(uid).collection("items").doc();
 
     const todayStr = today();
-    const yesterdayStr = yesterday();
 
     const result = await db.runTransaction(async (tx) => {
       const userSnap = await tx.get(userRef);
@@ -53,6 +52,10 @@ export async function POST(req: NextRequest) {
       const referrerRef = profile.referredBy ? db.collection("users").doc(profile.referredBy) : null;
       const referrerSnap = referrerRef ? await tx.get(referrerRef) : null;
       const referrerProfile = referrerSnap?.exists ? (referrerSnap.data() as UserProfile) : null;
+      const existingSkipsSnap = await tx.get(userRef.collection("skips"));
+      const skipDates = existingSkipsSnap.docs
+        .map((doc) => doc.get("date"))
+        .filter((date): date is string => typeof date === "string");
       // First-skip XP bonus only applies to both parties on the invitee's first skip.
       const referralBonusXp = referrerProfile && isFirstSkip ? REFERRAL_BONUS_XP : 0;
 
@@ -70,16 +73,9 @@ export async function POST(req: NextRequest) {
       const newLevel = levelForXp(newXp);
       const newTotalSaved = (profile.totalSaved ?? 0) + amount;
 
-      let newStreak = profile.streak ?? 0;
-      const lastSkipDate = profile.lastSkipDate ?? null;
-      if (lastSkipDate === todayStr) {
-        // no change
-      } else if (lastSkipDate === yesterdayStr) {
-        newStreak = (profile.streak ?? 0) + 1;
-      } else {
-        newStreak = 1;
-      }
-      const newLongestStreak = Math.max(profile.longestStreak ?? 0, newStreak);
+      const allSkipDates = [...skipDates, todayStr];
+      const newStreak = getConsecutiveWeeklyStreak(allSkipDates, todayStr);
+      const newLongestStreak = getLongestWeeklyStreak(allSkipDates);
 
       let newOverflowCount: number | undefined;
       const causeGoalAmount = projectId ? (profile.causeGoalAmounts?.[projectId] ?? 0) : 0;
@@ -170,7 +166,7 @@ export async function POST(req: NextRequest) {
         });
       }
 
-      return { giveAmount, newTotalSaved, newXp, newLevel, newStreak, newOverflowCount, message };
+      return { giveAmount, newTotalSaved, newXp, newLevel, newStreak, newLongestStreak, newOverflowCount, message };
     });
 
     // Project totals for challenge group tracking (best-effort, non-atomic — matches prior behavior)
@@ -221,6 +217,7 @@ export async function POST(req: NextRequest) {
       newXp: result.newXp,
       newLevel: result.newLevel,
       newStreak: result.newStreak,
+      newLongestStreak: result.newLongestStreak,
       giveJarOverflowCount: result.newOverflowCount,
     });
   } catch (e) {

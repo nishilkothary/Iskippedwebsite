@@ -60,6 +60,11 @@ export function useSkips() {
         updateProfile({
           totalSaved: profile.totalSaved + params.amount,
           totalSkips: profile.totalSkips + 1,
+          xp: result.newXp,
+          level: result.newLevel,
+          streak: result.newStreak,
+          longestStreak: result.newLongestStreak,
+          lastSkipDate: today(),
           totalGiveAllocated: (profile.totalGiveAllocated ?? 0) + giveAmount,
           totalLiveAllocated: (profile.totalLiveAllocated ?? 0) + liveAmount,
           causeJarBalances: params.projectId

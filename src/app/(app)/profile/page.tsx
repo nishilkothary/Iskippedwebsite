@@ -68,6 +68,7 @@ export default function ProfilePage() {
   if (!profile || !user) return null;
 
   const currentSplit = normalizeJarSplit(profile.jarSplit as any);
+  const formatWeeks = (weeks: number) => `${weeks} week${weeks === 1 ? "" : "s"}`;
 
   const weekStart = new Date();
   weekStart.setDate(weekStart.getDate() - 7);
@@ -172,8 +173,8 @@ export default function ProfilePage() {
         </div>
         <div className="grid grid-cols-3 gap-2">
           {[
-            { label: "Longest Streak", value: `${profile.longestStreak} days`, emoji: "🏆" },
-            { label: "Current Streak", value: `${profile.streak} days`, emoji: "🔥" },
+            { label: "Longest Streak", value: formatWeeks(profile.longestStreak), emoji: "🏆" },
+            { label: "Current Streak", value: formatWeeks(profile.streak), emoji: "🔥" },
             { label: "Friends Joined", value: String(profile.referralCount ?? 0), emoji: "🤝" },
           ].map((s) => (
             <div key={s.label} className="p-4" style={cardStyle}>

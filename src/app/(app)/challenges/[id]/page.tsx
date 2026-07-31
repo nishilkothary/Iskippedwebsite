@@ -10,6 +10,7 @@ import { isChallengeProject, getProject } from "@/lib/services/firebase/projects
 import { formatCurrency } from "@/lib/utils/currency";
 import { getChallengeCountdown } from "@/lib/utils/dates";
 import { appendRefParam } from "@/lib/utils/share";
+import { getDirectChallengeShareText } from "@/lib/utils/challengeShareCopy";
 import { ShareButton } from "@/components/share/ShareButton";
 
 type ChallengeCategory = "Education" | "Meals" | "Health" | "Community";
@@ -266,7 +267,7 @@ export default function ChallengeDetailPage() {
     if (canNativeShare) {
       try {
         const groupName = challenge.project.groupName ?? challenge.title;
-        await navigator.share({ title: groupName, text: `Join My iSkipped Group, ${groupName}, to help raise funds for ${challenge.project.title}. The challenge is simple, skip expenses in your daily life, and pledge some of your savings to this cause!`, url: challengeUrl });
+        await navigator.share({ title: groupName, text: getDirectChallengeShareText(challenge.project), url: challengeUrl });
         return;
       } catch { /* dismissed */ }
     }
@@ -565,7 +566,7 @@ export default function ChallengeDetailPage() {
       {showShare && (
         <ShareDetailModal
           title={challenge.project.groupName ?? challenge.title}
-          projectTitle={challenge.project.title}
+          project={challenge.project}
           url={challengeUrl}
           password={challenge.project.visibility === "private" || challenge.project.visibility === "password" ? challenge.project.password ?? null : null}
           onClose={() => setShowShare(false)}
@@ -676,21 +677,21 @@ function PersonalGoalPickerModal({
 
 function ShareDetailModal({
   title,
-  projectTitle,
+  project,
   url,
   password,
   onClose,
 }: {
   title: string;
-  projectTitle: string;
+  project: Project;
   url: string;
   password: string | null;
   onClose: () => void;
 }) {
   const [copiedLink, setCopiedLink] = useState(false);
   const [copiedMsg, setCopiedMsg] = useState(false);
-  const shareMessage = `Join My iSkipped Group, ${title}, to help raise funds for ${projectTitle}. The challenge is simple, skip expenses in your daily life, and pledge some of your savings to this cause! ${url}`;
-  const shareIntentText = `Join My iSkipped Group, ${title}, to help raise funds for ${projectTitle}. The challenge is simple, skip expenses in your daily life, and pledge some of your savings to this cause!`;
+  const shareIntentText = getDirectChallengeShareText(project);
+  const shareMessage = `${shareIntentText} ${url}`;
 
   async function handleCopyLink() {
     try {

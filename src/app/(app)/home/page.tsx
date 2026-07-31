@@ -7,7 +7,7 @@ import { useSkips } from "@/hooks/useSkips";
 import { useProjects } from "@/hooks/useProjects";
 import { useUIStore } from "@/store/uiStore";
 import { formatCurrency } from "@/lib/utils/currency";
-import { formatRelativeTime, today, getChallengeCountdown, parkedJarCount } from "@/lib/utils/dates";
+import { formatRelativeTime, getChallengeCountdown, getConsecutiveWeeklyStreak, isSameWeek, parkedJarCount } from "@/lib/utils/dates";
 import { InstallPrompt } from "@/components/InstallPrompt";
 import { normalizeJarSplit, normalizeSpendingGoals } from "@/lib/services/firebase/users";
 import { levelForXp } from "@/lib/utils/xp";
@@ -16,6 +16,7 @@ import { subscribeToCommunityFeed, subscribeToGlobalStats } from "@/lib/services
 import { EditSkipModal } from "@/components/skip/EditSkipModal";
 import { FeedItem, GlobalStats, Project, Skip } from "@/lib/types/models";
 import { appendRefParam } from "@/lib/utils/share";
+import { getDirectChallengeShareText } from "@/lib/utils/challengeShareCopy";
 import { ShareButton } from "@/components/share/ShareButton";
 
 // ─── SVG Jar ───────────────────────────────────────────────────────────────
@@ -340,26 +341,6 @@ function getFeedActionLine(item: Pick<FeedItem, "displayName" | "message" | "ski
   return `${formatFeedName(item.displayName)} skipped ${getFeedSkipLabel(item)}`;
 }
 
-function previousDateKey(dateKey: string): string {
-  const date = new Date(`${dateKey}T00:00:00.000Z`);
-  date.setUTCDate(date.getUTCDate() - 1);
-  return date.toISOString().slice(0, 10);
-}
-
-function getConsecutiveSkipStreak(skips: Skip[]): number {
-  const dates = new Set(skips.map((skip) => skip.date).filter(Boolean));
-  const todayKey = today();
-  if (!dates.has(todayKey)) return 0;
-
-  let streak = 0;
-  let cursor = previousDateKey(todayKey);
-  while (dates.has(cursor)) {
-    streak += 1;
-    cursor = previousDateKey(cursor);
-  }
-  return streak;
-}
-
 export default function HomePage() {
   const router = useRouter();
   const { user, profile } = useAuthStore();
@@ -465,6 +446,8 @@ export default function HomePage() {
   const challengeSkips = activeProject && isActiveChallenge
     ? recentSkips.filter((skip) => skip.projectId === activeProject.id)
     : [];
+  const hasSkippedThisWeek = isSameWeek(profile.lastSkipDate) || recentSkips.some((skip) => isSameWeek(skip.date));
+  const hasActiveChallengeSkipThisWeek = challengeSkips.some((skip) => isSameWeek(skip.date));
   const hasCommunityUnit = !!(activeProject?.unitCost && activeProject.unitCost > 0);
   const communityUnitCountDisplay = hasCommunityUnit && activeProject
     ? formatCommunityUnitCount(displayedGroupTotal, activeProject.unitCost ?? 0, activeProject.unitIsGoal)
@@ -508,7 +491,7 @@ export default function HomePage() {
   const spendingFillPct = activeGoal
     ? Math.min(100, (spendingBalance / activeGoal.targetAmount) * 100)
     : 0;
-  const displayedStreak = getConsecutiveSkipStreak(recentSkips);
+  const displayedStreak = getConsecutiveWeeklyStreak(recentSkips.map((skip) => skip.date));
   const activeCountdown = activeProject && isActiveChallenge ? getChallengeCountdown(activeProject) : null;
 
   const parkedJars = Object.entries(profile.causeJarBalances ?? {})
@@ -545,7 +528,14 @@ export default function HomePage() {
       {/* Greeting + CTA */}
       <div style={{ textAlign: "center", marginBottom: 24 }}>
         <h1 className="text-2xl font-black" style={{ color: "var(--text-primary)" }}>Hey {firstName}.</h1>
-        <p className="mt-1 mb-5 text-sm" style={{ color: "var(--text-muted)" }}>What expense did you skip today?</p>
+        <p className="mt-1 mb-2 text-sm" style={{ color: "var(--text-muted)" }}>
+          {hasSkippedThisWeek
+            ? "Your weekly skip is in. Every extra skip grows your impact."
+            : "One skip this week keeps your streak alive."}
+        </p>
+        <p className="mb-5 text-xs font-semibold" style={{ color: hasSkippedThisWeek ? "var(--green-primary)" : "var(--text-secondary)" }}>
+          {hasSkippedThisWeek ? "Bonus skips count too." : "What expense can you skip this week?"}
+        </p>
 
         <button
           onClick={() => setShowSkipPicker(true)}
@@ -556,7 +546,7 @@ export default function HomePage() {
             boxShadow: "0 4px 18px var(--gold-glow)",
           }}
         >
-          Log a Skip
+          {hasSkippedThisWeek ? "Add a Bonus Skip" : "Log a Skip"}
         </button>
 
       </div>
@@ -618,7 +608,7 @@ export default function HomePage() {
             }}
           >
             <span style={{ fontSize: 12 }}>🔥</span>
-            <span style={{ fontSize: 11, fontWeight: 700, color: "#E8924A" }}>{displayedStreak}</span>
+            <span style={{ fontSize: 11, fontWeight: 700, color: "#E8924A" }}>{displayedStreak} wk</span>
           </div>
         )}
         {/* Total */}
@@ -928,7 +918,7 @@ export default function HomePage() {
                   variant="pill"
                   label="Share"
                   title={activeProject.title}
-                  text={`Join my iSkipped challenge: ${activeProject.title}`}
+                  text={getDirectChallengeShareText(activeProject)}
                   url={appendRefParam(`${typeof window !== "undefined" ? window.location.origin : "https://iskipped.com"}/challenges/${activeProject.id}`, user?.uid)}
                 />
                 <button
@@ -942,6 +932,11 @@ export default function HomePage() {
             <div>
               <p style={{ fontSize: 13, fontWeight: 700, color: "var(--green-primary)", marginBottom: 0 }}>
                 {activeProject.groupName ?? activeProject.title}
+              </p>
+              <p style={{ fontSize: 12, fontWeight: 700, color: "var(--text-muted)", marginTop: 5 }}>
+                {hasActiveChallengeSkipThisWeek
+                  ? "Your weekly skip is in. Bonus skips help the group reach the goal faster."
+                  : "Skip once this week for this cause. Bonus skips help the group reach the goal faster."}
               </p>
               <div style={{ display: "flex", gap: 14, alignItems: "flex-start", marginTop: 12 }}>
                 <div>

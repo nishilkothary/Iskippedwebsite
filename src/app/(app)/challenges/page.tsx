@@ -9,6 +9,7 @@ import { switchCause, setUserCauseGoal } from "@/lib/services/firebase/users";
 import { addCustomProject, isChallengeProject, isProjectEnded, updateCustomProject, OFFICIAL_PROJECTS, PARTNER_CHALLENGE_IDS } from "@/lib/services/firebase/projects";
 import { formatCurrency } from "@/lib/utils/currency";
 import { appendRefParam } from "@/lib/utils/share";
+import { getDirectChallengeShareText } from "@/lib/utils/challengeShareCopy";
 import { ShareButton } from "@/components/share/ShareButton";
 
 type ChallengeCard = {
@@ -368,8 +369,7 @@ export default function ChallengesPage() {
 
   async function handleShareChallenge(challenge: ChallengeCard) {
     const url = appendRefParam(`${window.location.origin}/join/${challenge.project.id}`, user?.uid);
-    const groupName = challenge.project.groupName ?? challenge.title;
-    const msg = `Join My iSkipped Group, ${groupName}, to help raise funds for ${challenge.project.title}. The challenge is simple, skip expenses in your daily life, and pledge some of your savings to this cause!`;
+    const msg = getDirectChallengeShareText(challenge.project);
     if (typeof navigator !== "undefined" && typeof navigator.share === "function") {
       try {
         await navigator.share({ title: challenge.title, text: msg, url });
@@ -1164,8 +1164,8 @@ function ShareChallengeModal({
   const [copiedMsg, setCopiedMsg] = useState(false);
   const [copiedLink, setCopiedLink] = useState(false);
   const groupNameForMsg = challenge.project.groupName ?? challenge.title;
-  const shareMessage = `Join My iSkipped Group, ${groupNameForMsg}, to help raise funds for ${challenge.project.title}. The challenge is simple, skip expenses in your daily life, and pledge some of your savings to this cause! ${url}`;
-  const shareIntentText = `Join My iSkipped Group, ${groupNameForMsg}, to help raise funds for ${challenge.project.title}. The challenge is simple, skip expenses in your daily life, and pledge some of your savings to this cause!`;
+  const shareIntentText = getDirectChallengeShareText(challenge.project);
+  const shareMessage = `${shareIntentText} ${url}`;
 
   async function handleCopyMessage() {
     try {

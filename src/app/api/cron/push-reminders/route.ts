@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getAdminDb } from "@/lib/services/firebaseAdmin";
 import { sendPushToUser } from "@/lib/services/push";
-import { yesterday, startOfWeek } from "@/lib/utils/dates";
+import { isPreviousWeek, isSameWeek } from "@/lib/utils/dates";
 
 export const maxDuration = 300;
 
@@ -14,8 +14,6 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  const yesterdayStr = yesterday();
-  const weekStartStr = startOfWeek();
   const dayOfWeek = new Date().getDay(); // 0=Sun, 3=Wed (server runs in UTC on Vercel)
   // Goal is at least one skip a week: nudge midweek (Wed) and again as a last chance (Sun),
   // for anyone who hasn't logged a skip since Monday.
@@ -36,14 +34,18 @@ export async function GET(req: NextRequest) {
       batch.map(async (u) => {
         if (!u.fcmTokens?.length) return;
         try {
-          if (u.lastSkipDate === yesterdayStr && (u.streak ?? 0) > 0) {
+          const lastSkipDate = typeof u.lastSkipDate === "string" ? u.lastSkipDate : null;
+          const hasSkippedThisWeek = isSameWeek(lastSkipDate);
+          const streakAtRisk = isLastChance && isPreviousWeek(lastSkipDate) && (u.streak ?? 0) > 0;
+
+          if (streakAtRisk) {
             await sendPushToUser(u.uid, {
-              title: "🔥 Your streak is at risk!",
-              body: `You're on a ${u.streak}-day streak — log a skip today before it resets.`,
+              title: "Your weekly streak is at risk!",
+              body: `You're on a ${u.streak}-week streak. Log one skip this week to keep it going.`,
               url: "/home",
             });
             streakReminders++;
-          } else if (isWeeklyNudgeDay && (!u.lastSkipDate || u.lastSkipDate < weekStartStr)) {
+          } else if (isWeeklyNudgeDay && !hasSkippedThisWeek) {
             await sendPushToUser(u.uid, {
               title: isLastChance ? "⏰ Last chance this week" : "👋 Haven't skipped yet this week?",
               body: isLastChance

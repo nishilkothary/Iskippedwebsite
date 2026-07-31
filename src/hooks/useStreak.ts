@@ -1,14 +1,14 @@
 "use client";
 import { useAuthStore } from "@/store/authStore";
-import { today, yesterday } from "@/lib/utils/dates";
+import { isPreviousWeek, isSameWeek } from "@/lib/utils/dates";
 
 export function useStreak() {
   const { profile } = useAuthStore();
   const streak = profile?.streak ?? 0;
   const lastSkipDate = profile?.lastSkipDate ?? null;
-  const skippedToday = lastSkipDate === today();
-  const skippedYesterday = lastSkipDate === yesterday();
-  const isActive = skippedToday || skippedYesterday;
+  const skippedThisWeek = isSameWeek(lastSkipDate);
+  const skippedLastWeek = isPreviousWeek(lastSkipDate);
+  const isActive = skippedThisWeek || skippedLastWeek;
 
-  return { streak, skippedToday, isActive, longestStreak: profile?.longestStreak ?? 0 };
+  return { streak, skippedThisWeek, isActive, longestStreak: profile?.longestStreak ?? 0 };
 }

@@ -16,8 +16,8 @@ export interface UserProfile {
   photoURL: string | null;
   totalSaved: number;
   totalSkips: number;
-  streak: number;
-  longestStreak: number;
+  streak: number; // consecutive weeks with at least one skip
+  longestStreak: number; // longest weekly streak
   xp: number;
   level: number;
   activeProjectId: string | null;
