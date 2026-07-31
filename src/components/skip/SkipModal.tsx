@@ -10,7 +10,7 @@ import { formatCurrency } from "@/lib/utils/currency";
 import { normalizeJarSplit, normalizeSpendingGoals } from "@/lib/services/firebase/users";
 import { formatUnits, oneUnitPhrase } from "@/lib/utils/impact";
 import { isChallengeProject } from "@/lib/services/firebase/projects";
-import { getChallengeCountdown, isSameWeek } from "@/lib/utils/dates";
+import { getChallengeCountdown } from "@/lib/utils/dates";
 import { appendRefParam } from "@/lib/utils/share";
 import { getPostSkipShareText } from "@/lib/utils/challengeShareCopy";
 import { ShareButton } from "@/components/share/ShareButton";
@@ -142,53 +142,27 @@ export function SkipModal({ onClose }: Props) {
 
     if (showSetupPrompt) return <SkipSetupPrompt mode="modal" onClose={onClose} />;
 
-    // Goal progress for "x% towards your reward" line
-    const { goals: successSpendingGoals, activeId: successActiveGoalId } = normalizeSpendingGoals(profile ?? {} as any);
-    const successActiveGoal = successSpendingGoals.find(g => g.id === successActiveGoalId) ?? null;
-    const liveAmt = amount - skipGive; // live portion of this skip
-    const goalPctDisplay: string | null = (() => {
-      if (!successActiveGoal || successActiveGoal.targetAmount <= 0) return null;
-      const raw = Math.min(100, (liveAmt / successActiveGoal.targetAmount) * 100);
-      if (raw < 1) return raw < 0.1 ? "0.1" : raw.toFixed(1);
-      return String(Math.round(raw));
-    })();
-
-    // Build the success hero as: action line -> large impact stat -> context line.
+    // Build the success hero around the concrete transformation this skip becomes.
     const itemLabel = whatSkipped || customLabel || selectedCat.label.toLowerCase();
     const causeTitle = successProjectTitle ?? null;
     let impactStat = "";
-    let impactContext = "";
-    const hasCauseImpact = !!successActiveProject && !!causeTitle;
-    const isBonusSkip = isSameWeek(profile?.lastSkipDate);
-    const successKicker = isBonusSkip ? "Bonus skip logged" : "Weekly skip complete";
-    const pledgedPortion = skipGivePct >= 100 ? "what you saved" : "part of what you saved";
-    const successActionLine = successActiveProject
-      ? `Nice, you skipped ${itemLabel} and pledged ${pledgedPortion} toward`
-      : `Nice, you skipped ${itemLabel}`;
     if (successActiveProject?.isCustom) {
       const pct = (successActiveProject.goalAmount ?? 0) > 0
         ? Math.max(1, Math.round((skipGive / successActiveProject.goalAmount!) * 100))
         : 0;
-      impactStat = pct > 0 ? `${pct}% toward your goal` : formatCurrency(skipGive);
-      impactContext = causeTitle ? `for ${causeTitle}` : "for your cause";
+      impactStat = pct > 0 ? `${pct}% of your goal pledged` : `${formatCurrency(skipGive)} pledged`;
     } else if (causeTitle && successProjectUnitName && successProjectUnitCost && !successActiveProject?.unitIsGoal) {
       const unitsStr = formatUnits(skipGive, successProjectUnitCost, successProjectUnitName);
-      impactStat = unitsStr;
-      impactContext = successProjectLocation ? `in ${successProjectLocation}` : `for ${causeTitle}`;
+      impactStat = `${unitsStr} pledged`;
     } else if (causeTitle && successProjectUnitName && successProjectUnitCost && successActiveProject?.unitIsGoal) {
       const pct = Math.max(1, Math.round((skipGive / successProjectUnitCost) * 100));
       // One unit IS the goal here, so phrase it in the singular: "88% of a Chromebook for a student"
       const unitPhrase = successActiveProject.unitPhrase ?? oneUnitPhrase(successProjectUnitName);
-      impactStat = `${pct}% of ${unitPhrase}`;
-      impactContext = successProjectLocation ? `in ${successProjectLocation}` : `toward ${causeTitle}`;
+      impactStat = `${pct}% of ${unitPhrase} pledged`;
     } else if (causeTitle) {
-      impactStat = formatCurrency(skipGive);
-      impactContext = `toward ${causeTitle}`;
+      impactStat = `${formatCurrency(skipGive)} pledged`;
     } else {
       impactStat = `${formatCurrency(amount)} saved`;
-      impactContext = isBonusSkip
-        ? "Every extra skip grows your impact."
-        : "Every extra skip this week grows your impact.";
     }
     const challengeURL = successActiveProject
       ? appendRefParam(`${typeof window !== "undefined" ? window.location.origin : "https://iskipped.com"}/join/${successActiveProject.id}`, profile?.uid)
@@ -330,24 +304,9 @@ export function SkipModal({ onClose }: Props) {
                 <div className="text-6xl">🎉</div>
               </div>
             )}
-            <p className="text-xs uppercase tracking-wide font-semibold mb-2" style={{ color: "var(--text-muted)" }}>{successKicker}</p>
-            <p className="text-xs leading-relaxed mx-auto max-w-[260px]" style={{ color: "var(--text-secondary)" }}>
-              {successActionLine}
-            </p>
-            <p id="skip-success-title" className="text-3xl font-black leading-tight mt-1 mx-auto max-w-[290px]" style={{ color: "var(--green-primary)" }}>
+            <p id="skip-success-title" className="text-3xl font-black leading-tight mt-3 mx-auto max-w-[290px]" style={{ color: "var(--green-primary)" }}>
               {impactStat}
             </p>
-            {impactContext && (
-              <p className="text-xs leading-relaxed mt-1 mx-auto max-w-[260px]" style={{ color: "var(--text-muted)" }}>
-                {impactContext}
-              </p>
-            )}
-            {hasCauseImpact && goalPctDisplay !== null && successActiveGoal && (
-              <p className="text-sm mt-2 font-semibold" style={{ color: "var(--text-secondary)" }}>
-                <span style={{ color: "var(--gold-cta)" }}>{goalPctDisplay}%</span> closer to your{" "}
-                <span style={{ color: "var(--gold-cta)" }}>{successActiveGoal.label}</span> reward!
-              </p>
-            )}
 
             {/* Beat 2 — Reward chips */}
             <div className="mt-5 grid gap-2" style={{ gridTemplateColumns: `repeat(${chipCount}, minmax(0, 1fr))` }}>
