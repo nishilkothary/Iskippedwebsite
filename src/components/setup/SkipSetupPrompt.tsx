@@ -7,7 +7,7 @@ import { dismissSetupPrompt } from "@/lib/services/firebase/users";
 import { isPushSupported, registerForPush } from "@/lib/services/firebase/push";
 
 type InstallPlatform = "ios" | "browser" | null;
-type PromptMode = "modal" | "card";
+type PromptMode = "inline" | "footer";
 
 interface Props {
   mode: PromptMode;
@@ -22,8 +22,20 @@ function isStandalone(): boolean {
   );
 }
 
+function isMobileDevice(): boolean {
+  if (typeof window === "undefined") return false;
+  const ua = navigator.userAgent;
+  const isIPadOS = /Macintosh/i.test(ua) && navigator.maxTouchPoints > 1;
+  return (
+    isIPadOS ||
+    /Android|iPhone|iPad|iPod|Mobi/i.test(ua) ||
+    window.matchMedia("(max-width: 767px) and (pointer: coarse)").matches
+  );
+}
+
 export function SkipSetupPrompt({ mode, onClose }: Props) {
   const { user, profile, updateProfile } = useAuthStore();
+  const [isMobile, setIsMobile] = useState(false);
   const [pushSupported, setPushSupported] = useState(false);
   const [pushBusy, setPushBusy] = useState(false);
   const [installPlatform, setInstallPlatform] = useState<InstallPlatform>(null);
@@ -33,19 +45,28 @@ export function SkipSetupPrompt({ mode, onClose }: Props) {
   const [ready, setReady] = useState(false);
 
   useEffect(() => {
+    if (typeof window === "undefined") {
+      setReady(true);
+      return;
+    }
+
+    const mobile = isMobileDevice();
+    setIsMobile(mobile);
+    if (!mobile) {
+      setReady(true);
+      return;
+    }
+
     let active = true;
     isPushSupported().then((supported) => {
       if (active) setPushSupported(supported);
     });
-    return () => {
-      active = false;
-    };
-  }, []);
 
-  useEffect(() => {
-    if (typeof window === "undefined" || isStandalone()) {
+    if (isStandalone()) {
       setReady(true);
-      return;
+      return () => {
+        active = false;
+      };
     }
 
     const ua = navigator.userAgent;
@@ -53,7 +74,9 @@ export function SkipSetupPrompt({ mode, onClose }: Props) {
     if (isIOS) {
       setInstallPlatform("ios");
       setReady(true);
-      return;
+      return () => {
+        active = false;
+      };
     }
 
     const handler = (event: Event) => {
@@ -67,18 +90,19 @@ export function SkipSetupPrompt({ mode, onClose }: Props) {
     const timer = window.setTimeout(() => setReady(true), 900);
 
     return () => {
+      active = false;
       window.removeEventListener("beforeinstallprompt", handler as EventListener);
       window.clearTimeout(timer);
     };
   }, []);
 
   const dismissed = !!profile?.setupPromptDismissedAt || dismissedLocal;
-  const showPushAction = pushSupported && !profile?.pushOptIn;
-  const showInstallAction = installPlatform !== null;
-  const eligible = !!user && !!profile && !dismissed && (showPushAction || showInstallAction);
+  const showPushAction = isMobile && pushSupported && !profile?.pushOptIn;
+  const showInstallAction = isMobile && installPlatform !== null;
+  const eligible = isMobile && !!user && !!profile && !dismissed && (showPushAction || showInstallAction);
 
   useEffect(() => {
-    if (mode === "modal" && ready && !eligible) {
+    if (mode === "inline" && ready && !eligible) {
       onClose?.();
     }
   }, [eligible, mode, onClose, ready]);
@@ -89,7 +113,7 @@ export function SkipSetupPrompt({ mode, onClose }: Props) {
       try {
         await dismissSetupPrompt(user.uid);
       } catch {
-        // Local dismissal still prevents an immediate nag if the network is flaky.
+        // Local dismissal still prevents an immediate repeat if the network is flaky.
       }
     }
     updateProfile({ setupPromptDismissedAt: new Date() as any });
@@ -130,88 +154,101 @@ export function SkipSetupPrompt({ mode, onClose }: Props) {
 
   if (!ready || !eligible) return null;
 
-  const content = (
-    <div
-      className={mode === "modal" ? "rounded-2xl w-full max-w-sm shadow-2xl" : "rounded-2xl p-4 mb-4"}
-      style={{
-        background: mode === "modal" ? "var(--bg-surface-1)" : "linear-gradient(145deg, rgba(46,204,113,0.1), rgba(237,245,240,0.035))",
-        border: "1px solid var(--border-emphasis)",
-      }}
-      onClick={(event) => event.stopPropagation()}
+  const installButton = showInstallAction ? (
+    <button
+      type="button"
+      onClick={handleInstall}
+      className={mode === "footer" ? "font-bold underline-offset-4 hover:underline" : "rounded-full px-3 py-2 text-xs font-black"}
+      style={mode === "footer"
+        ? { color: "var(--green-primary)", background: "none", border: "none" }
+        : { background: "var(--bg-surface-3)", color: "var(--text-primary)", border: "1px solid var(--border-default)" }}
     >
-      <div className={mode === "modal" ? "px-5 pt-5 pb-4" : ""}>
-        <div className="flex items-start justify-between gap-4">
-          <div>
-            <p className="text-base font-black" style={{ color: "var(--text-primary)" }}>
-              {mode === "modal" ? "Keep your weekly skip streak going" : "Make iSkipped easy to remember"}
-            </p>
-            <p className="text-xs mt-1 leading-relaxed" style={{ color: "var(--text-secondary)" }}>
-              Add iSkipped to your home screen or get a gentle weekly reminder to skip one small expense.
-            </p>
-          </div>
+      Add to Home Screen
+    </button>
+  ) : null;
+
+  const pushButton = showPushAction ? (
+    <button
+      type="button"
+      onClick={handlePush}
+      disabled={pushBusy}
+      className={mode === "footer"
+        ? "font-bold underline-offset-4 hover:underline disabled:opacity-60 disabled:cursor-not-allowed"
+        : "rounded-full px-3 py-2 text-xs font-black disabled:opacity-60 disabled:cursor-not-allowed"}
+      style={mode === "footer"
+        ? { color: "var(--green-primary)", background: "none", border: "none" }
+        : { background: "var(--green-primary)", color: "#0B1A14", border: "none" }}
+    >
+      {pushBusy ? "Turning on..." : "Turn on Reminders"}
+    </button>
+  ) : null;
+
+  const iosSteps = showIOSSteps ? (
+    <div
+      className={mode === "footer" ? "mt-2 text-left inline-block" : "mt-2 rounded-xl p-3 text-left"}
+      style={mode === "footer"
+        ? { color: "var(--text-secondary)" }
+        : { background: "var(--bg-surface-2)", border: "1px solid var(--border-default)" }}
+    >
+      <p className="text-xs font-bold mb-1" style={{ color: "var(--text-primary)" }}>On iPhone:</p>
+      <ol className="space-y-1 text-xs leading-relaxed" style={{ color: "var(--text-secondary)", paddingLeft: 16 }}>
+        <li>Tap the Share button in Safari.</li>
+        <li>Choose Add to Home Screen.</li>
+        <li>Tap Add.</li>
+      </ol>
+    </div>
+  ) : null;
+
+  if (mode === "footer") {
+    return (
+      <div className="mt-6 mb-2 text-center text-xs" style={{ color: "var(--text-muted)", lineHeight: 1.6 }}>
+        <p className="font-bold" style={{ color: "var(--text-secondary)" }}>Make iSkipped easier to remember</p>
+        <div className="mt-1 flex flex-wrap items-center justify-center gap-x-2 gap-y-1">
+          {installButton}
+          {installButton && pushButton && <span aria-hidden="true">/</span>}
+          {pushButton}
+          {(installButton || pushButton) && <span aria-hidden="true">/</span>}
           <button
+            type="button"
             onClick={dismiss}
-            aria-label="Dismiss"
-            className="text-xl leading-none"
-            style={{ color: "var(--text-muted)", background: "none", border: "none", cursor: "pointer" }}
+            className="font-semibold underline-offset-4 hover:underline"
+            style={{ color: "var(--text-muted)", background: "none", border: "none" }}
           >
-            ×
+            Not now
           </button>
         </div>
+        {iosSteps}
       </div>
-
-      <div className={mode === "modal" ? "px-5 pb-5 space-y-2" : "mt-4 space-y-2"}>
-        {showInstallAction && (
-          <button
-            type="button"
-            onClick={handleInstall}
-            className="w-full py-3 rounded-xl text-sm font-black"
-            style={{ background: "var(--bg-surface-3)", color: "var(--text-primary)", border: "1px solid var(--border-default)" }}
-          >
-            Add to Home Screen
-          </button>
-        )}
-
-        {showIOSSteps && (
-          <div className="rounded-xl p-3 text-left" style={{ background: "var(--bg-surface-2)", border: "1px solid var(--border-default)" }}>
-            <p className="text-xs font-bold mb-2" style={{ color: "var(--text-primary)" }}>On iPhone:</p>
-            <ol className="space-y-1 text-xs leading-relaxed" style={{ color: "var(--text-secondary)", paddingLeft: 16 }}>
-              <li>Tap the Share button in Safari.</li>
-              <li>Choose Add to Home Screen.</li>
-              <li>Tap Add.</li>
-            </ol>
-          </div>
-        )}
-
-        {showPushAction && (
-          <button
-            type="button"
-            onClick={handlePush}
-            disabled={pushBusy}
-            className="w-full py-3 rounded-xl text-sm font-black disabled:opacity-60 disabled:cursor-not-allowed"
-            style={{ background: "var(--green-primary)", color: "#0B1A14", border: "none" }}
-          >
-            {pushBusy ? "Turning on..." : "Turn on Weekly Reminders"}
-          </button>
-        )}
-
-        <button
-          type="button"
-          onClick={dismiss}
-          className="w-full py-2.5 rounded-xl text-sm font-semibold"
-          style={{ color: "var(--text-muted)", background: "none", border: "none" }}
-        >
-          Not now
-        </button>
-      </div>
-    </div>
-  );
-
-  if (mode === "card") return content;
+    );
+  }
 
   return (
-    <div className="fixed inset-0 bg-black/60 z-50 flex items-end sm:items-center justify-center p-4" onClick={dismiss}>
-      {content}
+    <div
+      className="mt-3 rounded-xl p-3 text-left"
+      style={{ background: "var(--bg-surface-2)", border: "1px solid var(--border-default)" }}
+      onClick={(event) => event.stopPropagation()}
+    >
+      <div className="flex items-start justify-between gap-3">
+        <div>
+          <p className="text-xs font-black" style={{ color: "var(--text-primary)" }}>Keep this going next week</p>
+          <p className="text-[11px] mt-0.5 leading-relaxed" style={{ color: "var(--text-secondary)" }}>
+            Add iSkipped to your phone or get one weekly nudge.
+          </p>
+        </div>
+        <button
+          onClick={dismiss}
+          aria-label="Dismiss"
+          className="text-lg leading-none"
+          style={{ color: "var(--text-muted)", background: "none", border: "none", cursor: "pointer" }}
+        >
+          x
+        </button>
+      </div>
+      <div className="mt-2 flex flex-wrap gap-2">
+        {installButton}
+        {pushButton}
+      </div>
+      {iosSteps}
     </div>
   );
 }

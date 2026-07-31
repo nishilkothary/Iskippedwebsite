@@ -50,7 +50,6 @@ export function SkipModal({ onClose }: Props) {
   const [skipGivePct, setSkipGivePct] = useState(profileSplit.give);
   const [successOverflowCount, setSuccessOverflowCount] = useState<number | undefined>(undefined);
   const [successJarBalance, setSuccessJarBalance] = useState(0);
-  const [showSetupPrompt, setShowSetupPrompt] = useState(false);
   const [successStreak, setSuccessStreak] = useState(0);
   const [globalStats, setGlobalStats] = useState<GlobalStats | null>(null);
   const dialogRef = useModalA11y(onClose);
@@ -130,17 +129,9 @@ export function SkipModal({ onClose }: Props) {
     const successActiveProject = projects.find((p) => p.id === profile?.activeProjectId) ?? null;
     const postLogSkipCount = (profile?.totalSkips ?? 0) + 1;
 
-    // Neutral dismiss shows a one-time setup prompt after the reward moment.
-    // Deliberate CTA navigations bypass this and close straight through.
     function dismissSuccess() {
-      if (!profile?.setupPromptDismissedAt) {
-        setShowSetupPrompt(true);
-        return;
-      }
       onClose();
     }
-
-    if (showSetupPrompt) return <SkipSetupPrompt mode="modal" onClose={onClose} />;
 
     // Build the success hero around the concrete transformation this skip becomes.
     const itemLabel = whatSkipped || customLabel || selectedCat.label.toLowerCase();
@@ -356,6 +347,8 @@ export function SkipModal({ onClose }: Props) {
                 </p>
               )}
             </div>
+
+            <SkipSetupPrompt mode="inline" />
 
             {/* De-emphasized footer */}
             <div className="mt-3 flex items-center justify-center text-xs font-semibold">

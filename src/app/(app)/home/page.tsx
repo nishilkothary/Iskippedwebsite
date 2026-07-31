@@ -606,8 +606,6 @@ export default function HomePage() {
         </div>
       ))}
 
-      <SkipSetupPrompt mode="card" />
-
       {/* ── Jars card (full width) ── */}
       <div style={{ ...cardStyle, marginBottom: 20, position: "relative" }}>
         {/* Total */}
@@ -1235,6 +1233,8 @@ export default function HomePage() {
           )}
         </div>
       </div>
+
+      <SkipSetupPrompt mode="footer" />
 
       <p className="mt-4 text-center text-xs" style={{ color: "var(--text-muted)", lineHeight: 1.6 }}>
         iSkipped helps you track skipped spending and pledges. Donations are made outside the app, directly through the fundraiser or organization, and iSkipped does not process funds or control how donations are used.
