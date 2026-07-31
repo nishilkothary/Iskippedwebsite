@@ -492,6 +492,7 @@ export default function HomePage() {
     ? Math.min(100, (spendingBalance / activeGoal.targetAmount) * 100)
     : 0;
   const displayedStreak = getConsecutiveWeeklyStreak(recentSkips.map((skip) => skip.date));
+  const streakChipValue = hasSkippedThisWeek ? Math.max(displayedStreak, profile.streak ?? 0) : profile.streak ?? 0;
   const activeCountdown = activeProject && isActiveChallenge ? getChallengeCountdown(activeProject) : null;
 
   const parkedJars = Object.entries(profile.causeJarBalances ?? {})
@@ -528,14 +529,25 @@ export default function HomePage() {
       {/* Greeting + CTA */}
       <div style={{ textAlign: "center", marginBottom: 24 }}>
         <h1 className="text-2xl font-black" style={{ color: "var(--text-primary)" }}>Hey {firstName}.</h1>
-        <p className="mt-1 mb-2 text-sm" style={{ color: "var(--text-muted)" }}>
-          {hasSkippedThisWeek
-            ? "Your weekly skip is in. Every extra skip grows your impact."
-            : "One skip this week keeps your streak alive."}
+        <p className="mt-1 text-sm" style={{ color: "var(--text-muted)" }}>
+          Is there an expense you can skip this week?
         </p>
-        <p className="mb-5 text-xs font-semibold" style={{ color: hasSkippedThisWeek ? "var(--green-primary)" : "var(--text-secondary)" }}>
-          {hasSkippedThisWeek ? "Bonus skips count too." : "What expense can you skip this week?"}
-        </p>
+        {streakChipValue > 0 && (
+          <div
+            className="inline-flex items-center gap-1.5 mt-3 mb-5"
+            style={{
+              background: "linear-gradient(135deg, rgba(232,146,74,0.15), rgba(229,92,92,0.1))",
+              border: "1px solid rgba(232,146,74,0.22)",
+              borderRadius: 999,
+              padding: "5px 10px",
+            }}
+          >
+            <span style={{ fontSize: 12 }}>🔥</span>
+            <span style={{ fontSize: 11, fontWeight: 800, color: "#E8924A" }}>
+              {streakChipValue}-week streak{hasSkippedThisWeek ? " secured" : " · one skip keeps it going"}
+            </span>
+          </div>
+        )}
 
         <button
           onClick={() => setShowSkipPicker(true)}
@@ -546,7 +558,7 @@ export default function HomePage() {
             boxShadow: "0 4px 18px var(--gold-glow)",
           }}
         >
-          {hasSkippedThisWeek ? "Add a Bonus Skip" : "Log a Skip"}
+          Log a Skip
         </button>
 
       </div>
@@ -596,21 +608,6 @@ export default function HomePage() {
 
       {/* ── Jars card (full width) ── */}
       <div style={{ ...cardStyle, marginBottom: 20, position: "relative" }}>
-        {displayedStreak > 0 && (
-          <div
-            className="flex items-center gap-1"
-            style={{
-              position: "absolute", top: 14, right: 16,
-              background: "linear-gradient(135deg, rgba(232,146,74,0.15), rgba(229,92,92,0.1))",
-              border: "1px solid rgba(232,146,74,0.2)",
-              borderRadius: 10,
-              padding: "3px 8px",
-            }}
-          >
-            <span style={{ fontSize: 12 }}>🔥</span>
-            <span style={{ fontSize: 11, fontWeight: 700, color: "#E8924A" }}>{displayedStreak} wk</span>
-          </div>
-        )}
         {/* Total */}
         <div style={{ textAlign: "center", marginBottom: 8 }}>
           <div style={{
