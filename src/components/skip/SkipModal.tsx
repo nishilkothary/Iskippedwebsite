@@ -1,7 +1,6 @@
 "use client";
 import { useEffect, useRef, useState, type CSSProperties } from "react";
 import { useRouter } from "next/navigation";
-import { toast } from "sonner";
 import { useSkips } from "@/hooks/useSkips";
 import { useProjects } from "@/hooks/useProjects";
 import { useModalA11y } from "@/hooks/useModalA11y";
@@ -15,7 +14,7 @@ import { getChallengeCountdown, isSameWeek } from "@/lib/utils/dates";
 import { appendRefParam } from "@/lib/utils/share";
 import { getPostSkipShareText } from "@/lib/utils/challengeShareCopy";
 import { ShareButton } from "@/components/share/ShareButton";
-import { isPushSupported, registerForPush } from "@/lib/services/firebase/push";
+import { SkipSetupPrompt } from "@/components/setup/SkipSetupPrompt";
 import { subscribeToGlobalStats } from "@/lib/services/firebase/social";
 import type { GlobalStats } from "@/lib/types/models";
 import { useCountUp } from "@/hooks/useCountUp";
@@ -29,7 +28,7 @@ export function SkipModal({ onClose }: Props) {
   const router = useRouter();
   const { log, isLogging } = useSkips();
   const { projects } = useProjects();
-  const { profile, updateProfile } = useAuthStore();
+  const { profile } = useAuthStore();
 
   const profileSplit = normalizeJarSplit(profile?.jarSplit as any);
 
@@ -51,9 +50,7 @@ export function SkipModal({ onClose }: Props) {
   const [skipGivePct, setSkipGivePct] = useState(profileSplit.give);
   const [successOverflowCount, setSuccessOverflowCount] = useState<number | undefined>(undefined);
   const [successJarBalance, setSuccessJarBalance] = useState(0);
-  const [pushSupported, setPushSupported] = useState(false);
-  const [showPushPrompt, setShowPushPrompt] = useState(false);
-  const [pushPromptBusy, setPushPromptBusy] = useState(false);
+  const [showSetupPrompt, setShowSetupPrompt] = useState(false);
   const [successStreak, setSuccessStreak] = useState(0);
   const [globalStats, setGlobalStats] = useState<GlobalStats | null>(null);
   const dialogRef = useModalA11y(onClose);
@@ -69,10 +66,6 @@ export function SkipModal({ onClose }: Props) {
       setShareWithCommunity(true);
     }
   }, [isActiveChallenge]);
-
-  useEffect(() => {
-    isPushSupported().then(setPushSupported);
-  }, []);
 
   // Live community momentum for the share card ("$X saved across N skips").
   useEffect(() => subscribeToGlobalStats(setGlobalStats), []);
@@ -136,69 +129,18 @@ export function SkipModal({ onClose }: Props) {
     const skipGive = amount * (skipGivePct / 100);
     const successActiveProject = projects.find((p) => p.id === profile?.activeProjectId) ?? null;
     const postLogSkipCount = (profile?.totalSkips ?? 0) + 1;
-    const isFirstSkip = postLogSkipCount === 1;
 
-    // Neutral dismiss (×, backdrop, "Maybe later") — on a first-ever skip, offer to turn on
-    // reminders before actually closing. Deliberate CTA navigations (Donate Now, Pick a cause)
-    // bypass this and close straight through.
+    // Neutral dismiss shows a one-time setup prompt after the reward moment.
+    // Deliberate CTA navigations bypass this and close straight through.
     function dismissSuccess() {
-      if (isFirstSkip && pushSupported && !profile?.pushOptIn) {
-        setShowPushPrompt(true);
+      if (!profile?.setupPromptDismissedAt) {
+        setShowSetupPrompt(true);
         return;
       }
       onClose();
     }
 
-    if (showPushPrompt) {
-      return (
-        <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4" onClick={onClose}>
-          <div
-            ref={dialogRef}
-            role="dialog"
-            aria-modal="true"
-            aria-labelledby="skip-push-title"
-            tabIndex={-1}
-            className="rounded-2xl p-8 text-center max-w-sm w-full shadow-2xl relative"
-            style={{ background: "var(--bg-surface-1)", border: "1px solid var(--border-default)", outline: "none" }}
-            onClick={(e) => e.stopPropagation()}
-          >
-            <button onClick={onClose} aria-label="Close" className="absolute top-4 right-4 text-2xl leading-none" style={{ color: "var(--text-muted)" }}>×</button>
-            <div className="text-6xl mb-3">🔥</div>
-            <p id="skip-push-title" className="text-2xl font-bold" style={{ color: "var(--text-primary)" }}>You&apos;re starting to make a difference</p>
-            <p className="text-sm mt-3" style={{ color: "var(--text-secondary)" }}>
-              Keep growing your savings and continue to make a difference in the world by turning on iSkipped reminders.
-            </p>
-            <button
-              onClick={async () => {
-                setPushPromptBusy(true);
-                try {
-                  await registerForPush();
-                  updateProfile({ pushOptIn: true });
-                  toast.success("Reminders are on — let's keep this going!");
-                } catch (e: any) {
-                  toast.error(e?.message || "Couldn't turn on reminders.");
-                } finally {
-                  setPushPromptBusy(false);
-                  onClose();
-                }
-              }}
-              disabled={pushPromptBusy}
-              className="mt-5 w-full font-bold py-3 rounded-xl text-sm disabled:opacity-60 disabled:cursor-not-allowed"
-              style={{ background: "#2ECC71", color: "#0B1A14", border: "none", cursor: "pointer", fontSize: 15 }}
-            >
-              {pushPromptBusy ? "Turning on…" : "🔔 Turn on reminders"}
-            </button>
-            <button
-              onClick={onClose}
-              className="mt-2 w-full py-2 text-sm"
-              style={{ background: "none", border: "none", cursor: "pointer", color: "var(--text-muted)" }}
-            >
-              Not now
-            </button>
-          </div>
-        </div>
-      );
-    }
+    if (showSetupPrompt) return <SkipSetupPrompt mode="modal" onClose={onClose} />;
 
     // Goal progress for "x% towards your reward" line
     const { goals: successSpendingGoals, activeId: successActiveGoalId } = normalizeSpendingGoals(profile ?? {} as any);

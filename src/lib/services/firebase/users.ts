@@ -126,6 +126,10 @@ export async function completeOnboarding(uid: string): Promise<void> {
   await updateDoc(doc(db, "users", uid), { onboardingCompletedAt: serverTimestamp() });
 }
 
+export async function dismissSetupPrompt(uid: string): Promise<void> {
+  await updateDoc(doc(db, "users", uid), { setupPromptDismissedAt: serverTimestamp() });
+}
+
 export async function updateJarSettings(
   uid: string,
   jarSplit: { give: number; live: number }

@@ -8,7 +8,7 @@ import { useProjects } from "@/hooks/useProjects";
 import { useUIStore } from "@/store/uiStore";
 import { formatCurrency } from "@/lib/utils/currency";
 import { formatRelativeTime, getChallengeCountdown, getConsecutiveWeeklyStreak, isSameWeek, parkedJarCount } from "@/lib/utils/dates";
-import { InstallPrompt } from "@/components/InstallPrompt";
+import { SkipSetupPrompt } from "@/components/setup/SkipSetupPrompt";
 import { normalizeJarSplit, normalizeSpendingGoals } from "@/lib/services/firebase/users";
 import { levelForXp } from "@/lib/utils/xp";
 import { isChallengeProject, subscribeToProject } from "@/lib/services/firebase/projects";
@@ -605,6 +605,8 @@ export default function HomePage() {
           </button>
         </div>
       ))}
+
+      <SkipSetupPrompt mode="card" />
 
       {/* ── Jars card (full width) ── */}
       <div style={{ ...cardStyle, marginBottom: 20, position: "relative" }}>
@@ -1233,8 +1235,6 @@ export default function HomePage() {
           )}
         </div>
       </div>
-
-      <InstallPrompt />
 
       <p className="mt-4 text-center text-xs" style={{ color: "var(--text-muted)", lineHeight: 1.6 }}>
         iSkipped helps you track skipped spending and pledges. Donations are made outside the app, directly through the fundraiser or organization, and iSkipped does not process funds or control how donations are used.
