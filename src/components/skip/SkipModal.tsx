@@ -46,6 +46,7 @@ export function SkipModal({ onClose }: Props) {
   const [successProjectTitle, setSuccessProjectTitle] = useState<string | null>(null);
   const [successProjectLocation, setSuccessProjectLocation] = useState<string | null>(null);
   const [successProjectUnitName, setSuccessProjectUnitName] = useState<string | null>(null);
+  const [successProjectUnitDisplay, setSuccessProjectUnitDisplay] = useState<string | null>(null);
   const [successProjectUnitCost, setSuccessProjectUnitCost] = useState<number | null>(null);
   const [skipGivePct, setSkipGivePct] = useState(profileSplit.give);
   const [successOverflowCount, setSuccessOverflowCount] = useState<number | undefined>(undefined);
@@ -112,6 +113,7 @@ export function SkipModal({ onClose }: Props) {
       setSuccessProjectTitle(selectedProject?.title ?? null);
       setSuccessProjectLocation(selectedProject?.location ?? null);
       setSuccessProjectUnitName(selectedProject?.unitName ?? null);
+      setSuccessProjectUnitDisplay(selectedProject?.unitDisplay ?? null);
       setSuccessProjectUnitCost(selectedProject?.unitCost ?? null);
       if (willBeFull) {
         setSuccessOverflowCount(nextOverflowCount);
@@ -137,19 +139,19 @@ export function SkipModal({ onClose }: Props) {
     const itemLabel = whatSkipped || customLabel || selectedCat.label.toLowerCase();
     const causeTitle = successProjectTitle ?? null;
     let impactStat = "";
-    if (successActiveProject?.isCustom) {
-      const pct = (successActiveProject.goalAmount ?? 0) > 0
-        ? Math.max(1, Math.round((skipGive / successActiveProject.goalAmount!) * 100))
-        : 0;
-      impactStat = pct > 0 ? `${pct}% of your goal pledged` : `${formatCurrency(skipGive)} pledged`;
-    } else if (causeTitle && successProjectUnitName && successProjectUnitCost && !successActiveProject?.unitIsGoal) {
-      const unitsStr = formatUnits(skipGive, successProjectUnitCost, successProjectUnitName);
+    if (causeTitle && successProjectUnitName && successProjectUnitCost && !successActiveProject?.unitIsGoal) {
+      const unitsStr = formatUnits(skipGive, successProjectUnitCost, successProjectUnitName, successProjectUnitDisplay);
       impactStat = `${unitsStr} pledged`;
     } else if (causeTitle && successProjectUnitName && successProjectUnitCost && successActiveProject?.unitIsGoal) {
       const pct = Math.max(1, Math.round((skipGive / successProjectUnitCost) * 100));
       // One unit IS the goal here, so phrase it in the singular: "88% of a Chromebook for a student"
       const unitPhrase = successActiveProject.unitPhrase ?? oneUnitPhrase(successProjectUnitName);
       impactStat = `${pct}% of ${unitPhrase} pledged`;
+    } else if (successActiveProject?.isCustom) {
+      const pct = (successActiveProject.goalAmount ?? 0) > 0
+        ? Math.max(1, Math.round((skipGive / successActiveProject.goalAmount!) * 100))
+        : 0;
+      impactStat = pct > 0 ? `${pct}% of your goal pledged` : `${formatCurrency(skipGive)} pledged`;
     } else if (causeTitle) {
       impactStat = `${formatCurrency(skipGive)} pledged`;
     } else {
@@ -483,7 +485,7 @@ export function SkipModal({ onClose }: Props) {
                 <p className="text-sm font-semibold" style={{ color: "var(--coral-primary)" }}>
                   🤲 {(() => {
                     if (activeProjectLive?.unitCost && !activeProjectLive.unitIsGoal) {
-                      const units = formatUnits(skipGiveLive, activeProjectLive.unitCost, activeProjectLive.unitName!);
+                      const units = formatUnits(skipGiveLive, activeProjectLive.unitCost, activeProjectLive.unitName!, activeProjectLive.unitDisplay);
                       return activeProjectLive.location ? `${units} in ${activeProjectLive.location}` : units;
                     } else if (activeProjectLive?.unitCost && activeProjectLive.unitIsGoal) {
                       const pct = Math.max(1, Math.round((skipGiveLive / activeProjectLive.unitCost) * 100));

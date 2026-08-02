@@ -146,8 +146,8 @@ export const OFFICIAL_PROJECTS: Project[] = [
     learnMoreURL: "https://www.newincentives.org/our-work",
     isCustom: false,
     location: "Nigeria",
-    unitName: "Child Vaccination Enrollment",
-    unitDisplay: "Child Vaccination Enrollments",
+    unitName: "Child Vaccination Program",
+    unitDisplay: "Child Vaccination Programs",
     unitCost: 16,
     unitIsGoal: true,
     createdBy: null,
@@ -249,6 +249,8 @@ export async function addCustomProject(
     unitName?: string;
     unitDisplay?: string;
     unitCost?: number;
+    unitIsGoal?: boolean;
+    unitPhrase?: string;
     skipMilestones?: { level1: number; level2: number; level3: number };
     visibility?: "public" | "private" | "unlisted" | "password";
     password?: string;
@@ -276,6 +278,8 @@ export async function addCustomProject(
     unitName: data.unitName || null,
     unitDisplay: data.unitDisplay || null,
     unitCost: data.unitCost || null,
+    unitIsGoal: data.unitIsGoal || false,
+    unitPhrase: data.unitPhrase || null,
     skipMilestones: data.skipMilestones || null,
     visibility: data.visibility || "public",
     password: data.password || null,
@@ -306,6 +310,8 @@ export async function updateCustomProject(
     unitName?: string;
     unitDisplay?: string;
     unitCost?: number;
+    unitIsGoal?: boolean;
+    unitPhrase?: string;
     skipMilestones?: { level1: number; level2: number; level3: number };
     visibility?: "public" | "private" | "unlisted" | "password";
     password?: string;
@@ -336,6 +342,8 @@ export async function updateCustomProject(
     unitName: data.unitName || null,
     unitDisplay: data.unitDisplay || null,
     unitCost: data.unitCost || null,
+    unitIsGoal: data.unitIsGoal || false,
+    unitPhrase: data.unitPhrase || null,
     skipMilestones: data.skipMilestones || null,
     visibility: data.visibility || "public",
     password: data.password || null,

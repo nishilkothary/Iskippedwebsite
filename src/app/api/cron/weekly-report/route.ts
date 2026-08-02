@@ -54,7 +54,7 @@ const OFFICIAL_PROJECT_IMPACT: Record<string, ProjectImpactDetails> = {
   },
   "new-incentives": {
     title: "Child Vaccination in Nigeria",
-    unitName: "Child Vaccination Enrollment",
+    unitName: "Child Vaccination Program",
     unitCost: 16,
     unitIsGoal: true,
   },

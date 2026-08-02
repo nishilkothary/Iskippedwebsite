@@ -23,6 +23,7 @@ export async function POST(req: NextRequest) {
     const projectTitle: string | null = typeof body.projectTitle === "string" ? body.projectTitle : null;
     const projectLocation: string | null = typeof body.projectLocation === "string" ? body.projectLocation : null;
     const projectUnitName: string | null = typeof body.projectUnitName === "string" ? body.projectUnitName : null;
+    const projectUnitDisplay: string | null = typeof body.projectUnitDisplay === "string" ? body.projectUnitDisplay : null;
     const projectUnitCost: number | null = typeof body.projectUnitCost === "number" ? body.projectUnitCost : null;
     const projectUnitIsGoal: boolean = body.projectUnitIsGoal === true;
     const shareWithCommunity: boolean = body.shareWithCommunity === true;
@@ -90,7 +91,7 @@ export async function POST(req: NextRequest) {
       const giveAmountForMessage = amount * (effectiveSplit.give / 100);
       let causeSuffix = "";
       if (projectTitle && projectUnitName && projectUnitCost && !projectUnitIsGoal) {
-        const unitsStr = formatUnits(giveAmountForMessage, projectUnitCost, projectUnitName);
+        const unitsStr = formatUnits(giveAmountForMessage, projectUnitCost, projectUnitName, projectUnitDisplay);
         causeSuffix = ` to help pledge ${unitsStr}${projectLocation ? ` in ${projectLocation}` : ""}`;
       } else if (projectTitle && projectUnitName && projectUnitCost && projectUnitIsGoal) {
         const pct = Math.max(1, Math.round((giveAmountForMessage / projectUnitCost) * 100));

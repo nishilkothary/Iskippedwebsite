@@ -8,6 +8,7 @@ import { Project } from "@/lib/types/models";
 import { switchCause, setUserCauseGoal } from "@/lib/services/firebase/users";
 import { addCustomProject, isChallengeProject, isProjectEnded, updateCustomProject, OFFICIAL_PROJECTS, PARTNER_CHALLENGE_IDS } from "@/lib/services/firebase/projects";
 import { formatCurrency } from "@/lib/utils/currency";
+import { formatUnits, oneUnitPhrase } from "@/lib/utils/impact";
 import { appendRefParam } from "@/lib/utils/share";
 import { getDirectChallengeShareText } from "@/lib/utils/challengeShareCopy";
 import { ShareButton } from "@/components/share/ShareButton";
@@ -52,21 +53,6 @@ type CreateChallengeCategory =
 type ChallengeVisibility = "public" | "private" | "unlisted";
 type ChallengeAccessChoice = "public" | "private";
 
-const CREATE_CATEGORY_OPTIONS: { value: CreateChallengeCategory; label: string }[] = [
-  { value: "education", label: "Education & school" },
-  { value: "food", label: "Food & hunger" },
-  { value: "health", label: "Health & medical" },
-  { value: "water", label: "Clean water" },
-  { value: "housing", label: "Housing & shelter" },
-  { value: "emergency", label: "Emergency relief" },
-  { value: "children", label: "Children & families" },
-  { value: "animals", label: "Animal welfare" },
-  { value: "environment", label: "Environment" },
-  { value: "local", label: "Local community" },
-  { value: "personal", label: "Personal fundraiser" },
-];
-
-
 function challengeTitle(project: Project): string {
   if (project.isCustom) return project.title;
   if (project.tags?.includes("food")) return "Meals for Families";
@@ -102,6 +88,14 @@ function isPrivateChallenge(project: Project): boolean {
 
 function visibilityTagFor(visibility: ChallengeVisibility) {
   return `visibility-${normalizeChallengeVisibility(visibility)}`;
+}
+
+function defaultUnitDisplay(unitName: string): string {
+  const trimmed = unitName.trim();
+  if (!trimmed) return "";
+  if (/(?:s|x|z|ch|sh)$/i.test(trimmed)) return `${trimmed}es`;
+  if (/[^aeiou]y$/i.test(trimmed)) return `${trimmed.slice(0, -1)}ies`;
+  return `${trimmed}s`;
 }
 
 function getSkipChallengeLine(project: Project): string | null {
@@ -290,7 +284,9 @@ export default function ChallengesPage() {
     imageURL?: string;
     imagePosition?: string;
     impactUnitName?: string;
+    impactUnitDisplay?: string;
     impactUnitCost?: number;
+    impactUnitIsGoal?: boolean;
     category: CreateChallengeCategory;
     visibility: ChallengeAccessChoice;
     durationDays?: number | null;
@@ -313,8 +309,10 @@ export default function ChallengesPage() {
         imageURL: data.imageURL,
         imagePosition: data.imagePosition,
         unitName: data.impactUnitName,
-        unitDisplay: data.impactUnitName ? `${data.impactUnitName.toLowerCase()}s` : undefined,
+        unitDisplay: data.impactUnitDisplay,
         unitCost: data.impactUnitCost,
+        unitIsGoal: data.impactUnitIsGoal,
+        unitPhrase: data.impactUnitIsGoal && data.impactUnitName ? oneUnitPhrase(data.impactUnitName) : undefined,
         visibility,
         groupName: data.groupName,
         tags: ["custom", "challenge", data.category, visibilityTagFor(data.visibility), ...(data.isOrganization ? ["organization"] : [])],
@@ -337,7 +335,9 @@ export default function ChallengesPage() {
     imageURL?: string;
     imagePosition?: string;
     impactUnitName?: string;
+    impactUnitDisplay?: string;
     impactUnitCost?: number;
+    impactUnitIsGoal?: boolean;
     category: CreateChallengeCategory;
     visibility: ChallengeAccessChoice;
     durationDays?: number | null;
@@ -358,8 +358,10 @@ export default function ChallengesPage() {
         imageURL: data.imageURL,
         imagePosition: data.imagePosition,
         unitName: data.impactUnitName,
-        unitDisplay: data.impactUnitName ? `${data.impactUnitName.toLowerCase()}s` : undefined,
+        unitDisplay: data.impactUnitDisplay,
         unitCost: data.impactUnitCost,
+        unitIsGoal: data.impactUnitIsGoal,
+        unitPhrase: data.impactUnitIsGoal && data.impactUnitName ? oneUnitPhrase(data.impactUnitName) : undefined,
         visibility,
         groupName: data.groupName,
         tags: ["custom", "challenge", data.category, visibilityTagFor(data.visibility), ...(data.isOrganization ? ["organization"] : [])],
@@ -1254,7 +1256,9 @@ function CreateChallengeWizard({
     imageURL?: string;
     imagePosition?: string;
     impactUnitName?: string;
+    impactUnitDisplay?: string;
     impactUnitCost?: number;
+    impactUnitIsGoal?: boolean;
     category: CreateChallengeCategory;
     visibility: ChallengeAccessChoice;
     durationDays?: number | null;
@@ -1273,14 +1277,16 @@ function CreateChallengeWizard({
   const [organizer, setOrganizer] = useState(initialProject?.sponsor ?? "");
   const [description, setDescription] = useState(initialProject?.description ?? "");
   const [donationURL, setDonationURL] = useState(initialProject?.donationURL ?? "");
-  const [useImpactUnit, setUseImpactUnit] = useState(Boolean(initialProject?.unitName && initialProject?.unitCost));
+  const [useImpactUnit, setUseImpactUnit] = useState(isEditing ? Boolean(initialProject?.unitName && initialProject?.unitCost) : true);
   const [impactUnitName, setImpactUnitName] = useState(initialProject?.unitName ?? "");
+  const [impactUnitDisplay, setImpactUnitDisplay] = useState(initialProject?.unitDisplay ?? "");
   const [impactUnitCost, setImpactUnitCost] = useState(initialProject?.unitCost ? String(initialProject.unitCost) : "");
+  const [impactUnitIsGoal, setImpactUnitIsGoal] = useState(Boolean(initialProject?.unitIsGoal));
   const [imageURL, setImageURL] = useState(initialProject?.imageURL ?? "");
   const [imgPos, setImgPos] = useState({ x: 50, y: 50 });
   const [imageError, setImageError] = useState("");
   const dragStart = useRef<{ clientX: number; clientY: number; posX: number; posY: number } | null>(null);
-  const [category, setCategory] = useState<CreateChallengeCategory>(initialCategory);
+  const category: CreateChallengeCategory = initialCategory;
   const [visibility, setVisibility] = useState<ChallengeAccessChoice>(
     normalizeChallengeVisibility(initialProject?.visibility as ChallengeVisibility | undefined)
   );
@@ -1293,9 +1299,17 @@ function CreateChallengeWizard({
   const [donationNote, setDonationNote] = useState(initialProject?.donationNote ?? "");
 
   const parsedImpactUnitCost = parseFloat(impactUnitCost);
+  const resolvedImpactUnitDisplay = impactUnitDisplay.trim() || defaultUnitDisplay(impactUnitName);
+  const samplePledgeAmount = 5;
+  const sampleImpactMessage = useImpactUnit && impactUnitName.trim() && parsedImpactUnitCost > 0
+    ? impactUnitIsGoal
+      ? `${Math.max(1, Math.round((samplePledgeAmount / parsedImpactUnitCost) * 100))}% of ${oneUnitPhrase(impactUnitName.trim())} pledged`
+      : `${formatUnits(samplePledgeAmount, parsedImpactUnitCost, impactUnitName.trim(), resolvedImpactUnitDisplay)} pledged`
+    : `${formatCurrency(samplePledgeAmount)} pledged${title.trim() ? ` toward ${title.trim()}` : ""}`;
   const canContinueBasics = groupName.trim().length > 0;
-  const canContinueImpact = title.trim().length > 0 && (noDonationLink || donationURL.trim().length > 0) && (!useImpactUnit || (impactUnitName.trim().length > 0 && parsedImpactUnitCost > 0));
-  const canCreate = canContinueBasics && canContinueImpact;
+  const canContinueImpact = title.trim().length > 0 && (!useImpactUnit || (impactUnitName.trim().length > 0 && parsedImpactUnitCost > 0));
+  const canContinueSetup = (noDonationLink || donationURL.trim().length > 0);
+  const canCreate = canContinueBasics && canContinueImpact && canContinueSetup;
 
   function handleImageFile(file: File | undefined) {
     if (!file) return;
@@ -1327,6 +1341,7 @@ function CreateChallengeWizard({
   function handleNext() {
     if (step === 1 && canContinueBasics) setStep(2);
     if (step === 2 && canContinueImpact) setStep(3);
+    if (step === 3 && canContinueSetup) setStep(4);
   }
 
   function handleCreate() {
@@ -1341,7 +1356,9 @@ function CreateChallengeWizard({
       imageURL: imageURL.trim() || undefined,
       imagePosition: imageURL.trim() ? `${imgPos.x}% ${imgPos.y}%` : undefined,
       impactUnitName: useImpactUnit ? impactUnitName.trim() : undefined,
+      impactUnitDisplay: useImpactUnit ? resolvedImpactUnitDisplay : undefined,
       impactUnitCost: useImpactUnit ? parsedImpactUnitCost : undefined,
+      impactUnitIsGoal: useImpactUnit ? impactUnitIsGoal : undefined,
       category,
       visibility,
       durationDays: isEditing ? undefined : (durationDays === "custom"
@@ -1363,9 +1380,9 @@ function CreateChallengeWizard({
         <div className="px-5 pt-5 pb-4 relative" style={{ borderBottom: "1px solid var(--border-default)" }}>
           <button onClick={onClose} aria-label="Close" className="absolute top-4 right-4 text-xl leading-none" style={{ color: "var(--text-muted)" }}>x</button>
           <p className="text-xl font-black pr-8" style={{ color: "var(--text-primary)" }}>{isEditing ? "Edit Challenge" : "Create Challenge"}</p>
-          <p className="text-sm mt-1" style={{ color: "var(--text-muted)" }}>Step {step} of 3</p>
+          <p className="text-sm mt-1" style={{ color: "var(--text-muted)" }}>Step {step} of 4</p>
           <div className="flex gap-2 mt-4 pr-8">
-            {[1, 2, 3].map((value) => (
+            {[1, 2, 3, 4].map((value) => (
               <div
                 key={value}
                 className="h-1.5 rounded-full flex-1"
@@ -1417,19 +1434,6 @@ function CreateChallengeWizard({
                   style={{ background: "var(--bg-surface-2)", border: "1px solid var(--border-default)", color: "var(--text-primary)" }}
                   maxLength={400}
                 />
-              </div>
-              <div>
-                <p className="text-xs font-bold uppercase tracking-wide mb-2" style={{ color: "var(--text-muted)" }}>Category</p>
-                <select
-                  value={category}
-                  onChange={(event) => setCategory(event.target.value as CreateChallengeCategory)}
-                  className="w-full rounded-xl px-4 py-3 text-sm font-semibold focus:outline-none"
-                  style={{ background: "var(--bg-surface-2)", border: "1px solid var(--border-default)", color: "var(--text-primary)" }}
-                >
-                  {CREATE_CATEGORY_OPTIONS.map((option) => (
-                    <option key={option.value} value={option.value}>{option.label}</option>
-                  ))}
-                </select>
               </div>
               <div>
                 <p className="text-xs font-bold uppercase tracking-wide mb-2" style={{ color: "var(--text-muted)" }}>Cover image</p>
@@ -1523,53 +1527,89 @@ function CreateChallengeWizard({
                 </div>
               </div>
               <div className="rounded-xl p-4" style={{ background: "var(--bg-surface-2)", border: "1px solid var(--border-default)" }}>
-                <label className="flex items-start gap-3 cursor-pointer">
-                  <input
-                    type="checkbox"
-                    checked={useImpactUnit}
-                    onChange={(event) => setUseImpactUnit(event.target.checked)}
-                    className="mt-1"
-                  />
-                  <span>
-                    <span className="block text-sm font-black" style={{ color: "var(--text-primary)" }}>Add an impact unit</span>
-                    <span className="block text-xs mt-1" style={{ color: "var(--text-muted)" }}>
-                      Optional. Fill it in like a formula: 1 school day = $0.82.
-                    </span>
-                  </span>
-                </label>
                 {useImpactUnit && (
-                  <div className="mt-3">
+                  <div>
+                    <p className="text-xs font-bold uppercase tracking-wide mb-1.5" style={{ color: "var(--text-muted)" }}>Impact formula</p>
                     <div className="flex items-center gap-2">
                       <span className="text-sm font-black shrink-0" style={{ color: "var(--text-primary)" }}>1</span>
                       <input
                         type="text"
                         value={impactUnitName}
-                        onChange={(event) => setImpactUnitName(event.target.value)}
-                        placeholder="school day"
+                        onChange={(event) => {
+                          const previousDefault = defaultUnitDisplay(impactUnitName);
+                          setImpactUnitName(event.target.value);
+                          if (!impactUnitDisplay.trim() || impactUnitDisplay === previousDefault) {
+                            setImpactUnitDisplay(defaultUnitDisplay(event.target.value));
+                          }
+                        }}
+                        placeholder="school lunch"
                         aria-label="Impact unit name"
                         className="min-w-0 flex-1 rounded-xl px-4 py-3 text-sm focus:outline-none"
                         style={{ background: "var(--bg-surface-1)", border: "1px solid var(--border-default)", color: "var(--text-primary)" }}
                         maxLength={60}
                       />
                       <span className="text-sm font-black shrink-0" style={{ color: "var(--text-primary)" }}>=</span>
-                      <div className="relative min-w-0 flex-1">
+                      <div className="relative w-28 shrink-0">
                         <span className="absolute left-4 top-1/2 -translate-y-1/2 text-sm" style={{ color: "var(--text-muted)" }}>$</span>
                         <input
                           type="number"
                           value={impactUnitCost}
                           onChange={(event) => setImpactUnitCost(event.target.value)}
-                          placeholder="0.82"
+                          placeholder="3.00"
                           aria-label="Impact unit cost"
                           className="w-full rounded-xl pl-8 pr-4 py-3 text-sm focus:outline-none"
                           style={{ background: "var(--bg-surface-1)", border: "1px solid var(--border-default)", color: "var(--text-primary)" }}
                         />
                       </div>
                     </div>
-                    <p className="text-xs mt-2" style={{ color: "var(--text-muted)" }}>
-                      Use dollars or cents. This will show people what one real outcome costs.
-                    </p>
+                    <label
+                      className="mt-3 flex items-center gap-2 rounded-lg px-3 py-2 cursor-pointer"
+                      style={{ background: "var(--bg-surface-1)", border: "1px solid var(--border-default)" }}
+                    >
+                      <input
+                        type="checkbox"
+                        checked={impactUnitIsGoal}
+                        onChange={(event) => setImpactUnitIsGoal(event.target.checked)}
+                        className="w-3.5 h-3.5 accent-green-500"
+                      />
+                      <span className="text-xs font-semibold" style={{ color: "var(--text-muted)" }}>
+                        Show as % of one larger item
+                      </span>
+                    </label>
                   </div>
                 )}
+                {!useImpactUnit && (
+                  <p className="text-sm font-semibold" style={{ color: "var(--text-secondary)" }}>
+                    This challenge will show dollars pledged instead of funded units.
+                  </p>
+                )}
+                <label
+                  className="mt-3 flex items-center gap-2 rounded-lg px-3 py-2 cursor-pointer"
+                  style={{ background: "var(--bg-surface-1)", border: "1px solid var(--border-default)" }}
+                >
+                  <input
+                    type="checkbox"
+                    checked={!useImpactUnit}
+                    onChange={(event) => setUseImpactUnit(!event.target.checked)}
+                    className="w-3.5 h-3.5 accent-green-500"
+                  />
+                  <span className="text-xs font-semibold" style={{ color: "var(--text-muted)" }}>
+                    No specific impact unit
+                  </span>
+                </label>
+              </div>
+              <div className="rounded-xl p-4" style={{ background: "rgba(46,204,113,0.1)", border: "1px solid rgba(46,204,113,0.25)" }}>
+                <p className="text-xs font-bold uppercase tracking-wide mb-2" style={{ color: "var(--green-primary)" }}>What users will see after each skip</p>
+                <p className="text-sm leading-relaxed font-semibold" style={{ color: "var(--text-primary)" }}>{sampleImpactMessage}</p>
+                <p className="text-xs mt-1.5" style={{ color: "var(--text-muted)" }}>Preview assumes {formatCurrency(samplePledgeAmount)} goes to the Giving Jar.</p>
+              </div>
+            </div>
+          )}
+
+          {step === 3 && (
+            <div className="space-y-6">
+              <div>
+                <p className="text-sm font-black mb-1" style={{ color: "var(--text-primary)" }}>Setup</p>
               </div>
               <div>
                 <p className="text-xs font-bold uppercase tracking-wide mb-2" style={{ color: "var(--text-muted)" }}>
@@ -1665,33 +1705,36 @@ function CreateChallengeWizard({
                   )}
                 </div>
               )}
+              <div>
+                <p className="text-xs font-bold uppercase tracking-wide mb-2" style={{ color: "var(--text-muted)" }}>Access</p>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                  {[
+                    ["public", "Public", "Free for anyone to join."],
+                    ["private", "Invite Only", "Only people with your link can join."],
+                  ].map(([value, label, helper]) => (
+                    <button
+                      key={value}
+                      type="button"
+                      onClick={() => setVisibility(value as ChallengeAccessChoice)}
+                      className="rounded-xl text-left"
+                      style={visibility === value
+                        ? { background: "rgba(46,204,113,0.18)", border: "1px solid rgba(46,204,113,0.45)", color: "var(--text-primary)", padding: 12 }
+                        : { background: "var(--bg-surface-2)", border: "1px solid var(--border-default)", color: "var(--text-secondary)", padding: 12 }
+                      }
+                    >
+                      <span className="block text-sm font-black" style={{ color: visibility === value ? "var(--green-primary)" : "var(--text-primary)" }}>{label}</span>
+                      <span className="block text-xs mt-1 leading-snug" style={{ color: "var(--text-muted)" }}>{helper}</span>
+                    </button>
+                  ))}
+                </div>
+              </div>
             </div>
           )}
 
-          {step === 3 && (
+          {step === 4 && (
             <>
               <div>
-                <p className="text-sm font-black mb-1" style={{ color: "var(--text-primary)" }}>Access and preview</p>
-              </div>
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                {[
-                  ["public", "Public", "Free for anyone to join."],
-                  ["private", "Invite Only", "Only people with your link can join."],
-                ].map(([value, label, helper]) => (
-                  <button
-                    key={value}
-                    type="button"
-                    onClick={() => setVisibility(value as ChallengeAccessChoice)}
-                    className="rounded-xl text-left"
-                    style={visibility === value
-                      ? { background: "rgba(46,204,113,0.18)", border: "1px solid rgba(46,204,113,0.45)", color: "var(--text-primary)", padding: 12 }
-                      : { background: "var(--bg-surface-2)", border: "1px solid var(--border-default)", color: "var(--text-secondary)", padding: 12 }
-                    }
-                  >
-                    <span className="block text-sm font-black" style={{ color: visibility === value ? "var(--green-primary)" : "var(--text-primary)" }}>{label}</span>
-                    <span className="block text-xs mt-1 leading-snug" style={{ color: "var(--text-muted)" }}>{helper}</span>
-                  </button>
-                ))}
+                <p className="text-sm font-black mb-1" style={{ color: "var(--text-primary)" }}>Review</p>
               </div>
               <div className="rounded-xl overflow-hidden" style={{ background: "var(--bg-surface-2)", border: "1px solid var(--border-default)" }}>
                 {imageURL && <img src={imageURL} alt="" className="w-full h-28 object-cover" />}
@@ -1710,9 +1753,13 @@ function CreateChallengeWizard({
                   </p>
                   {useImpactUnit && impactUnitName && parsedImpactUnitCost > 0 && (
                     <p className="text-sm mt-3 font-black" style={{ color: "var(--green-primary)" }}>
-                      1 {impactUnitName} = {formatCurrency(parsedImpactUnitCost)}
+                      {formatCurrency(parsedImpactUnitCost)} = 1 {impactUnitName}
                     </p>
                   )}
+                  <div className="mt-3 rounded-xl px-3 py-2.5" style={{ background: "rgba(46,204,113,0.1)", border: "1px solid rgba(46,204,113,0.22)" }}>
+                    <p className="text-[11px] font-bold uppercase tracking-wide mb-1" style={{ color: "var(--green-primary)" }}>What users will see after each skip</p>
+                    <p className="text-xs leading-relaxed font-semibold" style={{ color: "var(--text-primary)" }}>{sampleImpactMessage}</p>
+                  </div>
                   {noDonationLink && (
                     <div className="mt-3 rounded-xl px-3 py-2.5" style={{ background: "rgba(245,158,11,0.1)", border: "1px solid rgba(245,158,11,0.35)" }}>
                       <p className="text-xs font-bold" style={{ color: "#F59E0B" }}>No external donation link</p>
@@ -1736,10 +1783,10 @@ function CreateChallengeWizard({
                 Back
               </button>
             )}
-            {step < 3 ? (
+            {step < 4 ? (
               <button
                 onClick={handleNext}
-                disabled={(step === 1 && !canContinueBasics) || (step === 2 && !canContinueImpact)}
+                disabled={(step === 1 && !canContinueBasics) || (step === 2 && !canContinueImpact) || (step === 3 && !canContinueSetup)}
                 className="flex-1 py-3 rounded-full text-sm font-black disabled:opacity-50"
                 style={{
                   background: "linear-gradient(135deg, var(--gold-cta), var(--gold-light))",
@@ -1747,7 +1794,7 @@ function CreateChallengeWizard({
                   boxShadow: "0 4px 18px var(--gold-glow)",
                 }}
               >
-                {step === 1 ? "Next: Impact" : "Next: Access"}
+                {step === 1 ? "Next: Impact" : step === 2 ? "Next: Setup" : "Next: Review"}
               </button>
             ) : (
               <button

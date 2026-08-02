@@ -12,10 +12,10 @@ const PLURAL_MAP: Record<string, string> = {
  * Formats a dollar amount as a human-readable unit count.
  * e.g. formatUnits(4.11, 0.822, "Day of Education") → "5 Days of Education"
  */
-export function formatUnits(amount: number, unitCost: number, unitName: string): string {
+export function formatUnits(amount: number, unitCost: number, unitName: string, unitDisplay?: string | null): string {
   const count = amount / unitCost;
   const display = count >= 10 ? Math.round(count) : parseFloat(count.toFixed(1));
-  const label = count === 1 ? unitName : (PLURAL_MAP[unitName] ?? unitName + "s");
+  const label = count === 1 ? unitName : (unitDisplay || PLURAL_MAP[unitName] || unitName + "s");
   return `${display} ${label}`;
 }
 
