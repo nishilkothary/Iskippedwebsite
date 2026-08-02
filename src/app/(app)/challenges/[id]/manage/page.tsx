@@ -55,6 +55,7 @@ export default function ManageChallengePage() {
   const [showAllActivity, setShowAllActivity] = useState(false);
   const [showMembers, setShowMembers] = useState(false);
   const [members, setMembers] = useState<ChallengeMember[]>([]);
+  const [membersTotal, setMembersTotal] = useState(0);
   const [loadingMembers, setLoadingMembers] = useState(false);
   const [membersError, setMembersError] = useState<string | null>(null);
   const [liveProject, setLiveProject] = useState<Project | null>(null);
@@ -96,6 +97,7 @@ export default function ManageChallengePage() {
   const allChallengeFeed = communityFeed
     .filter((item) => item.projectId === challengeId || item.projectTitle === challenge.title);
   const challengeFeed = showAllActivity ? allChallengeFeed : allChallengeFeed.slice(0, 10);
+  const displayedMemberCount = membersTotal || memberUids.length;
 
   const challengeUrl = appendRefParam(
     typeof window !== "undefined" ? `${window.location.origin}/challenges/${challengeId}` : `/challenges/${challengeId}`,
@@ -178,6 +180,7 @@ export default function ManageChallengePage() {
     try {
       const data = await apiRequest<ChallengeMembersResponse>(`/api/challenges/${challengeId}/members`, "GET");
       setMembers(data.members);
+      setMembersTotal(data.totalMembers);
     } catch (error: any) {
       setMembersError(error?.message || "Could not load members.");
     } finally {
@@ -257,7 +260,7 @@ export default function ManageChallengePage() {
           </div>
           <div>
             <p className="text-2xl font-black" style={{ color: "var(--text-primary)" }}>
-              {memberUids.length}
+              {displayedMemberCount}
             </p>
             <p className="text-xs mt-0.5" style={{ color: "var(--text-muted)" }}>members</p>
           </div>
@@ -421,7 +424,7 @@ export default function ManageChallengePage() {
         members={members}
         loadingMembers={loadingMembers}
         membersError={membersError}
-        memberCount={memberUids.length}
+        memberCount={displayedMemberCount}
         onLoadMembers={loadMembers}
       />
 

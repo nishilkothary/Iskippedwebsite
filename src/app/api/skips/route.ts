@@ -172,7 +172,10 @@ export async function POST(req: NextRequest) {
     // Project totals for challenge group tracking (best-effort, non-atomic — matches prior behavior)
     if (projectId) {
       const projectRef = db.collection("projects").doc(projectId);
-      projectRef.update({ totalSkips: FieldValue.increment(1) }).catch((e) => console.warn("[skips] project totalSkips update failed:", e));
+      projectRef.update({
+        totalSkips: FieldValue.increment(1),
+        memberUids: FieldValue.arrayUnion(uid),
+      }).catch((e) => console.warn("[skips] project totals update failed:", e));
       if (result.giveAmount > 0) {
         projectRef.update({ totalRaised: FieldValue.increment(result.giveAmount) }).catch((e) => console.warn("[skips] project totalRaised update failed:", e));
       }

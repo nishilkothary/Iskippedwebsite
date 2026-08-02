@@ -58,9 +58,19 @@ export async function GET(req: NextRequest, context: { params: Promise<{ id: str
     const memberUids = Array.isArray(project.memberUids)
       ? project.memberUids.filter((uid): uid is string => typeof uid === "string")
       : [];
+    const memberUidSet = new Set(memberUids);
+    const [joinedUsersSnap, activeUsersSnap, balanceUsersSnap] = await Promise.all([
+      db.collection("users").where("joinedProjectIds", "array-contains", challengeId).get(),
+      db.collection("users").where("activeProjectId", "==", challengeId).get(),
+      db.collection("users").where(`causeJarBalances.${challengeId}`, ">", 0).get(),
+    ]);
+    for (const userSnap of [...joinedUsersSnap.docs, ...activeUsersSnap.docs, ...balanceUsersSnap.docs]) {
+      memberUidSet.add(userSnap.id);
+    }
+    const resolvedMemberUids = Array.from(memberUidSet);
 
     const members = [];
-    for (const batch of chunks(memberUids, 100)) {
+    for (const batch of chunks(resolvedMemberUids, 100)) {
       const refs = batch.map((uid) => db.collection("users").doc(uid));
       const snaps = await db.getAll(...refs);
       for (const snap of snaps) {
@@ -84,7 +94,7 @@ export async function GET(req: NextRequest, context: { params: Promise<{ id: str
 
     return NextResponse.json({
       members,
-      totalMembers: memberUids.length,
+      totalMembers: resolvedMemberUids.length,
       emailableMembers: members.filter((member) => member.email).length,
     });
   } catch (error) {
