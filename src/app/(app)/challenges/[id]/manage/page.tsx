@@ -96,7 +96,7 @@ export default function ManageChallengePage() {
 
   const allChallengeFeed = communityFeed
     .filter((item) => item.projectId === challengeId || item.projectTitle === challenge.title);
-  const challengeFeed = showAllActivity ? allChallengeFeed : allChallengeFeed.slice(0, 10);
+  const challengeFeed = showAllActivity ? allChallengeFeed : allChallengeFeed.slice(0, 3);
   const displayedMemberCount = membersTotal || memberUids.length;
 
   const challengeUrl = appendRefParam(
@@ -325,7 +325,7 @@ export default function ManageChallengePage() {
             <p className="text-xs uppercase tracking-wide font-bold" style={{ color: "var(--text-muted)" }}>
               Recent Activity
             </p>
-            {allChallengeFeed.length > 10 && (
+            {allChallengeFeed.length > 3 && (
               <button
                 type="button"
                 onClick={() => setShowAllActivity((value) => !value)}
