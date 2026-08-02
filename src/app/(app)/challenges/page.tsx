@@ -213,6 +213,9 @@ export default function ChallengesPage() {
     return true;
   });
   const visibleListChallenges = filteredChallenges.slice(0, 20);
+  const canManageChallenge = (challenge: ChallengeCard) => (
+    challenge.project.createdBy === user?.uid || profile?.email === ADMIN_EMAIL
+  );
 
   const givingBalance = Math.max(0, (profile?.totalGiveAllocated ?? 0) - (profile?.totalDonated ?? 0));
 
@@ -426,9 +429,9 @@ export default function ChallengesPage() {
               challenge={challenge}
               isActive={challenge.project.id === profile?.activeProjectId}
               isJoining={joiningId === challenge.project.id}
-              canEdit={false}
+              canEdit={canManageChallenge(challenge)}
               onOpen={() => router.push(`/challenges/${challenge.project.id}`)}
-              onEdit={() => {}}
+              onEdit={() => router.push(`/challenges/${challenge.project.id}/manage`)}
               onShare={() => handleShareChallenge(challenge)}
               onJoin={() => handleJoin(challenge)}
             />
@@ -482,9 +485,9 @@ export default function ChallengesPage() {
                     challenge={challenge}
                     isActive={false}
                     isJoining={false}
-                    canEdit={false}
+                    canEdit={canManageChallenge(challenge)}
                     onOpen={() => router.push(`/challenges/${challenge.project.id}`)}
-                    onEdit={() => {}}
+                    onEdit={() => router.push(`/challenges/${challenge.project.id}/manage`)}
                     onShare={() => {}}
                     onJoin={() => {}}
                   />
@@ -517,7 +520,7 @@ export default function ChallengesPage() {
               challenge={challenge}
               isActive={challenge.project.id === profile?.activeProjectId}
               isJoining={joiningId === challenge.project.id}
-              canEdit={challenge.project.createdBy === user?.uid || profile?.email === ADMIN_EMAIL}
+              canEdit={canManageChallenge(challenge)}
               onOpen={() => router.push(`/challenges/${challenge.project.id}`)}
               onEdit={() => router.push(`/challenges/${challenge.project.id}/manage`)}
               onShare={() => handleShareChallenge(challenge)}
