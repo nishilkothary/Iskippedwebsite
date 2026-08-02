@@ -930,41 +930,16 @@ export default function HomePage() {
               <p style={{ fontSize: 13, fontWeight: 700, color: "var(--green-primary)", marginBottom: 0 }}>
                 {activeProject.groupName ?? activeProject.title}
               </p>
-              <div
+              <p
                 style={{
-                  display: "inline-flex",
-                  alignItems: "center",
-                  gap: 8,
+                  fontSize: 12,
+                  fontWeight: 800,
+                  color: hasActiveChallengeSkipThisWeek ? "var(--green-primary)" : "var(--text-muted)",
                   marginTop: 7,
-                  padding: "6px 10px",
-                  borderRadius: 999,
-                  background: hasActiveChallengeSkipThisWeek ? "rgba(46,204,113,0.13)" : "rgba(255,255,255,0.04)",
-                  border: hasActiveChallengeSkipThisWeek ? "1px solid rgba(46,204,113,0.32)" : "1px solid rgba(255,255,255,0.12)",
                 }}
               >
-                <span
-                  aria-hidden="true"
-                  style={{
-                    width: 16,
-                    height: 16,
-                    borderRadius: 999,
-                    display: "inline-flex",
-                    alignItems: "center",
-                    justifyContent: "center",
-                    flexShrink: 0,
-                    fontSize: 11,
-                    fontWeight: 900,
-                    background: hasActiveChallengeSkipThisWeek ? "var(--green-primary)" : "transparent",
-                    border: hasActiveChallengeSkipThisWeek ? "1px solid var(--green-primary)" : "1px solid var(--text-muted)",
-                    color: hasActiveChallengeSkipThisWeek ? "#0B1A14" : "transparent",
-                  }}
-                >
-                  ✓
-                </span>
-                <span style={{ fontSize: 12, fontWeight: 800, color: hasActiveChallengeSkipThisWeek ? "var(--green-primary)" : "var(--text-muted)" }}>
-                  1 skip this week
-                </span>
-              </div>
+                {hasActiveChallengeSkipThisWeek ? "✓ " : ""}1 skip this week
+              </p>
               <div style={{ display: "flex", gap: 14, alignItems: "flex-start", marginTop: 12 }}>
                 <div>
                   <p style={{ fontSize: 28, fontWeight: 900, color: "var(--text-primary)", lineHeight: 1 }}>
