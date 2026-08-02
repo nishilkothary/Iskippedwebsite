@@ -893,6 +893,7 @@ function MemberEmailOutreach({
   const [body, setBody] = useState(initialTemplate.body);
   const [selectedUid, setSelectedUid] = useState("");
   const [copied, setCopied] = useState<"emails" | "draft" | null>(null);
+  const [emailNotice, setEmailNotice] = useState<string | null>(null);
 
   const emailableMembers = members.filter((member) => member.email);
   const selectedMember = emailableMembers.find((member) => member.uid === selectedUid) ?? emailableMembers[0] ?? null;
@@ -904,6 +905,12 @@ function MemberEmailOutreach({
     : "";
   const groupMailto = emailableMembers.length > 0
     ? buildMailto({ bcc: emailList, subject, body: groupBody })
+    : "";
+  const personalFallback = selectedMember
+    ? `To: ${selectedMember.email}\nSubject: ${subject}\n\n${personalBody}`
+    : "";
+  const groupFallback = emailList
+    ? `BCC: ${emailList}\nSubject: ${subject}\n\n${groupBody}`
     : "";
 
   function handleTemplateChange(nextTemplate: EmailTemplate) {
@@ -928,6 +935,21 @@ function MemberEmailOutreach({
       setCopied("draft");
       setTimeout(() => setCopied(null), 2000);
     } catch {}
+  }
+
+  async function handleOpenEmail(mailto: string, fallbackDraft: string) {
+    if (!mailto || !fallbackDraft) return;
+    setEmailNotice("Opening your email app...");
+    window.location.href = mailto;
+    window.setTimeout(async () => {
+      if (document.visibilityState !== "visible") return;
+      try {
+        await navigator.clipboard.writeText(fallbackDraft);
+        setEmailNotice("No email app opened, so the draft was copied to your clipboard.");
+      } catch {
+        setEmailNotice("No email app opened. Use Copy Draft or Copy Emails instead.");
+      }
+    }, 900);
   }
 
   return (
@@ -958,6 +980,9 @@ function MemberEmailOutreach({
 
       {membersError && (
         <p className="text-xs mb-3" style={{ color: "#EF8844" }}>{membersError}</p>
+      )}
+      {emailNotice && (
+        <p className="text-xs mb-3" style={{ color: "var(--green-primary)" }}>{emailNotice}</p>
       )}
 
       <div className="space-y-3">
@@ -1001,30 +1026,30 @@ function MemberEmailOutreach({
         )}
 
         <div className="grid grid-cols-2 gap-2">
-          <a
-            href={personalMailto || undefined}
-            aria-disabled={!selectedMember}
-            className="py-2 rounded-xl text-xs font-bold text-center"
+          <button
+            type="button"
+            onClick={() => handleOpenEmail(personalMailto, personalFallback)}
+            disabled={!selectedMember}
+            className="py-2 rounded-xl text-xs font-bold text-center disabled:opacity-50"
             style={{
               background: selectedMember ? "var(--green-primary)" : "var(--bg-surface-3)",
               color: selectedMember ? "#0B1A14" : "var(--text-muted)",
-              pointerEvents: selectedMember ? "auto" : "none",
             }}
           >
             Email One Member
-          </a>
-          <a
-            href={groupMailto || undefined}
-            aria-disabled={emailableMembers.length === 0}
-            className="py-2 rounded-xl text-xs font-bold text-center"
+          </button>
+          <button
+            type="button"
+            onClick={() => handleOpenEmail(groupMailto, groupFallback)}
+            disabled={emailableMembers.length === 0}
+            className="py-2 rounded-xl text-xs font-bold text-center disabled:opacity-50"
             style={{
               border: "1px solid var(--border-emphasis)",
               color: emailableMembers.length > 0 ? "var(--green-primary)" : "var(--text-muted)",
-              pointerEvents: emailableMembers.length > 0 ? "auto" : "none",
             }}
           >
             Email All Members
-          </a>
+          </button>
           <button
             type="button"
             onClick={handleCopyDraft}
