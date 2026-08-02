@@ -55,20 +55,17 @@ export function ShareButton({ url, text, title, imageUrl, variant = "block", ton
       let files: File[] | undefined;
       if (imageUrl) {
         try {
-          const res = await fetch(imageUrl);
-          if (res.ok) {
-            const blob = await res.blob();
-            const file = new File([blob], "iskipped.png", { type: blob.type || "image/png" });
-            if (typeof navigator.canShare === "function" && navigator.canShare({ files: [file] })) {
-              files = [file];
-            }
+          const blob = await imageUrlToPngBlob(imageUrl);
+          const file = new File([blob], "iskipped-impact.png", { type: "image/png" });
+          if (typeof navigator.canShare === "function" && navigator.canShare({ files: [file] })) {
+            files = [file];
           }
         } catch {
           // Couldn't fetch/attach — fall back to link-only share below.
         }
       }
       try {
-        await navigator.share(files ? { title: title ?? "iSkipped", text, url, files } : { title: title ?? "iSkipped", text, url });
+        await navigator.share(files ? { title: title ?? "iSkipped", text: `${text}\n\n${url}`, files } : { title: title ?? "iSkipped", text, url });
         return;
       } catch {
         return; // user dismissed
@@ -179,4 +176,27 @@ export function ShareButton({ url, text, title, imageUrl, variant = "block", ton
       )}
     </div>
   );
+}
+
+async function imageUrlToPngBlob(imageUrl: string): Promise<Blob> {
+  const img = await new Promise<HTMLImageElement>((resolve, reject) => {
+    const image = new Image();
+    image.onload = () => resolve(image);
+    image.onerror = reject;
+    image.src = imageUrl;
+  });
+
+  const canvas = document.createElement("canvas");
+  canvas.width = img.naturalWidth || 1200;
+  canvas.height = img.naturalHeight || 630;
+  const ctx = canvas.getContext("2d");
+  if (!ctx) throw new Error("Could not create image canvas.");
+  ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+
+  return await new Promise<Blob>((resolve, reject) => {
+    canvas.toBlob((blob) => {
+      if (blob) resolve(blob);
+      else reject(new Error("Could not create PNG image."));
+    }, "image/png");
+  });
 }

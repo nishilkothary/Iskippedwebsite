@@ -19,6 +19,20 @@ export function formatUnits(amount: number, unitCost: number, unitName: string, 
   return `${display} ${label}`;
 }
 
+export function formatAggregateImpactUnits(
+  amount: number,
+  unitCost: number,
+  unitName: string,
+  unitDisplay?: string | null,
+  unitIsGoal?: boolean,
+): string {
+  const count = amount / unitCost;
+  if (unitIsGoal && count > 0 && count < 1) {
+    return `${Math.max(1, Math.round(count * 100))}% of ${oneUnitPhrase(unitName)}`;
+  }
+  return formatUnits(amount, unitCost, unitName, unitDisplay);
+}
+
 /**
  * Singular form of a unit name. `unitName` is meant to be singular already, but some
  * cause docs were saved with a plural ("Chromebooks"), so fold those back.

@@ -18,6 +18,7 @@ import { FeedItem, GlobalStats, Project, Skip } from "@/lib/types/models";
 import { appendRefParam } from "@/lib/utils/share";
 import { getDirectChallengeShareText } from "@/lib/utils/challengeShareCopy";
 import { ShareButton } from "@/components/share/ShareButton";
+import { oneUnitPhrase } from "@/lib/utils/impact";
 
 // ─── SVG Jar ───────────────────────────────────────────────────────────────
 interface JarProps {
@@ -313,6 +314,7 @@ function getCommunityRaised(project: Project, savedForProject: number): number {
 function formatCommunityUnitCount(amount: number, unitCost: number, unitIsGoal?: boolean): string {
   if (!Number.isFinite(amount) || !Number.isFinite(unitCost) || unitCost <= 0) return "0";
   const count = amount / unitCost;
+  if (unitIsGoal && count > 0 && count < 1) return `${Math.max(1, Math.round(count * 100))}%`;
   if (unitIsGoal || count < 2) return parseFloat(count.toFixed(1)).toString();
   if (count < 10) return parseFloat(count.toFixed(1)).toString();
   return Math.floor(count).toLocaleString();
@@ -452,7 +454,11 @@ export default function HomePage() {
   const communityUnitCountDisplay = hasCommunityUnit && activeProject
     ? formatCommunityUnitCount(displayedGroupTotal, activeProject.unitCost ?? 0, activeProject.unitIsGoal)
     : null;
-  const communityUnitLabel = activeProject?.unitDisplay || activeProject?.unitName || "units";
+  const communityUnitCount = activeProject?.unitCost ? displayedGroupTotal / activeProject.unitCost : 0;
+  const communityUnitLabel = activeProject?.unitIsGoal && communityUnitCount > 0 && communityUnitCount < 1 && activeProject.unitName
+    ? `of ${oneUnitPhrase(activeProject.unitName)}`
+    : activeProject?.unitDisplay || activeProject?.unitName || "units";
+  const communityUnitSuffix = activeProject?.unitIsGoal && communityUnitCount > 0 && communityUnitCount < 1 ? "" : " Funded";
   const challengeDonated = activeProject && isActiveChallenge
     ? profile.causeStats?.[activeProject.id]?.donated ?? 0
     : 0;
@@ -957,7 +963,7 @@ export default function HomePage() {
                         {communityUnitCountDisplay}
                       </p>
                       <p style={{ fontSize: 10, fontWeight: 800, letterSpacing: 1.2, textTransform: "uppercase", color: "var(--text-muted)", marginTop: 3 }}>
-                        {communityUnitLabel} Funded
+                        {communityUnitLabel}{communityUnitSuffix}
                       </p>
                     </div>
                   </>

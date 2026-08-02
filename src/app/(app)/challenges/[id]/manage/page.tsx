@@ -7,7 +7,7 @@ import { useProjects } from "@/hooks/useProjects";
 import { deleteCustomProject, endChallenge, setChallengeDeadline, subscribeToProject } from "@/lib/services/firebase/projects";
 import { subscribeToCommunityFeed } from "@/lib/services/firebase/social";
 import { formatCurrency } from "@/lib/utils/currency";
-import { formatUnits } from "@/lib/utils/impact";
+import { formatAggregateImpactUnits } from "@/lib/utils/impact";
 import { getChallengeCountdown } from "@/lib/utils/dates";
 import { Project, FeedItem } from "@/lib/types/models";
 import { appendRefParam } from "@/lib/utils/share";
@@ -128,6 +128,7 @@ export default function ManageChallengePage() {
     unitName: challenge.unitName,
     unitDisplay: challenge.unitDisplay,
     unitCost: challenge.unitCost,
+    unitIsGoal: challenge.unitIsGoal,
   });
 
   async function handleArchive() {
@@ -369,7 +370,9 @@ export default function ManageChallengePage() {
         progressPct={progressPct}
         totalSkips={totalSkips}
         unitName={challenge.unitName}
+        unitDisplay={challenge.unitDisplay}
         unitCost={challenge.unitCost}
+        unitIsGoal={challenge.unitIsGoal}
       />
 
       {/* Share with the group */}
@@ -660,7 +663,9 @@ function SocialStatsSharePanel({
   progressPct,
   totalSkips,
   unitName,
+  unitDisplay,
   unitCost,
+  unitIsGoal,
 }: {
   title: string;
   shareText: string;
@@ -670,10 +675,12 @@ function SocialStatsSharePanel({
   progressPct: number;
   totalSkips: number;
   unitName?: string;
+  unitDisplay?: string;
   unitCost?: number;
+  unitIsGoal?: boolean;
 }) {
   const impactStat = unitName && unitCost && unitCost > 0
-    ? formatUnits(raised, unitCost, unitName)
+    ? formatAggregateImpactUnits(raised, unitCost, unitName, unitDisplay, unitIsGoal)
     : "In progress";
   const cardImage = buildSocialCardImage({
     title,
@@ -705,11 +712,11 @@ function SocialStatsSharePanel({
           <p className="text-xs mt-1" style={{ color: "#C5D8CC" }}>A little change can fund a lot of impact.</p>
         </div>
         <div className="p-4" style={{ color: "#123B2A" }}>
-          <div className="grid grid-cols-3 gap-2">
+          <div className="grid grid-cols-2 gap-2">
             <SocialCardMetric value={totalSkips.toLocaleString()} label="skips" />
             <SocialCardMetric value={formatCurrency(raised)} label={goalAmount > 0 ? "pledged" : "raised"} />
-            <SocialCardMetric value={impactStat} label="impact" />
           </div>
+          <SocialCardMetric value={impactStat} label="impact" className="mt-2" large />
           {goalAmount > 0 && (
             <div className="mt-4">
               <div className="flex items-center justify-between text-[10px] font-black mb-1">
@@ -740,10 +747,10 @@ function SocialStatsSharePanel({
   );
 }
 
-function SocialCardMetric({ value, label }: { value: string; label: string }) {
+function SocialCardMetric({ value, label, className = "", large = false }: { value: string; label: string; className?: string; large?: boolean }) {
   return (
-    <div className="rounded-lg p-2" style={{ background: "#E8F1EA" }}>
-          <p className="text-sm font-black leading-tight break-words">{value}</p>
+    <div className={`rounded-lg p-2 ${className}`} style={{ background: "#E8F1EA" }}>
+      <p className={`${large ? "text-base" : "text-sm"} font-black leading-tight break-words`}>{value}</p>
       <p className="text-[10px] mt-0.5" style={{ color: "#527262" }}>{label}</p>
     </div>
   );
@@ -778,15 +785,15 @@ function buildSocialCardImage({
     <text x="70" y="72" fill="#8BE0AA" font-family="Arial, sans-serif" font-size="24" font-weight="700" letter-spacing="5">ISKIPPED</text>
     <text x="70" y="142" fill="#F4F7F2" font-family="Arial, sans-serif" font-size="42" font-weight="700">${escape(title)}</text>
     <text x="70" y="182" fill="#C5D8CC" font-family="Arial, sans-serif" font-size="22">A little change can fund a lot of impact.</text>
-    <text x="70" y="300" fill="#123B2A" font-family="Arial, sans-serif" font-size="48" font-weight="700">${totalSkips.toLocaleString()}</text>
-    <text x="70" y="335" fill="#527262" font-family="Arial, sans-serif" font-size="20">skips</text>
-    <text x="380" y="300" fill="#123B2A" font-family="Arial, sans-serif" font-size="48" font-weight="700">${escape(formatCurrency(raised))}</text>
-    <text x="380" y="335" fill="#527262" font-family="Arial, sans-serif" font-size="20">${escape(goalAmount > 0 ? "pledged" : "raised")}</text>
-    <text x="760" y="300" fill="#123B2A" font-family="Arial, sans-serif" font-size="42" font-weight="700">${escape(impactStat)}</text>
-    <text x="760" y="335" fill="#527262" font-family="Arial, sans-serif" font-size="20">impact</text>
-    <text x="70" y="430" fill="#123B2A" font-family="Arial, sans-serif" font-size="22" font-weight="700">${escape(goalText)}</text>
-    <rect x="70" y="455" width="1060" height="18" rx="9" fill="#D8E6DC"/>
-    <rect x="70" y="455" width="${Math.max(0, Math.min(1060, Math.round(1060 * progressPct / 100)))}" height="18" rx="9" fill="#2E8B57"/>
+    <text x="70" y="290" fill="#123B2A" font-family="Arial, sans-serif" font-size="48" font-weight="700">${totalSkips.toLocaleString()}</text>
+    <text x="70" y="325" fill="#527262" font-family="Arial, sans-serif" font-size="20">skips</text>
+    <text x="380" y="290" fill="#123B2A" font-family="Arial, sans-serif" font-size="48" font-weight="700">${escape(formatCurrency(raised))}</text>
+    <text x="380" y="325" fill="#527262" font-family="Arial, sans-serif" font-size="20">${escape(goalAmount > 0 ? "pledged" : "raised")}</text>
+    <text x="70" y="405" fill="#123B2A" font-family="Arial, sans-serif" font-size="42" font-weight="700">${escape(impactStat)}</text>
+    <text x="70" y="440" fill="#527262" font-family="Arial, sans-serif" font-size="20">impact</text>
+    <text x="70" y="495" fill="#123B2A" font-family="Arial, sans-serif" font-size="22" font-weight="700">${escape(goalText)}</text>
+    <rect x="70" y="520" width="1060" height="18" rx="9" fill="#D8E6DC"/>
+    <rect x="70" y="520" width="${Math.max(0, Math.min(1060, Math.round(1060 * progressPct / 100)))}" height="18" rx="9" fill="#2E8B57"/>
     <text x="70" y="560" fill="#527262" font-family="Arial, sans-serif" font-size="18">Join the challenge: ${escape(url)}</text>
   </svg>`;
   return `data:image/svg+xml;charset=utf-8,${encodeURIComponent(svg)}`;
@@ -801,6 +808,7 @@ function buildProgressUpdate({
   unitName,
   unitDisplay,
   unitCost,
+  unitIsGoal,
 }: {
   title: string;
   raised: number;
@@ -810,6 +818,7 @@ function buildProgressUpdate({
   unitName?: string;
   unitDisplay?: string;
   unitCost?: number;
+  unitIsGoal?: boolean;
 }) {
   const cleanTitle = title.replace(/[.!?]+$/, "");
   const lines = [`${cleanTitle} Progress Update!`, ""];
@@ -821,7 +830,7 @@ function buildProgressUpdate({
   }
 
   if (unitCost && unitCost > 0 && raised > 0 && (unitDisplay || unitName)) {
-    lines.push("", `That represents about ${formatUnits(raised, unitCost, unitName || unitDisplay || "impact")}.`);
+    lines.push("", `That represents about ${formatAggregateImpactUnits(raised, unitCost, unitName || unitDisplay || "impact", unitDisplay, unitIsGoal)}.`);
   }
 
   lines.push("", "Thanks for keeping the momentum going and making a difference with your skipped expenses.");
