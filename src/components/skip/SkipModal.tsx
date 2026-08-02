@@ -295,7 +295,7 @@ export function SkipModal({ onClose }: Props) {
                 <div className="text-6xl">🎉</div>
               </div>
             )}
-            <p id="skip-success-title" className="text-3xl font-black leading-tight mt-3 mx-auto max-w-[290px]" style={{ color: "var(--green-primary)" }}>
+            <p id="skip-success-title" className="text-[1.7rem] font-black leading-tight mt-3 mx-auto max-w-[290px]" style={{ color: "var(--green-primary)" }}>
               {impactStat}
             </p>
 
