@@ -12,6 +12,8 @@ import { appendRefParam } from "@/lib/utils/share";
 import { getDirectChallengeShareText } from "@/lib/utils/challengeShareCopy";
 import { ShareButton } from "@/components/share/ShareButton";
 
+const ADMIN_EMAIL = process.env.NEXT_PUBLIC_ADMIN_EMAIL ?? "";
+
 type ChallengeCard = {
   project: Project;
   title: string;
@@ -515,7 +517,7 @@ export default function ChallengesPage() {
               challenge={challenge}
               isActive={challenge.project.id === profile?.activeProjectId}
               isJoining={joiningId === challenge.project.id}
-              canEdit={challenge.project.createdBy === user?.uid}
+              canEdit={challenge.project.createdBy === user?.uid || profile?.email === ADMIN_EMAIL}
               onOpen={() => router.push(`/challenges/${challenge.project.id}`)}
               onEdit={() => router.push(`/challenges/${challenge.project.id}/manage`)}
               onShare={() => handleShareChallenge(challenge)}

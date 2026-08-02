@@ -7,22 +7,40 @@ import { useProjects } from "@/hooks/useProjects";
 import { deleteCustomProject, endChallenge, setChallengeDeadline, subscribeToProject } from "@/lib/services/firebase/projects";
 import { subscribeToCommunityFeed } from "@/lib/services/firebase/social";
 import { formatCurrency } from "@/lib/utils/currency";
+import { formatUnits } from "@/lib/utils/impact";
 import { getChallengeCountdown } from "@/lib/utils/dates";
-import { doc, getDoc } from "firebase/firestore";
-import { db } from "@/lib/services/firebase/config";
 import { Project, FeedItem } from "@/lib/types/models";
 import { appendRefParam } from "@/lib/utils/share";
 import { getDirectChallengeShareText } from "@/lib/utils/challengeShareCopy";
 import { ShareButton } from "@/components/share/ShareButton";
+import { apiRequest } from "@/lib/services/firebase/apiClient";
+
+type ChallengeMember = {
+  uid: string;
+  displayName: string;
+  email: string;
+  photoURL: string | null;
+  emailVerified: boolean | null;
+  pledged: number;
+  joinedChallenge: boolean;
+  joinedAt: string | null;
+};
+
+type ChallengeMembersResponse = {
+  members: ChallengeMember[];
+  totalMembers: number;
+  emailableMembers: number;
+};
 
 export default function ManageChallengePage() {
   const params = useParams();
   const router = useRouter();
   const challengeId = typeof params.id === "string" ? params.id : Array.isArray(params.id) ? params.id[0] : "";
-  const { user } = useAuthStore();
+  const { user, profile } = useAuthStore();
   const { projects } = useProjects();
 
   const challenge = projects.find((p) => p.id === challengeId) ?? null;
+  const isSiteAdmin = Boolean(profile?.email && profile.email === (process.env.NEXT_PUBLIC_ADMIN_EMAIL ?? ""));
 
   const [ending, setEnding] = useState(false);
   const [endConfirm, setEndConfirm] = useState(false);
@@ -34,9 +52,11 @@ export default function ManageChallengePage() {
   const [customDateStr, setCustomDateStr] = useState("");
   const [settingDeadline, setSettingDeadline] = useState(false);
   const [deadlineSuccess, setDeadlineSuccess] = useState(false);
+  const [showAllActivity, setShowAllActivity] = useState(false);
   const [showMembers, setShowMembers] = useState(false);
-  const [members, setMembers] = useState<{ uid: string; displayName: string; photoURL: string | null; pledged: number }[]>([]);
+  const [members, setMembers] = useState<ChallengeMember[]>([]);
   const [loadingMembers, setLoadingMembers] = useState(false);
+  const [membersError, setMembersError] = useState<string | null>(null);
   const [liveProject, setLiveProject] = useState<Project | null>(null);
   const [communityFeed, setCommunityFeed] = useState<FeedItem[]>([]);
 
@@ -52,10 +72,10 @@ export default function ManageChallengePage() {
   }, []);
 
   useEffect(() => {
-    if (challenge && challenge.createdBy !== user?.uid) {
+    if (challenge && challenge.createdBy !== user?.uid && !isSiteAdmin) {
       router.replace(`/challenges/${challengeId}`);
     }
-  }, [challenge, user, challengeId, router]);
+  }, [challenge, user, isSiteAdmin, challengeId, router]);
 
   if (!challenge) {
     return (
@@ -65,16 +85,17 @@ export default function ManageChallengePage() {
     );
   }
 
-  if (challenge.createdBy !== user?.uid) return null;
+  if (challenge.createdBy !== user?.uid && !isSiteAdmin) return null;
 
   // Merge live stats over static challenge data
   const totalRaised = liveProject?.totalRaised ?? challenge.totalRaised;
   const totalDonated = liveProject?.totalDonated ?? 0;
+  const totalSkips = liveProject?.totalSkips ?? challenge.totalSkips ?? 0;
   const memberUids = liveProject?.memberUids ?? challenge.memberUids ?? [];
 
-  const challengeFeed = communityFeed
-    .filter((item) => item.projectId === challengeId || item.projectTitle === challenge.title)
-    .slice(0, 10);
+  const allChallengeFeed = communityFeed
+    .filter((item) => item.projectId === challengeId || item.projectTitle === challenge.title);
+  const challengeFeed = showAllActivity ? allChallengeFeed : allChallengeFeed.slice(0, 10);
 
   const challengeUrl = appendRefParam(
     typeof window !== "undefined" ? `${window.location.origin}/challenges/${challengeId}` : `/challenges/${challengeId}`,
@@ -87,7 +108,25 @@ export default function ManageChallengePage() {
     : 0;
 
   const shareIntentText = getDirectChallengeShareText(challenge);
-  const nudgeMessage = `${shareIntentText} Bonus skips help the group reach the goal faster.\nJoin me: ${challengeUrl}`;
+  const endDateMs = challenge.endDate?.toMillis?.();
+  const endDateLabel = endDateMs
+    ? new Date(endDateMs).toLocaleDateString(undefined, { month: "long", day: "numeric", year: "numeric" })
+    : "the end of the challenge";
+  const challengeCauseName = (challenge.groupName ?? challenge.title).replace(/[.!?]+$/, "");
+  const nudgeGoalLine = challenge.goalAmount > 0
+    ? `Our goal is to raise at least ${formatCurrency(challenge.goalAmount)}${endDateMs ? ` by ${endDateLabel}` : ""}.`
+    : `We're aiming to raise as much as we can by ${endDateLabel}.`;
+  const nudgeMessage = `Join me in skipping at least one expense a week to help fund ${challengeCauseName}. ${nudgeGoalLine}\n\n${challengeUrl}`;
+  const progressUpdateText = buildProgressUpdate({
+    title: challenge.groupName ?? challenge.title,
+    raised: totalRaised,
+    goalAmount: challenge.goalAmount,
+    progressPct,
+    totalSkips,
+    unitName: challenge.unitName,
+    unitDisplay: challenge.unitDisplay,
+    unitCost: challenge.unitCost,
+  });
 
   async function handleArchive() {
     if (!challenge || !user) return;
@@ -132,30 +171,28 @@ export default function ManageChallengePage() {
     }
   }
 
-  async function handleViewMembers() {
-    if (!challenge) return;
-    if (members.length > 0) { setShowMembers((v) => !v); return; }
-    setShowMembers(true);
+  async function loadMembers() {
+    if (!challenge || loadingMembers) return;
     setLoadingMembers(true);
-    const uids: string[] = memberUids;
+    setMembersError(null);
     try {
-      const profiles = await Promise.all(
-        uids.slice(0, 50).map(async (uid) => {
-          const snap = await getDoc(doc(db, "users", uid));
-          const data = snap.data();
-          return {
-            uid,
-            displayName: data?.displayName ?? "Member",
-            photoURL: data?.photoURL ?? null,
-            pledged: (data?.causeJarBalances?.[challengeId] ?? 0) as number,
-          };
-        })
-      );
-      // Sort by pledged amount descending
-      setMembers(profiles.sort((a, b) => b.pledged - a.pledged));
+      const data = await apiRequest<ChallengeMembersResponse>(`/api/challenges/${challengeId}/members`, "GET");
+      setMembers(data.members);
+    } catch (error: any) {
+      setMembersError(error?.message || "Could not load members.");
     } finally {
       setLoadingMembers(false);
     }
+  }
+
+  async function handleViewMembers() {
+    if (!challenge) return;
+    if (members.length > 0 || membersError) {
+      setShowMembers((v) => !v);
+      return;
+    }
+    setShowMembers(true);
+    await loadMembers();
   }
 
   async function handleCopyLink() {
@@ -249,6 +286,10 @@ export default function ManageChallengePage() {
               <div className="mt-3 space-y-2">
                 {loadingMembers ? (
                   <p className="text-xs" style={{ color: "var(--text-muted)" }}>Loading...</p>
+                ) : membersError ? (
+                  <p className="text-xs" style={{ color: "#EF8844" }}>{membersError}</p>
+                ) : members.length === 0 ? (
+                  <p className="text-xs" style={{ color: "var(--text-muted)" }}>No member profiles found yet.</p>
                 ) : (
                   members.map((m) => (
                     <div key={m.uid} className="flex items-center gap-3">
@@ -260,6 +301,7 @@ export default function ManageChallengePage() {
                       </div>
                       <div className="flex-1 min-w-0">
                         <p className="text-sm font-semibold truncate" style={{ color: "var(--text-primary)" }}>{m.displayName}</p>
+                        {m.email && <p className="text-xs truncate" style={{ color: "var(--text-muted)" }}>{m.email}</p>}
                       </div>
                       {m.pledged > 0 && (
                         <p className="text-sm font-black shrink-0" style={{ color: "var(--green-primary)" }}>{formatCurrency(m.pledged)}</p>
@@ -276,9 +318,21 @@ export default function ManageChallengePage() {
       {/* Recent Activity */}
       {challengeFeed.length > 0 && (
         <section className="rounded-2xl p-4 mb-4" style={{ background: "var(--bg-surface-2)", border: "1px solid var(--border-default)" }}>
-          <p className="text-xs uppercase tracking-wide font-bold mb-3" style={{ color: "var(--text-muted)" }}>
-            Recent Activity
-          </p>
+          <div className="flex items-center justify-between gap-3 mb-3">
+            <p className="text-xs uppercase tracking-wide font-bold" style={{ color: "var(--text-muted)" }}>
+              Recent Activity
+            </p>
+            {allChallengeFeed.length > 10 && (
+              <button
+                type="button"
+                onClick={() => setShowAllActivity((value) => !value)}
+                className="text-xs font-semibold"
+                style={{ color: "var(--green-primary)" }}
+              >
+                {showAllActivity ? "Show less" : "See all"}
+              </button>
+            )}
+          </div>
           <div className="space-y-2">
             {challengeFeed.map((item) => (
               <div key={item.id} className="flex items-start gap-3">
@@ -303,12 +357,34 @@ export default function ManageChallengePage() {
         </section>
       )}
 
-      {/* Invite Friends */}
+      <SocialStatsSharePanel
+        title={challenge.groupName ?? challenge.title}
+        shareText={progressUpdateText}
+        url={challengeUrl}
+        raised={totalRaised}
+        goalAmount={challenge.goalAmount}
+        progressPct={progressPct}
+        totalSkips={totalSkips}
+        unitName={challenge.unitName}
+        unitCost={challenge.unitCost}
+      />
+
+      {/* Share with the group */}
       <section className="rounded-2xl p-4 mb-4" style={{ background: "var(--bg-surface-2)", border: "1px solid var(--border-default)" }}>
         <p className="text-xs uppercase tracking-wide font-bold mb-3" style={{ color: "var(--text-muted)" }}>
-          Invite Friends
+          Share with Your Group
         </p>
+        <p className="text-xs mb-3" style={{ color: "var(--text-secondary)" }}>
+          Invite someone new or remind your group to skip one expense this week.
+        </p>
+        <div
+          className="rounded-xl p-3 text-xs leading-relaxed whitespace-pre-line mb-3"
+          style={{ background: "var(--bg-surface-3)", color: "var(--text-secondary)", border: "1px solid var(--border-default)" }}
+        >
+          {nudgeMessage}
+        </div>
         <div className="space-y-2">
+          <NudgeCopyButton message={nudgeMessage} />
           <div className="flex gap-2">
             <input
               readOnly
@@ -328,31 +404,26 @@ export default function ManageChallengePage() {
             <button
               onClick={handleNativeShare}
               className="w-full py-2 rounded-xl text-xs font-semibold"
-              style={{ border: "1px solid var(--border-emphasis)", color: "var(--green-primary)" }}
+              style={{ display: "none", border: "1px solid var(--border-emphasis)", color: "var(--green-primary)" }}
             >
               ↗ Share via...
             </button>
           )}
-          <ShareButton url={challengeUrl} text={shareIntentText} title={challenge.groupName ?? challenge.title} />
+          <ShareButton url={challengeUrl} text={shareIntentText} title={challenge.groupName ?? challenge.title} label="Share Challenge" />
         </div>
       </section>
 
-      {/* Send a Nudge */}
-      <section className="rounded-2xl p-4 mb-4" style={{ background: "var(--bg-surface-2)", border: "1px solid var(--border-default)" }}>
-        <p className="text-xs uppercase tracking-wide font-bold mb-1" style={{ color: "var(--text-muted)" }}>
-          Send a Nudge
-        </p>
-        <p className="text-xs mb-3" style={{ color: "var(--text-secondary)" }}>
-          Copy this to your group chat to motivate your members.
-        </p>
-        <div
-          className="rounded-xl p-3 text-xs leading-relaxed mb-3"
-          style={{ background: "var(--bg-surface-3)", color: "var(--text-secondary)", border: "1px solid var(--border-default)" }}
-        >
-          {nudgeMessage}
-        </div>
-        <NudgeCopyButton message={nudgeMessage} />
-      </section>
+      <MemberEmailOutreach
+        challengeTitle={challenge.groupName ?? challenge.title}
+        challengeUrl={challengeUrl}
+        progressMessage={progressUpdateText}
+        donationUrl={challenge.donationURL}
+        members={members}
+        loadingMembers={loadingMembers}
+        membersError={membersError}
+        memberCount={memberUids.length}
+        onLoadMembers={loadMembers}
+      />
 
       {/* Edit Details */}
       <section className="rounded-2xl p-4 mb-4" style={{ background: "var(--bg-surface-2)", border: "1px solid var(--border-default)" }}>
@@ -575,4 +646,427 @@ function NudgeCopyButton({ message }: { message: string }) {
       {copied ? "✓ Copied to clipboard!" : "Copy Message"}
     </button>
   );
+}
+
+function SocialStatsSharePanel({
+  title,
+  shareText,
+  url,
+  raised,
+  goalAmount,
+  progressPct,
+  totalSkips,
+  unitName,
+  unitCost,
+}: {
+  title: string;
+  shareText: string;
+  url: string;
+  raised: number;
+  goalAmount: number;
+  progressPct: number;
+  totalSkips: number;
+  unitName?: string;
+  unitCost?: number;
+}) {
+  const impactStat = unitName && unitCost && unitCost > 0
+    ? formatUnits(raised, unitCost, unitName)
+    : "In progress";
+  const cardImage = buildSocialCardImage({
+    title,
+    raised,
+    goalAmount,
+    progressPct,
+    totalSkips,
+    impactStat,
+    url,
+  });
+
+  return (
+    <section className="rounded-2xl p-4 mb-4" style={{ background: "var(--bg-surface-2)", border: "1px solid var(--border-default)" }}>
+      <div className="flex items-start justify-between gap-3 mb-3">
+        <div>
+          <p className="text-xs uppercase tracking-wide font-bold mb-1" style={{ color: "var(--text-muted)" }}>
+            Share Your Impact
+          </p>
+          <p className="text-xs" style={{ color: "var(--text-secondary)" }}>
+            Turn the latest challenge stats into a social post.
+          </p>
+        </div>
+      </div>
+
+      <div className="rounded-xl overflow-hidden mb-3" style={{ background: "#F4F7F2", border: "1px solid var(--border-default)" }}>
+        <div className="p-4" style={{ background: "#123B2A", color: "#F4F7F2" }}>
+          <p className="text-[10px] uppercase tracking-[0.18em] font-black" style={{ color: "#8BE0AA" }}>iSkipped</p>
+          <p className="text-lg font-black leading-tight mt-2">{title}</p>
+          <p className="text-xs mt-1" style={{ color: "#C5D8CC" }}>A little change can fund a lot of impact.</p>
+        </div>
+        <div className="p-4" style={{ color: "#123B2A" }}>
+          <div className="grid grid-cols-3 gap-2">
+            <SocialCardMetric value={totalSkips.toLocaleString()} label="skips" />
+            <SocialCardMetric value={formatCurrency(raised)} label={goalAmount > 0 ? "pledged" : "raised"} />
+            <SocialCardMetric value={impactStat} label="impact" />
+          </div>
+          {goalAmount > 0 && (
+            <div className="mt-4">
+              <div className="flex items-center justify-between text-[10px] font-black mb-1">
+                <span>{progressPct}% of goal</span>
+                <span>{formatCurrency(goalAmount)}</span>
+              </div>
+              <div className="h-2 rounded-full overflow-hidden" style={{ background: "#D8E6DC" }}>
+                <div className="h-full rounded-full" style={{ width: `${progressPct}%`, background: "#2E8B57" }} />
+              </div>
+            </div>
+          )}
+          <p className="text-[10px] mt-4 truncate" style={{ color: "#527262" }}>{url}</p>
+        </div>
+      </div>
+
+      <div className="grid grid-cols-2 gap-2">
+        <a
+          href={cardImage}
+          download="iskipped-impact.svg"
+          className="py-2 rounded-xl text-xs font-bold"
+          style={{ border: "1px solid var(--border-emphasis)", color: "var(--green-primary)", textAlign: "center" }}
+        >
+          Download Image
+        </a>
+        <ShareButton url={url} text={shareText} title={`${title} progress`} imageUrl={cardImage} label="Share Image" />
+      </div>
+    </section>
+  );
+}
+
+function SocialCardMetric({ value, label }: { value: string; label: string }) {
+  return (
+    <div className="rounded-lg p-2" style={{ background: "#E8F1EA" }}>
+          <p className="text-sm font-black leading-tight break-words">{value}</p>
+      <p className="text-[10px] mt-0.5" style={{ color: "#527262" }}>{label}</p>
+    </div>
+  );
+}
+
+function buildSocialCardImage({
+  title,
+  raised,
+  goalAmount,
+  progressPct,
+  totalSkips,
+  impactStat,
+  url,
+}: {
+  title: string;
+  raised: number;
+  goalAmount: number;
+  progressPct: number;
+  totalSkips: number;
+  impactStat: string;
+  url: string;
+}) {
+  const escape = (value: string) => value
+    .replaceAll("&", "&amp;")
+    .replaceAll("<", "&lt;")
+    .replaceAll(">", "&gt;")
+    .replaceAll('"', "&quot;");
+  const goalText = goalAmount > 0 ? `${progressPct}% of ${formatCurrency(goalAmount)} goal` : "Every skip helps fund the cause";
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="630" viewBox="0 0 1200 630">
+    <rect width="1200" height="630" fill="#F4F7F2"/>
+    <rect width="1200" height="220" fill="#123B2A"/>
+    <text x="70" y="72" fill="#8BE0AA" font-family="Arial, sans-serif" font-size="24" font-weight="700" letter-spacing="5">ISKIPPED</text>
+    <text x="70" y="142" fill="#F4F7F2" font-family="Arial, sans-serif" font-size="42" font-weight="700">${escape(title)}</text>
+    <text x="70" y="182" fill="#C5D8CC" font-family="Arial, sans-serif" font-size="22">A little change can fund a lot of impact.</text>
+    <text x="70" y="300" fill="#123B2A" font-family="Arial, sans-serif" font-size="48" font-weight="700">${totalSkips.toLocaleString()}</text>
+    <text x="70" y="335" fill="#527262" font-family="Arial, sans-serif" font-size="20">skips</text>
+    <text x="380" y="300" fill="#123B2A" font-family="Arial, sans-serif" font-size="48" font-weight="700">${escape(formatCurrency(raised))}</text>
+    <text x="380" y="335" fill="#527262" font-family="Arial, sans-serif" font-size="20">${escape(goalAmount > 0 ? "pledged" : "raised")}</text>
+    <text x="760" y="300" fill="#123B2A" font-family="Arial, sans-serif" font-size="42" font-weight="700">${escape(impactStat)}</text>
+    <text x="760" y="335" fill="#527262" font-family="Arial, sans-serif" font-size="20">impact</text>
+    <text x="70" y="430" fill="#123B2A" font-family="Arial, sans-serif" font-size="22" font-weight="700">${escape(goalText)}</text>
+    <rect x="70" y="455" width="1060" height="18" rx="9" fill="#D8E6DC"/>
+    <rect x="70" y="455" width="${Math.max(0, Math.min(1060, Math.round(1060 * progressPct / 100)))}" height="18" rx="9" fill="#2E8B57"/>
+    <text x="70" y="560" fill="#527262" font-family="Arial, sans-serif" font-size="18">Join the challenge: ${escape(url)}</text>
+  </svg>`;
+  return `data:image/svg+xml;charset=utf-8,${encodeURIComponent(svg)}`;
+}
+
+function buildProgressUpdate({
+  title,
+  raised,
+  goalAmount,
+  progressPct,
+  totalSkips,
+  unitName,
+  unitDisplay,
+  unitCost,
+}: {
+  title: string;
+  raised: number;
+  goalAmount: number;
+  progressPct: number;
+  totalSkips: number;
+  unitName?: string;
+  unitDisplay?: string;
+  unitCost?: number;
+}) {
+  const cleanTitle = title.replace(/[.!?]+$/, "");
+  const lines = [`${cleanTitle} Progress Update!`, ""];
+
+  if (goalAmount > 0) {
+    lines.push(`${totalSkips.toLocaleString()} ${totalSkips === 1 ? "skip has" : "skips have"} been logged.`, "", `${formatCurrency(raised)} pledged toward our ${formatCurrency(goalAmount)} goal (${progressPct}%).`);
+  } else {
+    lines.push(`${totalSkips.toLocaleString()} ${totalSkips === 1 ? "skip has" : "skips have"} been logged.`, "", `${formatCurrency(raised)} pledged so far.`);
+  }
+
+  if (unitCost && unitCost > 0 && raised > 0 && (unitDisplay || unitName)) {
+    lines.push("", `That represents about ${formatUnits(raised, unitCost, unitName || unitDisplay || "impact")}.`);
+  }
+
+  lines.push("", "Thanks for keeping the momentum going and making a difference with your skipped expenses.");
+  return lines.join("\n");
+}
+
+type EmailTemplate = "progress" | "thanks" | "donation";
+
+function getEmailTemplate({
+  template,
+  challengeTitle,
+  challengeUrl,
+  progressMessage,
+  donationUrl,
+}: {
+  template: EmailTemplate;
+  challengeTitle: string;
+  challengeUrl: string;
+  progressMessage: string;
+  donationUrl?: string | null;
+}) {
+  const readableTitle = challengeTitle.replace(/[.!?]+$/, "");
+  const donationLink = donationUrl || challengeUrl;
+
+  if (template === "progress") {
+    return {
+      subject: `A progress update for ${challengeTitle}`,
+      body: `Hi {name},\n\n${progressMessage}\n\nThanks for being part of ${readableTitle}.\n\n${challengeUrl}`,
+    };
+  }
+
+  if (template === "donation") {
+    return {
+      subject: `Could you help fund ${challengeTitle}?`,
+      body: `Hi {name},\n\nThanks for skipping with the ${readableTitle} group. If you are able to at this time, please consider making a donation to help turn your skips into real-world impact.\n\nYou can learn more or donate here:\n${donationLink}`,
+    };
+  }
+
+  return {
+    subject: `Thanks for being part of ${challengeTitle}`,
+    body: `Hi {name},\n\nThanks for being part of ${readableTitle} group. Skipping just one expense a week can help grow this group's impact.\n\nWhen you get a moment, log one skip this week and invite someone who might want to join the cause!\n\n${challengeUrl}`,
+  };
+}
+
+function MemberEmailOutreach({
+  challengeTitle,
+  challengeUrl,
+  progressMessage,
+  donationUrl,
+  members,
+  loadingMembers,
+  membersError,
+  memberCount,
+  onLoadMembers,
+}: {
+  challengeTitle: string;
+  challengeUrl: string;
+  progressMessage: string;
+  donationUrl?: string | null;
+  members: ChallengeMember[];
+  loadingMembers: boolean;
+  membersError: string | null;
+  memberCount: number;
+  onLoadMembers: () => Promise<void>;
+}) {
+  const [template, setTemplate] = useState<EmailTemplate>("thanks");
+  const initialTemplate = getEmailTemplate({ template: "thanks", challengeTitle, challengeUrl, progressMessage, donationUrl });
+  const [subject, setSubject] = useState(initialTemplate.subject);
+  const [body, setBody] = useState(initialTemplate.body);
+  const [selectedUid, setSelectedUid] = useState("");
+  const [copied, setCopied] = useState<"emails" | "draft" | null>(null);
+
+  const emailableMembers = members.filter((member) => member.email);
+  const selectedMember = emailableMembers.find((member) => member.uid === selectedUid) ?? emailableMembers[0] ?? null;
+  const emailList = emailableMembers.map((member) => member.email).join(", ");
+  const personalBody = selectedMember ? personalizeMessage(body, selectedMember) : body;
+  const groupBody = body.replaceAll("{name}", "there").replaceAll("{pledged}", "your pledge");
+  const personalMailto = selectedMember
+    ? buildMailto({ to: selectedMember.email, subject, body: personalBody })
+    : "";
+  const groupMailto = emailableMembers.length > 0
+    ? buildMailto({ bcc: emailList, subject, body: groupBody })
+    : "";
+
+  function handleTemplateChange(nextTemplate: EmailTemplate) {
+    const next = getEmailTemplate({ template: nextTemplate, challengeTitle, challengeUrl, progressMessage, donationUrl });
+    setTemplate(nextTemplate);
+    setSubject(next.subject);
+    setBody(next.body);
+  }
+
+  async function handleCopyEmails() {
+    if (!emailList) return;
+    try {
+      await navigator.clipboard.writeText(emailList);
+      setCopied("emails");
+      setTimeout(() => setCopied(null), 2000);
+    } catch {}
+  }
+
+  async function handleCopyDraft() {
+    try {
+      await navigator.clipboard.writeText(personalBody);
+      setCopied("draft");
+      setTimeout(() => setCopied(null), 2000);
+    } catch {}
+  }
+
+  return (
+    <section className="rounded-2xl p-4 mb-4" style={{ background: "var(--bg-surface-2)", border: "1px solid var(--border-default)" }}>
+      <div className="flex items-start justify-between gap-3 mb-3">
+        <div>
+          <p className="text-xs uppercase tracking-wide font-bold mb-1" style={{ color: "var(--text-muted)" }}>
+            Member Emails
+          </p>
+          <p className="text-xs" style={{ color: "var(--text-secondary)" }}>
+            {emailableMembers.length > 0
+              ? `${emailableMembers.length} email ${emailableMembers.length === 1 ? "address" : "addresses"} ready`
+              : memberCount > 0
+                ? `${memberCount} ${memberCount === 1 ? "member" : "members"} in this challenge`
+                : "No members yet"}
+          </p>
+        </div>
+        <button
+          type="button"
+          onClick={onLoadMembers}
+          disabled={loadingMembers}
+          className="px-3 py-2 rounded-xl text-xs font-bold shrink-0 disabled:opacity-50"
+          style={{ border: "1px solid var(--border-emphasis)", color: "var(--green-primary)" }}
+        >
+          {loadingMembers ? "Loading..." : members.length > 0 ? "Refresh" : "Load"}
+        </button>
+      </div>
+
+      {membersError && (
+        <p className="text-xs mb-3" style={{ color: "#EF8844" }}>{membersError}</p>
+      )}
+
+      <div className="space-y-3">
+        <select
+          value={template}
+          onChange={(event) => handleTemplateChange(event.target.value as EmailTemplate)}
+          className="w-full rounded-xl px-3 py-2 text-sm focus:outline-none"
+          style={{ background: "var(--bg-surface-3)", border: "1px solid var(--border-default)", color: "var(--text-primary)" }}
+        >
+          <option value="progress">Share Progress</option>
+          <option value="thanks">Say Thanks</option>
+          <option value="donation">Ask for a Donation</option>
+        </select>
+        <input
+          value={subject}
+          onChange={(event) => setSubject(event.target.value)}
+          className="w-full rounded-xl px-3 py-2 text-sm focus:outline-none"
+          style={{ background: "var(--bg-surface-3)", border: "1px solid var(--border-default)", color: "var(--text-primary)" }}
+        />
+        <textarea
+          value={body}
+          onChange={(event) => setBody(event.target.value)}
+          rows={7}
+          className="w-full rounded-xl px-3 py-2 text-sm leading-relaxed resize-none focus:outline-none"
+          style={{ background: "var(--bg-surface-3)", border: "1px solid var(--border-default)", color: "var(--text-primary)" }}
+        />
+
+        {emailableMembers.length > 0 && (
+          <select
+            value={selectedMember?.uid ?? ""}
+            onChange={(event) => setSelectedUid(event.target.value)}
+            className="w-full rounded-xl px-3 py-2 text-sm focus:outline-none"
+            style={{ background: "var(--bg-surface-3)", border: "1px solid var(--border-default)", color: "var(--text-primary)" }}
+          >
+            {emailableMembers.map((member) => (
+              <option key={member.uid} value={member.uid}>
+                {member.displayName} - {member.email}
+              </option>
+            ))}
+          </select>
+        )}
+
+        <div className="grid grid-cols-2 gap-2">
+          <a
+            href={personalMailto || undefined}
+            aria-disabled={!selectedMember}
+            className="py-2 rounded-xl text-xs font-bold text-center"
+            style={{
+              background: selectedMember ? "var(--green-primary)" : "var(--bg-surface-3)",
+              color: selectedMember ? "#0B1A14" : "var(--text-muted)",
+              pointerEvents: selectedMember ? "auto" : "none",
+            }}
+          >
+            Email One Member
+          </a>
+          <a
+            href={groupMailto || undefined}
+            aria-disabled={emailableMembers.length === 0}
+            className="py-2 rounded-xl text-xs font-bold text-center"
+            style={{
+              border: "1px solid var(--border-emphasis)",
+              color: emailableMembers.length > 0 ? "var(--green-primary)" : "var(--text-muted)",
+              pointerEvents: emailableMembers.length > 0 ? "auto" : "none",
+            }}
+          >
+            Email All Members
+          </a>
+          <button
+            type="button"
+            onClick={handleCopyDraft}
+            disabled={!selectedMember}
+            className="py-2 rounded-xl text-xs font-bold disabled:opacity-50"
+            style={{ border: "1px solid var(--border-emphasis)", color: "var(--green-primary)" }}
+          >
+            {copied === "draft" ? "Copied!" : "Copy Draft"}
+          </button>
+          <button
+            type="button"
+            onClick={handleCopyEmails}
+            disabled={emailableMembers.length === 0}
+            className="py-2 rounded-xl text-xs font-bold disabled:opacity-50"
+            style={{ border: "1px solid var(--border-emphasis)", color: "var(--green-primary)" }}
+          >
+            {copied === "emails" ? "Copied!" : "Copy Emails"}
+          </button>
+        </div>
+      </div>
+    </section>
+  );
+}
+
+function personalizeMessage(template: string, member: ChallengeMember): string {
+  const firstName = member.displayName.trim().split(/\s+/)[0] || "there";
+  return template
+    .replaceAll("{name}", firstName)
+    .replaceAll("{pledged}", member.pledged > 0 ? formatCurrency(member.pledged) : "your pledge");
+}
+
+function buildMailto({
+  to = "",
+  bcc = "",
+  subject,
+  body,
+}: {
+  to?: string;
+  bcc?: string;
+  subject: string;
+  body: string;
+}) {
+  const params = new URLSearchParams();
+  if (bcc) params.set("bcc", bcc);
+  params.set("subject", subject);
+  params.set("body", body);
+  return `mailto:${to}?${params.toString()}`;
 }
