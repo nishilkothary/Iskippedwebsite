@@ -712,11 +712,11 @@ function SocialStatsSharePanel({
           <p className="text-xs mt-1" style={{ color: "#C5D8CC" }}>A little change can fund a lot of impact.</p>
         </div>
         <div className="p-4" style={{ color: "#123B2A" }}>
-          <div className="grid grid-cols-2 gap-2">
+          <div className="grid grid-cols-3 gap-3 items-start">
             <SocialCardMetric value={totalSkips.toLocaleString()} label="skips" />
             <SocialCardMetric value={formatCurrency(raised)} label={goalAmount > 0 ? "pledged" : "raised"} />
+            <SocialCardMetric value={impactStat} label="impact" />
           </div>
-          <SocialCardMetric value={impactStat} label="impact" className="mt-2" large />
           {goalAmount > 0 && (
             <div className="mt-4">
               <div className="flex items-center justify-between text-[10px] font-black mb-1">
@@ -747,11 +747,11 @@ function SocialStatsSharePanel({
   );
 }
 
-function SocialCardMetric({ value, label, className = "", large = false }: { value: string; label: string; className?: string; large?: boolean }) {
+function SocialCardMetric({ value, label }: { value: string; label: string }) {
   return (
-    <div className={`rounded-lg p-2 ${className}`} style={{ background: "#E8F1EA" }}>
-      <p className={`${large ? "text-base" : "text-sm"} font-black leading-tight break-words`}>{value}</p>
-      <p className="text-[10px] mt-0.5" style={{ color: "#527262" }}>{label}</p>
+    <div className="min-w-0 text-center">
+      <p className="text-xl font-black leading-tight break-words" style={{ color: "#123B2A" }}>{value}</p>
+      <p className="text-[10px] mt-1 uppercase tracking-[0.12em] font-black" style={{ color: "#527262" }}>{label}</p>
     </div>
   );
 }
@@ -789,11 +789,11 @@ function buildSocialCardImage({
     <text x="70" y="325" fill="#527262" font-family="Arial, sans-serif" font-size="20">skips</text>
     <text x="380" y="290" fill="#123B2A" font-family="Arial, sans-serif" font-size="48" font-weight="700">${escape(formatCurrency(raised))}</text>
     <text x="380" y="325" fill="#527262" font-family="Arial, sans-serif" font-size="20">${escape(goalAmount > 0 ? "pledged" : "raised")}</text>
-    <text x="70" y="405" fill="#123B2A" font-family="Arial, sans-serif" font-size="42" font-weight="700">${escape(impactStat)}</text>
-    <text x="70" y="440" fill="#527262" font-family="Arial, sans-serif" font-size="20">impact</text>
-    <text x="70" y="495" fill="#123B2A" font-family="Arial, sans-serif" font-size="22" font-weight="700">${escape(goalText)}</text>
-    <rect x="70" y="520" width="1060" height="18" rx="9" fill="#D8E6DC"/>
-    <rect x="70" y="520" width="${Math.max(0, Math.min(1060, Math.round(1060 * progressPct / 100)))}" height="18" rx="9" fill="#2E8B57"/>
+    <text x="760" y="290" fill="#123B2A" font-family="Arial, sans-serif" font-size="38" font-weight="700">${escape(impactStat)}</text>
+    <text x="760" y="325" fill="#527262" font-family="Arial, sans-serif" font-size="20">impact</text>
+    <text x="70" y="405" fill="#123B2A" font-family="Arial, sans-serif" font-size="22" font-weight="700">${escape(goalText)}</text>
+    <rect x="70" y="430" width="1060" height="18" rx="9" fill="#D8E6DC"/>
+    <rect x="70" y="430" width="${Math.max(0, Math.min(1060, Math.round(1060 * progressPct / 100)))}" height="18" rx="9" fill="#2E8B57"/>
     <text x="70" y="560" fill="#527262" font-family="Arial, sans-serif" font-size="18">Join the challenge: ${escape(url)}</text>
   </svg>`;
   return `data:image/svg+xml;charset=utf-8,${encodeURIComponent(svg)}`;
