@@ -11,7 +11,7 @@ import { normalizeJarSplit, normalizeSpendingGoals } from "@/lib/services/fireba
 import { formatUnits, oneUnitPhrase } from "@/lib/utils/impact";
 import { isChallengeProject } from "@/lib/services/firebase/projects";
 import { getChallengeCountdown } from "@/lib/utils/dates";
-import { appendRefParam } from "@/lib/utils/share";
+import { appendRefParam, getChallengeSharePath } from "@/lib/utils/share";
 import { getPostSkipShareText } from "@/lib/utils/challengeShareCopy";
 import { ShareButton } from "@/components/share/ShareButton";
 import { SkipSetupPrompt } from "@/components/setup/SkipSetupPrompt";
@@ -158,7 +158,7 @@ export function SkipModal({ onClose }: Props) {
       impactStat = `${formatCurrency(amount)} saved`;
     }
     const challengeURL = successActiveProject
-      ? appendRefParam(`${typeof window !== "undefined" ? window.location.origin : "https://iskipped.com"}/join/${successActiveProject.id}`, profile?.uid)
+      ? appendRefParam(`${typeof window !== "undefined" ? window.location.origin : "https://iskipped.com"}${getChallengeSharePath(successActiveProject)}`, profile?.uid)
       : "https://iskipped.com";
     const shareIntentText = successActiveProject
       ? getPostSkipShareText(successActiveProject, itemLabel, skipGivePct)

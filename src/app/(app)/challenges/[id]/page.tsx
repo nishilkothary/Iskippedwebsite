@@ -5,11 +5,11 @@ import { useParams, useRouter } from "next/navigation";
 import { useAuthStore } from "@/store/authStore";
 import { useProjects } from "@/hooks/useProjects";
 import { Project } from "@/lib/types/models";
-import { switchCause, setUserCauseGoal, normalizeJarSplit } from "@/lib/services/firebase/users";
+import { switchCause, setUserCauseGoal, normalizeJarSplit, setChallengeEmailConsent } from "@/lib/services/firebase/users";
 import { isChallengeProject, getProject } from "@/lib/services/firebase/projects";
 import { formatCurrency } from "@/lib/utils/currency";
 import { getChallengeCountdown } from "@/lib/utils/dates";
-import { appendRefParam } from "@/lib/utils/share";
+import { appendRefParam, getChallengeSharePath } from "@/lib/utils/share";
 import { getDirectChallengeShareText } from "@/lib/utils/challengeShareCopy";
 import { ShareButton } from "@/components/share/ShareButton";
 
@@ -192,12 +192,9 @@ export default function ChallengeDetailPage() {
   const { projects, loading: projectsLoading } = useProjects();
   const [joining, setJoining] = useState(false);
   const [showJoinChoice, setShowJoinChoice] = useState(false);
+  const [showEmailConsent, setShowEmailConsent] = useState(false);
   const [goalPickerProjectId, setGoalPickerProjectId] = useState<string | null>(null);
   const [showShare, setShowShare] = useState(false);
-  const challengeUrl = appendRefParam(
-    typeof window !== "undefined" ? `${window.location.origin}/join/${challengeId}` : `/join/${challengeId}`,
-    user?.uid
-  );
   const canNativeShare = typeof navigator !== "undefined" && typeof navigator.share === "function";
 
   // The projects list comes from a whole-collection snapshot that fires from
@@ -261,6 +258,10 @@ export default function ChallengeDetailPage() {
   const globalGivingBalance = profile ? Math.max(0, giveTotal - (profile.totalDonated ?? 0)) : 0;
   const profileChallengeBalance = profile?.causeJarBalances?.[challenge.project.id] ?? 0;
   const pledgedAmount = Math.max(challenge.project.totalRaised || 0, profileChallengeBalance);
+  const challengeUrl = appendRefParam(
+    typeof window !== "undefined" ? `${window.location.origin}${getChallengeSharePath(challenge.project)}` : getChallengeSharePath(challenge.project),
+    user?.uid
+  );
 
   async function handleShare() {
     if (!challenge) return;
@@ -280,6 +281,22 @@ export default function ChallengeDetailPage() {
       router.push("/home");
       return;
     }
+    if (profile?.challengeEmailConsents?.[challenge.project.id] === undefined) {
+      setShowEmailConsent(true);
+      return;
+    }
+    await beginJoin();
+  }
+
+  async function chooseEmailConsent(shareEmail: boolean) {
+    if (!user || !challenge) return;
+    try {
+      await setChallengeEmailConsent(user.uid, challenge.project.id, shareEmail);
+    } catch {
+      return;
+    }
+    updateProfile({ challengeEmailConsents: { ...(profile?.challengeEmailConsents ?? {}), [challenge.project.id]: shareEmail } });
+    setShowEmailConsent(false);
     await beginJoin();
   }
 
@@ -571,6 +588,43 @@ export default function ChallengeDetailPage() {
           password={challenge.project.visibility === "private" || challenge.project.visibility === "password" ? challenge.project.password ?? null : null}
           onClose={() => setShowShare(false)}
         />
+      )}
+
+      {showEmailConsent && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4" style={{ background: "rgba(0,0,0,0.62)" }}>
+          <div className="w-full max-w-md rounded-2xl p-5" style={{ background: "var(--bg-surface-1)", border: "1px solid var(--border-emphasis)" }}>
+            <p className="text-lg font-black" style={{ color: "var(--text-primary)" }}>Join this challenge?</p>
+            <p className="text-sm leading-relaxed mt-2" style={{ color: "var(--text-secondary)" }}>
+              The challenge organizer can see your email address and may contact you about this challenge.
+            </p>
+            <div className="grid gap-2 mt-5">
+              <button
+                type="button"
+                onClick={() => chooseEmailConsent(true)}
+                className="py-3 rounded-full text-sm font-black"
+                style={{ background: "linear-gradient(135deg, var(--gold-cta), var(--gold-light))", color: "var(--bg-base)" }}
+              >
+                Share email and join
+              </button>
+              <button
+                type="button"
+                onClick={() => chooseEmailConsent(false)}
+                className="py-3 rounded-full text-sm font-black"
+                style={{ border: "1px solid var(--border-emphasis)", color: "var(--green-primary)" }}
+              >
+                Join without sharing email
+              </button>
+              <button
+                type="button"
+                onClick={() => setShowEmailConsent(false)}
+                className="py-2 text-xs font-bold"
+                style={{ color: "var(--text-muted)" }}
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
+        </div>
       )}
 
       {goalPickerProjectId && (

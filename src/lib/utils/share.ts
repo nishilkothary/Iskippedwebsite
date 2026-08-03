@@ -5,6 +5,25 @@ export function appendRefParam(url: string, ref: string | null | undefined): str
   return `${url}${sep}ref=${encodeURIComponent(ref)}`;
 }
 
+/** Creates a stable, readable path segment from a challenge's group or title. */
+export function slugifyChallengeName(value: string): string {
+  return value
+    .normalize("NFKD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
+    .replace(/&/g, " and ")
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "") || "challenge";
+}
+
+export function getChallengeSlug(project: { title: string; groupName?: string }): string {
+  return slugifyChallengeName(project.groupName?.trim() || project.title);
+}
+
+export function getChallengeSharePath(project: { title: string; groupName?: string }): string {
+  return `/join/${getChallengeSlug(project)}`;
+}
+
 export function buildWhatsAppShareUrl(text: string, url: string): string {
   return `https://wa.me/?text=${encodeURIComponent(`${text} ${url}`)}`;
 }

@@ -9,7 +9,7 @@ import { switchCause, setUserCauseGoal } from "@/lib/services/firebase/users";
 import { addCustomProject, isChallengeProject, isProjectEnded, updateCustomProject, OFFICIAL_PROJECTS, PARTNER_CHALLENGE_IDS } from "@/lib/services/firebase/projects";
 import { formatCurrency } from "@/lib/utils/currency";
 import { formatUnits, oneUnitPhrase } from "@/lib/utils/impact";
-import { appendRefParam } from "@/lib/utils/share";
+import { appendRefParam, getChallengeSharePath } from "@/lib/utils/share";
 import { getDirectChallengeShareText } from "@/lib/utils/challengeShareCopy";
 import { ShareButton } from "@/components/share/ShareButton";
 
@@ -375,7 +375,7 @@ export default function ChallengesPage() {
   }
 
   async function handleShareChallenge(challenge: ChallengeCard) {
-    const url = appendRefParam(`${window.location.origin}/join/${challenge.project.id}`, user?.uid);
+    const url = appendRefParam(`${window.location.origin}${getChallengeSharePath(challenge.project)}`, user?.uid);
     const msg = getDirectChallengeShareText(challenge.project);
     if (typeof navigator !== "undefined" && typeof navigator.share === "function") {
       try {
@@ -1164,8 +1164,8 @@ function ShareChallengeModal({
 }) {
   const url = appendRefParam(
     typeof window !== "undefined"
-      ? `${window.location.origin}/join/${challenge.project.id}`
-      : `/join/${challenge.project.id}`,
+      ? `${window.location.origin}${getChallengeSharePath(challenge.project)}`
+      : getChallengeSharePath(challenge.project),
     inviterUid
   );
   const [copiedMsg, setCopiedMsg] = useState(false);

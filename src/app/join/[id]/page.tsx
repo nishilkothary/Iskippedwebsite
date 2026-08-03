@@ -4,12 +4,13 @@ import { useEffect, useMemo, useState } from "react";
 import { useRouter, useParams, useSearchParams } from "next/navigation";
 import { getDoc, doc } from "firebase/firestore";
 import { db } from "@/lib/services/firebase/config";
-import { OFFICIAL_PROJECTS } from "@/lib/services/firebase/projects";
+import { getAllProjects, OFFICIAL_PROJECTS } from "@/lib/services/firebase/projects";
 import { useAuthStore } from "@/store/authStore";
 import { Project } from "@/lib/types/models";
 import { formatCurrency } from "@/lib/utils/currency";
 import { getChallengeCountdown } from "@/lib/utils/dates";
 import { captureReferralCode } from "@/lib/utils/referral";
+import { slugifyChallengeName } from "@/lib/utils/share";
 import Link from "next/link";
 
 // ── Local helpers (mirror of challenges/[id]/page.tsx) ──────────────────────
@@ -190,13 +191,14 @@ export default function JoinChallengePage() {
     captureReferralCode(searchParams.get("ref"));
   }, [searchParams]);
   const [projectData, setProjectData] = useState<Project | null>(null);
+  const [resolvedChallengeId, setResolvedChallengeId] = useState("");
   const [loading, setLoading] = useState(true);
   const [notFound, setNotFound] = useState(false);
 
   // Redirect signed-in users to the real authenticated challenge page
   useEffect(() => {
-    if (!authLoading && user) router.replace(`/challenges/${challengeId}`);
-  }, [user, authLoading, challengeId, router]);
+    if (!authLoading && user && resolvedChallengeId) router.replace(`/challenges/${resolvedChallengeId}`);
+  }, [user, authLoading, resolvedChallengeId, router]);
 
   useEffect(() => {
     if (!challengeId) { setNotFound(true); setLoading(false); return; }
@@ -205,18 +207,30 @@ export default function JoinChallengePage() {
     // Merge the static official entry with whatever Firestore has (Firestore
     // wins for live fields like totalRaised) so shared links to official causes
     // resolve instead of showing "Challenge not found".
-    const official = OFFICIAL_PROJECTS.find((p) => p.id === challengeId) ?? null;
-    getDoc(doc(db, "projects", challengeId))
-      .then((snap) => {
-        const fsData = snap.exists() ? snap.data() : null;
-        if (official || fsData) {
-          setProjectData({ ...(official ?? {}), ...(fsData ?? {}), id: challengeId } as Project);
-        } else {
+    getAllProjects()
+      .then(async (projects) => {
+        const match = projects.find((project) => project.id === challengeId)
+          ?? projects.find((project) => slugifyChallengeName(project.groupName?.trim() || project.title) === challengeId)
+          ?? OFFICIAL_PROJECTS.find((project) => slugifyChallengeName(project.groupName?.trim() || project.title) === challengeId)
+          ?? null;
+        if (!match) {
           setNotFound(true);
+          return;
         }
+        const official = OFFICIAL_PROJECTS.find((project) => project.id === match.id) ?? null;
+        const snap = await getDoc(doc(db, "projects", match.id));
+        const fsData = snap.exists() ? snap.data() : null;
+        setResolvedChallengeId(match.id);
+        setProjectData({ ...(official ?? {}), ...match, ...(fsData ?? {}), id: match.id } as Project);
       })
       .catch(() => {
-        if (official) setProjectData({ ...official, id: challengeId } as Project);
+        const official = OFFICIAL_PROJECTS.find((project) => project.id === challengeId)
+          ?? OFFICIAL_PROJECTS.find((project) => slugifyChallengeName(project.groupName?.trim() || project.title) === challengeId)
+          ?? null;
+        if (official) {
+          setResolvedChallengeId(official.id);
+          setProjectData({ ...official, id: official.id });
+        }
         else setNotFound(true);
       })
       .finally(() => setLoading(false));
@@ -224,8 +238,8 @@ export default function JoinChallengePage() {
 
   const challenge = useMemo(() => projectData ? challengeFromProject(projectData) : null, [projectData]);
 
-  const signUpHref = `/sign-in?mode=signup&redirect=/challenges/${challengeId}`;
-  const signInHref = `/sign-in?mode=signin&redirect=/challenges/${challengeId}`;
+  const signUpHref = `/sign-in?mode=signup&redirect=/challenges/${resolvedChallengeId || challengeId}`;
+  const signInHref = `/sign-in?mode=signin&redirect=/challenges/${resolvedChallengeId || challengeId}`;
 
   if (loading || authLoading) {
     return (

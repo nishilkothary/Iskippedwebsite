@@ -11,6 +11,7 @@ type MemberProfile = {
   emailVerified?: boolean;
   causeJarBalances?: Record<string, number>;
   joinedProjectIds?: string[];
+  challengeEmailConsents?: Record<string, boolean>;
   createdAt?: { toDate?: () => Date };
 };
 
@@ -77,10 +78,11 @@ export async function GET(req: NextRequest, context: { params: Promise<{ id: str
         if (!snap.exists) continue;
         const data = snap.data() as MemberProfile;
         const uid = data.uid ?? snap.id;
+        const emailShared = data.challengeEmailConsents?.[challengeId] === true;
         members.push({
           uid,
           displayName: data.displayName || "Member",
-          email: data.email || "",
+          email: emailShared ? data.email || "" : "",
           photoURL: data.photoURL ?? null,
           emailVerified: data.emailVerified ?? null,
           pledged: Number(data.causeJarBalances?.[challengeId] ?? 0),

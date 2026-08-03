@@ -22,6 +22,8 @@ export interface UserProfile {
   level: number;
   activeProjectId: string | null;
   joinedProjectIds?: string[];
+  /** Per-challenge permission for organizers to see and email this address. */
+  challengeEmailConsents?: Record<string, boolean>;
   savedTowardActiveCause: number;
   totalDonated: number;
   followingCount: number;

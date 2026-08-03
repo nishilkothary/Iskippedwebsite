@@ -10,7 +10,7 @@ import { formatCurrency } from "@/lib/utils/currency";
 import { formatAggregateImpactUnits } from "@/lib/utils/impact";
 import { getChallengeCountdown } from "@/lib/utils/dates";
 import { Project, FeedItem } from "@/lib/types/models";
-import { appendRefParam } from "@/lib/utils/share";
+import { appendRefParam, getChallengeSharePath } from "@/lib/utils/share";
 import { getDirectChallengeShareText } from "@/lib/utils/challengeShareCopy";
 import { ShareButton } from "@/components/share/ShareButton";
 import { apiRequest } from "@/lib/services/firebase/apiClient";
@@ -100,7 +100,7 @@ export default function ManageChallengePage() {
   const displayedMemberCount = membersTotal || memberUids.length;
 
   const challengeUrl = appendRefParam(
-    typeof window !== "undefined" ? `${window.location.origin}/challenges/${challengeId}` : `/challenges/${challengeId}`,
+    typeof window !== "undefined" ? `${window.location.origin}${getChallengeSharePath(challenge)}` : getChallengeSharePath(challenge),
     user?.uid
   );
 
@@ -680,7 +680,7 @@ function SocialStatsSharePanel({
   unitIsGoal?: boolean;
 }) {
   const impactStat = unitName && unitCost && unitCost > 0
-    ? formatAggregateImpactUnits(raised, unitCost, unitName, unitDisplay, unitIsGoal)
+    ? capitalizeImpactUnit(formatAggregateImpactUnits(raised, unitCost, unitName, unitDisplay, unitIsGoal))
     : "In progress";
   const cardImage = buildSocialCardImage({
     title,
@@ -712,10 +712,15 @@ function SocialStatsSharePanel({
           <p className="text-xs mt-1" style={{ color: "#C5D8CC" }}>A little change can fund a lot of impact.</p>
         </div>
         <div className="p-4" style={{ color: "#123B2A" }}>
-          <div className="grid grid-cols-3 gap-3 items-start">
+          <div className="grid grid-cols-2 gap-3 items-start">
             <SocialCardMetric value={totalSkips.toLocaleString()} label="skips" />
-            <SocialCardMetric value={formatCurrency(raised)} label={goalAmount > 0 ? "pledged" : "raised"} />
-            <SocialCardMetric value={impactStat} label="impact" />
+            <SocialCardMetric value={formatWholeCurrency(raised)} label="pledged" />
+          </div>
+          <div className="mt-1 text-center">
+            <p className="text-xl font-black leading-none" style={{ color: "#527262" }}>=</p>
+            <div className="mt-1">
+              <SocialCardMetric value={impactStat} />
+            </div>
           </div>
           {goalAmount > 0 && (
             <div className="mt-4">
@@ -747,13 +752,21 @@ function SocialStatsSharePanel({
   );
 }
 
-function SocialCardMetric({ value, label }: { value: string; label: string }) {
+function SocialCardMetric({ value, label }: { value: string; label?: string }) {
   return (
     <div className="min-w-0 text-center">
       <p className="text-xl font-black leading-tight break-words" style={{ color: "#123B2A" }}>{value}</p>
-      <p className="text-[10px] mt-1 uppercase tracking-[0.12em] font-black" style={{ color: "#527262" }}>{label}</p>
+      {label && <p className="text-[10px] mt-1 uppercase tracking-[0.12em] font-black" style={{ color: "#527262" }}>{label}</p>}
     </div>
   );
+}
+
+function formatWholeCurrency(amount: number) {
+  return `$${Math.round(amount).toLocaleString("en-US")}`;
+}
+
+function capitalizeImpactUnit(value: string) {
+  return value.replace(/\b(chromebooks?)\b/gi, (unit) => unit.charAt(0).toUpperCase() + unit.slice(1));
 }
 
 function buildSocialCardImage({
@@ -785,16 +798,16 @@ function buildSocialCardImage({
     <text x="70" y="72" fill="#8BE0AA" font-family="Arial, sans-serif" font-size="24" font-weight="700" letter-spacing="5">ISKIPPED</text>
     <text x="70" y="142" fill="#F4F7F2" font-family="Arial, sans-serif" font-size="42" font-weight="700">${escape(title)}</text>
     <text x="70" y="182" fill="#C5D8CC" font-family="Arial, sans-serif" font-size="22">A little change can fund a lot of impact.</text>
-    <text x="70" y="290" fill="#123B2A" font-family="Arial, sans-serif" font-size="48" font-weight="700">${totalSkips.toLocaleString()}</text>
-    <text x="70" y="325" fill="#527262" font-family="Arial, sans-serif" font-size="20">skips</text>
-    <text x="380" y="290" fill="#123B2A" font-family="Arial, sans-serif" font-size="48" font-weight="700">${escape(formatCurrency(raised))}</text>
-    <text x="380" y="325" fill="#527262" font-family="Arial, sans-serif" font-size="20">${escape(goalAmount > 0 ? "pledged" : "raised")}</text>
-    <text x="760" y="290" fill="#123B2A" font-family="Arial, sans-serif" font-size="38" font-weight="700">${escape(impactStat)}</text>
-    <text x="760" y="325" fill="#527262" font-family="Arial, sans-serif" font-size="20">impact</text>
-    <text x="70" y="405" fill="#123B2A" font-family="Arial, sans-serif" font-size="22" font-weight="700">${escape(goalText)}</text>
-    <rect x="70" y="430" width="1060" height="18" rx="9" fill="#D8E6DC"/>
-    <rect x="70" y="430" width="${Math.max(0, Math.min(1060, Math.round(1060 * progressPct / 100)))}" height="18" rx="9" fill="#2E8B57"/>
-    <text x="70" y="560" fill="#527262" font-family="Arial, sans-serif" font-size="18">Join the challenge: ${escape(url)}</text>
+    <text x="210" y="290" fill="#123B2A" font-family="Arial, sans-serif" font-size="48" font-weight="700" text-anchor="middle">${totalSkips.toLocaleString()}</text>
+    <text x="210" y="325" fill="#527262" font-family="Arial, sans-serif" font-size="20" text-anchor="middle">skips</text>
+    <text x="590" y="290" fill="#123B2A" font-family="Arial, sans-serif" font-size="48" font-weight="700" text-anchor="middle">${escape(formatWholeCurrency(raised))}</text>
+    <text x="590" y="325" fill="#527262" font-family="Arial, sans-serif" font-size="20" text-anchor="middle">pledged</text>
+    <text x="600" y="345" fill="#527262" font-family="Arial, sans-serif" font-size="30" font-weight="700" text-anchor="middle">=</text>
+    <text x="600" y="390" fill="#123B2A" font-family="Arial, sans-serif" font-size="38" font-weight="700" text-anchor="middle">${escape(impactStat)}</text>
+    <text x="70" y="470" fill="#123B2A" font-family="Arial, sans-serif" font-size="22" font-weight="700">${escape(goalText)}</text>
+    <rect x="70" y="490" width="1060" height="18" rx="9" fill="#D8E6DC"/>
+    <rect x="70" y="490" width="${Math.max(0, Math.min(1060, Math.round(1060 * progressPct / 100)))}" height="18" rx="9" fill="#2E8B57"/>
+    <text x="70" y="600" fill="#527262" font-family="Arial, sans-serif" font-size="18">Join now: ${escape(url)}</text>
   </svg>`;
   return `data:image/svg+xml;charset=utf-8,${encodeURIComponent(svg)}`;
 }
@@ -830,7 +843,7 @@ function buildProgressUpdate({
   }
 
   if (unitCost && unitCost > 0 && raised > 0 && (unitDisplay || unitName)) {
-    lines.push("", `That represents about ${formatAggregateImpactUnits(raised, unitCost, unitName || unitDisplay || "impact", unitDisplay, unitIsGoal)}.`);
+    lines.push("", `That represents about ${capitalizeImpactUnit(formatAggregateImpactUnits(raised, unitCost, unitName || unitDisplay || "impact", unitDisplay, unitIsGoal))}.`);
   }
 
   lines.push("", "Thanks for keeping the momentum going and making a difference with your skipped expenses.");

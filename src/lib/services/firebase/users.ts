@@ -151,6 +151,10 @@ export async function joinProject(uid: string, projectId: string, makeActive: bo
   ]);
 }
 
+export async function setChallengeEmailConsent(uid: string, projectId: string, shareEmail: boolean): Promise<void> {
+  await updateDoc(doc(db, "users", uid), { [`challengeEmailConsents.${projectId}`]: shareEmail });
+}
+
 export async function setUserCauseGoal(uid: string, causeId: string, amount: number): Promise<void> {
   await updateDoc(doc(db, "users", uid), { [`causeGoalAmounts.${causeId}`]: amount });
 }

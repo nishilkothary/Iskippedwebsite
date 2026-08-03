@@ -15,7 +15,7 @@ import { isChallengeProject, subscribeToProject } from "@/lib/services/firebase/
 import { subscribeToCommunityFeed, subscribeToGlobalStats } from "@/lib/services/firebase/social";
 import { EditSkipModal } from "@/components/skip/EditSkipModal";
 import { FeedItem, GlobalStats, Project, Skip } from "@/lib/types/models";
-import { appendRefParam } from "@/lib/utils/share";
+import { appendRefParam, getChallengeSharePath } from "@/lib/utils/share";
 import { getDirectChallengeShareText } from "@/lib/utils/challengeShareCopy";
 import { ShareButton } from "@/components/share/ShareButton";
 import { oneUnitPhrase } from "@/lib/utils/impact";
@@ -922,7 +922,7 @@ export default function HomePage() {
                   label="Share"
                   title={activeProject.title}
                   text={getDirectChallengeShareText(activeProject)}
-                  url={appendRefParam(`${typeof window !== "undefined" ? window.location.origin : "https://iskipped.com"}/challenges/${activeProject.id}`, user?.uid)}
+                  url={appendRefParam(`${typeof window !== "undefined" ? window.location.origin : "https://iskipped.com"}${getChallengeSharePath(activeProject)}`, user?.uid)}
                 />
                 <button
                   onClick={() => router.push(`/challenges/${activeProject.id}`)}
