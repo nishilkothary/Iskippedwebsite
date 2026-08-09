@@ -22,6 +22,7 @@ type ChallengeMember = {
   photoURL: string | null;
   emailVerified: boolean | null;
   pledged: number;
+  donated: number;
   joinedChallenge: boolean;
   joinedAt: string | null;
 };
@@ -47,7 +48,6 @@ export default function ManageChallengePage() {
   const [endConfirm, setEndConfirm] = useState(false);
   const [archiving, setArchiving] = useState(false);
   const [archiveConfirm, setArchiveConfirm] = useState(false);
-  const [linkCopied, setLinkCopied] = useState(false);
   const [showDeadlineEdit, setShowDeadlineEdit] = useState(false);
   const [newDeadlineDays, setNewDeadlineDays] = useState<number | null | "custom">(30);
   const [customDateStr, setCustomDateStr] = useState("");
@@ -105,13 +105,13 @@ export default function ManageChallengePage() {
     .filter((item) => item.projectId === challengeId || item.projectTitle === challenge.title);
   const challengeFeed = showAllActivity ? allChallengeFeed : allChallengeFeed.slice(0, 3);
   const displayedMemberCount = membersTotal || memberUids.length;
+  const membersByUid = new Map(members.map((member) => [member.uid, member]));
 
   const challengeUrl = appendRefParam(
     typeof window !== "undefined" ? `${window.location.origin}${getChallengeSharePath(challenge)}` : getChallengeSharePath(challenge),
     user?.uid
   );
 
-  const canNativeShare = typeof navigator !== "undefined" && typeof navigator.share === "function";
   const progressPct = challenge.goalAmount > 0
     ? Math.min(100, Math.round((totalRaised / challenge.goalAmount) * 100))
     : 0;
@@ -123,8 +123,8 @@ export default function ManageChallengePage() {
     : "the end of the challenge";
   const challengeCauseName = (challenge.groupName ?? challenge.title).replace(/[.!?]+$/, "");
   const nudgeGoalLine = challenge.goalAmount > 0
-    ? `Our goal is to raise at least ${formatCurrency(challenge.goalAmount)}${endDateMs ? ` by ${endDateLabel}` : ""}.`
-    : `We're aiming to raise as much as we can by ${endDateLabel}.`;
+    ? `Our goal is to pledge at least ${formatCurrency(challenge.goalAmount)}${endDateMs ? ` by ${endDateLabel}` : ""}.`
+    : "Every skipped expense helps this group make progress.";
   const nudgeMessage = `Join me in skipping at least one expense a week to help fund ${challengeCauseName}. ${nudgeGoalLine}\n\n${challengeUrl}`;
   const progressUpdateText = buildProgressUpdate({
     title: challenge.groupName ?? challenge.title,
@@ -205,25 +205,6 @@ export default function ManageChallengePage() {
     }
     setShowMembers(true);
     await loadMembers();
-  }
-
-  async function handleCopyLink() {
-    try {
-      await navigator.clipboard.writeText(challengeUrl);
-      setLinkCopied(true);
-      setTimeout(() => setLinkCopied(false), 2000);
-    } catch {}
-  }
-
-  async function handleNativeShare() {
-    if (!challenge) return;
-    try {
-      await navigator.share({
-        title: challenge.title,
-        text: shareIntentText,
-        url: challengeUrl,
-      });
-    } catch {}
   }
 
   return (
@@ -315,9 +296,16 @@ export default function ManageChallengePage() {
                         <p className="text-sm font-semibold truncate" style={{ color: "var(--text-primary)" }}>{m.displayName}</p>
                         {m.email && <p className="text-xs truncate" style={{ color: "var(--text-muted)" }}>{m.email}</p>}
                       </div>
-                      {m.pledged > 0 && (
-                        <p className="text-sm font-black shrink-0" style={{ color: "var(--green-primary)" }}>{formatCurrency(m.pledged)}</p>
-                      )}
+                      <div className="grid grid-cols-2 gap-3 text-right shrink-0">
+                        <div>
+                          <p className="text-sm font-black leading-none" style={{ color: "var(--green-primary)" }}>{formatCurrency(m.pledged)}</p>
+                          <p className="text-[10px] font-bold uppercase mt-1" style={{ color: "var(--text-muted)" }}>pledged</p>
+                        </div>
+                        <div>
+                          <p className="text-sm font-black leading-none" style={{ color: "var(--coral-primary)" }}>{formatCurrency(Number.isFinite(m.donated) ? m.donated : 0)}</p>
+                          <p className="text-[10px] font-bold uppercase mt-1" style={{ color: "var(--text-muted)" }}>donated</p>
+                        </div>
+                      </div>
                     </div>
                   ))
                 )}
@@ -346,25 +334,32 @@ export default function ManageChallengePage() {
             )}
           </div>
           <div className="space-y-2">
-            {challengeFeed.map((item) => (
-              <div key={item.id} className="flex items-start gap-3">
-                <div className="w-7 h-7 rounded-full flex items-center justify-center text-xs shrink-0 mt-0.5"
-                  style={{ background: "rgba(46,204,113,0.12)", color: "var(--green-primary)" }}>
-                  {item.displayName?.charAt(0).toUpperCase() ?? "?"}
+            {challengeFeed.map((item) => {
+              const activityMember = membersByUid.get(item.uid);
+              const activityName = activityMember?.displayName || item.displayName || "A member";
+              const activityPhotoURL = activityMember?.photoURL ?? item.photoURL ?? null;
+              return (
+                <div key={item.id} className="flex items-start gap-3">
+                  <div className="w-7 h-7 rounded-full flex items-center justify-center text-xs shrink-0 mt-0.5 overflow-hidden"
+                    style={{ background: "rgba(46,204,113,0.12)", color: "var(--green-primary)" }}>
+                    {activityPhotoURL
+                      ? <img src={activityPhotoURL} alt={activityName} className="w-full h-full object-cover" />
+                      : activityName.charAt(0).toUpperCase()}
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-xs font-semibold truncate" style={{ color: "var(--text-primary)" }}>
+                      {activityName}{" "}
+                      <span style={{ color: "var(--text-muted)", fontWeight: 400 }}>
+                        skipped {item.skipLabel ?? "a purchase"} and saved{" "}
+                      </span>
+                      <span style={{ color: "var(--green-primary)", fontWeight: 700 }}>
+                        {formatCurrency(item.skipAmount ?? 0)}
+                      </span>
+                    </p>
+                  </div>
                 </div>
-                <div className="flex-1 min-w-0">
-                  <p className="text-xs font-semibold truncate" style={{ color: "var(--text-primary)" }}>
-                    {item.displayName ?? "A member"}{" "}
-                    <span style={{ color: "var(--text-muted)", fontWeight: 400 }}>
-                      skipped {item.skipLabel ?? "a purchase"} and saved{" "}
-                    </span>
-                    <span style={{ color: "var(--green-primary)", fontWeight: 700 }}>
-                      {formatCurrency(item.skipAmount ?? 0)}
-                    </span>
-                  </p>
-                </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
         </section>
       )}
@@ -399,30 +394,6 @@ export default function ManageChallengePage() {
         </div>
         <div className="space-y-2">
           <NudgeCopyButton message={nudgeMessage} />
-          <div className="flex gap-2">
-            <input
-              readOnly
-              value={challengeUrl}
-              className="flex-1 rounded-xl px-3 py-2 text-xs truncate"
-              style={{ background: "var(--bg-surface-3)", color: "var(--text-secondary)", border: "1px solid var(--border-default)" }}
-            />
-            <button
-              onClick={handleCopyLink}
-              className="px-4 py-2 rounded-xl text-xs font-bold shrink-0"
-              style={{ background: "var(--green-primary)", color: "#0B1A14" }}
-            >
-              {linkCopied ? "Copied!" : "Copy"}
-            </button>
-          </div>
-          {canNativeShare && (
-            <button
-              onClick={handleNativeShare}
-              className="w-full py-2 rounded-xl text-xs font-semibold"
-              style={{ display: "none", border: "1px solid var(--border-emphasis)", color: "var(--green-primary)" }}
-            >
-              ↗ Share via...
-            </button>
-          )}
           <ShareButton url={challengeUrl} text={shareIntentText} title={challenge.groupName ?? challenge.title} label="Share Challenge" />
         </div>
       </section>
@@ -726,7 +697,7 @@ function SocialStatsSharePanel({
           </div>
           <div className="mt-1 text-center">
             <p className="text-xl font-black leading-none" style={{ color: "#527262" }}>=</p>
-            <div className="mt-1">
+            <div className="mt-3">
               <SocialCardMetric value={impactStat} />
             </div>
           </div>
@@ -811,7 +782,7 @@ function buildSocialCardImage({
     <text x="590" y="290" fill="#123B2A" font-family="Arial, sans-serif" font-size="48" font-weight="700" text-anchor="middle">${escape(formatWholeCurrency(raised))}</text>
     <text x="590" y="325" fill="#527262" font-family="Arial, sans-serif" font-size="20" text-anchor="middle">pledged</text>
     <text x="600" y="345" fill="#527262" font-family="Arial, sans-serif" font-size="30" font-weight="700" text-anchor="middle">=</text>
-    <text x="600" y="390" fill="#123B2A" font-family="Arial, sans-serif" font-size="38" font-weight="700" text-anchor="middle">${escape(impactStat)}</text>
+    <text x="600" y="405" fill="#123B2A" font-family="Arial, sans-serif" font-size="38" font-weight="700" text-anchor="middle">${escape(impactStat)}</text>
     <text x="70" y="470" fill="#123B2A" font-family="Arial, sans-serif" font-size="22" font-weight="700">${escape(goalText)}</text>
     <rect x="70" y="490" width="1060" height="18" rx="9" fill="#D8E6DC"/>
     <rect x="70" y="490" width="${Math.max(0, Math.min(1060, Math.round(1060 * progressPct / 100)))}" height="18" rx="9" fill="#2E8B57"/>

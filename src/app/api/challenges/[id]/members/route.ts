@@ -75,6 +75,24 @@ export async function GET(req: NextRequest, context: { params: Promise<{ id: str
     }
     const resolvedMemberUids = Array.from(memberUidSet);
 
+    const donatedByUid = new Map<string, number>();
+    let totalDonated = 0;
+    for (const batch of chunks(resolvedMemberUids, 10)) {
+      const donationSnaps = await Promise.all(
+        batch.map((uid) => db.collection("users").doc(uid).collection("donations").where("causeId", "==", challengeId).get())
+      );
+      for (let i = 0; i < donationSnaps.length; i += 1) {
+        const uid = batch[i];
+        let userDonated = 0;
+        for (const doc of donationSnaps[i].docs) {
+          const amount = doc.get("amount");
+          userDonated += typeof amount === "number" ? amount : 0;
+        }
+        donatedByUid.set(uid, userDonated);
+        totalDonated += userDonated;
+      }
+    }
+
     const members = [];
     for (const batch of chunks(resolvedMemberUids, 100)) {
       const refs = batch.map((uid) => db.collection("users").doc(uid));
@@ -91,6 +109,7 @@ export async function GET(req: NextRequest, context: { params: Promise<{ id: str
           photoURL: data.photoURL ?? null,
           emailVerified: data.emailVerified ?? null,
           pledged: Number(data.causeJarBalances?.[challengeId] ?? 0),
+          donated: donatedByUid.get(uid) ?? 0,
           joinedChallenge: data.joinedProjectIds?.includes(challengeId) ?? true,
           joinedAt: data.createdAt?.toDate?.().toISOString() ?? null,
         });
@@ -98,19 +117,6 @@ export async function GET(req: NextRequest, context: { params: Promise<{ id: str
     }
 
     members.sort((a, b) => b.pledged - a.pledged || a.displayName.localeCompare(b.displayName));
-
-    let totalDonated = 0;
-    for (const batch of chunks(resolvedMemberUids, 10)) {
-      const donationSnaps = await Promise.all(
-        batch.map((uid) => db.collection("users").doc(uid).collection("donations").where("causeId", "==", challengeId).get())
-      );
-      for (const donationSnap of donationSnaps) {
-        for (const doc of donationSnap.docs) {
-          const amount = doc.get("amount");
-          totalDonated += typeof amount === "number" ? amount : 0;
-        }
-      }
-    }
 
     return NextResponse.json({
       members,
