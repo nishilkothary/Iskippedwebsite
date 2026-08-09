@@ -845,9 +845,9 @@ function buildProgressUpdate({
   const lines = [`${cleanTitle} Progress Update!`, ""];
 
   if (goalAmount > 0) {
-    lines.push(`${totalSkips.toLocaleString()} ${totalSkips === 1 ? "skip has" : "skips have"} been logged.`, "", `${formatCurrency(raised)} pledged toward our ${formatCurrency(goalAmount)} goal (${progressPct}%).`);
+    lines.push(`${totalSkips.toLocaleString()} ${totalSkips === 1 ? "skip has" : "skips have"} been logged, with ${formatCurrency(raised)} pledged toward our ${formatCurrency(goalAmount)} goal (${progressPct}%).`);
   } else {
-    lines.push(`${totalSkips.toLocaleString()} ${totalSkips === 1 ? "skip has" : "skips have"} been logged.`, "", `${formatCurrency(raised)} pledged so far.`);
+    lines.push(`${totalSkips.toLocaleString()} ${totalSkips === 1 ? "skip has" : "skips have"} been logged, with ${formatCurrency(raised)} pledged so far.`);
   }
 
   if (unitCost && unitCost > 0 && raised > 0 && (unitDisplay || unitName)) {
@@ -875,23 +875,24 @@ function getEmailTemplate({
 }) {
   const readableTitle = challengeTitle.replace(/[.!?]+$/, "");
   const donationLink = donationUrl || challengeUrl;
+  const emailProgressMessage = progressMessage.replace(/^.*Progress Update!\n\n/, "");
 
   if (template === "progress") {
     return {
-      subject: `A progress update for ${challengeTitle}`,
-      body: `Hi {name},\n\n${progressMessage}\n\nThanks for being part of ${readableTitle}.\n\n${challengeUrl}`,
+      subject: `A Progress Update for ${readableTitle} Skipping Group`,
+      body: `Hi {name},\n\nWe are making great progress skipping expenses for a great cause!\n\n${emailProgressMessage}\n\n${challengeUrl}`,
     };
   }
 
   if (template === "donation") {
     return {
       subject: `Could you help fund ${challengeTitle}?`,
-      body: `Hi {name},\n\nThanks for skipping with the ${readableTitle} group. If you are able to at this time, please consider making a donation to help turn your skips into real-world impact.\n\nYou can learn more or donate here:\n${donationLink}`,
+      body: `Hi {name},\n\nThanks for skipping with the ${readableTitle} group.\n\nPlease consider turning your pledges into real-world donations. We could greatly use the support at this time.\n\nYou can learn more or donate here, and don't forget to log your donation:\n${donationLink}\n\nWe hope you continue to skip for this cause, and thank you for everything you have skipped for our cause thus far.`,
     };
   }
 
   return {
-    subject: `Thanks for being part of ${challengeTitle}`,
+    subject: `Thanks for being part of ${readableTitle} Skip Group`,
     body: `Hi {name},\n\nThanks for being part of ${readableTitle} group. Skipping just one expense a week can help grow this group's impact.\n\nWhen you get a moment, log one skip this week and invite someone who might want to join the cause!\n\n${challengeUrl}`,
   };
 }
