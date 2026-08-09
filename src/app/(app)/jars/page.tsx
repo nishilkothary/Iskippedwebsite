@@ -31,6 +31,7 @@ function JarsPageInner() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const rawTab = searchParams.get("tab");
+  const autoOpenDonationLog = searchParams.get("donate") === "1";
   const initialTab: Tab = rawTab === "live" || rawTab === "cause" ? rawTab : "cause";
   const [activeTab, setActiveTab] = useState<Tab>(initialTab);
 
@@ -380,6 +381,7 @@ function JarsPageInner() {
             onShowCommunityChallenges={() => router.push("/challenges")}
             totalGiveAllocated={giveTotal}
             totalDonated={profile.totalDonated ?? 0}
+            autoOpenDonationLog={autoOpenDonationLog}
           />
         </div>
       )}
@@ -613,6 +615,7 @@ function CauseTab({
   onShowCommunityChallenges,
   totalGiveAllocated,
   totalDonated,
+  autoOpenDonationLog,
 }: {
   uid: string;
   projects: Project[];
@@ -635,6 +638,7 @@ function CauseTab({
   onShowCommunityChallenges: () => void;
   totalGiveAllocated: number;
   totalDonated: number;
+  autoOpenDonationLog?: boolean;
 }) {
   const [showLogDonation, setShowLogDonation] = useState(false);
   const [donateAmountStr, setDonateAmountStr] = useState("");
@@ -648,6 +652,12 @@ function CauseTab({
   const [completedDonating, setCompletedDonating] = useState(false);
   const [editingGivingGoal, setEditingGivingGoal] = useState(false);
   const [givingGoalStr, setGivingGoalStr] = useState("");
+
+  useEffect(() => {
+    if (autoOpenDonationLog && activeProject) {
+      setShowLogDonation(true);
+    }
+  }, [activeProject, autoOpenDonationLog]);
   const [savingGivingGoal, setSavingGivingGoal] = useState(false);
 
   const completedIds = new Set(completedChallenges.map((c) => c.project.id));

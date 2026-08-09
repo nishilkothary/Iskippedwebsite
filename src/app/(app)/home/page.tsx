@@ -50,16 +50,19 @@ interface DonationReminderPrompt {
   impactLine: string | null;
   readyAmount: number;
   donatedAmount: number;
+  donationURL?: string | null;
 }
 
 function DonationReminderModal({
   prompt,
   onClose,
   onDonate,
+  onAlreadyDonated,
 }: {
   prompt: DonationReminderPrompt;
   onClose: () => void;
   onDonate: () => void;
+  onAlreadyDonated: () => void;
 }) {
   const dialogRef = useModalA11y(onClose);
 
@@ -99,31 +102,38 @@ function DonationReminderModal({
           <div className="rounded-xl p-3" style={{ background: "var(--bg-surface-2)", border: "1px solid var(--border-default)" }}>
             <p className="text-xl font-black" style={{ color: "var(--text-primary)" }}>{formatCurrency(prompt.readyAmount)}</p>
             <p className="text-[10px] font-black uppercase tracking-wide mt-1" style={{ color: "var(--text-muted)" }}>ready to donate</p>
+            {prompt.impactLine && (
+              <p className="text-[11px] font-black mt-1 leading-tight" style={{ color: "var(--green-primary)" }}>≈ {prompt.impactLine}</p>
+            )}
           </div>
           <div className="rounded-xl p-3" style={{ background: "var(--bg-surface-2)", border: "1px solid var(--border-default)" }}>
             <p className="text-xl font-black" style={{ color: "var(--text-primary)" }}>{formatCurrency(prompt.donatedAmount)}</p>
             <p className="text-[10px] font-black uppercase tracking-wide mt-1" style={{ color: "var(--text-muted)" }}>donated so far</p>
           </div>
         </div>
-        {prompt.impactLine && (
-          <div className="mt-3 rounded-xl px-4 py-3 text-sm font-black" style={{ background: "rgba(46,204,113,0.1)", color: "var(--green-primary)" }}>
-            About {prompt.impactLine} pledged
-          </div>
-        )}
         <button
           onClick={onDonate}
           className="mt-5 w-full py-3 rounded-xl text-sm font-black"
           style={{ background: "var(--green-primary)", color: "#0B1A14" }}
         >
-          Donate my Jar
+          Donate now
         </button>
-        <button
-          onClick={onClose}
-          className="mt-2 w-full py-2 text-sm font-bold"
-          style={{ color: "var(--text-muted)" }}
-        >
-          Remind me later
-        </button>
+        <div className="mt-2 flex items-center justify-center gap-5 flex-wrap">
+          <button
+            onClick={onAlreadyDonated}
+            className="py-2 text-xs font-bold"
+            style={{ color: "var(--green-primary)" }}
+          >
+            I already donated
+          </button>
+          <button
+            onClick={onClose}
+            className="py-2 text-xs font-bold"
+            style={{ color: "var(--text-muted)" }}
+          >
+            Remind me later
+          </button>
+        </div>
       </div>
     </div>
   );
@@ -135,12 +145,14 @@ function DonationReminderController({
   projectId,
   blocked,
   onDonate,
+  onAlreadyDonated,
 }: {
   prompt: DonationReminderPrompt | null;
   userId?: string;
   projectId?: string | null;
   blocked: boolean;
   onDonate: () => void;
+  onAlreadyDonated: () => void;
 }) {
   const [open, setOpen] = useState(false);
   const [dismissedPromptKey, setDismissedPromptKey] = useState<string | null>(null);
@@ -182,6 +194,10 @@ function DonationReminderController({
       onDonate={() => {
         dismiss();
         onDonate();
+      }}
+      onAlreadyDonated={() => {
+        dismiss();
+        onAlreadyDonated();
       }}
     />
   );
@@ -671,6 +687,7 @@ export default function HomePage() {
         impactLine: givingJarImpactLine,
         readyAmount: givingBalance,
         donatedAmount: profile.totalDonated ?? 0,
+        donationURL: activeProject?.donationURL ?? null,
       };
     }
     if (groupGoalReached) {
@@ -682,6 +699,7 @@ export default function HomePage() {
         impactLine: givingJarImpactLine,
         readyAmount: givingBalance,
         donatedAmount: profile.totalDonated ?? 0,
+        donationURL: activeProject?.donationURL ?? null,
       };
     }
     if (personalGoalReached) {
@@ -693,6 +711,7 @@ export default function HomePage() {
         impactLine: givingJarImpactLine,
         readyAmount: givingBalance,
         donatedAmount: profile.totalDonated ?? 0,
+        donationURL: activeProject?.donationURL ?? null,
       };
     }
     if (daysSinceLastDonation >= 30) {
@@ -704,6 +723,7 @@ export default function HomePage() {
         impactLine: givingJarImpactLine,
         readyAmount: givingBalance,
         donatedAmount: profile.totalDonated ?? 0,
+        donationURL: activeProject?.donationURL ?? null,
       };
     }
     return null;
@@ -1415,7 +1435,14 @@ export default function HomePage() {
         userId={user?.uid}
         projectId={profile.activeProjectId}
         blocked={showSkipPicker || editingSkip != null}
-        onDonate={() => router.push("/jars?tab=cause")}
+        onDonate={() => {
+          if (donationReminderPrompt?.donationURL) {
+            window.open(donationReminderPrompt.donationURL, "_blank", "noopener,noreferrer");
+            return;
+          }
+          router.push("/jars?tab=cause");
+        }}
+        onAlreadyDonated={() => router.push("/jars?tab=cause&donate=1")}
       />
 
       {editingSkip && (
