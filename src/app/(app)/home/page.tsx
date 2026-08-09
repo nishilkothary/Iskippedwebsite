@@ -535,26 +535,9 @@ export default function HomePage() {
       {/* Greeting + CTA */}
       <div style={{ textAlign: "center", marginBottom: 24 }}>
         <h1 className="text-2xl font-black" style={{ color: "var(--text-primary)" }}>Hey {firstName}.</h1>
-        <p className="mt-1 text-sm" style={{ color: "var(--text-muted)" }}>
+        <p className="mt-1 mb-5 text-sm" style={{ color: "var(--text-muted)" }}>
           Is there an expense you can skip this week?
         </p>
-        {streakChipValue > 0 && (
-          <div
-            className="inline-flex items-center gap-1.5 mt-3 mb-5"
-            style={{
-              background: "linear-gradient(135deg, rgba(232,146,74,0.15), rgba(229,92,92,0.1))",
-              border: "1px solid rgba(232,146,74,0.22)",
-              borderRadius: 999,
-              padding: "5px 10px",
-            }}
-          >
-            <span style={{ fontSize: 12 }}>🔥</span>
-            <span style={{ fontSize: 11, fontWeight: 800, color: "#E8924A" }}>
-              {streakChipValue}-week streak{hasSkippedThisWeek ? " secured" : " · one skip keeps it going"}
-            </span>
-          </div>
-        )}
-
         <button
           onClick={() => setShowSkipPicker(true)}
           className="w-full font-black py-4 rounded-full text-lg hover:scale-[1.02] active:scale-[0.97] transition-all duration-200"
@@ -614,6 +597,29 @@ export default function HomePage() {
 
       {/* ── Jars card (full width) ── */}
       <div style={{ ...cardStyle, marginBottom: 20, position: "relative" }}>
+        {streakChipValue > 0 && (
+          <div
+            aria-label={`${streakChipValue}-week streak${hasSkippedThisWeek ? " secured" : ""}`}
+            style={{
+              position: "absolute",
+              top: 14,
+              right: 14,
+              display: "inline-flex",
+              alignItems: "center",
+              gap: 4,
+              background: "linear-gradient(135deg, rgba(232,146,74,0.15), rgba(229,92,92,0.1))",
+              border: "1px solid rgba(232,146,74,0.22)",
+              borderRadius: 999,
+              padding: "4px 8px",
+              lineHeight: 1,
+            }}
+          >
+            <span style={{ fontSize: 11 }} aria-hidden="true">🔥</span>
+            <span style={{ fontSize: 11, fontWeight: 900, color: "#E8924A", whiteSpace: "nowrap" }}>
+              {streakChipValue} wk
+            </span>
+          </div>
+        )}
         {/* Total */}
         <div style={{ textAlign: "center", marginBottom: 8 }}>
           <div style={{
@@ -936,16 +942,6 @@ export default function HomePage() {
               <p style={{ fontSize: 13, fontWeight: 700, color: "var(--green-primary)", marginBottom: 0 }}>
                 {activeProject.groupName ?? activeProject.title}
               </p>
-              <p
-                style={{
-                  fontSize: 12,
-                  fontWeight: 800,
-                  color: hasActiveChallengeSkipThisWeek ? "var(--green-primary)" : "var(--text-muted)",
-                  marginTop: 7,
-                }}
-              >
-                {hasActiveChallengeSkipThisWeek ? "✓ " : ""}1 skip this week
-              </p>
               <div style={{ display: "flex", gap: 14, alignItems: "flex-start", marginTop: 12 }}>
                 <div>
                   <p style={{ fontSize: 28, fontWeight: 900, color: "var(--text-primary)", lineHeight: 1 }}>
@@ -955,6 +951,19 @@ export default function HomePage() {
                     Skips
                   </p>
                 </div>
+                {displayedGroupTotal > 0 && (
+                  <>
+                    <div style={{ width: 1, background: "rgba(255,255,255,0.12)", height: 44, marginBottom: 18 }} />
+                    <div>
+                      <p style={{ fontSize: 28, fontWeight: 900, color: "var(--gold-cta)", lineHeight: 1 }}>
+                        ${Math.round(displayedGroupTotal).toLocaleString()}
+                      </p>
+                      <p style={{ fontSize: 10, fontWeight: 800, letterSpacing: 1.2, textTransform: "uppercase", color: "var(--text-muted)", marginTop: 3 }}>
+                        Pledged
+                      </p>
+                    </div>
+                  </>
+                )}
                 {hasCommunityUnit && communityUnitCountDisplay !== null && (
                   <>
                     <div style={{ width: 1, background: "rgba(255,255,255,0.12)", height: 44, marginBottom: 18 }} />
@@ -968,20 +977,17 @@ export default function HomePage() {
                     </div>
                   </>
                 )}
-                {communityGoal === 0 && displayedGroupTotal > 0 && (
-                  <>
-                    <div style={{ width: 1, background: "rgba(255,255,255,0.12)", height: 44, marginBottom: 18 }} />
-                    <div>
-                      <p style={{ fontSize: 28, fontWeight: 900, color: "var(--gold-cta)", lineHeight: 1 }}>
-                        ${Math.round(displayedGroupTotal).toLocaleString()}
-                      </p>
-                      <p style={{ fontSize: 10, fontWeight: 800, letterSpacing: 1.2, textTransform: "uppercase", color: "var(--text-muted)", marginTop: 3 }}>
-                        Pledged
-                      </p>
-                    </div>
-                  </>
-                )}
               </div>
+              <p
+                style={{
+                  fontSize: 12,
+                  fontWeight: 800,
+                  color: hasActiveChallengeSkipThisWeek ? "var(--green-primary)" : "var(--text-muted)",
+                  marginTop: 10,
+                }}
+              >
+                {hasActiveChallengeSkipThisWeek ? "✓ " : ""}1 skip this week
+              </p>
               {communityGoal > 0 ? (
                 <div style={{ marginTop: 8 }}>
                   <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 5 }}>
