@@ -39,7 +39,7 @@ export const OFFICIAL_PROJECTS: Project[] = [
   {
     id: "kc",
     title: "Laptops for Students",
-    groupName: "Chromebooks for Students",
+    groupName: "Kenya's Students",
     sponsor: "Kenya Connect",
     description: "Help equip students in remote Kenyan villages with a Chromebook, unlocking digital learning and new opportunities.",
     goalAmount: 0,

@@ -16,7 +16,8 @@ export async function requireUid(req: NextRequest): Promise<string> {
   try {
     const decoded = await getAdminAuth().verifyIdToken(idToken);
     return decoded.uid;
-  } catch {
+  } catch (error) {
+    console.warn("[apiAuth] verifyIdToken failed", error);
     throw new ApiError(401, "Unauthorized");
   }
 }

@@ -20,6 +20,7 @@ const db = getFirestore();
 
 db.collection("projects").doc("kc").set({
   title: "Chromebooks for Students",
+  groupName: "Kenya's Students",
   unitName: "Chromebook",   // singular — renders as "1 Chromebook" / "88% of a Chromebook"
   unitDisplay: "chromebooks", // plural short form for the jar SVG
 }, { merge: true })
