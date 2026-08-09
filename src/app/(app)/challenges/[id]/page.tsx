@@ -193,6 +193,7 @@ export default function ChallengeDetailPage() {
   const [joining, setJoining] = useState(false);
   const [showJoinChoice, setShowJoinChoice] = useState(false);
   const [showEmailConsent, setShowEmailConsent] = useState(false);
+  const [shareEmailOnJoin, setShareEmailOnJoin] = useState(true);
   const [goalPickerProjectId, setGoalPickerProjectId] = useState<string | null>(null);
   const [showShare, setShowShare] = useState(false);
   const canNativeShare = typeof navigator !== "undefined" && typeof navigator.share === "function";
@@ -282,6 +283,7 @@ export default function ChallengeDetailPage() {
       return;
     }
     if (profile?.challengeEmailConsents?.[challenge.project.id] === undefined) {
+      setShareEmailOnJoin(true);
       setShowEmailConsent(true);
       return;
     }
@@ -595,24 +597,36 @@ export default function ChallengeDetailPage() {
           <div className="w-full max-w-md rounded-2xl p-5" style={{ background: "var(--bg-surface-1)", border: "1px solid var(--border-emphasis)" }}>
             <p className="text-lg font-black" style={{ color: "var(--text-primary)" }}>Join this challenge?</p>
             <p className="text-sm leading-relaxed mt-2" style={{ color: "var(--text-secondary)" }}>
-              The challenge organizer can see your email address and may contact you about this challenge.
+              Organizers can see your challenge progress, including pledged amounts, donations logged for this challenge, and recent skip activity.
             </p>
+            <p className="text-sm leading-relaxed mt-2" style={{ color: "var(--text-secondary)" }}>
+              Your email is shared by default for challenge updates or reminders, but you can uncheck this and still join.
+            </p>
+            <label
+              className="mt-4 flex items-start gap-3 rounded-xl p-3 cursor-pointer"
+              style={{ background: "var(--bg-surface-2)", border: "1px solid var(--border-default)" }}
+            >
+              <input
+                type="checkbox"
+                checked={shareEmailOnJoin}
+                onChange={(event) => setShareEmailOnJoin(event.target.checked)}
+                className="mt-1 h-4 w-4 accent-[var(--green-primary)]"
+              />
+              <span>
+                <span className="block text-sm font-black" style={{ color: "var(--text-primary)" }}>Share my email with the organizer</span>
+                <span className="block text-xs leading-relaxed mt-1" style={{ color: "var(--text-muted)" }}>
+                  They may use it to contact you about this challenge only.
+                </span>
+              </span>
+            </label>
             <div className="grid gap-2 mt-5">
               <button
                 type="button"
-                onClick={() => chooseEmailConsent(true)}
+                onClick={() => chooseEmailConsent(shareEmailOnJoin)}
                 className="py-3 rounded-full text-sm font-black"
                 style={{ background: "linear-gradient(135deg, var(--gold-cta), var(--gold-light))", color: "var(--bg-base)" }}
               >
-                Share email and join
-              </button>
-              <button
-                type="button"
-                onClick={() => chooseEmailConsent(false)}
-                className="py-3 rounded-full text-sm font-black"
-                style={{ border: "1px solid var(--border-emphasis)", color: "var(--green-primary)" }}
-              >
-                Join without sharing email
+                Join Challenge
               </button>
               <button
                 type="button"
