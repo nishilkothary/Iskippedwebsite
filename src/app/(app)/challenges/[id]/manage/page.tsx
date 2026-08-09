@@ -30,6 +30,7 @@ type ChallengeMembersResponse = {
   members: ChallengeMember[];
   totalMembers: number;
   emailableMembers: number;
+  totalDonated: number;
 };
 
 export default function ManageChallengePage() {
@@ -56,6 +57,7 @@ export default function ManageChallengePage() {
   const [showMembers, setShowMembers] = useState(false);
   const [members, setMembers] = useState<ChallengeMember[]>([]);
   const [membersTotal, setMembersTotal] = useState(0);
+  const [membersTotalDonated, setMembersTotalDonated] = useState<number | null>(null);
   const [loadingMembers, setLoadingMembers] = useState(false);
   const [membersError, setMembersError] = useState<string | null>(null);
   const [liveProject, setLiveProject] = useState<Project | null>(null);
@@ -78,6 +80,11 @@ export default function ManageChallengePage() {
     }
   }, [challenge, user, isSiteAdmin, challengeId, router]);
 
+  useEffect(() => {
+    if (!challenge || (challenge.createdBy !== user?.uid && !isSiteAdmin)) return;
+    void loadMembers();
+  }, [challengeId, challenge?.createdBy, user?.uid, isSiteAdmin]);
+
   if (!challenge) {
     return (
       <main className="min-h-screen p-4 max-w-lg mx-auto">
@@ -90,7 +97,7 @@ export default function ManageChallengePage() {
 
   // Merge live stats over static challenge data
   const totalRaised = liveProject?.totalRaised ?? challenge.totalRaised;
-  const totalDonated = liveProject?.totalDonated ?? 0;
+  const totalDonated = membersTotalDonated ?? 0;
   const totalSkips = liveProject?.totalSkips ?? challenge.totalSkips ?? 0;
   const memberUids = liveProject?.memberUids ?? challenge.memberUids ?? [];
 
@@ -182,6 +189,7 @@ export default function ManageChallengePage() {
       const data = await apiRequest<ChallengeMembersResponse>(`/api/challenges/${challengeId}/members`, "GET");
       setMembers(data.members);
       setMembersTotal(data.totalMembers);
+      setMembersTotalDonated(data.totalDonated);
     } catch (error: any) {
       setMembersError(error?.message || "Could not load members.");
     } finally {
@@ -277,14 +285,14 @@ export default function ManageChallengePage() {
             <p className="text-xs mt-1 text-right" style={{ color: "var(--text-muted)" }}>{progressPct}%</p>
           </div>
         )}
-        {memberUids.length > 0 && (
+        {displayedMemberCount > 0 && (
           <>
             <button
               onClick={handleViewMembers}
               className="text-xs font-semibold"
               style={{ color: "var(--green-primary)", background: "none", border: "none", padding: 0, cursor: "pointer", textDecoration: "underline", textUnderlineOffset: 2 }}
             >
-              {showMembers ? "Hide members" : `View all ${memberUids.length} members →`}
+              {showMembers ? "Hide members" : `View all ${displayedMemberCount} members ->`}
             </button>
             {showMembers && (
               <div className="mt-3 space-y-2">
@@ -345,10 +353,10 @@ export default function ManageChallengePage() {
                   {item.displayName?.charAt(0).toUpperCase() ?? "?"}
                 </div>
                 <div className="flex-1 min-w-0">
-                  <p className="text-xs font-semibold" style={{ color: "var(--text-primary)" }}>
+                  <p className="text-xs font-semibold truncate" style={{ color: "var(--text-primary)" }}>
                     {item.displayName ?? "A member"}{" "}
                     <span style={{ color: "var(--text-muted)", fontWeight: 400 }}>
-                      skipped {item.message ?? "a purchase"} and saved{" "}
+                      skipped {item.skipLabel ?? "a purchase"} and saved{" "}
                     </span>
                     <span style={{ color: "var(--green-primary)", fontWeight: 700 }}>
                       {formatCurrency(item.skipAmount ?? 0)}

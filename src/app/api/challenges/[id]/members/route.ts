@@ -60,13 +60,18 @@ export async function GET(req: NextRequest, context: { params: Promise<{ id: str
       ? project.memberUids.filter((uid): uid is string => typeof uid === "string")
       : [];
     const memberUidSet = new Set(memberUids);
-    const [joinedUsersSnap, activeUsersSnap, balanceUsersSnap] = await Promise.all([
+    const [joinedUsersSnap, activeUsersSnap, balanceUsersSnap, feedUsersSnap] = await Promise.all([
       db.collection("users").where("joinedProjectIds", "array-contains", challengeId).get(),
       db.collection("users").where("activeProjectId", "==", challengeId).get(),
       db.collection("users").where(`causeJarBalances.${challengeId}`, ">", 0).get(),
+      db.collection("communityFeed").where("projectId", "==", challengeId).get(),
     ]);
     for (const userSnap of [...joinedUsersSnap.docs, ...activeUsersSnap.docs, ...balanceUsersSnap.docs]) {
       memberUidSet.add(userSnap.id);
+    }
+    for (const feedSnap of feedUsersSnap.docs) {
+      const uid = feedSnap.get("uid");
+      if (typeof uid === "string" && uid) memberUidSet.add(uid);
     }
     const resolvedMemberUids = Array.from(memberUidSet);
 
@@ -94,10 +99,24 @@ export async function GET(req: NextRequest, context: { params: Promise<{ id: str
 
     members.sort((a, b) => b.pledged - a.pledged || a.displayName.localeCompare(b.displayName));
 
+    let totalDonated = 0;
+    for (const batch of chunks(resolvedMemberUids, 10)) {
+      const donationSnaps = await Promise.all(
+        batch.map((uid) => db.collection("users").doc(uid).collection("donations").where("causeId", "==", challengeId).get())
+      );
+      for (const donationSnap of donationSnaps) {
+        for (const doc of donationSnap.docs) {
+          const amount = doc.get("amount");
+          totalDonated += typeof amount === "number" ? amount : 0;
+        }
+      }
+    }
+
     return NextResponse.json({
       members,
       totalMembers: resolvedMemberUids.length,
       emailableMembers: members.filter((member) => member.email).length,
+      totalDonated,
     });
   } catch (error) {
     console.error("[challenge members] failed", error);

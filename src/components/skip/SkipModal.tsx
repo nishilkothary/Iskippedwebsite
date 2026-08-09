@@ -15,7 +15,6 @@ import { appendRefParam, getChallengeSharePath } from "@/lib/utils/share";
 import { getPostSkipShareText } from "@/lib/utils/challengeShareCopy";
 import { ShareButton } from "@/components/share/ShareButton";
 import { useCountUp } from "@/hooks/useCountUp";
-import { pointsForDollars } from "@/lib/utils/impactScore";
 
 interface Props {
   onClose: () => void;
@@ -252,7 +251,6 @@ export function SkipModal({ onClose }: Props) {
       );
     }
 
-    const scoreDelta = pointsForDollars(skipGive);
     const skipLive = amount * ((100 - skipGivePct) / 100);
     const causeImageURL = successActiveProject?.imageURL ?? null;
     return (
@@ -280,7 +278,7 @@ export function SkipModal({ onClose }: Props) {
               {impactStat}
             </p>
             <StreakCheckHero streak={successStreak} />
-            <div className="mt-5 grid grid-cols-3 gap-2">
+            <div className="mt-6 mb-6 grid grid-cols-3 gap-2">
               <div className="iskip-chip rounded-xl py-2.5 px-2" style={{ background: "var(--bg-surface-2)", border: "1px solid var(--border-default)", animationDelay: "40ms" }}>
                 <p className="text-base font-black leading-none" style={{ color: "var(--text-primary)" }}>
                   <CountUp value={amount} render={(n) => formatCurrency(n)} />
@@ -295,13 +293,13 @@ export function SkipModal({ onClose }: Props) {
               </div>
               <div className="iskip-chip rounded-xl py-2.5 px-2 relative" style={{ background: "rgba(46,204,113,0.1)", border: "1px solid var(--border-emphasis)", animationDelay: "200ms" }}>
                 <p className="text-base font-black leading-none" style={{ color: "var(--green-primary)" }}>
-                  +<CountUp value={scoreDelta} render={(n) => Math.round(n).toLocaleString()} />
+                  <CountUp value={skipGive} render={(n) => formatCurrency(n)} />
                 </p>
-                <p className="text-[10px] font-bold uppercase tracking-wide mt-1" style={{ color: "var(--text-muted)" }}>impact</p>
+                <p className="text-[10px] font-bold uppercase tracking-wide mt-1" style={{ color: "var(--text-muted)" }}>giving jar</p>
               </div>
             </div>
 
-            <div className="mt-5">
+            <div>
               <ShareButton
                 variant="block"
                 tone="primary"
