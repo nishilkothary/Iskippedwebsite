@@ -1,5 +1,5 @@
 "use client";
-import { useEffect, useRef, useState, type CSSProperties } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useSkips } from "@/hooks/useSkips";
 import { useProjects } from "@/hooks/useProjects";
@@ -14,11 +14,8 @@ import { getChallengeCountdown } from "@/lib/utils/dates";
 import { appendRefParam, getChallengeSharePath } from "@/lib/utils/share";
 import { getPostSkipShareText } from "@/lib/utils/challengeShareCopy";
 import { ShareButton } from "@/components/share/ShareButton";
-import { SkipSetupPrompt } from "@/components/setup/SkipSetupPrompt";
-import { subscribeToGlobalStats } from "@/lib/services/firebase/social";
-import type { GlobalStats } from "@/lib/types/models";
 import { useCountUp } from "@/hooks/useCountUp";
-import { impactScore, pointsForDollars } from "@/lib/utils/impactScore";
+import { pointsForDollars } from "@/lib/utils/impactScore";
 
 interface Props {
   onClose: () => void;
@@ -42,9 +39,7 @@ export function SkipModal({ onClose }: Props) {
   const shareToggleTouchedRef = useRef(false);
   const [projectId] = useState<string | null>(profile?.activeProjectId ?? null);
   const [success, setSuccess] = useState(false);
-  const [copied, setCopied] = useState(false);
   const [successProjectTitle, setSuccessProjectTitle] = useState<string | null>(null);
-  const [successProjectLocation, setSuccessProjectLocation] = useState<string | null>(null);
   const [successProjectUnitName, setSuccessProjectUnitName] = useState<string | null>(null);
   const [successProjectUnitDisplay, setSuccessProjectUnitDisplay] = useState<string | null>(null);
   const [successProjectUnitCost, setSuccessProjectUnitCost] = useState<number | null>(null);
@@ -52,7 +47,6 @@ export function SkipModal({ onClose }: Props) {
   const [successOverflowCount, setSuccessOverflowCount] = useState<number | undefined>(undefined);
   const [successJarBalance, setSuccessJarBalance] = useState(0);
   const [successStreak, setSuccessStreak] = useState(0);
-  const [globalStats, setGlobalStats] = useState<GlobalStats | null>(null);
   const dialogRef = useModalA11y(onClose);
   const activeProjectForSkip = projects.find((p) => p.id === projectId) ?? null;
   const isActiveChallenge = activeProjectForSkip ? isChallengeProject(activeProjectForSkip) : false;
@@ -66,9 +60,6 @@ export function SkipModal({ onClose }: Props) {
       setShareWithCommunity(true);
     }
   }, [isActiveChallenge]);
-
-  // Live community momentum for the share card ("$X saved across N skips").
-  useEffect(() => subscribeToGlobalStats(setGlobalStats), []);
 
   function handleCatSelect(cat: typeof defaultCat) {
     setSelectedCat(cat);
@@ -111,7 +102,6 @@ export function SkipModal({ onClose }: Props) {
     if (result) {
       setSuccessStreak(result.newStreak ?? profile?.streak ?? 0);
       setSuccessProjectTitle(selectedProject?.title ?? null);
-      setSuccessProjectLocation(selectedProject?.location ?? null);
       setSuccessProjectUnitName(selectedProject?.unitName ?? null);
       setSuccessProjectUnitDisplay(selectedProject?.unitDisplay ?? null);
       setSuccessProjectUnitCost(selectedProject?.unitCost ?? null);
@@ -262,13 +252,9 @@ export function SkipModal({ onClose }: Props) {
       );
     }
 
-    const causeImageURL = successActiveProject?.imageURL ?? null;
-    const newImpactScore = impactScore(profile);
     const scoreDelta = pointsForDollars(skipGive);
-    const showStreak = successStreak >= 1;
-    const chipCount = showStreak ? 3 : 2;
-    const momentumSkips = globalStats?.totalSkips ?? 0;
-    const momentumSaved = globalStats?.totalSaved ?? 0;
+    const skipLive = amount * ((100 - skipGivePct) / 100);
+    const causeImageURL = successActiveProject?.imageURL ?? null;
     return (
       <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4" onClick={dismissSuccess}>
         <div
@@ -284,77 +270,50 @@ export function SkipModal({ onClose }: Props) {
           {causeImageURL ? (
             <div className="relative">
               <img src={causeImageURL} className="w-full h-32 object-cover" alt={successProjectTitle ?? ""} />
-              <button onClick={dismissSuccess} aria-label="Close" className="absolute top-3 right-3 text-xl leading-none w-8 h-8 flex items-center justify-center rounded-full" style={{ background: "rgba(0,0,0,0.4)", color: "#fff" }}>×</button>
+              <button onClick={dismissSuccess} aria-label="Close" className="absolute top-3 right-3 text-xl leading-none w-8 h-8 flex items-center justify-center rounded-full" style={{ background: "rgba(0,0,0,0.4)", color: "#fff" }}>x</button>
             </div>
           ) : (
-            <button onClick={dismissSuccess} aria-label="Close" className="absolute top-4 right-4 text-2xl leading-none z-10" style={{ color: "var(--text-muted)" }}>×</button>
+            <button onClick={dismissSuccess} aria-label="Close" className="absolute top-4 right-4 text-2xl leading-none z-10" style={{ color: "var(--text-muted)" }}>x</button>
           )}
-          <div className="px-6 pb-6" style={{ paddingTop: causeImageURL ? 14 : 0 }}>
-            {/* Beat 1 — Celebrate */}
-            {!causeImageURL && (
-              <div className="relative inline-block mt-2 mb-1">
-                <EmojiBurst />
-                <div className="text-6xl">🎉</div>
-              </div>
-            )}
-            <p id="skip-success-title" className="text-[1.7rem] font-black leading-tight mt-3 mx-auto max-w-[290px]" style={{ color: "var(--green-primary)" }}>
+          <div className="px-6 pb-6" style={{ paddingTop: causeImageURL ? 14 : 24 }}>
+            <p id="skip-success-title" className="text-[1.55rem] font-black leading-tight mx-auto max-w-[290px]" style={{ color: "var(--green-primary)" }}>
               {impactStat}
             </p>
-
-            {/* Beat 2 — Reward chips */}
-            <div className="mt-5 grid gap-2" style={{ gridTemplateColumns: `repeat(${chipCount}, minmax(0, 1fr))` }}>
+            <StreakCheckHero streak={successStreak} />
+            <div className="mt-5 grid grid-cols-3 gap-2">
               <div className="iskip-chip rounded-xl py-2.5 px-2" style={{ background: "var(--bg-surface-2)", border: "1px solid var(--border-default)", animationDelay: "40ms" }}>
                 <p className="text-base font-black leading-none" style={{ color: "var(--text-primary)" }}>
                   <CountUp value={amount} render={(n) => formatCurrency(n)} />
                 </p>
                 <p className="text-[10px] font-bold uppercase tracking-wide mt-1" style={{ color: "var(--text-muted)" }}>saved</p>
               </div>
-              {showStreak && (
-                <div className="iskip-chip rounded-xl py-2.5 px-2" style={{ background: "rgba(249,115,22,0.1)", border: "1px solid rgba(249,115,22,0.25)", animationDelay: "120ms" }}>
-                  <p className="text-base font-black leading-none" style={{ color: "#F97316" }}>🔥 {successStreak}</p>
-                  <p className="text-[10px] font-bold uppercase tracking-wide mt-1" style={{ color: "var(--text-muted)" }}>week streak</p>
-                </div>
-              )}
+              <div className="iskip-chip rounded-xl py-2.5 px-2" style={{ background: "rgba(249,115,22,0.1)", border: "1px solid rgba(249,115,22,0.25)", animationDelay: "120ms" }}>
+                <p className="text-base font-black leading-none" style={{ color: "#2BBAA4" }}>
+                  <CountUp value={skipLive} render={(n) => formatCurrency(n)} />
+                </p>
+                <p className="text-[10px] font-bold uppercase tracking-wide mt-1" style={{ color: "var(--text-muted)" }}>reward jar</p>
+              </div>
               <div className="iskip-chip rounded-xl py-2.5 px-2 relative" style={{ background: "rgba(46,204,113,0.1)", border: "1px solid var(--border-emphasis)", animationDelay: "200ms" }}>
                 <p className="text-base font-black leading-none" style={{ color: "var(--green-primary)" }}>
-                  ⚡ <CountUp value={newImpactScore} from={Math.max(0, newImpactScore - scoreDelta)} render={(n) => Math.round(n).toLocaleString()} />
+                  +<CountUp value={scoreDelta} render={(n) => Math.round(n).toLocaleString()} />
                 </p>
-                <p className="text-[10px] font-bold uppercase tracking-wide mt-1" style={{ color: "var(--text-muted)" }}>
-                  impact {scoreDelta > 0 ? <span style={{ color: "var(--green-primary)" }}>+{scoreDelta}</span> : "score"}
-                </p>
+                <p className="text-[10px] font-bold uppercase tracking-wide mt-1" style={{ color: "var(--text-muted)" }}>impact</p>
               </div>
             </div>
 
-            {/* Beat 3 — Spread */}
-            <div className="mt-5 rounded-2xl p-4 text-left" style={{ background: "linear-gradient(160deg, rgba(46,204,113,0.12), rgba(46,204,113,0.03))", border: "1px solid var(--border-emphasis)" }}>
-              <p className="text-sm font-black" style={{ color: "var(--text-primary)" }}>🚀 Make your skip contagious</p>
-              <p className="text-xs mt-1 leading-relaxed" style={{ color: "var(--text-secondary)" }}>
-                {successActiveProject
-                  ? "Every dollar a friend pledges adds to your Impact Score — and funds the cause faster."
-                  : "Bring a friend along — every dollar they pledge adds to your Impact Score too."}
-              </p>
-              <div className="mt-3 iskip-pulse">
-                <ShareButton
-                  variant="block"
-                  tone="primary"
-                  label="Share the challenge"
-                  url={challengeURL}
-                  text={shareIntentText}
-                  title={successActiveProject?.title ?? "iSkipped"}
-                />
-              </div>
-              {momentumSkips > 0 && (
-                <p className="text-[11px] mt-2.5 text-center font-semibold" style={{ color: "var(--text-muted)" }}>
-                  {formatCurrency(momentumSaved)} saved across {momentumSkips.toLocaleString()} skips
-                </p>
-              )}
+            <div className="mt-5">
+              <ShareButton
+                variant="block"
+                tone="primary"
+                label="Share the challenge"
+                url={challengeURL}
+                text={shareIntentText}
+                title={successActiveProject?.title ?? "iSkipped"}
+              />
             </div>
 
-            <SkipSetupPrompt mode="inline" />
-
-            {/* De-emphasized footer */}
             <div className="mt-3 flex items-center justify-center text-xs font-semibold">
-              <button onClick={dismissSuccess} style={{ color: "var(--text-muted)" }}>Done</button>
+              <button onClick={dismissSuccess} className="px-3 py-2" style={{ color: "var(--text-muted)" }}>Done</button>
             </div>
           </div>
         </div>
@@ -591,42 +550,40 @@ export function SkipModal({ onClose }: Props) {
   );
 }
 
+/** Duolingo-style weekly streak checkoff for the post-skip success state. */
+function StreakCheckHero({ streak }: { streak: number }) {
+  const currentStreak = Math.max(1, streak || 1);
+  const startWeek = Math.max(1, currentStreak - 2);
+  const weeks = [1, 2, 3, 4, 5].map((weekNumber) => ({
+    weekNumber: startWeek + weekNumber - 1,
+    isChecked: startWeek + weekNumber - 1 <= currentStreak,
+    isCurrent: startWeek + weekNumber - 1 === currentStreak,
+  }));
+
+  return (
+    <div className="mt-5">
+      <p className="text-[11px] font-black uppercase tracking-widest" style={{ color: "var(--text-muted)" }}>
+        Weekly skip streak
+      </p>
+      <div className="iskip-streak-row mt-2" aria-label={`${currentStreak} week skip streak`}>
+        {weeks.map((week) => (
+          <div key={week.weekNumber} className="iskip-streak-slot">
+            <span
+              className={`iskip-week-dot ${week.isChecked ? "is-checked" : ""} ${week.isCurrent ? "is-current" : ""}`}
+              aria-label={`Streak week ${week.weekNumber}${week.isCurrent ? ", current week" : ""}${week.isChecked ? ", checked" : ""}`}
+            >
+              {week.isChecked ? "\u2713" : ""}
+            </span>
+            <span className="iskip-week-label">W{week.weekNumber}</span>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 /** Animated count-up number. `render` formats the current value (e.g. currency). */
 function CountUp({ value, from = 0, ms = 900, render }: { value: number; from?: number; ms?: number; render?: (n: number) => string }) {
   const n = useCountUp(value, ms, from);
   return <>{render ? render(n) : Math.round(n).toLocaleString()}</>;
-}
-
-/** CSS emoji burst behind the celebration emoji. Hidden under prefers-reduced-motion. */
-function EmojiBurst() {
-  const pieces = [
-    { e: "✨", bx: -70, by: -42, d: 0 },
-    { e: "💚", bx: 62, by: -54, d: 40 },
-    { e: "🎉", bx: -52, by: 30, d: 20 },
-    { e: "⭐", bx: 76, by: 18, d: 60 },
-    { e: "💫", bx: 2, by: -76, d: 10 },
-    { e: "🌟", bx: -82, by: -6, d: 80 },
-    { e: "🙌", bx: 42, by: 46, d: 30 },
-    { e: "🔥", bx: 22, by: -62, d: 50 },
-  ];
-  return (
-    <div aria-hidden className="absolute inset-0 pointer-events-none" style={{ overflow: "visible" }}>
-      {pieces.map((p, i) => (
-        <span
-          key={i}
-          className="iskip-burst-piece"
-          style={{
-            ["--bx" as string]: `${p.bx}px`,
-            ["--by" as string]: `${p.by}px`,
-            animationDelay: `${p.d}ms`,
-            fontSize: 18,
-            marginLeft: -9,
-            marginTop: -9,
-          } as CSSProperties}
-        >
-          {p.e}
-        </span>
-      ))}
-    </div>
-  );
 }
