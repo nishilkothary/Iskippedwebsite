@@ -1,7 +1,7 @@
 import type { UserProfile } from "@/lib/types/models";
 
 /** Points awarded per dollar pledged to a cause (yours + your invitees'). */
-export const POINTS_PER_DOLLAR = 10;
+export const POINTS_PER_DOLLAR = 1;
 
 /** Impact Score in points for a given dollar amount pledged. */
 export function pointsForDollars(dollars: number): number {

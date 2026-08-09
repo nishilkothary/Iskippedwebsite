@@ -18,7 +18,8 @@ import { FeedItem, GlobalStats, Project, Skip } from "@/lib/types/models";
 import { appendRefParam, getChallengeSharePath } from "@/lib/utils/share";
 import { getDirectChallengeShareText } from "@/lib/utils/challengeShareCopy";
 import { ShareButton } from "@/components/share/ShareButton";
-import { oneUnitPhrase } from "@/lib/utils/impact";
+import { formatAggregateImpactUnitsDecimal, oneUnitPhrase } from "@/lib/utils/impact";
+import { useModalA11y } from "@/hooks/useModalA11y";
 
 // ─── SVG Jar ───────────────────────────────────────────────────────────────
 interface JarProps {
@@ -39,6 +40,151 @@ interface JarProps {
   unitDisplay?: string;  // e.g. "days", "meals" — shown in jar instead of %
   unitCount?: number;    // pre-computed count of units funded
   centerLabelOverride?: string; // overrides the default "to goal" / "saved" center label
+}
+
+interface DonationReminderPrompt {
+  kind: "challenge-ended" | "group-goal" | "personal-goal" | "thirty-day";
+  eyebrow: string;
+  title: string;
+  body: string;
+  impactLine: string | null;
+  readyAmount: number;
+  donatedAmount: number;
+}
+
+function DonationReminderModal({
+  prompt,
+  onClose,
+  onDonate,
+}: {
+  prompt: DonationReminderPrompt;
+  onClose: () => void;
+  onDonate: () => void;
+}) {
+  const dialogRef = useModalA11y(onClose);
+
+  return (
+    <div
+      className="fixed inset-0 bg-black/60 z-[60] flex items-center justify-center p-4"
+      onClick={onClose}
+    >
+      <div
+        ref={dialogRef}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="donation-reminder-title"
+        tabIndex={-1}
+        className="iskip-pop-in rounded-2xl p-6 max-w-sm w-full shadow-2xl relative"
+        style={{ background: "var(--bg-surface-1)", border: "1px solid var(--border-default)", outline: "none" }}
+        onClick={(event) => event.stopPropagation()}
+      >
+        <button
+          onClick={onClose}
+          aria-label="Close donation reminder"
+          className="absolute top-3 right-4 text-xl leading-none"
+          style={{ color: "var(--text-muted)" }}
+        >
+          x
+        </button>
+        <p className="text-[11px] font-black uppercase tracking-[0.14em] mb-2" style={{ color: "var(--green-primary)" }}>
+          {prompt.eyebrow}
+        </p>
+        <p id="donation-reminder-title" className="text-2xl font-black leading-tight pr-5" style={{ color: "var(--text-primary)" }}>
+          {prompt.title}
+        </p>
+        <p className="text-sm leading-relaxed mt-3" style={{ color: "var(--text-secondary)" }}>
+          {prompt.body}
+        </p>
+        <div className="grid grid-cols-2 gap-3 mt-5">
+          <div className="rounded-xl p-3" style={{ background: "var(--bg-surface-2)", border: "1px solid var(--border-default)" }}>
+            <p className="text-xl font-black" style={{ color: "var(--text-primary)" }}>{formatCurrency(prompt.readyAmount)}</p>
+            <p className="text-[10px] font-black uppercase tracking-wide mt-1" style={{ color: "var(--text-muted)" }}>ready to donate</p>
+          </div>
+          <div className="rounded-xl p-3" style={{ background: "var(--bg-surface-2)", border: "1px solid var(--border-default)" }}>
+            <p className="text-xl font-black" style={{ color: "var(--text-primary)" }}>{formatCurrency(prompt.donatedAmount)}</p>
+            <p className="text-[10px] font-black uppercase tracking-wide mt-1" style={{ color: "var(--text-muted)" }}>donated so far</p>
+          </div>
+        </div>
+        {prompt.impactLine && (
+          <div className="mt-3 rounded-xl px-4 py-3 text-sm font-black" style={{ background: "rgba(46,204,113,0.1)", color: "var(--green-primary)" }}>
+            About {prompt.impactLine} pledged
+          </div>
+        )}
+        <button
+          onClick={onDonate}
+          className="mt-5 w-full py-3 rounded-xl text-sm font-black"
+          style={{ background: "var(--green-primary)", color: "#0B1A14" }}
+        >
+          Donate my Jar
+        </button>
+        <button
+          onClick={onClose}
+          className="mt-2 w-full py-2 text-sm font-bold"
+          style={{ color: "var(--text-muted)" }}
+        >
+          Remind me later
+        </button>
+      </div>
+    </div>
+  );
+}
+
+function DonationReminderController({
+  prompt,
+  userId,
+  projectId,
+  blocked,
+  onDonate,
+}: {
+  prompt: DonationReminderPrompt | null;
+  userId?: string;
+  projectId?: string | null;
+  blocked: boolean;
+  onDonate: () => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const [dismissedPromptKey, setDismissedPromptKey] = useState<string | null>(null);
+  const dismissKey = prompt && userId
+    ? `iskipped_donation_prompt_dismissed_${userId}_${projectId ?? "none"}_${prompt.kind}`
+    : null;
+  const dismissedAt = dismissKey && typeof window !== "undefined"
+    ? localStorage.getItem(dismissKey)
+    : null;
+  const dismissedDaysAgo = dismissedAt
+    ? Math.floor((Date.now() - parseInt(dismissedAt)) / 86400_000)
+    : Infinity;
+  const isDismissed = !!dismissKey && (dismissedPromptKey === dismissKey || dismissedDaysAgo < 30);
+
+  useEffect(() => {
+    if (!prompt || !dismissKey || blocked || isDismissed) {
+      setOpen(false);
+      return;
+    }
+
+    const timer = window.setTimeout(() => setOpen(true), 750);
+    return () => window.clearTimeout(timer);
+  }, [blocked, dismissKey, isDismissed, prompt?.kind]);
+
+  function dismiss() {
+    if (dismissKey && typeof window !== "undefined") {
+      localStorage.setItem(dismissKey, Date.now().toString());
+      setDismissedPromptKey(dismissKey);
+    }
+    setOpen(false);
+  }
+
+  if (!prompt || !open) return null;
+
+  return (
+    <DonationReminderModal
+      prompt={prompt}
+      onClose={dismiss}
+      onDonate={() => {
+        dismiss();
+        onDonate();
+      }}
+    />
+  );
 }
 
 function Jar({ fillPercent, color, gradEnd, label, amount, emoji, causeLabel, goalAmount, emptyLabel, href, onClick, actionLabel, actionOnClick, actionColor, unitDisplay, unitCount, centerLabelOverride }: JarProps) {
@@ -346,10 +492,9 @@ function getFeedActionLine(item: Pick<FeedItem, "displayName" | "message" | "ski
 export default function HomePage() {
   const router = useRouter();
   const { user, profile } = useAuthStore();
-  const [nudgeDismissed, setNudgeDismissed] = useState(false);
   const { recentSkips } = useSkips();
   const { projects } = useProjects();
-  const { setShowSkipPicker } = useUIStore();
+  const { showSkipPicker, setShowSkipPicker } = useUIStore();
   const [editingSkip, setEditingSkip] = useState<Skip | null>(null);
   const [communityFeed, setCommunityFeed] = useState<FeedItem[]>([]);
   const [globalStats, setGlobalStats] = useState<GlobalStats | null>(null);
@@ -440,6 +585,9 @@ export default function HomePage() {
     ? Math.min(100, (givingBalance / destinationGoalAmount) * 100)
     : 0;
   const destinationAmount = givingBalance;
+  const givingJarImpactLine = activeProject?.unitCost && activeProject.unitCost > 0 && destinationAmount > 0 && (activeProject.unitName || activeProject.unitDisplay)
+    ? formatAggregateImpactUnitsDecimal(destinationAmount, activeProject.unitCost, activeProject.unitName || activeProject.unitDisplay || "impact", activeProject.unitDisplay, activeProject.unitIsGoal)
+    : null;
   const destinationHref = activeProject
     ? (isActiveChallenge ? `/challenges/${activeProject.id}` : "/jars?tab=cause")
     : "/challenges";
@@ -500,6 +648,66 @@ export default function HomePage() {
   const displayedStreak = getConsecutiveWeeklyStreak(recentSkips.map((skip) => skip.date));
   const streakChipValue = hasSkippedThisWeek ? Math.max(displayedStreak, profile.streak ?? 0) : profile.streak ?? 0;
   const activeCountdown = activeProject && isActiveChallenge ? getChallengeCountdown(activeProject) : null;
+  const personalGoalAmt = activeProject ? (profile.causeGoalAmounts?.[activeProject.id] ?? 0) : 0;
+  const groupGoalReached = communityGoal > 0 && displayedGroupTotal >= communityGoal;
+  const personalGoalReached = personalGoalAmt > 0 && userChallengeBalance >= personalGoalAmt;
+  const challengeEnded = activeProject?.status === "ended";
+  const lastDonationDate = profile.lastDonationDate ?? null;
+  const daysSinceLastDonation = lastDonationDate
+    ? Math.floor((Date.now() - new Date(lastDonationDate).getTime()) / 86400_000)
+    : Infinity;
+  const hasGivingBalance = givingBalance > 0;
+  const readyToDonateText = activeProject
+    ? `You have ${formatCurrency(givingBalance)} in your Giving Jar for ${activeProject.title}.`
+    : `You have ${formatCurrency(givingBalance)} in your Giving Jar.`;
+  const donationReminderPrompt: DonationReminderPrompt | null = (() => {
+    if (!hasGivingBalance) return null;
+    if (challengeEnded) {
+      return {
+        kind: "challenge-ended",
+        eyebrow: "Donation reminder",
+        title: "This challenge ended. Your Giving Jar is ready.",
+        body: `${readyToDonateText} Turning it into a donation helps the cause actually receive it.`,
+        impactLine: givingJarImpactLine,
+        readyAmount: givingBalance,
+        donatedAmount: profile.totalDonated ?? 0,
+      };
+    }
+    if (groupGoalReached) {
+      return {
+        kind: "group-goal",
+        eyebrow: "Goal reached",
+        title: "Your group hit the goal. Time to donate your jar.",
+        body: `${readyToDonateText} Sending it now helps convert the group's progress into real-world support.`,
+        impactLine: givingJarImpactLine,
+        readyAmount: givingBalance,
+        donatedAmount: profile.totalDonated ?? 0,
+      };
+    }
+    if (personalGoalReached) {
+      return {
+        kind: "personal-goal",
+        eyebrow: "Jar goal reached",
+        title: "You hit your Giving Jar goal.",
+        body: `${readyToDonateText} This is a good moment to donate it and keep the momentum going.`,
+        impactLine: givingJarImpactLine,
+        readyAmount: givingBalance,
+        donatedAmount: profile.totalDonated ?? 0,
+      };
+    }
+    if (daysSinceLastDonation >= 30) {
+      return {
+        kind: "thirty-day",
+        eyebrow: "Donation reminder",
+        title: "Your Giving Jar is ready to make an impact.",
+        body: `${readyToDonateText} Consider donating it so that pledged impact can become real.`,
+        impactLine: givingJarImpactLine,
+        readyAmount: givingBalance,
+        donatedAmount: profile.totalDonated ?? 0,
+      };
+    }
+    return null;
+  })();
 
   const parkedJars = Object.entries(profile.causeJarBalances ?? {})
     .filter(([id, bal]) => {
@@ -636,68 +844,6 @@ export default function HomePage() {
             {formatCurrency(profile.totalSaved)}
           </div>
         </div>
-
-        {/* Donation prompt banners */}
-        {(() => {
-          const activeProjectId = profile.activeProjectId;
-          const causeJarBalance = activeProjectId ? (profile.causeJarBalances?.[activeProjectId] ?? 0) : 0;
-          const personalGoalAmt = activeProjectId ? (profile.causeGoalAmounts?.[activeProjectId] ?? 0) : 0;
-          const groupGoalReached = communityGoal > 0 && displayedGroupTotal >= communityGoal;
-          const personalGoalReached = personalGoalAmt > 0 && causeJarBalance >= personalGoalAmt;
-          const challengeEnded = activeProject?.status === "ended";
-          const donationURL = activeProject?.donationURL ?? null;
-          const lastDonationDate = profile.lastDonationDate ?? null;
-          const daysSinceLastDonation = lastDonationDate
-            ? Math.floor((Date.now() - new Date(lastDonationDate).getTime()) / 86400_000)
-            : Infinity;
-          const hasGivingBalance = (profile.totalGiveAllocated ?? 0) > 0;
-          const nudgeDismissKey = `iskipped_nudge_dismissed_${user?.uid}`;
-          const nudgeDismissedAt = typeof window !== "undefined" ? localStorage.getItem(nudgeDismissKey) : null;
-          const nudgeDismissedDaysAgo = nudgeDismissedAt
-            ? Math.floor((Date.now() - parseInt(nudgeDismissedAt)) / 86400_000)
-            : Infinity;
-          const showNudge = !nudgeDismissed && hasGivingBalance && daysSinceLastDonation >= 30 && nudgeDismissedDaysAgo >= 30;
-
-          if (!groupGoalReached && !personalGoalReached && !challengeEnded && !showNudge) return null;
-
-          const base: React.CSSProperties = { borderRadius: 14, padding: "12px 14px", marginBottom: 10, display: "flex", flexDirection: "column", gap: 8 };
-          const jarBtn = (color: string, textColor: string) => ({
-            alignSelf: "flex-start" as const, background: color, color: textColor, fontSize: 12, fontWeight: 900, padding: "6px 14px", borderRadius: 999, border: "none", cursor: "pointer",
-          });
-          return (
-            <div>
-              {groupGoalReached && (
-                <div style={{ ...base, background: "linear-gradient(135deg, rgba(255,183,0,0.15), rgba(46,204,113,0.1))", border: "1px solid rgba(255,183,0,0.35)" }}>
-                  <p style={{ fontSize: 13, fontWeight: 900, color: "var(--gold-cta)" }}>🎉 Your group hit the goal! Time to donate your jar.</p>
-                  <button onClick={() => router.push("/jars?tab=cause")} style={jarBtn("var(--gold-cta)", "#0B1A14")}>Manage my jar →</button>
-                </div>
-              )}
-              {!groupGoalReached && personalGoalReached && (
-                <div style={{ ...base, background: "rgba(46,204,113,0.1)", border: "1px solid rgba(46,204,113,0.3)" }}>
-                  <p style={{ fontSize: 13, fontWeight: 900, color: "var(--green-primary)" }}>🙌 You hit your personal goal! Ready to donate?</p>
-                  <button onClick={() => router.push("/jars?tab=cause")} style={jarBtn("var(--green-primary)", "#0B1A14")}>Manage my jar →</button>
-                </div>
-              )}
-              {challengeEnded && (
-                <div style={{ ...base, background: "rgba(239,136,68,0.08)", border: "1px solid rgba(239,136,68,0.3)" }}>
-                  <p style={{ fontSize: 13, fontWeight: 900, color: "#EF8844" }}>This challenge has ended. Your jar is ready — donate your savings now.</p>
-                  <button onClick={() => router.push("/jars?tab=cause")} style={jarBtn("#EF8844", "white")}>Manage my jar →</button>
-                </div>
-              )}
-              {showNudge && (
-                <div style={{ ...base, background: "var(--bg-surface-2)", border: "1px solid var(--border-default)", position: "relative" }}>
-                  <button
-                    onClick={() => { if (typeof window !== "undefined") localStorage.setItem(nudgeDismissKey, Date.now().toString()); setNudgeDismissed(true); }}
-                    style={{ position: "absolute", top: 10, right: 12, background: "none", border: "none", color: "var(--text-muted)", fontSize: 18, lineHeight: 1, cursor: "pointer" }}
-                  >×</button>
-                  <p style={{ fontSize: 13, fontWeight: 900, color: "var(--text-primary)", paddingRight: 20 }}>You&apos;ve been skipping for 30 days — nice work. 🌱</p>
-                  <p style={{ fontSize: 12, color: "var(--text-secondary)" }}>Your giving jar is growing. Consider sending it to your cause so it can start making a real difference.</p>
-                  <button onClick={() => router.push("/jars?tab=cause")} style={jarBtn("var(--green-primary)", "#0B1A14")}>Manage my jar →</button>
-                </div>
-              )}
-            </div>
-          );
-        })()}
 
         {/* Jars */}
         <div style={{ display: "flex", justifyContent: "center", gap: 16, margin: "20px 0", flexWrap: "nowrap" }}>
@@ -1263,6 +1409,14 @@ export default function HomePage() {
           iskippedfor@gmail.com
         </a>
       </p>
+
+      <DonationReminderController
+        prompt={donationReminderPrompt}
+        userId={user?.uid}
+        projectId={profile.activeProjectId}
+        blocked={showSkipPicker || editingSkip != null}
+        onDonate={() => router.push("/jars?tab=cause")}
+      />
 
       {editingSkip && (
         <EditSkipModal

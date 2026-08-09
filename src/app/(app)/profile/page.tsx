@@ -111,11 +111,11 @@ export default function ProfilePage() {
   }
 
   return (
-    <div className="p-4 md:p-8 max-w-2xl mx-auto pb-20 md:pb-8">
-      <h1 className="text-2xl font-bold mb-8" style={{ color: "var(--text-primary)" }}>Profile</h1>
+    <div className="p-5 md:p-10 max-w-2xl mx-auto pb-24 md:pb-10">
+      <h1 className="text-2xl font-bold mb-10" style={{ color: "var(--text-primary)" }}>Profile</h1>
 
       {/* Avatar & name */}
-      <div className="p-8 mb-6 flex items-center gap-6" style={{ ...cardStyle, borderRadius: 20 }}>
+      <div className="p-8 mb-8 flex items-center gap-6" style={{ ...cardStyle, borderRadius: 20 }}>
         <div
           className="w-20 h-20 rounded-full flex items-center justify-center text-3xl flex-shrink-0 overflow-hidden"
           style={{ background: "var(--bg-surface-2)", color: "var(--green-primary)" }}
@@ -139,26 +139,26 @@ export default function ProfilePage() {
       </div>
 
       {/* Lifetime stats */}
-      <div className="mb-6">
-        <div className="px-5 py-4 mb-3 flex items-center justify-between" style={{ ...cardStyle, borderRadius: 20 }}>
+      <div className="mb-8">
+        <div className="px-5 py-5 mb-4 flex items-center justify-between" style={{ ...cardStyle, borderRadius: 20 }}>
           <div>
             <p className="text-xs font-semibold uppercase tracking-wide" style={{ color: "var(--text-secondary)" }}>Total Skipped</p>
             <p className="text-2xl font-bold mt-0.5" style={{ color: "var(--text-primary)" }}>{formatCurrency(profile.totalSaved)}</p>
             <p className="text-xs mt-0.5" style={{ color: "var(--text-muted)" }}>across {profile.totalSkips} skip{profile.totalSkips !== 1 ? "s" : ""}</p>
           </div>
         </div>
-        <div className="px-5 py-4 mb-3 flex items-center justify-between" style={{ borderRadius: 20, background: "linear-gradient(150deg, rgba(46,204,113,0.14), rgba(46,204,113,0.03))", border: "1px solid var(--border-emphasis)" }}>
+        <div className="px-5 py-5 mb-4 flex items-center justify-between" style={{ borderRadius: 20, background: "linear-gradient(150deg, rgba(46,204,113,0.14), rgba(46,204,113,0.03))", border: "1px solid var(--border-emphasis)" }}>
           <div>
             <p className="text-xs font-semibold uppercase tracking-wide" style={{ color: "var(--text-secondary)" }}>⚡ Impact Score</p>
             <p className="text-2xl font-bold mt-0.5" style={{ color: "var(--green-primary)" }}>{impactScore(profile).toLocaleString()}</p>
             <p className="text-xs mt-0.5" style={{ color: "var(--text-muted)" }}>
               {referralPledgedDollars(profile) > 0
                 ? `includes ${pointsForDollars(referralPledgedDollars(profile)).toLocaleString()} from friends you invited`
-                : "1 point for every $0.10 pledged — invite friends to grow it faster"}
+                : "1 point for every $1 pledged to a cause"}
             </p>
           </div>
         </div>
-        <div className="grid grid-cols-3 gap-2 mb-3">
+        <div className="grid grid-cols-3 gap-3 mb-4">
           {[
             { emoji: "💚", label: "donated", value: formatCurrency(profile.totalDonated), color: "var(--green-primary)" },
             { emoji: "🛍️", label: "spent", value: formatCurrency(profile.totalSpent ?? 0), color: "#8B5CF6" },
@@ -171,7 +171,7 @@ export default function ProfilePage() {
             </div>
           ))}
         </div>
-        <div className="grid grid-cols-3 gap-2">
+        <div className="grid grid-cols-3 gap-3">
           {[
             { label: "Longest Streak", value: formatWeeks(profile.longestStreak), emoji: "🏆" },
             { label: "Current Streak", value: formatWeeks(profile.streak), emoji: "🔥" },
@@ -186,7 +186,7 @@ export default function ProfilePage() {
         </div>
 
         {/* This Week */}
-        <div className="mt-3 p-5" style={{ ...cardStyle, borderRadius: 20 }}>
+        <div className="mt-4 p-5" style={{ ...cardStyle, borderRadius: 20 }}>
           <p className="text-sm font-semibold mb-4" style={{ color: "var(--text-secondary)", letterSpacing: 0.5 }}>This Week</p>
           {[
             { label: "Skips logged", value: String(weekSkips.length), color: "var(--green-primary)" },
@@ -207,7 +207,7 @@ export default function ProfilePage() {
       </div>
 
       {/* Recalculate */}
-      <div className="mb-6">
+      <div className="mb-8">
         <div className="p-5 mb-4" style={{ ...cardStyle, borderRadius: 20 }}>
           <p className="text-sm font-bold mb-1" style={{ color: "var(--text-primary)" }}>🔄 Recalculate totals</p>
           <p className="text-xs mb-4" style={{ color: "var(--text-secondary)" }}>

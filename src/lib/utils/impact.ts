@@ -33,6 +33,24 @@ export function formatAggregateImpactUnits(
   return formatUnits(amount, unitCost, unitName, unitDisplay);
 }
 
+export function formatAggregateImpactUnitsDecimal(
+  amount: number,
+  unitCost: number,
+  unitName: string,
+  unitDisplay?: string | null,
+  unitIsGoal?: boolean,
+): string {
+  const count = amount / unitCost;
+  if (unitIsGoal && count > 0 && count < 1) {
+    return `${Math.max(1, Math.round(count * 100))}% of ${oneUnitPhrase(unitName)}`;
+  }
+  const display = count >= 10 ? String(Math.round(count)) : count.toFixed(1);
+  const label = Number(display) === 1 && !display.includes(".")
+    ? unitName
+    : (unitDisplay || PLURAL_MAP[unitName] || unitName + "s");
+  return `${display} ${label}`;
+}
+
 /**
  * Singular form of a unit name. `unitName` is meant to be singular already, but some
  * cause docs were saved with a plural ("Chromebooks"), so fold those back.

@@ -8,7 +8,7 @@ import { useAuthStore } from "@/store/authStore";
 import { SKIP_CATEGORIES } from "@/lib/constants/skipCategories";
 import { formatCurrency } from "@/lib/utils/currency";
 import { normalizeJarSplit, normalizeSpendingGoals } from "@/lib/services/firebase/users";
-import { formatUnits, oneUnitPhrase } from "@/lib/utils/impact";
+import { formatAggregateImpactUnitsDecimal, formatAggregateImpactUnits, formatUnits, oneUnitPhrase } from "@/lib/utils/impact";
 import { isChallengeProject } from "@/lib/services/firebase/projects";
 import { getChallengeCountdown } from "@/lib/utils/dates";
 import { appendRefParam, getChallengeSharePath } from "@/lib/utils/share";
@@ -104,9 +104,9 @@ export function SkipModal({ onClose }: Props) {
       setSuccessProjectUnitName(selectedProject?.unitName ?? null);
       setSuccessProjectUnitDisplay(selectedProject?.unitDisplay ?? null);
       setSuccessProjectUnitCost(selectedProject?.unitCost ?? null);
+      setSuccessJarBalance(expectedJarBal);
       if (willBeFull) {
         setSuccessOverflowCount(nextOverflowCount);
-        setSuccessJarBalance(expectedJarBal);
       }
       if (typeof navigator !== "undefined" && typeof navigator.vibrate === "function") {
         navigator.vibrate([12, 28, 18]);
@@ -251,8 +251,28 @@ export function SkipModal({ onClose }: Props) {
       );
     }
 
-    const skipLive = amount * ((100 - skipGivePct) / 100);
     const causeImageURL = successActiveProject?.imageURL ?? null;
+    const totalImpactStat = (() => {
+      if (!causeTitle || !successProjectUnitCost || successProjectUnitCost <= 0 || successJarBalance <= 0 || !(successProjectUnitName || successProjectUnitDisplay)) {
+        return null;
+      }
+      if (successActiveProject?.unitIsGoal && successJarBalance < successProjectUnitCost) {
+        return formatAggregateImpactUnits(
+          successJarBalance,
+          successProjectUnitCost,
+          successProjectUnitName || successProjectUnitDisplay || "impact",
+          successProjectUnitDisplay,
+          true
+        );
+      }
+      return formatAggregateImpactUnitsDecimal(
+        successJarBalance,
+        successProjectUnitCost,
+        successProjectUnitName || successProjectUnitDisplay || "impact",
+        successProjectUnitDisplay,
+        successActiveProject?.unitIsGoal
+      ).toLowerCase();
+    })();
     return (
       <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4" onClick={dismissSuccess}>
         <div
@@ -287,15 +307,18 @@ export function SkipModal({ onClose }: Props) {
               </div>
               <div className="iskip-chip rounded-xl py-2.5 px-2" style={{ background: "rgba(249,115,22,0.1)", border: "1px solid rgba(249,115,22,0.25)", animationDelay: "120ms" }}>
                 <p className="text-base font-black leading-none" style={{ color: "#2BBAA4" }}>
-                  <CountUp value={skipLive} render={(n) => formatCurrency(n)} />
-                </p>
-                <p className="text-[10px] font-bold uppercase tracking-wide mt-1" style={{ color: "var(--text-muted)" }}>reward jar</p>
-              </div>
-              <div className="iskip-chip rounded-xl py-2.5 px-2 relative" style={{ background: "rgba(46,204,113,0.1)", border: "1px solid var(--border-emphasis)", animationDelay: "200ms" }}>
-                <p className="text-base font-black leading-none" style={{ color: "var(--green-primary)" }}>
-                  <CountUp value={skipGive} render={(n) => formatCurrency(n)} />
+                  <CountUp value={successJarBalance || skipGive} render={(n) => formatCurrency(n)} />
                 </p>
                 <p className="text-[10px] font-bold uppercase tracking-wide mt-1" style={{ color: "var(--text-muted)" }}>giving jar</p>
+              </div>
+              <div className="iskip-chip rounded-xl py-2.5 px-2 relative" style={{ background: "rgba(46,204,113,0.1)", border: "1px solid var(--border-emphasis)", animationDelay: "200ms" }}>
+                <p
+                  className={totalImpactStat ? "text-[12px] font-black leading-tight min-h-[32px] flex items-center justify-center" : "text-base font-black leading-none"}
+                  style={{ color: "var(--green-primary)" }}
+                >
+                  {totalImpactStat ?? <CountUp value={skipGive} render={(n) => formatCurrency(n)} />}
+                </p>
+                <p className="text-[10px] font-bold uppercase tracking-wide mt-1" style={{ color: "var(--text-muted)" }}>{totalImpactStat ? "total impact" : "giving jar"}</p>
               </div>
             </div>
 
