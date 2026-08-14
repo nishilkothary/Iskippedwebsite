@@ -15,6 +15,7 @@ import { appendRefParam, getChallengeSharePath } from "@/lib/utils/share";
 import { getPostSkipShareText } from "@/lib/utils/challengeShareCopy";
 import { ShareButton } from "@/components/share/ShareButton";
 import { useCountUp } from "@/hooks/useCountUp";
+import { SkipSetupPrompt } from "@/components/setup/SkipSetupPrompt";
 
 interface Props {
   onClose: () => void;
@@ -46,6 +47,7 @@ export function SkipModal({ onClose }: Props) {
   const [successOverflowCount, setSuccessOverflowCount] = useState<number | undefined>(undefined);
   const [successJarBalance, setSuccessJarBalance] = useState(0);
   const [successStreak, setSuccessStreak] = useState(0);
+  const [showSetupPrompt, setShowSetupPrompt] = useState(false);
   const dialogRef = useModalA11y(onClose);
   const activeProjectForSkip = projects.find((p) => p.id === projectId) ?? null;
   const isActiveChallenge = activeProjectForSkip ? isChallengeProject(activeProjectForSkip) : false;
@@ -121,7 +123,15 @@ export function SkipModal({ onClose }: Props) {
     const postLogSkipCount = (profile?.totalSkips ?? 0) + 1;
 
     function dismissSuccess() {
+      if (postLogSkipCount === 1) {
+        setShowSetupPrompt(true);
+        return;
+      }
       onClose();
+    }
+
+    if (showSetupPrompt) {
+      return <SkipSetupPrompt mode="modal" onClose={onClose} />;
     }
 
     // Build the success hero around the concrete transformation this skip becomes.

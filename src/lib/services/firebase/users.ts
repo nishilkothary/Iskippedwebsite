@@ -130,6 +130,10 @@ export async function dismissSetupPrompt(uid: string): Promise<void> {
   await updateDoc(doc(db, "users", uid), { setupPromptDismissedAt: serverTimestamp() });
 }
 
+export async function completeSetupPrompt(uid: string): Promise<void> {
+  await updateDoc(doc(db, "users", uid), { setupPromptCompletedAt: serverTimestamp() });
+}
+
 export async function updateJarSettings(
   uid: string,
   jarSplit: { give: number; live: number }

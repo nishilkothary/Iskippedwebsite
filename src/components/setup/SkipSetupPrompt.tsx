@@ -3,11 +3,12 @@
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
 import { useAuthStore } from "@/store/authStore";
-import { dismissSetupPrompt } from "@/lib/services/firebase/users";
+import { completeSetupPrompt, dismissSetupPrompt } from "@/lib/services/firebase/users";
 import { isPushSupported, registerForPush } from "@/lib/services/firebase/push";
 
 type InstallPlatform = "ios" | "browser" | null;
-type PromptMode = "inline" | "footer";
+type PromptMode = "inline" | "footer" | "modal";
+const SETUP_PROMPT_SNOOZE_MS = 7 * 24 * 60 * 60 * 1000;
 
 interface Props {
   mode: PromptMode;
@@ -31,6 +32,13 @@ function isMobileDevice(): boolean {
     /Android|iPhone|iPad|iPod|Mobi/i.test(ua) ||
     window.matchMedia("(max-width: 767px) and (pointer: coarse)").matches
   );
+}
+
+function timestampMs(value: any): number | null {
+  if (!value) return null;
+  if (typeof value.toMillis === "function") return value.toMillis();
+  const ms = new Date(value).getTime();
+  return Number.isFinite(ms) ? ms : null;
 }
 
 export function SkipSetupPrompt({ mode, onClose }: Props) {
@@ -96,13 +104,16 @@ export function SkipSetupPrompt({ mode, onClose }: Props) {
     };
   }, []);
 
-  const dismissed = !!profile?.setupPromptDismissedAt || dismissedLocal;
-  const showPushAction = isMobile && pushSupported && !profile?.pushOptIn;
+  const snoozedAtMs = timestampMs(profile?.setupPromptDismissedAt);
+  const snoozed = dismissedLocal || (snoozedAtMs != null && Date.now() - snoozedAtMs < SETUP_PROMPT_SNOOZE_MS);
+  const completed = !!profile?.setupPromptCompletedAt;
+  const notificationDenied = typeof window !== "undefined" && "Notification" in window && Notification.permission === "denied";
+  const showPushAction = isMobile && pushSupported && !notificationDenied && !profile?.pushOptIn;
   const showInstallAction = isMobile && installPlatform !== null;
-  const eligible = isMobile && !!user && !!profile && !dismissed && (showPushAction || showInstallAction);
+  const eligible = isMobile && !!user && !!profile && !completed && !snoozed && (showPushAction || showInstallAction);
 
   useEffect(() => {
-    if (mode === "inline" && ready && !eligible) {
+    if ((mode === "inline" || mode === "modal") && ready && !eligible) {
       onClose?.();
     }
   }, [eligible, mode, onClose, ready]);
@@ -120,6 +131,18 @@ export function SkipSetupPrompt({ mode, onClose }: Props) {
     onClose?.();
   }
 
+  async function complete() {
+    if (user) {
+      try {
+        await completeSetupPrompt(user.uid);
+      } catch {
+        // The immediate UI should still move on if persistence is flaky.
+      }
+    }
+    updateProfile({ setupPromptCompletedAt: new Date() as any });
+    onClose?.();
+  }
+
   async function handlePush() {
     setPushBusy(true);
     try {
@@ -127,7 +150,7 @@ export function SkipSetupPrompt({ mode, onClose }: Props) {
       updateProfile({ pushOptIn: true });
       toast.success("Weekly reminders are on.");
       if (!showInstallAction) {
-        await dismiss();
+        await complete();
       }
     } catch (e: any) {
       toast.error(e?.message || "Couldn't turn on reminders.");
@@ -143,12 +166,24 @@ export function SkipSetupPrompt({ mode, onClose }: Props) {
     }
     if (!installPrompt) return;
     installPrompt.prompt();
-    await installPrompt.userChoice;
+    const choice = await installPrompt.userChoice;
     setInstallPrompt(null);
     setInstallPlatform(null);
-    toast.success("iSkipped is ready from your home screen.");
-    if (!showPushAction) {
-      await dismiss();
+    if (choice?.outcome === "accepted") {
+      toast.success("iSkipped is ready from your home screen.");
+      if (!showPushAction) {
+        await complete();
+      }
+    }
+  }
+
+  async function handlePrimarySetup() {
+    if (showInstallAction) {
+      await handleInstall();
+      return;
+    }
+    if (showPushAction) {
+      await handlePush();
     }
   }
 
@@ -198,6 +233,126 @@ export function SkipSetupPrompt({ mode, onClose }: Props) {
       </ol>
     </div>
   ) : null;
+
+  if (mode === "modal") {
+    return (
+      <div className="fixed inset-0 bg-black/60 z-[60] flex items-center justify-center p-4" onClick={dismiss}>
+        <div
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="skip-setup-title"
+          className="rounded-2xl text-center max-w-sm w-full shadow-2xl relative p-5 iskip-pop-in"
+          style={{ background: "var(--bg-surface-1)", border: "1px solid var(--border-default)" }}
+          onClick={(event) => event.stopPropagation()}
+        >
+          <button
+            type="button"
+            onClick={dismiss}
+            aria-label="Close setup prompt"
+            className="absolute top-4 right-4 text-xl leading-none"
+            style={{ color: "var(--text-muted)" }}
+          >
+            x
+          </button>
+
+          <div
+            className="mx-auto h-14 w-14 rounded-2xl flex items-center justify-center text-3xl mb-4"
+            style={{ background: "rgba(46,204,113,0.13)", border: "1px solid var(--border-emphasis)" }}
+          >
+            🔥
+          </div>
+          <p className="text-[11px] font-black uppercase tracking-[0.18em]" style={{ color: "var(--green-primary)" }}>
+            Keep the streak going
+          </p>
+          <h2 id="skip-setup-title" className="mt-2 text-2xl font-black leading-tight" style={{ color: "var(--text-primary)" }}>
+            Make next week easy
+          </h2>
+          <p className="mt-2 text-sm leading-relaxed" style={{ color: "var(--text-secondary)" }}>
+            Add iSkipped to your Home Screen and get one weekly reminder to log a skip.
+          </p>
+
+          <div className="mt-5 space-y-3 text-left">
+            {showInstallAction && (
+              <button
+                type="button"
+                onClick={handleInstall}
+                className="w-full rounded-xl p-4 flex items-start gap-3"
+                style={{ background: "var(--bg-surface-2)", border: "1px solid var(--border-default)" }}
+              >
+                <span className="h-10 w-10 rounded-xl flex items-center justify-center text-xl shrink-0" style={{ background: "rgba(46,204,113,0.12)" }}>
+                  🏠
+                </span>
+                <span className="min-w-0">
+                  <span className="block text-sm font-black" style={{ color: "var(--text-primary)" }}>Add to Home Screen</span>
+                  <span className="block text-xs mt-1 leading-relaxed" style={{ color: "var(--text-muted)" }}>
+                    Quick access when you&apos;re ready to skip something.
+                  </span>
+                </span>
+              </button>
+            )}
+            {showPushAction && (
+              <button
+                type="button"
+                onClick={handlePush}
+                disabled={pushBusy}
+                className="w-full rounded-xl p-4 flex items-start gap-3 disabled:opacity-60"
+                style={{ background: "var(--bg-surface-2)", border: "1px solid var(--border-default)" }}
+              >
+                <span className="h-10 w-10 rounded-xl flex items-center justify-center text-xl shrink-0" style={{ background: "rgba(244,184,74,0.12)" }}>
+                  🔔
+                </span>
+                <span className="min-w-0">
+                  <span className="block text-sm font-black" style={{ color: "var(--text-primary)" }}>
+                    {pushBusy ? "Turning on..." : "Turn on weekly reminders"}
+                  </span>
+                  <span className="block text-xs mt-1 leading-relaxed" style={{ color: "var(--text-muted)" }}>
+                    A gentle nudge once a week during the challenge.
+                  </span>
+                </span>
+              </button>
+            )}
+          </div>
+
+          {showIOSSteps && (
+            <div className="mt-3 rounded-xl p-3 text-left" style={{ background: "var(--bg-surface-2)", border: "1px solid var(--border-default)" }}>
+              <p className="text-xs font-bold mb-1" style={{ color: "var(--text-primary)" }}>On iPhone:</p>
+              <ol className="space-y-1 text-xs leading-relaxed" style={{ color: "var(--text-secondary)", paddingLeft: 16 }}>
+                <li>Tap the Share button in Safari.</li>
+                <li>Choose Add to Home Screen.</li>
+                <li>Tap Add.</li>
+              </ol>
+              <button
+                type="button"
+                onClick={complete}
+                className="mt-3 w-full rounded-xl py-2 text-xs font-black"
+                style={{ background: "var(--bg-surface-3)", color: "var(--text-primary)", border: "1px solid var(--border-default)" }}
+              >
+                Done, I added it
+              </button>
+            </div>
+          )}
+
+          <button
+            type="button"
+            onClick={handlePrimarySetup}
+            disabled={pushBusy}
+            className="mt-5 w-full rounded-xl py-3 text-base font-black disabled:opacity-60"
+            style={{ background: "linear-gradient(135deg, var(--green-primary), var(--green-grad-end))", color: "#071b12" }}
+          >
+            Set this up
+          </button>
+          <button
+            type="button"
+            onClick={dismiss}
+            className="mt-3 px-3 py-2 text-xs font-bold"
+            style={{ color: "var(--text-muted)" }}
+          >
+            Maybe later
+          </button>
+        </div>
+      </div>
+    );
+  }
 
   if (mode === "footer") {
     return (

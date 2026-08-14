@@ -59,8 +59,10 @@ export interface UserProfile {
   pushOptIn?: boolean;
   /** Registered FCM device tokens for this user. Server-only write (via /api/push/token). */
   fcmTokens?: string[];
-  /** Set when the user dismisses the post-skip setup prompt for home-screen install / weekly reminders. */
+  /** Set when the user snoozes the post-skip setup prompt for home-screen install / weekly reminders. */
   setupPromptDismissedAt?: Timestamp | null;
+  /** Set when the user completes the post-skip setup prompt. */
+  setupPromptCompletedAt?: Timestamp | null;
 }
 
 export interface SkipCategory {
