@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { useAuthStore } from "@/store/authStore";
+import { useUIStore } from "@/store/uiStore";
 import { useProjects } from "@/hooks/useProjects";
 import { Project } from "@/lib/types/models";
 import { switchCause, setUserCauseGoal, normalizeJarSplit, setChallengeEmailConsent } from "@/lib/services/firebase/users";
@@ -189,6 +190,7 @@ export default function ChallengeDetailPage() {
   const params = useParams();
   const challengeId = typeof params?.id === "string" ? params.id : Array.isArray(params?.id) ? params.id[0] : "";
   const { user, profile, updateProfile } = useAuthStore();
+  const { setShowSkipPicker } = useUIStore();
   const { projects, loading: projectsLoading } = useProjects();
   const [joining, setJoining] = useState(false);
   const [showJoinChoice, setShowJoinChoice] = useState(false);
@@ -279,7 +281,7 @@ export default function ChallengeDetailPage() {
   async function handleJoin() {
     if (!user || !challenge || joining) return;
     if (isActive) {
-      router.push("/home");
+      setShowSkipPicker(true);
       return;
     }
     if (profile?.challengeEmailConsents?.[challenge.project.id] === undefined) {
@@ -486,7 +488,7 @@ export default function ChallengeDetailPage() {
                   boxShadow: "0 4px 18px var(--gold-glow)",
                 }}
               >
-                {isActive ? "Log a Skip" : joining ? "Joining..." : "Join Challenge"}
+                {isActive ? (profileChallengeBalance > 0 ? "Log a Skip" : "Log your first skip") : joining ? "Joining..." : "Join Challenge"}
               </button>
             )}
             {challenge.project.donationURL && (
@@ -644,11 +646,16 @@ export default function ChallengeDetailPage() {
       {goalPickerProjectId && (
         <PersonalGoalPickerModal
           onClose={() => setGoalPickerProjectId(null)}
+          onSkip={() => {
+            setGoalPickerProjectId(null);
+            setShowSkipPicker(true);
+          }}
           onSet={async (amount) => {
             if (!user) return;
             await setUserCauseGoal(user.uid, goalPickerProjectId, amount);
             updateProfile({ causeGoalAmounts: { ...(profile?.causeGoalAmounts ?? {}), [goalPickerProjectId]: amount } });
             setGoalPickerProjectId(null);
+            setShowSkipPicker(true);
           }}
         />
       )}
@@ -658,9 +665,11 @@ export default function ChallengeDetailPage() {
 
 function PersonalGoalPickerModal({
   onClose,
+  onSkip,
   onSet,
 }: {
   onClose: () => void;
+  onSkip: () => void;
   onSet: (amount: number) => Promise<void>;
 }) {
   const PRESETS = [25, 50, 100, 200];
@@ -689,7 +698,7 @@ function PersonalGoalPickerModal({
         <div className="flex items-start justify-between gap-4 mb-4">
           <div>
             <p className="text-xl font-black" style={{ color: "var(--text-primary)" }}>You&apos;re in! 🙌</p>
-            <p className="text-sm mt-1" style={{ color: "var(--text-muted)" }}>Set a personal savings goal. Your jar will show your progress toward it.</p>
+            <p className="text-sm mt-1" style={{ color: "var(--text-muted)" }}>Set a personal goal if you want, then log your first skip for this challenge.</p>
           </div>
           <button onClick={onClose} aria-label="Close" className="text-xl leading-none" style={{ color: "var(--text-muted)" }}>×</button>
         </div>
@@ -736,7 +745,16 @@ function PersonalGoalPickerModal({
           className="mt-3 w-full py-3 rounded-xl text-sm font-black disabled:opacity-40"
           style={{ background: "#2ECC71", color: "#0B1A14" }}
         >
-          {saving ? "Saving…" : "Save"}
+          {saving ? "Saving..." : "Save & log first skip"}
+        </button>
+        <button
+          type="button"
+          onClick={onSkip}
+          disabled={saving}
+          className="mt-2 w-full py-2 text-xs font-bold disabled:opacity-50"
+          style={{ color: "var(--text-muted)" }}
+        >
+          Skip goal for now
         </button>
       </div>
     </div>

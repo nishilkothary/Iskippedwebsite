@@ -3,7 +3,7 @@ import { useEffect, useState, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { toast } from "sonner";
-import { signInWithGoogle, signUpWithEmail, signInWithEmail, resetPassword, signOut } from "@/lib/services/firebase/auth";
+import { signInWithGoogle, signUpWithEmail, signInWithEmail, resetPassword } from "@/lib/services/firebase/auth";
 import { useAuthStore } from "@/store/authStore";
 
 const previewSkips = [
@@ -74,15 +74,15 @@ function SignInPage() {
   const [cardsVisible, setCardsVisible] = useState(false);
   const [resetLoading, setResetLoading] = useState(false);
   const [resetSent, setResetSent] = useState(false);
-  const [signupVerificationSent, setSignupVerificationSent] = useState(false);
   const [emailSignupInProgress, setEmailSignupInProgress] = useState(false);
 
   const redirectParam = searchParams.get("redirect");
   const postAuthDestination = redirectParam?.startsWith("/") ? redirectParam : "/home";
+  const isChallengeRedirect = postAuthDestination.startsWith("/challenges/");
 
   useEffect(() => {
-    if (!isLoading && user && !emailSignupInProgress && !signupVerificationSent) router.replace(postAuthDestination);
-  }, [user, isLoading, emailSignupInProgress, signupVerificationSent, router, postAuthDestination]);
+    if (!isLoading && user && !emailSignupInProgress) router.replace(postAuthDestination);
+  }, [user, isLoading, emailSignupInProgress, router, postAuthDestination]);
 
   useEffect(() => {
     const t = setTimeout(() => setCardsVisible(true), 200);
@@ -121,14 +121,12 @@ function SignInPage() {
     try {
       if (mode === "signup") {
         const { verificationEmailSent } = await signUpWithEmail(email, password, name.trim());
-        await signOut();
         if (verificationEmailSent) {
-          toast.success("Verification email sent — check your inbox.");
-          setSignupVerificationSent(true);
-          setPassword("");
+          toast.success("Account created. Check your inbox when you can to verify your email.");
         } else {
-          setError("Account created, but we couldn't send the verification email. Sign in to resend it from the banner.");
+          toast.success("Account created.");
         }
+        router.replace(postAuthDestination);
       } else {
         await signInWithEmail(email, password);
         router.replace(postAuthDestination);
@@ -174,7 +172,7 @@ function SignInPage() {
       {mode !== "forgot" && (
         <div className="flex bg-[#F3F4F6] rounded-xl p-1 mb-5">
           <button
-            onClick={() => { setMode("signup"); setError(null); setSignupVerificationSent(false); }}
+            onClick={() => { setMode("signup"); setError(null); }}
             className={`flex-1 py-2 rounded-lg text-sm font-semibold transition ${
               mode === "signup" ? "bg-white text-[#3D8B68] shadow-sm" : "text-[#6B7280] hover:text-[#111827]"
             }`}
@@ -182,7 +180,7 @@ function SignInPage() {
             Sign Up
           </button>
           <button
-            onClick={() => { setMode("signin"); setError(null); setSignupVerificationSent(false); }}
+            onClick={() => { setMode("signin"); setError(null); }}
             className={`flex-1 py-2 rounded-lg text-sm font-semibold transition ${
               mode === "signin" ? "bg-white text-[#3D8B68] shadow-sm" : "text-[#6B7280] hover:text-[#111827]"
             }`}
@@ -195,23 +193,13 @@ function SignInPage() {
       {error && (
         <div className="mb-4 p-3 bg-red-50 text-red-600 rounded-lg text-sm">{error}</div>
       )}
-
-      {signupVerificationSent ? (
-        <div className="space-y-3">
-          <div className="p-4 bg-emerald-50 border border-emerald-200 rounded-xl text-sm text-emerald-700 text-center">
-            Check your inbox — we sent a verification link to <span className="font-semibold">{email}</span>.
-          </div>
-          <p className="text-sm text-[#6B7280] text-center">
-            After verifying, come back and sign in with your email and password.
-          </p>
-          <button
-            onClick={() => { setMode("signin"); setError(null); setSignupVerificationSent(false); }}
-            className="w-full px-4 py-3 bg-gradient-to-r from-[#3D8B68] to-[#34A87A] text-white rounded-xl font-semibold text-sm hover:opacity-90 transition shadow-md"
-          >
-            Back to Sign In
-          </button>
+      {isChallengeRedirect && mode !== "forgot" && (
+        <div className="mb-4 rounded-xl px-4 py-3 text-sm" style={{ background: "#ECFDF3", border: "1px solid #BBF7D0", color: "#166534" }}>
+          Create an account or sign in to join this skip challenge. You&apos;ll come right back after this.
         </div>
-      ) : mode === "forgot" ? (
+      )}
+
+      {mode === "forgot" ? (
         <div className="space-y-3">
           {resetSent ? (
             <div className="p-4 bg-emerald-50 border border-emerald-200 rounded-xl text-sm text-emerald-700 text-center">

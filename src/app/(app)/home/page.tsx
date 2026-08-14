@@ -39,6 +39,7 @@ interface JarProps {
   actionColor?: string;
   unitDisplay?: string;  // e.g. "days", "meals" — shown in jar instead of %
   unitCount?: number;    // pre-computed count of units funded
+  centerValueOverride?: string;
   centerLabelOverride?: string; // overrides the default "to goal" / "saved" center label
 }
 
@@ -203,7 +204,7 @@ function DonationReminderController({
   );
 }
 
-function Jar({ fillPercent, color, gradEnd, label, amount, emoji, causeLabel, goalAmount, emptyLabel, href, onClick, actionLabel, actionOnClick, actionColor, unitDisplay, unitCount, centerLabelOverride }: JarProps) {
+function Jar({ fillPercent, color, gradEnd, label, amount, emoji, causeLabel, goalAmount, emptyLabel, href, onClick, actionLabel, actionOnClick, actionColor, unitDisplay, unitCount, centerValueOverride, centerLabelOverride }: JarProps) {
   const clamp = Math.min(Math.max(fillPercent, 0), 100);
   const w = 160;
   const h = 240;
@@ -214,13 +215,14 @@ function Jar({ fillPercent, color, gradEnd, label, amount, emoji, causeLabel, go
   const uid = `${label}-${color}-${Math.round(clamp)}`.replace(/\W/g, "");
   const hasAmount = amount !== "$0.00";
   const showCenter = !!causeLabel || hasAmount;
-  const centerValue = causeLabel ? `${Math.round(clamp)}%` : amount;
+  const centerValue = centerValueOverride ?? (causeLabel ? `${Math.round(clamp)}%` : amount);
   const centerLabel = centerLabelOverride ?? (causeLabel
     ? goalAmount && goalAmount > 0 ? "to goal" : "saved"
     : "ready");
   const centerLabelLines = centerLabel.split("\n");
   const centerMultiLine = centerLabelLines.length > 1;
   const hasGoalDisplay = !!(causeLabel && goalAmount && goalAmount > 0);
+  const centerValueFontSize = centerValue.length > 7 ? 11 : centerValue.length > 5 ? 13 : 17;
   const cvY = centerMultiLine ? (hasGoalDisplay ? 76 : 84) : (hasGoalDisplay ? 84 : 92);
   const labelY0 = centerMultiLine ? (hasGoalDisplay ? 93 : 100) : (hasGoalDisplay ? 102 : 112);
   const labelY1 = labelY0 + 10;
@@ -368,7 +370,7 @@ function Jar({ fillPercent, color, gradEnd, label, amount, emoji, causeLabel, go
               x={60*scale} y={cvY*scale}
               textAnchor="middle"
               dominantBaseline="middle"
-              fontSize={(!causeLabel && centerValue.length > 4 ? 13 : 17)*scale}
+              fontSize={centerValueFontSize*scale}
               fontWeight="800"
               fill="rgba(255,255,255,0.9)"
               style={{ fontFamily: "inherit" }}
@@ -593,13 +595,11 @@ export default function HomePage() {
   const communityGoal = activeProject && isActiveChallenge ? getCommunityGoal(activeProject) : 0;
   const personalGoal = profile.causeGoalAmounts?.[activeProject?.id ?? ""]
     ?? (!isActiveChallenge ? activeProject?.goalAmount ?? 0 : 0);
-  const givingFillPct = personalGoal > 0 ? Math.min(100, (givingBalance / personalGoal) * 100) : 0;
-  const destinationGoalAmount = personalGoal > 0
-    ? personalGoal
-    : isActiveChallenge && communityGoal > 0 ? communityGoal : undefined;
-  const destinationFillPct = destinationGoalAmount
-    ? Math.min(100, (givingBalance / destinationGoalAmount) * 100)
-    : 0;
+  const hasPersonalGivingGoal = personalGoal > 0;
+  const givingStartedFillPct = givingBalance > 0 ? 16 : 0;
+  const givingFillPct = hasPersonalGivingGoal ? Math.min(100, (givingBalance / personalGoal) * 100) : givingStartedFillPct;
+  const destinationGoalAmount = hasPersonalGivingGoal ? personalGoal : undefined;
+  const destinationFillPct = givingFillPct;
   const destinationAmount = givingBalance;
   const givingJarImpactLine = activeProject?.unitCost && activeProject.unitCost > 0 && destinationAmount > 0 && (activeProject.unitName || activeProject.unitDisplay)
     ? formatAggregateImpactUnitsDecimal(destinationAmount, activeProject.unitCost, activeProject.unitName || activeProject.unitDisplay || "impact", activeProject.unitDisplay, activeProject.unitIsGoal)
@@ -877,7 +877,8 @@ export default function HomePage() {
             causeLabel={activeProject?.title}
             goalAmount={destinationGoalAmount}
             emptyLabel={destinationEmptyLabel}
-            centerLabelOverride={personalGoal > 0 && isActiveChallenge ? "your goal" : isActiveChallenge && destinationGoalAmount ? "contributed\nto group goal" : undefined}
+            centerValueOverride={!hasPersonalGivingGoal && destinationAmount > 0 ? formatCurrency(destinationAmount) : undefined}
+            centerLabelOverride={hasPersonalGivingGoal && isActiveChallenge ? "your goal" : !hasPersonalGivingGoal && destinationAmount > 0 ? "in jar" : undefined}
             onClick={() => router.push(destinationHref)}
             actionLabel="Donate my Jar"
             actionOnClick={() => router.push("/jars?tab=cause")}
