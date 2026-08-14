@@ -4,6 +4,7 @@ import { render } from "@react-email/components";
 import { getAdminDb, getAdminRtdb } from "@/lib/services/firebaseAdmin";
 import WeeklyReport, { WeeklyReportProps } from "@/lib/emails/WeeklyReport";
 import { formatUnits, oneUnitPhrase } from "@/lib/utils/impact";
+import { getConsecutiveWeeklyStreak } from "@/lib/utils/dates";
 import crypto from "crypto";
 import * as React from "react";
 
@@ -84,6 +85,12 @@ function getWeekRange(): { start: string; end: string; label: string } {
   };
 }
 
+function addDays(dateKey: string, days: number): string {
+  const date = new Date(`${dateKey}T00:00:00.000Z`);
+  date.setUTCDate(date.getUTCDate() + days);
+  return date.toISOString().slice(0, 10);
+}
+
 function getUnsubscribeUrl(uid: string): string {
   const token = crypto
     .createHmac("sha256", process.env.CRON_SECRET ?? "")
@@ -152,12 +159,16 @@ export async function GET(req: NextRequest) {
     weekSaved: number;
     skipCount: number;
     causeAmount: number;
+    endedStreakWeeks: number | null;
   };
 
   const BATCH = 10;
   const cutoff = new Date();
   cutoff.setUTCDate(cutoff.getUTCDate() - 42);
   const cutoffStr = cutoff.toISOString().slice(0, 10);
+  const streakHistoryCutoff = new Date();
+  streakHistoryCutoff.setUTCDate(streakHistoryCutoff.getUTCDate() - 370);
+  const streakHistoryCutoffStr = streakHistoryCutoff.toISOString().slice(0, 10);
 
   const eligible = users.filter(
     (u) =>
@@ -181,18 +192,37 @@ export async function GET(req: NextRequest) {
           .where("date", "<=", week.end)
           .get();
 
-        const skips = skipsSnap.docs.map((d) => d.data());
-        const weekSaved = skips.reduce((s: number, sk: any) => s + (sk.amount ?? 0), 0);
-        const skipCount = skips.length;
+        const weekSkips = skipsSnap.docs.map((d) => d.data());
+        const historySnap = await db
+          .collection("users")
+          .doc(u.uid)
+          .collection("skips")
+          .where("date", ">=", streakHistoryCutoffStr)
+          .where("date", "<", week.start)
+          .get();
+        const historySkips = historySnap.docs.map((d) => d.data());
+        const allRecentDates = [...weekSkips, ...historySkips].map((sk: any) => sk.date);
+        const weekSaved = weekSkips.reduce((s: number, sk: any) => s + (sk.amount ?? 0), 0);
+        const skipCount = weekSkips.length;
+        const endedStreakWeeks = skipCount === 0
+          ? getConsecutiveWeeklyStreak(allRecentDates, addDays(week.start, -1))
+          : 0;
         let causeAmount = 0;
 
-        for (const sk of skips) {
+        for (const sk of weekSkips) {
           const amt = sk.amount ?? 0;
           const give = sk.jarSplit?.give ?? (u.jarSplit?.give ?? 50);
           causeAmount += amt * (give / 100);
         }
 
-        return { uid: u.uid, email: u.email, weekSaved, skipCount, causeAmount };
+        return {
+          uid: u.uid,
+          email: u.email,
+          weekSaved,
+          skipCount,
+          causeAmount,
+          endedStreakWeeks: endedStreakWeeks > 0 ? endedStreakWeeks : null,
+        };
       })
     );
     for (const r of results) {
@@ -240,6 +270,7 @@ export async function GET(req: NextRequest) {
           skipCount: noSkipPreview ? 0 : data.skipCount,
           causeAmount,
           streak: profile.streak ?? 0,
+          endedStreakWeeks: noSkipPreview ? 3 : data.endedStreakWeeks,
           causeName,
           causeImpactText: formatCauseImpact(causeAmount, causeName, projectImpact),
           communityTotalSaved,

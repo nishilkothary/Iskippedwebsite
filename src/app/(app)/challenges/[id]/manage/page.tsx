@@ -685,58 +685,26 @@ function SocialStatsSharePanel({
       </div>
 
       <div className="rounded-xl overflow-hidden mb-3" style={{ background: "#F4F7F2", border: "1px solid var(--border-default)" }}>
-        <div className="p-4" style={{ background: "#123B2A", color: "#F4F7F2" }}>
-          <p className="text-[10px] uppercase tracking-[0.18em] font-black" style={{ color: "#8BE0AA" }}>iSkipped</p>
-          <p className="text-lg font-black leading-tight mt-2">{title}</p>
-          <p className="text-xs mt-1" style={{ color: "#C5D8CC" }}>A little change can fund a lot of impact.</p>
-        </div>
-        <div className="p-4" style={{ color: "#123B2A" }}>
-          <div className="grid grid-cols-2 gap-3 items-start">
-            <SocialCardMetric value={totalSkips.toLocaleString()} label="skips" />
-            <SocialCardMetric value={formatWholeCurrency(raised)} label="pledged" />
-          </div>
-          <div className="mt-1 text-center">
-            <p className="text-xl font-black leading-none" style={{ color: "#527262" }}>=</p>
-            <div className="mt-3">
-              <SocialCardMetric value={impactStat} />
-            </div>
-          </div>
-          {goalAmount > 0 && (
-            <div className="mt-4">
-              <div className="flex items-center justify-between text-[10px] font-black mb-1">
-                <span>{progressPct}% of goal</span>
-                <span>{formatCurrency(goalAmount)}</span>
-              </div>
-              <div className="h-2 rounded-full overflow-hidden" style={{ background: "#D8E6DC" }}>
-                <div className="h-full rounded-full" style={{ width: `${progressPct}%`, background: "#2E8B57" }} />
-              </div>
-            </div>
-          )}
-          <p className="text-[10px] mt-4 truncate" style={{ color: "#527262" }}>{url}</p>
-        </div>
+        <img
+          src={cardImage}
+          alt={`${title} share image preview`}
+          className="block w-full h-auto"
+          style={{ aspectRatio: "1 / 1" }}
+        />
       </div>
 
       <div className="grid grid-cols-2 gap-2">
-        <a
-          href={cardImage}
-          download="iskipped-impact.svg"
+        <button
+          type="button"
+          onClick={() => downloadSocialCardImage(cardImage, title)}
           className="py-2 rounded-xl text-xs font-bold"
           style={{ border: "1px solid var(--border-emphasis)", color: "var(--green-primary)", textAlign: "center" }}
         >
-          Download Image
-        </a>
+          Download PNG
+        </button>
         <ShareButton url={url} text={shareText} title={`${title} progress`} imageUrl={cardImage} label="Share Image" />
       </div>
     </section>
-  );
-}
-
-function SocialCardMetric({ value, label }: { value: string; label?: string }) {
-  return (
-    <div className="min-w-0 text-center">
-      <p className="text-xl font-black leading-tight break-words" style={{ color: "#123B2A" }}>{value}</p>
-      {label && <p className="text-[10px] mt-1 uppercase tracking-[0.12em] font-black" style={{ color: "#527262" }}>{label}</p>}
-    </div>
   );
 }
 
@@ -770,25 +738,91 @@ function buildSocialCardImage({
     .replaceAll("<", "&lt;")
     .replaceAll(">", "&gt;")
     .replaceAll('"', "&quot;");
-  const goalText = goalAmount > 0 ? `${progressPct}% of ${formatCurrency(goalAmount)} goal` : "Every skip helps fund the cause";
-  const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="630" viewBox="0 0 1200 630">
-    <rect width="1200" height="630" fill="#F4F7F2"/>
-    <rect width="1200" height="220" fill="#123B2A"/>
-    <text x="70" y="72" fill="#8BE0AA" font-family="Arial, sans-serif" font-size="24" font-weight="700" letter-spacing="5">ISKIPPED</text>
-    <text x="70" y="142" fill="#F4F7F2" font-family="Arial, sans-serif" font-size="42" font-weight="700">${escape(title)}</text>
-    <text x="70" y="182" fill="#C5D8CC" font-family="Arial, sans-serif" font-size="22">A little change can fund a lot of impact.</text>
-    <text x="210" y="290" fill="#123B2A" font-family="Arial, sans-serif" font-size="48" font-weight="700" text-anchor="middle">${totalSkips.toLocaleString()}</text>
-    <text x="210" y="325" fill="#527262" font-family="Arial, sans-serif" font-size="20" text-anchor="middle">skips</text>
-    <text x="590" y="290" fill="#123B2A" font-family="Arial, sans-serif" font-size="48" font-weight="700" text-anchor="middle">${escape(formatWholeCurrency(raised))}</text>
-    <text x="590" y="325" fill="#527262" font-family="Arial, sans-serif" font-size="20" text-anchor="middle">pledged</text>
-    <text x="600" y="345" fill="#527262" font-family="Arial, sans-serif" font-size="30" font-weight="700" text-anchor="middle">=</text>
-    <text x="600" y="405" fill="#123B2A" font-family="Arial, sans-serif" font-size="38" font-weight="700" text-anchor="middle">${escape(impactStat)}</text>
-    <text x="70" y="470" fill="#123B2A" font-family="Arial, sans-serif" font-size="22" font-weight="700">${escape(goalText)}</text>
-    <rect x="70" y="490" width="1060" height="18" rx="9" fill="#D8E6DC"/>
-    <rect x="70" y="490" width="${Math.max(0, Math.min(1060, Math.round(1060 * progressPct / 100)))}" height="18" rx="9" fill="#2E8B57"/>
-    <text x="70" y="600" fill="#527262" font-family="Arial, sans-serif" font-size="18">Join now: ${escape(url)}</text>
+  const goalText = goalAmount > 0 ? `${progressPct}% of ${formatCurrency(goalAmount)} goal` : "Every skip can help the cause";
+  const titleLines = wrapSvgText(title, 29, 2);
+  const impactLines = wrapSvgText(impactStat, 24, 2);
+  const shortUrl = url.length > 88 ? `${url.slice(0, 85)}...` : url;
+  const hasGoal = goalAmount > 0;
+  const bottomTextY = hasGoal ? 805 : 850;
+  const joinTextY = hasGoal ? 930 : 895;
+  const titleText = titleLines
+    .map((line, index) => `<tspan x="110" dy="${index === 0 ? 0 : 56}">${escape(line)}</tspan>`)
+    .join("");
+  const impactText = impactLines
+    .map((line, index) => `<tspan x="540" dy="${index === 0 ? 0 : 52}">${escape(line)}</tspan>`)
+    .join("");
+  const barWidth = Math.max(0, Math.min(800, Math.round(800 * progressPct / 100)));
+  const progressBar = hasGoal
+    ? `<rect x="140" y="870" width="800" height="20" rx="10" fill="#D8E6DC"/>
+    <rect x="140" y="870" width="${barWidth}" height="20" rx="10" fill="#2E8B57"/>`
+    : "";
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="1080" height="1080" viewBox="0 0 1080 1080">
+    <rect width="1080" height="1080" fill="#F4F7F2"/>
+    <rect x="70" y="82" width="940" height="916" rx="34" fill="#FFFFFF"/>
+    <rect x="70" y="82" width="940" height="278" rx="34" fill="#123B2A"/>
+    <rect x="70" y="320" width="940" height="40" fill="#123B2A"/>
+    <text x="110" y="145" fill="#8BE0AA" font-family="Arial, sans-serif" font-size="23" font-weight="700" letter-spacing="5">ISKIPPED</text>
+    <text x="110" y="213" fill="#F4F7F2" font-family="Arial, sans-serif" font-size="46" font-weight="700">${titleText}</text>
+    <text x="110" y="315" fill="#C5D8CC" font-family="Arial, sans-serif" font-size="23">A little change can fund a lot of impact.</text>
+    <text x="330" y="492" fill="#123B2A" font-family="Arial, sans-serif" font-size="58" font-weight="700" text-anchor="middle">${totalSkips.toLocaleString()}</text>
+    <text x="330" y="532" fill="#527262" font-family="Arial, sans-serif" font-size="19" font-weight="700" letter-spacing="3" text-anchor="middle">SKIPS</text>
+    <text x="750" y="492" fill="#123B2A" font-family="Arial, sans-serif" font-size="58" font-weight="700" text-anchor="middle">${escape(formatWholeCurrency(raised))}</text>
+    <text x="750" y="532" fill="#527262" font-family="Arial, sans-serif" font-size="19" font-weight="700" letter-spacing="3" text-anchor="middle">PLEDGED</text>
+    <text x="540" y="610" fill="#527262" font-family="Arial, sans-serif" font-size="34" font-weight="700" text-anchor="middle">=</text>
+    <text x="540" y="682" fill="#123B2A" font-family="Arial, sans-serif" font-size="58" font-weight="700" text-anchor="middle">${impactText}</text>
+    <text x="140" y="${bottomTextY}" fill="#123B2A" font-family="Arial, sans-serif" font-size="23" font-weight="700">${escape(goalText)}</text>
+    ${progressBar}
+    <text x="140" y="${joinTextY}" fill="#527262" font-family="Arial, sans-serif" font-size="18">Join now: ${escape(shortUrl)}</text>
   </svg>`;
   return `data:image/svg+xml;charset=utf-8,${encodeURIComponent(svg)}`;
+}
+
+function wrapSvgText(value: string, maxChars: number, maxLines: number): string[] {
+  const words = value.split(/\s+/).filter(Boolean);
+  const lines: string[] = [];
+  let line = "";
+
+  for (const word of words) {
+    const next = line ? `${line} ${word}` : word;
+    if (next.length <= maxChars || !line) {
+      line = next;
+      continue;
+    }
+    lines.push(line);
+    line = word;
+    if (lines.length === maxLines - 1) break;
+  }
+
+  if (line && lines.length < maxLines) lines.push(line);
+  if (words.join(" ").length > lines.join(" ").length) {
+    lines[lines.length - 1] = `${lines[lines.length - 1].replace(/\s+$/, "")}...`;
+  }
+  return lines;
+}
+
+async function downloadSocialCardImage(imageUrl: string, title: string) {
+  const image = await new Promise<HTMLImageElement>((resolve, reject) => {
+    const img = new Image();
+    img.onload = () => resolve(img);
+    img.onerror = reject;
+    img.src = imageUrl;
+  });
+  const canvas = document.createElement("canvas");
+  canvas.width = 1080;
+  canvas.height = 1080;
+  const ctx = canvas.getContext("2d");
+  if (!ctx) return;
+  ctx.drawImage(image, 0, 0, 1080, 1080);
+  const blob = await new Promise<Blob | null>((resolve) => canvas.toBlob(resolve, "image/png"));
+  if (!blob) return;
+  const objectUrl = URL.createObjectURL(blob);
+  const link = document.createElement("a");
+  link.href = objectUrl;
+  link.download = `${title.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "") || "iskipped"}-impact.png`;
+  document.body.appendChild(link);
+  link.click();
+  document.body.removeChild(link);
+  URL.revokeObjectURL(objectUrl);
 }
 
 function buildProgressUpdate({
@@ -923,30 +957,46 @@ function MemberEmailOutreach({
   }
 
   async function handleCopyEmails() {
-    if (!emailList) return;
+    if (!emailList) {
+      setEmailNotice("No shared member emails yet. Members need to allow email sharing when they join.");
+      return;
+    }
     try {
-      await navigator.clipboard.writeText(emailList);
+      await copyText(emailList);
       setCopied("emails");
+      setEmailNotice("Member emails copied.");
       setTimeout(() => setCopied(null), 2000);
-    } catch {}
+    } catch {
+      setEmailNotice("Could not copy emails. Try selecting and copying them manually.");
+    }
   }
 
   async function handleCopyDraft() {
+    const draft = selectedMember ? personalFallback : `Subject: ${subject}\n\n${groupBody}`;
     try {
-      await navigator.clipboard.writeText(personalBody);
+      await copyText(draft);
       setCopied("draft");
+      setEmailNotice("Draft copied.");
       setTimeout(() => setCopied(null), 2000);
-    } catch {}
+    } catch {
+      setEmailNotice("Could not copy the draft. Try selecting and copying the text manually.");
+    }
   }
 
   async function handleOpenEmail(mailto: string, fallbackDraft: string) {
-    if (!mailto || !fallbackDraft) return;
+    if (!mailto || !fallbackDraft) {
+      setEmailNotice("No shared member emails yet. Members need to allow email sharing when they join.");
+      return;
+    }
     setEmailNotice("Opening your email app...");
-    window.location.href = mailto;
+    const opened = window.open(mailto, "_blank");
+    if (!opened) {
+      window.location.href = mailto;
+    }
     window.setTimeout(async () => {
       if (document.visibilityState !== "visible") return;
       try {
-        await navigator.clipboard.writeText(fallbackDraft);
+        await copyText(fallbackDraft);
         setEmailNotice("No email app opened, so the draft was copied to your clipboard.");
       } catch {
         setEmailNotice("No email app opened. Use Copy Draft or Copy Emails instead.");
@@ -1031,8 +1081,7 @@ function MemberEmailOutreach({
           <button
             type="button"
             onClick={() => handleOpenEmail(personalMailto, personalFallback)}
-            disabled={!selectedMember}
-            className="py-2 rounded-xl text-xs font-bold text-center disabled:opacity-50"
+            className="py-2 rounded-xl text-xs font-bold text-center"
             style={{
               background: selectedMember ? "var(--green-primary)" : "var(--bg-surface-3)",
               color: selectedMember ? "#0B1A14" : "var(--text-muted)",
@@ -1043,8 +1092,7 @@ function MemberEmailOutreach({
           <button
             type="button"
             onClick={() => handleOpenEmail(groupMailto, groupFallback)}
-            disabled={emailableMembers.length === 0}
-            className="py-2 rounded-xl text-xs font-bold text-center disabled:opacity-50"
+            className="py-2 rounded-xl text-xs font-bold text-center"
             style={{
               border: "1px solid var(--border-emphasis)",
               color: emailableMembers.length > 0 ? "var(--green-primary)" : "var(--text-muted)",
@@ -1055,8 +1103,7 @@ function MemberEmailOutreach({
           <button
             type="button"
             onClick={handleCopyDraft}
-            disabled={!selectedMember}
-            className="py-2 rounded-xl text-xs font-bold disabled:opacity-50"
+            className="py-2 rounded-xl text-xs font-bold"
             style={{ border: "1px solid var(--border-emphasis)", color: "var(--green-primary)" }}
           >
             {copied === "draft" ? "Copied!" : "Copy Draft"}
@@ -1064,8 +1111,7 @@ function MemberEmailOutreach({
           <button
             type="button"
             onClick={handleCopyEmails}
-            disabled={emailableMembers.length === 0}
-            className="py-2 rounded-xl text-xs font-bold disabled:opacity-50"
+            className="py-2 rounded-xl text-xs font-bold"
             style={{ border: "1px solid var(--border-emphasis)", color: "var(--green-primary)" }}
           >
             {copied === "emails" ? "Copied!" : "Copy Emails"}
@@ -1099,4 +1145,24 @@ function buildMailto({
   params.set("subject", subject);
   params.set("body", body);
   return `mailto:${to}?${params.toString()}`;
+}
+
+async function copyText(text: string) {
+  if (navigator.clipboard?.writeText) {
+    await navigator.clipboard.writeText(text);
+    return;
+  }
+
+  const textarea = document.createElement("textarea");
+  textarea.value = text;
+  textarea.setAttribute("readonly", "");
+  textarea.style.position = "fixed";
+  textarea.style.left = "-9999px";
+  document.body.appendChild(textarea);
+  textarea.select();
+  const copied = document.execCommand("copy");
+  document.body.removeChild(textarea);
+  if (!copied) {
+    throw new Error("Copy failed");
+  }
 }

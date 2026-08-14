@@ -18,6 +18,7 @@ export interface WeeklyReportProps {
   totalSaved: number;
   skipCount: number;
   streak: number;
+  endedStreakWeeks?: number | null;
   causeName: string | null;
   causeAmount: number;
   causeImpactText: string | null;
@@ -50,6 +51,7 @@ export default function WeeklyReport({
   totalSaved,
   skipCount,
   streak,
+  endedStreakWeeks,
   causeName,
   causeAmount,
   causeImpactText,
@@ -64,6 +66,7 @@ export default function WeeklyReport({
     (causeName && causeAmount > 0
       ? `${dollars(causeAmount)} pledged for ${causeName}`
       : null);
+  const streakEnded = skipCount === 0 && !!endedStreakWeeks && endedStreakWeeks > 0;
 
   return (
     <Html>
@@ -123,12 +126,25 @@ export default function WeeklyReport({
               </Row>
             </Section>
 
-            <Text style={{ color: GOLD, fontSize: 19, fontWeight: 900, lineHeight: 1.35, textAlign: "center", margin: "18px 0 4px" }}>
-              Your weekly skip streak is <strong style={{ color: GOLD }}>{streak}</strong> week{streak === 1 ? "" : "s"}.
-            </Text>
-            <Text style={{ color: TEXT_MUTED, fontSize: 14, lineHeight: 1.45, textAlign: "center", margin: 0 }}>
-              Keep it alive this week by skipping one more expense.
-            </Text>
+            {streakEnded ? (
+              <>
+                <Text style={{ color: GOLD, fontSize: 19, fontWeight: 900, lineHeight: 1.35, textAlign: "center", margin: "18px 0 4px" }}>
+                  Your <strong style={{ color: GOLD }}>{endedStreakWeeks}</strong>-week skip streak took a pause.
+                </Text>
+                <Text style={{ color: TEXT_MUTED, fontSize: 14, lineHeight: 1.45, textAlign: "center", margin: 0 }}>
+                  Fresh start: log one skip this week and start a new streak.
+                </Text>
+              </>
+            ) : (
+              <>
+                <Text style={{ color: GOLD, fontSize: 19, fontWeight: 900, lineHeight: 1.35, textAlign: "center", margin: "18px 0 4px" }}>
+                  Your weekly skip streak is <strong style={{ color: GOLD }}>{streak}</strong> week{streak === 1 ? "" : "s"}.
+                </Text>
+                <Text style={{ color: TEXT_MUTED, fontSize: 14, lineHeight: 1.45, textAlign: "center", margin: 0 }}>
+                  Keep it alive this week by skipping one more expense.
+                </Text>
+              </>
+            )}
           </Section>
 
           <Section style={{ textAlign: "center", padding: "24px 0 30px" }}>
