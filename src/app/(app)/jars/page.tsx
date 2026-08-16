@@ -164,7 +164,7 @@ function JarsPageInner() {
       transfer = await switchGoal(user!.uid, activeSpendingGoalId, goalId, moveFunds, spendingGoals);
     } catch (err) {
       console.error("switchGoal failed", err);
-      toast.error("Couldn't switch your reward — check your connection and try again.");
+      toast.error("Couldn't switch your goal — check your connection and try again.");
       return;
     }
     const currentBalances = profile!.goalJarBalances ?? {};
@@ -191,7 +191,7 @@ function JarsPageInner() {
       );
     } catch (err) {
       console.error("completeGoal failed", err);
-      toast.error("Couldn't complete your reward — check your connection and try again.");
+      toast.error("Couldn't complete your goal — check your connection and try again.");
       return;
     }
     const newGoals = spendingGoals.filter((g) => g.id !== goalId);
@@ -280,111 +280,14 @@ function JarsPageInner() {
 
   return (
     <div className="p-4 md:p-8 max-w-2xl mx-auto pb-20 md:pb-8">
-      {/* Jar split card */}
-      <div className="rounded-2xl p-4 mb-5" style={{ background: "var(--bg-surface-1)", border: "1px solid var(--border-default)" }}>
-        <p className="text-xs font-bold uppercase tracking-widest mb-3" style={{ color: "var(--text-muted)" }}>Preferred Jar Split</p>
-        <div className="flex justify-between mb-2">
-          <div>
-            <p className="text-xs font-semibold" style={{ color: "var(--green-primary)" }}>🤲 Giving Jar</p>
-            <p className="text-xl font-black" style={{ color: "var(--green-primary)" }}>{splitGive}%</p>
-          </div>
-          <div className="text-right">
-            <p className="text-xs font-semibold" style={{ color: "#8B5CF6" }}>😊 Reward Jar</p>
-            <p className="text-xl font-black" style={{ color: "#8B5CF6" }}>{100 - splitGive}%</p>
-          </div>
-        </div>
-        {/* Two-tone track */}
-        <div className="relative h-2 rounded-full mb-4 overflow-hidden" style={{ background: "var(--bg-surface-3)" }}>
-          <div className="absolute inset-y-0 left-0 rounded-full" style={{ width: `${splitGive}%`, background: "linear-gradient(90deg, var(--green-primary), #2ECC71)" }} />
-          <div className="absolute inset-y-0 right-0 rounded-full" style={{ width: `${100 - splitGive}%`, background: "linear-gradient(90deg, #7C3AED, #8B5CF6)" }} />
-        </div>
-        <input
-          type="range"
-          min={0}
-          max={100}
-          step={5}
-          value={splitGive}
-          onChange={(e) => setSplitGive(Number(e.target.value))}
-          className="w-full mb-4"
-          style={{ accentColor: "var(--green-primary)", height: 4 }}
-        />
-        {splitGive !== split.give && (
-          <button
-            disabled={savingSplit}
-            onClick={async () => {
-              setSavingSplit(true);
-              const { updateJarSettings } = await import("@/lib/services/firebase/users");
-              await updateJarSettings(user.uid, { give: splitGive, live: 100 - splitGive });
-              updateProfile({ jarSplit: { give: splitGive, live: 100 - splitGive } });
-              setSavingSplit(false);
-            }}
-            className="w-full py-2.5 rounded-xl text-sm font-bold disabled:opacity-50"
-            style={{ background: "var(--green-primary)", color: "#0B1A14" }}
-          >
-            {savingSplit ? "Saving…" : "Save split"}
-          </button>
-        )}
+      <div className="mb-5">
+        <p className="text-xs font-black uppercase tracking-[0.16em]" style={{ color: "#8B5CF6" }}>Goals</p>
+        <h1 className="text-3xl font-black mt-1" style={{ color: "var(--text-primary)", letterSpacing: 0 }}>Spend your skips</h1>
+        <p className="text-sm mt-2" style={{ color: "var(--text-secondary)" }}>
+          Use your Skip Bank for goals and rewards you actually want.
+        </p>
       </div>
-
-      {/* Tab bar */}
-      <div className="flex rounded-2xl p-1 mb-5" style={{ background: "var(--bg-surface-1)", border: "1px solid var(--border-default)" }}>
-        <button
-          onClick={() => { setActiveTab("cause"); router.push("/jars?tab=cause"); }}
-          className="flex-1 py-4 rounded-xl text-sm font-bold transition-all"
-          style={activeTab === "cause"
-            ? { background: "var(--green-primary)", color: "#0B1A14" }
-            : { color: "var(--text-muted)" }}
-        >
-          My Giving Jar
-        </button>
-        <button
-          onClick={() => { setActiveTab("live"); router.push("/jars?tab=live"); }}
-          className="flex-1 py-4 rounded-xl text-sm font-bold transition-all"
-          style={activeTab === "live"
-            ? { background: "#8B5CF6", color: "white" }
-            : { color: "var(--text-muted)" }}
-        >
-          My Reward Jar
-        </button>
-      </div>
-
-      {activeTab === "live" ? (
-        <SplurgeTab {...splurgeProps} />
-      ) : (
-        <div className="space-y-5">
-          <CauseTab
-            uid={user.uid}
-            projects={projects}
-            activeProject={activeProject}
-            givingBalance={givingBalance}
-            donations={donations}
-            causeJarBalances={profile.causeJarBalances}
-            causeGoalAmounts={profile.causeGoalAmounts}
-            completedChallenges={completedChallenges}
-            onSelectCause={handleSelectCause}
-            onSetGoal={handleSetCauseGoal}
-            onDeactivateCause={handleDeactivateCause}
-            onAddCause={handleAddCause}
-            onEditCause={async (projectId, data) => {
-              await updateCustomProject(user!.uid, projectId, data);
-              await refetch();
-            }}
-            onDeleteCause={handleDeleteCause}
-            onDonate={async (amount) => {
-              await donate(amount, activeProject?.id ?? "giving", activeProject?.title ?? "Giving");
-            }}
-            onDonateCompleted={async (amount, projectId, projectTitle) => {
-              await donate(amount, projectId, projectTitle);
-            }}
-            onEditDonation={editDonation}
-            onDeleteDonation={deleteDonation}
-            onShowCommunityChallenges={() => router.push("/challenges")}
-            totalGiveAllocated={giveTotal}
-            totalDonated={profile.totalDonated ?? 0}
-            autoOpenDonationLog={autoOpenDonationLog}
-          />
-        </div>
-      )}
+      <SplurgeTab {...splurgeProps} />
     </div>
   );
 }
@@ -1364,7 +1267,7 @@ function SplurgeTab({
               <button onClick={() => setDeactivatingGoal(false)} aria-label="Close" className="absolute top-4 right-4 text-xl leading-none" style={{ color: "var(--text-muted)" }}>×</button>
               <p className="text-lg font-bold pr-6" style={{ color: "var(--text-primary)" }}>Deactivate this goal?</p>
               <p className="text-xs mt-1.5" style={{ color: "var(--text-secondary)" }}>
-                Deactivating will park your {formatCurrency(spendingBalance)} Reward Jar balance until you pick a new reward.
+                Deactivating will keep your {formatCurrency(spendingBalance)} in your Skip Bank until you pick a new goal.
               </p>
             </div>
             <div className="px-5 py-4 flex gap-2">
@@ -1447,7 +1350,7 @@ function SplurgeTab({
             ) : (
               <>
                 <p className="text-xs mb-4" style={{ color: "var(--text-muted)" }}>
-                  Current active reward: <span className="font-semibold" style={{ color: "var(--text-primary)" }}>{activeGoal.label}</span>
+                  Current active goal: <span className="font-semibold" style={{ color: "var(--text-primary)" }}>{activeGoal.label}</span>
                 </p>
                 <div className="grid grid-cols-3 gap-3 mb-4">
                   <div className="rounded-xl p-3 text-center" style={{ background: "var(--bg-surface-2)", border: "1px solid var(--border-default)" }}>
@@ -1459,7 +1362,7 @@ function SplurgeTab({
                     <p className="text-lg font-extrabold leading-tight" style={{ color: "var(--text-primary)" }}>{formatCurrency(totalSpent)}</p>
                   </div>
                   <div className="rounded-xl p-3 text-center" style={{ background: "rgba(139,92,246,0.08)", border: "1px solid rgba(139,92,246,0.35)" }}>
-                    <p className="text-[10px] font-bold uppercase tracking-wide mb-1" style={{ color: "#8B5CF6" }}>In Current Reward Jar</p>
+                    <p className="text-[10px] font-bold uppercase tracking-wide mb-1" style={{ color: "#8B5CF6" }}>Available from Skip Bank</p>
                     <p className="text-lg font-extrabold leading-tight" style={{ color: "#8B5CF6" }}>{formatCurrency(spendingBalance)}</p>
                   </div>
                 </div>
@@ -1530,7 +1433,7 @@ function SplurgeTab({
                   <div className="mt-3 rounded-xl p-3 space-y-2" style={{ background: "rgba(239,68,68,0.1)", border: "1px solid rgba(239,68,68,0.3)" }}>
                     <p className="text-xs font-semibold text-[#EDF5F0]">Delete &quot;{activeGoal.label}&quot;?</p>
                     {spendingBalance > 0 && (
-                      <p className="text-xs text-[rgba(237,245,240,0.6)]">You have {formatCurrency(spendingBalance)} in this jar.</p>
+                      <p className="text-xs text-[rgba(237,245,240,0.6)]">You have {formatCurrency(spendingBalance)} available in your Skip Bank.</p>
                     )}
                     {spendingBalance > 0 ? (
                       <div className="space-y-1.5">
@@ -1561,7 +1464,7 @@ function SplurgeTab({
         <div className="rounded-2xl p-5 mb-4" style={{ background: "var(--bg-surface-1)", border: "1px solid rgba(139,92,246,0.35)" }}>
           <div className="flex items-center justify-between gap-4">
             <div style={{ minWidth: 0 }}>
-              <p className="text-xs font-semibold uppercase tracking-wide mb-1" style={{ color: "var(--text-muted)" }}>Reward Jar</p>
+              <p className="text-xs font-semibold uppercase tracking-wide mb-1" style={{ color: "var(--text-muted)" }}>Skip Bank</p>
               <p className="text-3xl font-extrabold" style={{ color: "var(--text-primary)" }}>
                 {formatCurrency(spendingBalance)}
               </p>
@@ -1569,7 +1472,7 @@ function SplurgeTab({
                 {spendingBalance > 0 ? "ready to assign" : "ready for your next skip"}
               </p>
               <p className="text-xs mt-2" style={{ color: "var(--text-secondary)", lineHeight: 1.5 }}>
-                Choose where this reward goes, then future skips will fill the jar.
+                Choose a goal, then use your skipped savings when you are ready.
               </p>
             </div>
             <JarPreview
@@ -1578,7 +1481,7 @@ function SplurgeTab({
               gradEnd="#6D28D9"
               label={null}
               amount=""
-              emptyPrompt="Pick a reward"
+              emptyPrompt="Pick a goal"
               centerValue={spendingBalance > 0 ? formatCurrency(spendingBalance) : "$0"}
               centerLabel={spendingBalance > 0 ? "ready" : "saved"}
             />
@@ -1592,7 +1495,7 @@ function SplurgeTab({
         if (!goal) return null;
         return (
           <div className="rounded-2xl p-4 space-y-3" style={{ background: "var(--bg-surface-1)", border: "1px solid var(--border-default)" }}>
-            <p className="text-sm font-semibold" style={{ color: "var(--text-primary)" }}>Edit reward</p>
+            <p className="text-sm font-semibold" style={{ color: "var(--text-primary)" }}>Edit goal</p>
             <input
               type="text"
               value={editLabel}
@@ -1641,7 +1544,7 @@ function SplurgeTab({
         );
       })()}
 
-      {/* Rewards list */}
+      {/* Goals list */}
       {!showAddForm && !editingGoalId && (
         <div className="mt-2">
           {/* Filter tabs */}
@@ -1666,7 +1569,7 @@ function SplurgeTab({
               className="px-4 py-2.5 rounded-full text-sm font-black shrink-0"
               style={{ background: "white", color: "#0B1A14", border: "none" }}
             >
-              + Add a Reward
+              + Add a Goal
             </button>
           </div>
 
@@ -1740,10 +1643,10 @@ function SplurgeTab({
         </div>
       )}
 
-      {/* Custom reward form */}
+      {/* Custom goal form */}
       {showAddForm && (
         <div className="rounded-2xl p-4 space-y-3" style={{ background: "var(--bg-surface-1)", border: "1px solid var(--border-default)" }}>
-          <p className="text-sm font-semibold" style={{ color: "var(--text-primary)" }}>Create Reward</p>
+          <p className="text-sm font-semibold" style={{ color: "var(--text-primary)" }}>Create Goal</p>
           <input
             type="text"
             placeholder="e.g. AirPods, Vacation, Shoes"
@@ -1777,7 +1680,7 @@ function SplurgeTab({
               disabled={saving || !addLabel.trim() || !addAmount}
               className="flex-1 py-3 bg-[#8B5CF6] text-white font-semibold rounded-xl text-sm disabled:opacity-50"
             >
-              {saving ? "Saving..." : "Create Reward"}
+              {saving ? "Saving..." : "Create Goal"}
             </button>
             <button
               onClick={() => { setShowAddForm(false); setAddLabel(""); setAddAmount(""); setAddLink(""); }}
@@ -1797,7 +1700,7 @@ function SplurgeTab({
           <div className="rounded-2xl px-4 py-3" style={{ background: "var(--bg-surface-1)", border: "1px dashed rgba(139,92,246,0.25)" }}>
             <p className="text-sm font-semibold" style={{ color: "var(--text-primary)" }}>No purchases yet</p>
             <p className="text-xs mt-1" style={{ color: "var(--text-muted)", lineHeight: 1.5 }}>
-              When you buy a reward, it will show up here as proof your skips turned into something real.
+              When you spend your skips, it will show up here as proof your skipped savings turned into something real.
             </p>
           </div>
         ) : (
