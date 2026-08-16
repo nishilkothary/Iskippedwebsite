@@ -88,6 +88,7 @@ export interface Skip {
   whatSkipped?: string;
   notes?: string;
   jarSplit?: { give: number; live: number };
+  allocationMode?: "jar-split" | "skip-pot";
 }
 
 export interface Project {
@@ -150,6 +151,7 @@ export interface DonationEvent {
   causeId: string;
   causeTitle: string;
   amount: number;
+  jarDecrease?: number;
   date?: string; // YYYY-MM-DD, user-specified donation date
   donatedAt: Timestamp;
 }

@@ -58,6 +58,16 @@ function getChallengeGoal(project: Project): number {
   return project.goalAmount > 0 ? project.goalAmount : 0;
 }
 
+function getDisplayGoalAmount(project: Project): number {
+  if (project.goalAmount > 0) return project.goalAmount;
+  if (project.unitCost && project.unitCost > 0) return project.unitCost * 10;
+  return 0;
+}
+
+function getUnitLabel(project: Project): string {
+  return project.unitDisplay ?? project.unitName ?? "units";
+}
+
 function getSkipChallengeLine(project: Project): string | null {
   const milestones = project.skipMilestones;
   if (!milestones) return null;
@@ -80,7 +90,7 @@ function visibilityLabel(project: Project): ChallengeView["visibilityLabel"] {
 function challengeFromProject(project: Project): ChallengeView {
   const category = challengeCategory(project);
   const fallback = fallbackForCategory(category);
-  const goal = getChallengeGoal(project);
+  const goal = getDisplayGoalAmount(project);
   const raised = Math.min(goal, project.totalRaised || 0);
   const progressPct = goal > 0 ? Math.min(100, Math.round((raised / goal) * 100)) : 0;
 
@@ -392,13 +402,34 @@ export default function ChallengeDetailPage() {
 
           <div className="mt-5">
             {challenge.goal > 0 ? (
-              pledgedAmount > 0 ? (
-                <ProgressBar challenge={challenge} pledgedAmount={pledgedAmount} />
-              ) : (
-                <p className="text-sm font-semibold" style={{ color: "var(--text-muted)" }}>
-                  Goal: {formatCurrency(challenge.goal)}
-                </p>
-              )
+              (() => {
+                const unitCost = challenge.project.unitCost ?? 0;
+                const hasUnits = unitCost > 0;
+                const statsReady = profile !== null;
+                const unitLabel = getUnitLabel(challenge.project);
+                const goalUnits = hasUnits ? Math.round(challenge.goal / unitCost) : 0;
+                const donatedUnits = hasUnits && statsReady ? Math.floor(pledgedAmount / unitCost) : 0;
+                return (
+                  <div className="grid grid-cols-2 gap-3 rounded-xl p-4" style={{ background: "var(--bg-surface-2)", border: "1px solid var(--border-default)" }}>
+                    <div className="text-center">
+                      <p className="text-xl font-black" style={{ color: "var(--green-primary)" }}>
+                        {hasUnits ? goalUnits.toLocaleString() : formatCurrency(challenge.goal)}
+                      </p>
+                      <p className="text-xs mt-0.5" style={{ color: "var(--text-muted)" }}>
+                        {hasUnits ? `${unitLabel} goal` : "goal"}
+                      </p>
+                    </div>
+                    <div className="text-center">
+                      <p className="text-xl font-black" style={{ color: "var(--gold-cta)" }}>
+                        {hasUnits ? (statsReady ? donatedUnits.toLocaleString() : "-") : (statsReady ? formatCurrency(pledgedAmount) : "-")}
+                      </p>
+                      <p className="text-xs mt-0.5" style={{ color: "var(--text-muted)" }}>
+                        {hasUnits ? `${unitLabel} donated` : "donated"}
+                      </p>
+                    </div>
+                  </div>
+                );
+              })()
             ) : (
               /* Partner / open-ended challenge — show aggregate stats instead of a progress bar */
               (() => {
@@ -488,7 +519,7 @@ export default function ChallengeDetailPage() {
                   boxShadow: "0 4px 18px var(--gold-glow)",
                 }}
               >
-                {isActive ? (profileChallengeBalance > 0 ? "Log a Skip" : "Log your first skip") : joining ? "Joining..." : "Join Challenge"}
+                {isActive ? (profileChallengeBalance > 0 ? "Log a Skip" : "Log your first skip") : joining ? "Joining..." : "Join Fundraiser"}
               </button>
             )}
             {challenge.project.donationURL && (
@@ -576,7 +607,7 @@ export default function ChallengeDetailPage() {
                     boxShadow: "0 4px 18px var(--gold-glow)",
                   }}
                 >
-                  {joining ? "Joining..." : "Join Challenge"}
+                  {joining ? "Joining..." : "Join Fundraiser"}
                 </button>
               )}
             </div>
@@ -628,7 +659,7 @@ export default function ChallengeDetailPage() {
                 className="py-3 rounded-full text-sm font-black"
                 style={{ background: "linear-gradient(135deg, var(--gold-cta), var(--gold-light))", color: "var(--bg-base)" }}
               >
-                Join Challenge
+                Join Fundraiser
               </button>
               <button
                 type="button"

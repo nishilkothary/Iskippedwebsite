@@ -3,6 +3,7 @@ import { FieldValue } from "firebase-admin/firestore";
 import { getAdminDb } from "@/lib/services/firebaseAdmin";
 import { requireUid, handleApiError } from "@/lib/services/apiAuth";
 import { validateAmount, validateNonEmptyString } from "@/lib/services/serverProfileDefaults";
+import { getSkipBalanceSummary } from "@/lib/utils/skipBalances";
 import { UserProfile } from "@/lib/types/models";
 
 export async function POST(req: NextRequest) {
@@ -18,28 +19,27 @@ export async function POST(req: NextRequest) {
     const userRef = db.collection("users").doc(uid);
     const historyRef = userRef.collection("spendingHistory").doc();
 
-    const jarDecrease = await db.runTransaction(async (tx) => {
+    const amountFromSkips = await db.runTransaction(async (tx) => {
       const userSnap = await tx.get(userRef);
       const profile = userSnap.data() as UserProfile | undefined;
-      const currentGoalBal = profile?.goalJarBalances?.[goalId] ?? 0;
-      const jarDecrease = Math.min(amount, Math.max(0, currentGoalBal));
+      const availableFromSkips = getSkipBalanceSummary(profile).availableFromSkips;
+      const amountFromSkips = Math.min(amount, availableFromSkips);
 
       tx.set(historyRef, {
         goalId,
         label: goalLabel,
         targetAmount,
-        amountSaved: jarDecrease,
+        amountSaved: amountFromSkips,
         purchasedAt: FieldValue.serverTimestamp(),
       });
       tx.update(userRef, {
-        totalSpent: FieldValue.increment(jarDecrease),
-        [`goalJarBalances.${goalId}`]: FieldValue.increment(-jarDecrease),
+        totalSpent: FieldValue.increment(amountFromSkips),
       });
 
-      return jarDecrease;
+      return amountFromSkips;
     });
 
-    return NextResponse.json({ jarDecrease });
+    return NextResponse.json({ jarDecrease: amountFromSkips, amountFromSkips });
   } catch (e) {
     return handleApiError(e);
   }

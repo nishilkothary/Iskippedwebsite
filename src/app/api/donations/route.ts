@@ -1,8 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
 import { FieldValue } from "firebase-admin/firestore";
 import { getAdminDb } from "@/lib/services/firebaseAdmin";
-import { requireUid, handleApiError } from "@/lib/services/apiAuth";
+import { requireUid, ApiError, handleApiError } from "@/lib/services/apiAuth";
 import { validateAmount, validateNonEmptyString } from "@/lib/services/serverProfileDefaults";
+import { getSkipBalanceSummary } from "@/lib/utils/skipBalances";
 import { UserProfile } from "@/lib/types/models";
 
 export async function POST(req: NextRequest) {
@@ -22,6 +23,11 @@ export async function POST(req: NextRequest) {
       const userSnap = await tx.get(userRef);
       const profile = userSnap.data() as UserProfile | undefined;
       const currentBal = profile?.causeJarBalances?.[projectId] ?? 0;
+      const availableFromSkips = getSkipBalanceSummary(profile).availableFromSkips;
+      const usableFromSkips = Math.max(0, currentBal) + availableFromSkips;
+      if (amount > usableFromSkips) {
+        throw new ApiError(400, "Donation exceeds available skipped savings");
+      }
       const jarDecrease = Math.min(amount, Math.max(0, currentBal));
 
       tx.set(donationRef, {

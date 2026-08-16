@@ -4,7 +4,7 @@ import { toast } from "sonner";
 import { useAuthStore } from "@/store/authStore";
 import { useSkipStore } from "@/store/skipStore";
 import { subscribeToSkips, logSkip, LogSkipParams, updateSkip as firebaseUpdateSkip, deleteSkip as firebaseDeleteSkip } from "@/lib/services/firebase/skips";
-import { normalizeJarSplit, normalizeSpendingGoals } from "@/lib/services/firebase/users";
+import { normalizeJarSplit } from "@/lib/services/firebase/users";
 import { recordDonation, subscribeToDonations, updateDonation as firebaseUpdateDonation, deleteDonation as firebaseDeleteDonation } from "@/lib/services/firebase/users";
 import { today } from "@/lib/utils/dates";
 import { getImpactMessage } from "@/lib/constants/impactMessages";
@@ -31,11 +31,6 @@ export function useSkips() {
   async function log(params: Omit<LogSkipParams, "uid" | "currentTotalSaved" | "currentTotalSkips" | "currentXp" | "currentStreak" | "currentLongestStreak" | "lastSkipDate" | "savedTowardActiveCause" | "defaultJarSplit" | "activeGoalId" | "causeJarBalance" | "causeJarOverflowCount">) {
     if (!user || !profile) return null;
     setLogging(true);
-    const defaultJarSplit = normalizeJarSplit(profile.jarSplit as any);
-    const effectiveSplit = params.jarSplit ?? defaultJarSplit;
-    const activeGoalId = normalizeSpendingGoals(profile).activeId;
-    const giveAmount = params.amount * (effectiveSplit.give / 100);
-    const liveAmount = params.amount * (effectiveSplit.live / 100);
     const causeJarBalance = profile.causeJarBalances?.[params.projectId ?? ""] ?? 0;
     const causeJarOverflowCount = profile.causeJarOverflowCounts?.[params.projectId ?? ""] ?? 0;
     try {
@@ -49,10 +44,10 @@ export function useSkips() {
         currentLongestStreak: profile.longestStreak,
         lastSkipDate: profile.lastSkipDate,
         savedTowardActiveCause: profile.savedTowardActiveCause,
-        defaultJarSplit,
+        defaultJarSplit: { give: 0, live: 100 },
         displayName: user.displayName || profile.displayName,
         photoURL: user.photoURL || profile.photoURL || undefined,
-        activeGoalId,
+        activeGoalId: null,
         causeJarBalance,
         causeJarOverflowCount,
       });
@@ -65,17 +60,6 @@ export function useSkips() {
           streak: result.newStreak,
           longestStreak: result.newLongestStreak,
           lastSkipDate: today(),
-          totalGiveAllocated: (profile.totalGiveAllocated ?? 0) + giveAmount,
-          totalLiveAllocated: (profile.totalLiveAllocated ?? 0) + liveAmount,
-          causeJarBalances: params.projectId
-            ? { ...profile.causeJarBalances, [params.projectId]: (profile.causeJarBalances?.[params.projectId] ?? 0) + giveAmount }
-            : profile.causeJarBalances,
-          goalJarBalances: activeGoalId
-            ? { ...profile.goalJarBalances, [activeGoalId]: (profile.goalJarBalances?.[activeGoalId] ?? 0) + liveAmount }
-            : profile.goalJarBalances,
-          ...(result.giveJarOverflowCount !== undefined && params.projectId
-            ? { causeJarOverflowCounts: { ...(profile.causeJarOverflowCounts ?? {}), [params.projectId]: result.giveJarOverflowCount } }
-            : {}),
         });
       }
       return result;
@@ -125,16 +109,11 @@ export function useSkips() {
     const newLiveAlloc = newAmount * (newSplit.live / 100);
     const giveAllocDelta = newGiveAlloc - oldGiveAlloc;
     const liveAllocDelta = newLiveAlloc - oldLiveAlloc;
-    await firebaseUpdateSkip(user.uid, skip.id, updates, amountDelta, giveAllocDelta, liveAllocDelta, skip.projectId);
+    await firebaseUpdateSkip(user.uid, skip.id, updates, amountDelta, 0, 0, skip.projectId);
     storeUpdateSkip(skip.id, updates);
-    if (amountDelta !== 0 || giveAllocDelta !== 0 || liveAllocDelta !== 0) {
+    if (amountDelta !== 0) {
       updateProfile({
         totalSaved: profile.totalSaved + amountDelta,
-        totalGiveAllocated: Math.max(0, (profile.totalGiveAllocated ?? 0) + giveAllocDelta),
-        totalLiveAllocated: Math.max(0, (profile.totalLiveAllocated ?? 0) + liveAllocDelta),
-        causeJarBalances: skip.projectId && giveAllocDelta !== 0
-          ? { ...profile.causeJarBalances, [skip.projectId]: Math.max(0, (profile.causeJarBalances?.[skip.projectId] ?? 0) + giveAllocDelta) }
-          : profile.causeJarBalances,
       });
     }
   }
@@ -144,16 +123,11 @@ export function useSkips() {
     const skipSplit = skip.jarSplit ?? normalizeJarSplit(profile.jarSplit as any);
     const giveAllocAmount = skip.amount * (skipSplit.give / 100);
     const liveAllocAmount = skip.amount * (skipSplit.live / 100);
-    await firebaseDeleteSkip(user.uid, skip.id, skip.amount, giveAllocAmount, liveAllocAmount, skip.projectId);
+    await firebaseDeleteSkip(user.uid, skip.id, skip.amount, 0, 0, skip.projectId);
     removeSkip(skip.id);
     updateProfile({
       totalSaved: profile.totalSaved - skip.amount,
       totalSkips: profile.totalSkips - 1,
-      totalGiveAllocated: Math.max(0, (profile.totalGiveAllocated ?? 0) - giveAllocAmount),
-      totalLiveAllocated: Math.max(0, (profile.totalLiveAllocated ?? 0) - liveAllocAmount),
-      causeJarBalances: skip.projectId
-        ? { ...profile.causeJarBalances, [skip.projectId]: Math.max(0, (profile.causeJarBalances?.[skip.projectId] ?? 0) - giveAllocAmount) }
-        : profile.causeJarBalances,
     });
   }
 
@@ -162,11 +136,16 @@ export function useSkips() {
     const delta = newAmount - donation.amount;
     await firebaseUpdateDonation(user.uid, donation.id, newAmount, donation.amount, donation.causeId, date);
     if (delta !== 0) {
+      const currentBal = profile.causeJarBalances?.[donation.causeId] ?? 0;
+      const oldJarDecrease = donation.jarDecrease ?? donation.amount;
+      const jarDelta = delta > 0
+        ? -Math.min(delta, Math.max(0, currentBal))
+        : Math.min(-delta, Math.max(0, oldJarDecrease));
       updateProfile({
         totalDonated: profile.totalDonated + delta,
         causeJarBalances: {
           ...(profile.causeJarBalances ?? {}),
-          [donation.causeId]: (profile.causeJarBalances?.[donation.causeId] ?? 0) - delta,
+          [donation.causeId]: currentBal + jarDelta,
         },
       });
     }
@@ -179,7 +158,7 @@ export function useSkips() {
       totalDonated: profile.totalDonated - donation.amount,
       causeJarBalances: {
         ...(profile.causeJarBalances ?? {}),
-        [donation.causeId]: (profile.causeJarBalances?.[donation.causeId] ?? 0) + jarDecrease,
+        [donation.causeId]: (profile.causeJarBalances?.[donation.causeId] ?? 0) + (donation.jarDecrease ?? jarDecrease),
       },
     });
   }

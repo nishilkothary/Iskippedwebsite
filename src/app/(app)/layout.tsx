@@ -15,17 +15,17 @@ import { Project } from "@/lib/types/models";
 
 const NAV_ITEMS = [
   { href: "/home",        label: "Home",       emoji: "🏠", tab: null },
-  { href: "/challenges",  label: "Challenges", emoji: "🎯", tab: null },
-  { href: "/jars",        label: "Jars",       emoji: "🫙", tab: null },
+  { href: "/challenges",  label: "Fundraisers", emoji: "🎯", tab: null },
+  { href: "/jars",        label: "Goals",      emoji: "🫙", tab: null },
   { href: "/about",       label: "About",      emoji: "💡", tab: null },
   { href: "/profile",     label: "Profile",    emoji: "👤", tab: null },
 ];
 
 function isNavActive(item: (typeof NAV_ITEMS)[number], pathname: string, _searchParams: { get: (name: string) => string | null }) {
-  if (item.label === "Challenges") {
+  if (item.href === "/challenges") {
     return pathname === "/challenges" || pathname.startsWith("/challenges/");
   }
-  if (item.label === "Jars") {
+  if (item.href === "/jars") {
     return pathname === "/jars";
   }
   return pathname === item.href;

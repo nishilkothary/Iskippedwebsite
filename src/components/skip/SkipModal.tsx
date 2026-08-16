@@ -35,7 +35,7 @@ export function SkipModal({ onClose }: Props) {
   const [amountStr, setAmountStr] = useState("");
   const [customLabel, setCustomLabel] = useState("");
   const [whatSkipped, setWhatSkipped] = useState("");
-  const [shareWithCommunity, setShareWithCommunity] = useState(false);
+  const [shareWithCommunity, setShareWithCommunity] = useState(true);
   const shareToggleTouchedRef = useRef(false);
   const [projectId] = useState<string | null>(profile?.activeProjectId ?? null);
   const [success, setSuccess] = useState(false);
@@ -43,7 +43,7 @@ export function SkipModal({ onClose }: Props) {
   const [successProjectUnitName, setSuccessProjectUnitName] = useState<string | null>(null);
   const [successProjectUnitDisplay, setSuccessProjectUnitDisplay] = useState<string | null>(null);
   const [successProjectUnitCost, setSuccessProjectUnitCost] = useState<number | null>(null);
-  const [skipGivePct, setSkipGivePct] = useState(profileSplit.give);
+  const [skipGivePct, setSkipGivePct] = useState(0);
   const [successOverflowCount, setSuccessOverflowCount] = useState<number | undefined>(undefined);
   const [successJarBalance, setSuccessJarBalance] = useState(0);
   const [successStreak, setSuccessStreak] = useState(0);
@@ -97,7 +97,7 @@ export function SkipModal({ onClose }: Props) {
       projectUnitIsGoal: selectedProject?.unitIsGoal ?? null,
       shareWithCommunity,
       whatSkipped: whatSkipped || undefined,
-      jarSplit: { give: skipGivePct, live: 100 - skipGivePct },
+      jarSplit: { give: 0, live: 0 },
       causeGoalAmount: personalGoal,
     });
     if (result) {
@@ -137,25 +137,7 @@ export function SkipModal({ onClose }: Props) {
     // Build the success hero around the concrete transformation this skip becomes.
     const itemLabel = whatSkipped || customLabel || selectedCat.label.toLowerCase();
     const causeTitle = successProjectTitle ?? null;
-    let impactStat = "";
-    if (causeTitle && successProjectUnitName && successProjectUnitCost && !successActiveProject?.unitIsGoal) {
-      const unitsStr = formatUnits(skipGive, successProjectUnitCost, successProjectUnitName, successProjectUnitDisplay);
-      impactStat = `${unitsStr} pledged`;
-    } else if (causeTitle && successProjectUnitName && successProjectUnitCost && successActiveProject?.unitIsGoal) {
-      const pct = Math.max(1, Math.round((skipGive / successProjectUnitCost) * 100));
-      // One unit IS the goal here, so phrase it in the singular: "88% of a Chromebook for a student"
-      const unitPhrase = successActiveProject.unitPhrase ?? oneUnitPhrase(successProjectUnitName);
-      impactStat = `${pct}% of ${unitPhrase} pledged`;
-    } else if (successActiveProject?.isCustom) {
-      const pct = (successActiveProject.goalAmount ?? 0) > 0
-        ? Math.max(1, Math.round((skipGive / successActiveProject.goalAmount!) * 100))
-        : 0;
-      impactStat = pct > 0 ? `${pct}% of your goal pledged` : `${formatCurrency(skipGive)} pledged`;
-    } else if (causeTitle) {
-      impactStat = `${formatCurrency(skipGive)} pledged`;
-    } else {
-      impactStat = `${formatCurrency(amount)} saved`;
-    }
+    const impactStat = `${formatCurrency(amount)} saved`;
     const challengeURL = successActiveProject
       ? appendRefParam(`${typeof window !== "undefined" ? window.location.origin : "https://iskipped.com"}${getChallengeSharePath(successActiveProject)}`, profile?.uid)
       : "https://iskipped.com";
@@ -211,7 +193,7 @@ export function SkipModal({ onClose }: Props) {
     }
 
     // Show cause nudge INSTEAD of great job on skip #1 and every 3rd skip (until cause is chosen)
-    const showCauseNudge = !successActiveProject && (postLogSkipCount === 1 || postLogSkipCount % 3 === 1);
+    const showCauseNudge = false;
 
     if (showCauseNudge) {
       const nudgeCfc = projects.find((p) => p.id === "cfc");
@@ -430,7 +412,7 @@ export function SkipModal({ onClose }: Props) {
           </div>
 
           {/* Per-skip split slider */}
-          <div>
+          <div style={{ display: "none" }}>
             <label className="block text-sm font-medium mb-2" style={{ color: "var(--text-primary)" }}>This skip&apos;s split</label>
             <div className="flex items-center justify-between text-xs mb-1" style={{ color: "var(--text-secondary)" }}>
               <span>🤲 Giving <span className="font-bold" style={{ color: "var(--coral-primary)" }}>{skipGivePct}%</span></span>
@@ -469,7 +451,7 @@ export function SkipModal({ onClose }: Props) {
 
           {/* This Skip's Impact */}
           {amount > 0 && (
-            <div>
+            <div style={{ display: "none" }}>
               <p className="text-xs font-semibold uppercase tracking-widest mb-2" style={{ color: "var(--text-muted)" }}>This Skip&apos;s Impact</p>
               <div className="space-y-1">
                 <p className="text-sm font-semibold" style={{ color: "var(--coral-primary)" }}>

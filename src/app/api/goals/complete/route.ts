@@ -3,6 +3,7 @@ import { FieldValue } from "firebase-admin/firestore";
 import { getAdminDb } from "@/lib/services/firebaseAdmin";
 import { requireUid, ApiError, handleApiError } from "@/lib/services/apiAuth";
 import { validateNonEmptyString } from "@/lib/services/serverProfileDefaults";
+import { getSkipBalanceSummary } from "@/lib/utils/skipBalances";
 import { UserProfile } from "@/lib/types/models";
 
 export async function POST(req: NextRequest) {
@@ -27,7 +28,7 @@ export async function POST(req: NextRequest) {
       const goal = goals.find((g) => g.id === goalId);
       const label = goal?.label ?? fallbackLabel ?? "";
       const targetAmount = goal?.targetAmount ?? fallbackTargetAmount ?? 0;
-      const amountSaved = Math.max(0, (profile.totalLiveAllocated ?? 0) - (profile.totalSpent ?? 0));
+      const amountSaved = Math.min(getSkipBalanceSummary(profile).availableFromSkips, targetAmount);
 
       const newGoals = goals.filter((g) => g.id !== goalId);
       const newActiveId = activeId === goalId ? (newGoals[0]?.id ?? null) : activeId;
@@ -44,7 +45,6 @@ export async function POST(req: NextRequest) {
         spendingGoals: newGoals,
         activeSpendingGoalId: newActiveId,
         spendingGoal: null,
-        [`goalJarBalances.${goalId}`]: 0,
       });
     });
 

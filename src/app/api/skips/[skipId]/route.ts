@@ -34,7 +34,9 @@ export async function PATCH(req: NextRequest, ctx: RouteContext) {
       const skip = skipSnap.data() as Skip;
       const profile = userSnap.data() as UserProfile;
 
-      const defaultSplit = normalizeJarSplitServer(profile.jarSplit as any);
+      const defaultSplit = skip.allocationMode === "skip-pot"
+        ? { give: 0, live: 0 }
+        : normalizeJarSplitServer(profile.jarSplit as any);
       const oldAmount = skip.amount;
       const newAmount = (updates.amount as number | undefined) ?? oldAmount;
       const amountDelta = newAmount - oldAmount;
@@ -111,7 +113,9 @@ export async function DELETE(req: NextRequest, ctx: RouteContext) {
       if (!skipSnap.exists) throw new ApiError(404, "Skip not found");
       const skip = skipSnap.data() as Skip;
       const profile = userSnap.data() as UserProfile;
-      const split = skip.jarSplit ?? normalizeJarSplitServer(profile.jarSplit as any);
+      const split = skip.allocationMode === "skip-pot"
+        ? { give: 0, live: 0 }
+        : (skip.jarSplit ?? normalizeJarSplitServer(profile.jarSplit as any));
       const giveAllocAmount = skip.amount * (split.give / 100);
       const liveAllocAmount = skip.amount * (split.live / 100);
 

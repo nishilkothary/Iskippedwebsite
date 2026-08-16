@@ -25,6 +25,8 @@ type ChallengeCard = {
   fallbackLabel: string;
   impactLine: string | null;
   skipChallengeLine: string | null;
+  goalInviteLine: string | null;
+  goal: number;
   goalLine: string;
   pledgedLine: string;
   progressPct: number;
@@ -37,7 +39,7 @@ function isVisibleChallenge(project: Project): boolean {
   return isChallengeProject(project);
 }
 
-const CATEGORY_OPTIONS = ["All", "Public", "My Challenges", "Archived"] as const;
+const CATEGORY_OPTIONS = ["All", "Public", "My Fundraisers", "Archived"] as const;
 type CreateChallengeCategory =
   | "education"
   | "food"
@@ -74,7 +76,13 @@ function fallbackForCategory(category: ChallengeCard["category"]) {
 }
 
 function getChallengeGoal(project: Project): number {
-  return project.goalAmount > 0 ? project.goalAmount : 0;
+  if (project.goalAmount > 0) return project.goalAmount;
+  if (project.unitCost && project.unitCost > 0) return project.unitCost * 10;
+  return 0;
+}
+
+function getUnitLabel(project: Project): string {
+  return project.unitDisplay ?? project.unitName ?? "units";
 }
 
 function normalizeChallengeVisibility(visibility?: Project["visibility"] | ChallengeVisibility): ChallengeAccessChoice {
@@ -110,12 +118,17 @@ function challengeFromProject(project: Project): ChallengeCard {
   const category = challengeCategory(project);
   const fallback = fallbackForCategory(category);
   const goal = getChallengeGoal(project);
-  const raised = Math.min(goal, project.totalRaised || 0);
+  const raised = Math.min(goal, project.totalDonated ?? project.totalRaised ?? 0);
   const progressPct = goal > 0 ? Math.min(100, Math.round((raised / goal) * 100)) : 0;
+  const unitCost = project.unitCost ?? 0;
+  const hasUnits = unitCost > 0 && goal > 0;
+  const unitLabel = getUnitLabel(project);
+  const goalUnits = hasUnits ? Math.round(goal / unitCost) : 0;
+  const donatedUnits = hasUnits ? Math.floor(raised / unitCost) : 0;
   return {
     project,
     title: challengeTitle(project),
-    beneficiary: project.location ? `for ${project.location}` : project.sponsor ? `by ${project.sponsor}` : "community challenge",
+    beneficiary: project.location ? `for ${project.location}` : project.sponsor ? `by ${project.sponsor}` : "community fundraiser",
     description: project.description || "Skip anything. Your small choices help this move.",
     category,
     imageURL: project.imageURL || (project.isCustom ? null : fallback.imageURL),
@@ -126,8 +139,14 @@ function challengeFromProject(project: Project): ChallengeCard {
         ? `Goal: ${formatCurrency(project.goalAmount)}`
         : null,
     skipChallengeLine: getSkipChallengeLine(project),
-    goalLine: `${formatCurrency(raised)} / ${formatCurrency(goal)}`,
-    pledgedLine: `${formatCurrency(raised)} pledged so far`,
+    goalInviteLine: hasUnits
+      ? `Help fund ${goalUnits.toLocaleString()} ${unitLabel} with skipped savings.`
+      : null,
+    goal,
+    goalLine: hasUnits
+      ? `${donatedUnits.toLocaleString()} / ${goalUnits.toLocaleString()} ${unitLabel} donated`
+      : `${formatCurrency(raised)} / ${formatCurrency(goal)}`,
+    pledgedLine: `${formatCurrency(raised)} donated so far`,
     progressPct,
     joinedLabel: (project.memberUids?.length ?? 0) > 0 ? `${project.memberUids!.length} joined` : null,
     trustLabel: project.isCustom ? "Community" : "Verified Partner",
@@ -141,7 +160,7 @@ export default function ChallengesPage() {
   const editId = searchParams.get("edit");
   const { user, profile, updateProfile } = useAuthStore();
   const { projects, refetch } = useProjects();
-  const [selectedCategory, setSelectedCategory] = useState<(typeof CATEGORY_OPTIONS)[number]>("My Challenges");
+  const [selectedCategory, setSelectedCategory] = useState<(typeof CATEGORY_OPTIONS)[number]>("My Fundraisers");
   const [joiningId, setJoiningId] = useState<string | null>(null);
   const [joinChoice, setJoinChoice] = useState<ChallengeCard | null>(null);
   const [showCreateForm, setShowCreateForm] = useState(false);
@@ -203,7 +222,7 @@ export default function ChallengesPage() {
     if (challenge.project.status === "ended") return false;
     if (selectedCategory === "All") return !isPrivateChallenge(challenge.project) || joinedProjectIds.has(challenge.project.id);
     if (selectedCategory === "Public") return !isPrivateChallenge(challenge.project);
-    if (selectedCategory === "My Challenges") return challenge.project.createdBy === user?.uid || joinedProjectIds.has(challenge.project.id);
+    if (selectedCategory === "My Fundraisers") return challenge.project.createdBy === user?.uid || joinedProjectIds.has(challenge.project.id);
     return true;
   });
   const visibleListChallenges = filteredChallenges.slice(0, 20);
@@ -319,7 +338,7 @@ export default function ChallengesPage() {
         durationDays: data.durationDays ?? null,
       });
       await refetch();
-      setSelectedCategory("My Challenges");
+      setSelectedCategory("My Fundraisers");
       setShowCreateForm(false);
       setPendingActivationProjectId(projectId);
     } finally {
@@ -407,7 +426,7 @@ export default function ChallengesPage() {
       </div>
 
       <div className="hidden md:flex items-center justify-between mb-6">
-        <p className="text-3xl font-black tracking-tight" style={{ color: "var(--text-primary)" }}>Challenges</p>
+        <p className="text-3xl font-black tracking-tight" style={{ color: "var(--text-primary)" }}>Fundraisers</p>
         <button
           type="button"
           onClick={() => setShowCreateForm(true)}
@@ -423,7 +442,7 @@ export default function ChallengesPage() {
       </div>
 
       {selectedCategory !== "Archived" && <section className="mt-6">
-        <SectionHeader title="Partner Challenges" subtitle="Challenges created with verified charities" />
+        <SectionHeader title="Partner Fundraisers" subtitle="Fundraisers created with verified charities" />
         <div className="space-y-3">
           {partnerChallenges.map((challenge) => (
             <ChallengeListCard
@@ -443,8 +462,8 @@ export default function ChallengesPage() {
 
       <div className="mt-8 mb-3 flex items-center justify-between gap-3">
         <div>
-          <p className="text-sm font-bold mb-0.5" style={{ color: "var(--text-primary)" }}>Community Challenges</p>
-          <p className="text-xs" style={{ color: "var(--text-secondary)" }}>Started by people like you.</p>
+          <p className="text-sm font-bold mb-0.5" style={{ color: "var(--text-primary)" }}>Community Fundraisers</p>
+          <p className="text-xs" style={{ color: "var(--text-secondary)" }}>Started by people skipping together.</p>
         </div>
         <button
           type="button"
@@ -510,8 +529,8 @@ export default function ChallengesPage() {
           </div>
         ) : (
           <div className="mt-3 rounded-xl py-8 text-center" style={{ background: "var(--bg-surface-1)", border: "1px solid var(--border-default)" }}>
-            <p className="text-sm font-semibold" style={{ color: "var(--text-muted)" }}>No archived challenges yet.</p>
-            <p className="text-xs mt-1" style={{ color: "var(--text-muted)" }}>Challenges you participated in will appear here after they end.</p>
+            <p className="text-sm font-semibold" style={{ color: "var(--text-muted)" }}>No archived fundraisers yet.</p>
+            <p className="text-xs mt-1" style={{ color: "var(--text-muted)" }}>Fundraisers you participated in will appear here after they end.</p>
           </div>
         )
       ) : visibleListChallenges.length > 0 ? (
@@ -532,7 +551,7 @@ export default function ChallengesPage() {
         </div>
       ) : (
         <div className="mt-3 rounded-xl py-8 text-center" style={{ background: "var(--bg-surface-1)", border: "1px solid var(--border-default)" }}>
-          <p className="text-sm font-semibold" style={{ color: "var(--text-muted)" }}>No community challenges yet.</p>
+          <p className="text-sm font-semibold" style={{ color: "var(--text-muted)" }}>No community fundraisers yet.</p>
           <p className="text-xs mt-1" style={{ color: "var(--text-muted)" }}>Be the first to start one.</p>
         </div>
       )}
@@ -635,7 +654,7 @@ function PersonalGoalPickerModal({
         <div className="flex items-start justify-between gap-4 mb-4">
           <div>
             <p className="text-xl font-black" style={{ color: "var(--text-primary)" }}>You&apos;re in! 🙌</p>
-            <p className="text-sm mt-1" style={{ color: "var(--text-muted)" }}>Set a personal savings goal for this challenge. Your jar will show your progress toward it.</p>
+            <p className="text-sm mt-1" style={{ color: "var(--text-muted)" }}>Set a personal savings goal for this fundraiser. Your Skip Bank will show your progress toward it.</p>
           </div>
           <button onClick={onClose} aria-label="Close" className="text-xl leading-none" style={{ color: "var(--text-muted)" }}>×</button>
         </div>
@@ -774,7 +793,7 @@ function ChallengeListCard({
 }) {
   const endDateMs = challenge.project.endDate?.toMillis?.();
   const isExpired = challenge.project.status === "ended" || (endDateMs ? endDateMs < Date.now() : false);
-  const joinLabel = isActive ? "Active" : isJoining ? "Joining..." : "Join Challenge";
+  const joinLabel = isActive ? "Active" : isJoining ? "Joining..." : "Join Fundraiser";
   const showImage = Boolean(challenge.imageURL || !challenge.project.isCustom);
 
   return (
@@ -787,11 +806,15 @@ function ChallengeListCard({
       <div className="min-w-0 flex-1 flex flex-col">
         <div className="flex items-start justify-between gap-2">
           <div className="min-w-0 flex-1">
+            {challenge.trustLabel !== "Community" && (
+              <div className="mb-1.5">
+                <Badge>{challenge.trustLabel}</Badge>
+              </div>
+            )}
             <div className="flex items-center gap-1.5 flex-wrap">
               <p className="text-sm font-black leading-snug" style={{ color: "var(--text-primary)" }}>
                 {challenge.project.groupName ?? challenge.title}
               </p>
-              <Badge>{accessBadgeLabel(challenge)}</Badge>
             </div>
             <p className="text-xs mt-0.5 truncate" style={{ color: "var(--text-muted)" }}>{challenge.project.sponsor || challenge.beneficiary}</p>
           </div>
@@ -803,8 +826,8 @@ function ChallengeListCard({
                 onShare();
               }}
               className="w-8 h-8 rounded-full text-sm font-bold"
-              aria-label="Share challenge"
-              title="Share challenge"
+              aria-label="Share fundraiser"
+              title="Share fundraiser"
               style={{ border: "1px solid var(--border-emphasis)", color: "var(--green-primary)" }}
             >
               ↗
@@ -817,8 +840,8 @@ function ChallengeListCard({
                   onEdit();
                 }}
                 className="w-8 h-8 rounded-full text-sm font-bold"
-                aria-label="Manage challenge"
-                title="Manage challenge"
+                aria-label="Manage fundraiser"
+                title="Manage fundraiser"
                 style={{ border: "1px solid var(--border-emphasis)", color: "var(--green-primary)" }}
               >
                 ⚙
@@ -834,11 +857,16 @@ function ChallengeListCard({
         )}
         {challenge.project.groupName && (
           <p className="text-xs mt-1.5 font-semibold truncate" style={{ color: "var(--green-primary)" }}>
-            Skipping for: {challenge.project.title}
+            Fundraising for: {challenge.project.title}
+          </p>
+        )}
+        {challenge.goalInviteLine && (
+          <p className="text-xs mt-1.5 font-bold" style={{ color: "var(--text-primary)" }}>
+            {challenge.goalInviteLine}
           </p>
         )}
         {challenge.impactLine && <p className="text-xs mt-1 font-semibold" style={{ color: "var(--green-primary)" }}>{challenge.impactLine}</p>}
-        {(challenge.project.goalAmount ?? 0) > 0
+        {challenge.goal > 0
           ? <ProgressBar challenge={challenge} className="mt-2" />
           : (challenge.project.totalRaised ?? 0) > 0 || (challenge.project.totalSkips ?? 0) > 0
             ? (
@@ -849,7 +877,6 @@ function ChallengeListCard({
             )
             : null
         }
-        {challenge.trustLabel !== "Community" && <div className="mt-2"><Badge>{challenge.trustLabel}</Badge></div>}
         {!challenge.project.donationURL && (
           <p className="text-xs mt-2 font-semibold" style={{ color: "#F59E0B" }}>
             ⚠ No external donation link — verify where to send funds before joining
@@ -865,11 +892,11 @@ function ChallengeListCard({
               style={{ border: "1px solid var(--border-emphasis)", color: "var(--green-primary)" }}
               onClick={(e) => e.stopPropagation()}
             >
-              Challenge ended · Donate →
+              Fundraiser ended · Donate →
             </a>
           ) : (
             <p className="mt-3 text-xs font-semibold text-center" style={{ color: "var(--text-muted)" }}>
-              Challenge ended
+              Fundraiser ended
             </p>
           )
         ) : (
@@ -1086,7 +1113,7 @@ function ChallengeDetailModal({
 
           {skipLevels.length > 0 && (
             <div className="mt-5">
-              <p className="text-xs uppercase tracking-wide font-bold mb-2" style={{ color: "var(--text-muted)" }}>Skip challenge</p>
+              <p className="text-xs uppercase tracking-wide font-bold mb-2" style={{ color: "var(--text-muted)" }}>Fundraiser progress</p>
               <div className="grid grid-cols-3 gap-2">
                 {skipLevels.map(([level, skips]) => (
                   <div key={level} className="rounded-xl p-3 text-center" style={{ background: "var(--bg-surface-2)", border: "1px solid var(--border-default)" }}>
@@ -1104,7 +1131,7 @@ function ChallengeDetailModal({
           <div className="mt-5">
             <p className="text-xs uppercase tracking-wide font-bold mb-2" style={{ color: "var(--text-muted)" }}>How to help</p>
             <div className="space-y-2">
-              {["Skip anything small", "Log the amount", "Watch the challenge move"].map((step, index) => (
+              {["Skip anything small", "Log the amount", "Watch the fundraiser move"].map((step, index) => (
                 <div key={step} className="flex items-center gap-3 rounded-xl px-3 py-2" style={{ background: "var(--bg-surface-2)" }}>
                   <span className="w-6 h-6 rounded-full flex items-center justify-center text-xs font-black" style={{ background: "rgba(46,204,113,0.14)", color: "var(--green-primary)" }}>{index + 1}</span>
                   <span className="text-sm font-semibold" style={{ color: "var(--text-primary)" }}>{step}</span>
@@ -1133,7 +1160,7 @@ function ChallengeDetailModal({
                 boxShadow: "0 4px 18px var(--gold-glow)",
               }}
             >
-              {isActive ? "Log a Skip" : isJoining ? "Joining..." : "Join Challenge"}
+              {isActive ? "Log a Skip" : isJoining ? "Joining..." : "Join Fundraiser"}
             </button>
             {challenge.project.donationURL && (
               <a
@@ -1379,7 +1406,7 @@ function CreateChallengeWizard({
       >
         <div className="px-5 pt-5 pb-4 relative" style={{ borderBottom: "1px solid var(--border-default)" }}>
           <button onClick={onClose} aria-label="Close" className="absolute top-4 right-4 text-xl leading-none" style={{ color: "var(--text-muted)" }}>x</button>
-          <p className="text-xl font-black pr-8" style={{ color: "var(--text-primary)" }}>{isEditing ? "Edit Challenge" : "Create Challenge"}</p>
+          <p className="text-xl font-black pr-8" style={{ color: "var(--text-primary)" }}>{isEditing ? "Edit Fundraiser" : "Create Fundraiser"}</p>
           <p className="text-sm mt-1" style={{ color: "var(--text-muted)" }}>Step {step} of 4</p>
           <div className="flex gap-2 mt-4 pr-8">
             {[1, 2, 3, 4].map((value) => (
@@ -1424,11 +1451,11 @@ function CreateChallengeWizard({
                 />
               </div>
               <div>
-                <p className="text-xs font-bold uppercase tracking-wide mb-1.5" style={{ color: "var(--text-muted)" }}>About this challenge</p>
+                <p className="text-xs font-bold uppercase tracking-wide mb-1.5" style={{ color: "var(--text-muted)" }}>About this fundraiser</p>
                 <textarea
                   value={description}
                   onChange={(event) => setDescription(event.target.value)}
-                  placeholder="Tell people what this challenge is all about..."
+                  placeholder="Tell people what this fundraiser is all about..."
                   rows={4}
                   className="w-full rounded-xl px-4 py-3 text-sm resize-none focus:outline-none"
                   style={{ background: "var(--bg-surface-2)", border: "1px solid var(--border-default)", color: "var(--text-primary)" }}
@@ -1461,7 +1488,7 @@ function CreateChallengeWizard({
                     <>
                       <img
                         src={imageURL}
-                        alt="Challenge cover preview"
+                        alt="Fundraiser cover preview"
                         className="w-full h-full object-cover"
                         style={{ objectPosition: `${imgPos.x}% ${imgPos.y}%`, pointerEvents: "none" }}
                         draggable={false}
@@ -1580,7 +1607,7 @@ function CreateChallengeWizard({
                 )}
                 {!useImpactUnit && (
                   <p className="text-sm font-semibold" style={{ color: "var(--text-secondary)" }}>
-                    This challenge will show dollars pledged instead of funded units.
+                    This fundraiser will show dollars pledged instead of funded units.
                   </p>
                 )}
                 <label
@@ -1659,7 +1686,7 @@ function CreateChallengeWizard({
               </div>
               {!isEditing && (
                 <div>
-                  <p className="text-xs font-bold uppercase tracking-wide mb-2" style={{ color: "var(--text-muted)" }}>Challenge duration</p>
+                  <p className="text-xs font-bold uppercase tracking-wide mb-2" style={{ color: "var(--text-muted)" }}>Fundraiser duration</p>
                   <div className="flex flex-wrap gap-2">
                     {([
                       { label: "2 weeks", days: 14 as number | null | "custom" },
@@ -1695,12 +1722,12 @@ function CreateChallengeWizard({
                   )}
                   {durationDays !== null && durationDays !== "custom" && (
                     <p className="text-xs mt-2" style={{ color: "var(--text-muted)" }}>
-                      Challenge ends {new Date(Date.now() + durationDays * 86400_000).toLocaleDateString(undefined, { month: "long", day: "numeric", year: "numeric" })}.
+                      Fundraiser ends {new Date(Date.now() + durationDays * 86400_000).toLocaleDateString(undefined, { month: "long", day: "numeric", year: "numeric" })}.
                     </p>
                   )}
                   {durationDays === "custom" && customDateStr && (
                     <p className="text-xs mt-2" style={{ color: "var(--text-muted)" }}>
-                      Challenge ends {new Date(customDateStr).toLocaleDateString(undefined, { month: "long", day: "numeric", year: "numeric" })}.
+                      Fundraiser ends {new Date(customDateStr).toLocaleDateString(undefined, { month: "long", day: "numeric", year: "numeric" })}.
                     </p>
                   )}
                 </div>
@@ -1749,7 +1776,7 @@ function CreateChallengeWizard({
                   )}
                   <p className="text-xs mt-1" style={{ color: "var(--text-muted)" }}>{organizer || "Organizer"}</p>
                   <p className="text-sm mt-3 leading-relaxed line-clamp-2" style={{ color: "var(--text-secondary)" }}>
-                    {description || "Your challenge story will appear here."}
+                    {description || "Your fundraiser story will appear here."}
                   </p>
                   {useImpactUnit && impactUnitName && parsedImpactUnitCost > 0 && (
                     <p className="text-sm mt-3 font-black" style={{ color: "var(--green-primary)" }}>
@@ -1807,7 +1834,7 @@ function CreateChallengeWizard({
                   boxShadow: "0 4px 18px var(--gold-glow)",
                 }}
               >
-              {creating ? (isEditing ? "Saving..." : "Creating...") : isEditing ? "Save Challenge" : "Create Challenge"}
+              {creating ? (isEditing ? "Saving..." : "Creating...") : isEditing ? "Save Fundraiser" : "Create Fundraiser"}
             </button>
             )}
           </div>

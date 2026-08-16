@@ -2,11 +2,10 @@ import { NextRequest, NextResponse } from "next/server";
 import { FieldValue } from "firebase-admin/firestore";
 import { getAdminDb, getAdminRtdb } from "@/lib/services/firebaseAdmin";
 import { requireUid, ApiError, handleApiError } from "@/lib/services/apiAuth";
-import { normalizeJarSplitServer, normalizeSpendingGoalsServer, validateAmount, validateNonEmptyString } from "@/lib/services/serverProfileDefaults";
+import { validateAmount, validateNonEmptyString } from "@/lib/services/serverProfileDefaults";
 import { getImpactMessage } from "@/lib/constants/impactMessages";
 import { xpForSkip, levelForXp, REFERRAL_BONUS_XP } from "@/lib/utils/xp";
 import { getConsecutiveWeeklyStreak, getLongestWeeklyStreak, today } from "@/lib/utils/dates";
-import { formatUnits } from "@/lib/utils/impact";
 import { adjustGlobalStats } from "@/lib/services/globalStats";
 import { UserProfile } from "@/lib/types/models";
 
@@ -22,16 +21,11 @@ export async function POST(req: NextRequest) {
     const projectId: string | null = typeof body.projectId === "string" ? body.projectId : null;
     const projectTitle: string | null = typeof body.projectTitle === "string" ? body.projectTitle : null;
     const projectLocation: string | null = typeof body.projectLocation === "string" ? body.projectLocation : null;
-    const projectUnitName: string | null = typeof body.projectUnitName === "string" ? body.projectUnitName : null;
-    const projectUnitDisplay: string | null = typeof body.projectUnitDisplay === "string" ? body.projectUnitDisplay : null;
-    const projectUnitCost: number | null = typeof body.projectUnitCost === "number" ? body.projectUnitCost : null;
-    const projectUnitIsGoal: boolean = body.projectUnitIsGoal === true;
     const shareWithCommunity: boolean = body.shareWithCommunity === true;
     const whatSkipped: string | undefined = typeof body.whatSkipped === "string" ? body.whatSkipped : undefined;
     const notes: string | undefined = typeof body.notes === "string" ? body.notes : undefined;
     const displayName: string | undefined = typeof body.displayName === "string" ? body.displayName : undefined;
     const photoURL: string | null | undefined = typeof body.photoURL === "string" ? body.photoURL : undefined;
-    const rawJarSplit = body.jarSplit && typeof body.jarSplit.give === "number" ? body.jarSplit : undefined;
 
     const db = getAdminDb();
     const userRef = db.collection("users").doc(uid);
@@ -60,15 +54,6 @@ export async function POST(req: NextRequest) {
       // First-skip XP bonus only applies to both parties on the invitee's first skip.
       const referralBonusXp = referrerProfile && isFirstSkip ? REFERRAL_BONUS_XP : 0;
 
-      const defaultJarSplit = normalizeJarSplitServer(profile.jarSplit as any);
-      const rawGive = rawJarSplit?.give ?? defaultJarSplit.give;
-      const clampedGive = Math.min(100, Math.max(0, rawGive));
-      const effectiveSplit = { give: clampedGive, live: 100 - clampedGive };
-      const giveAmount = amount * (effectiveSplit.give / 100);
-      const liveAmount = amount * (effectiveSplit.live / 100);
-
-      const activeGoalId = normalizeSpendingGoalsServer(profile).activeId;
-
       const xpEarned = xpForSkip(amount) + referralBonusXp;
       const newXp = (profile.xp ?? 0) + xpEarned;
       const newLevel = levelForXp(newXp);
@@ -78,27 +63,8 @@ export async function POST(req: NextRequest) {
       const newStreak = getConsecutiveWeeklyStreak(allSkipDates, todayStr);
       const newLongestStreak = getLongestWeeklyStreak(allSkipDates);
 
-      let newOverflowCount: number | undefined;
-      const causeGoalAmount = projectId ? (profile.causeGoalAmounts?.[projectId] ?? 0) : 0;
-      if (projectId && causeGoalAmount > 0 && giveAmount > 0) {
-        const currentJarBal = profile.causeJarBalances?.[projectId] ?? 0;
-        const newJarBal = currentJarBal + giveAmount;
-        if (newJarBal >= causeGoalAmount) {
-          newOverflowCount = (profile.causeJarOverflowCounts?.[projectId] ?? 0) + 1;
-        }
-      }
-
-      const giveAmountForMessage = amount * (effectiveSplit.give / 100);
       let causeSuffix = "";
-      if (projectTitle && projectUnitName && projectUnitCost && !projectUnitIsGoal) {
-        const unitsStr = formatUnits(giveAmountForMessage, projectUnitCost, projectUnitName, projectUnitDisplay);
-        causeSuffix = ` to help pledge ${unitsStr}${projectLocation ? ` in ${projectLocation}` : ""}`;
-      } else if (projectTitle && projectUnitName && projectUnitCost && projectUnitIsGoal) {
-        const pct = Math.max(1, Math.round((giveAmountForMessage / projectUnitCost) * 100));
-        causeSuffix = ` to help pledge ${pct}% of ${projectTitle}`;
-      } else if (projectTitle) {
-        causeSuffix = ` to help pledge toward ${projectTitle}`;
-      }
+      if (projectTitle) causeSuffix = ` with ${projectTitle}`;
 
       const impactMessage = getImpactMessage(amount);
       const message = `skipped ${whatSkipped || categoryLabel}${causeSuffix}`;
@@ -113,10 +79,10 @@ export async function POST(req: NextRequest) {
         projectId,
         projectTitle,
         impactMessage,
+        allocationMode: "skip-pot",
         createdAt: FieldValue.serverTimestamp(),
         ...(whatSkipped ? { whatSkipped } : {}),
         ...(notes ? { notes } : {}),
-        ...(rawJarSplit ? { jarSplit: effectiveSplit } : {}),
       });
 
       tx.update(userRef, {
@@ -128,11 +94,6 @@ export async function POST(req: NextRequest) {
         longestStreak: newLongestStreak,
         lastSkipDate: todayStr,
         savedTowardActiveCause: projectId ? FieldValue.increment(amount) : (profile.savedTowardActiveCause ?? 0),
-        totalGiveAllocated: FieldValue.increment(giveAmount),
-        totalLiveAllocated: FieldValue.increment(liveAmount),
-        ...(projectId ? { [`causeJarBalances.${projectId}`]: FieldValue.increment(giveAmount) } : {}),
-        ...(activeGoalId ? { [`goalJarBalances.${activeGoalId}`]: FieldValue.increment(liveAmount) } : {}),
-        ...(newOverflowCount !== undefined && projectId ? { [`causeJarOverflowCounts.${projectId}`]: newOverflowCount } : {}),
       });
 
       tx.set(feedRef, {
@@ -150,7 +111,7 @@ export async function POST(req: NextRequest) {
 
       // Credit the inviter: always roll up this skip's give-dollars into their Impact Score;
       // on the invitee's first skip only, also grant the one-time XP + Friends-Joined bonus.
-      if (referrerRef && referrerProfile && (isFirstSkip || giveAmount > 0)) {
+      if (referrerRef && referrerProfile && isFirstSkip) {
         const firstSkipBonus = isFirstSkip
           ? (() => {
               const referrerNewXp = (referrerProfile.xp ?? 0) + REFERRAL_BONUS_XP;
@@ -161,13 +122,10 @@ export async function POST(req: NextRequest) {
               };
             })()
           : {};
-        tx.update(referrerRef, {
-          referralImpactPoints: FieldValue.increment(giveAmount),
-          ...firstSkipBonus,
-        });
+        tx.update(referrerRef, firstSkipBonus);
       }
 
-      return { giveAmount, newTotalSaved, newXp, newLevel, newStreak, newLongestStreak, newOverflowCount, message };
+      return { newTotalSaved, newXp, newLevel, newStreak, newLongestStreak, message };
     });
 
     // Project totals for challenge group tracking (best-effort, non-atomic — matches prior behavior)
@@ -177,9 +135,6 @@ export async function POST(req: NextRequest) {
         totalSkips: FieldValue.increment(1),
         memberUids: FieldValue.arrayUnion(uid),
       }).catch((e) => console.warn("[skips] project totals update failed:", e));
-      if (result.giveAmount > 0) {
-        projectRef.update({ totalRaised: FieldValue.increment(result.giveAmount) }).catch((e) => console.warn("[skips] project totalRaised update failed:", e));
-      }
     }
 
     // Global counters in Realtime DB
@@ -195,7 +150,6 @@ export async function POST(req: NextRequest) {
         type: "skip",
         skipId: skipRef.id,
         skipAmount: amount,
-        giveAmount: result.giveAmount,
         skipCategory: category,
         skipEmoji: categoryEmoji,
         skipLabel: whatSkipped || categoryLabel,
@@ -222,7 +176,6 @@ export async function POST(req: NextRequest) {
       newLevel: result.newLevel,
       newStreak: result.newStreak,
       newLongestStreak: result.newLongestStreak,
-      giveJarOverflowCount: result.newOverflowCount,
     });
   } catch (e) {
     return handleApiError(e);

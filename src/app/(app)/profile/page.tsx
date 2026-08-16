@@ -6,11 +6,12 @@ import { useAuthStore } from "@/store/authStore";
 import { signOut } from "@/lib/services/firebase/auth";
 import { deleteAccount } from "@/lib/services/firebase/account";
 import { formatCurrency } from "@/lib/utils/currency";
-import { impactScore, pointsForDollars, referralPledgedDollars } from "@/lib/utils/impactScore";
+import { impactScore } from "@/lib/utils/impactScore";
 import { normalizeJarSplit, recalculateTotals } from "@/lib/services/firebase/users";
 import { isPushSupported, registerForPush, unregisterPush } from "@/lib/services/firebase/push";
 import { useSkips } from "@/hooks/useSkips";
 import { DeleteAccountModal } from "@/components/profile/DeleteAccountModal";
+import { getSkipBalanceSummary } from "@/lib/utils/skipBalances";
 
 export default function ProfilePage() {
   const router = useRouter();
@@ -68,6 +69,7 @@ export default function ProfilePage() {
   if (!profile || !user) return null;
 
   const currentSplit = normalizeJarSplit(profile.jarSplit as any);
+  const skipBalance = getSkipBalanceSummary(profile);
   const formatWeeks = (weeks: number) => `${weeks} week${weeks === 1 ? "" : "s"}`;
 
   const weekStart = new Date();
@@ -77,17 +79,29 @@ export default function ProfilePage() {
     const d = s.createdAt?.toDate ? s.createdAt.toDate() : new Date(s.date);
     return d >= weekStart;
   });
-  const weekGive = weekSkips.reduce((sum, s) => sum + (s.amount * (s.jarSplit?.give ?? currentSplit.give) / 100), 0);
-  const weekLive = weekSkips.reduce((sum, s) => sum + (s.amount * (s.jarSplit?.live ?? currentSplit.live) / 100), 0);
-  const topCat = weekSkips.length > 0
+  const largestSkip = recentSkips.length > 0
+    ? recentSkips.reduce((best, skip) => (skip.amount > best.amount ? skip : best), recentSkips[0])
+    : null;
+  const topCategory = recentSkips.length > 0
     ? (() => {
         const totals: Record<string, { amount: number; emoji: string; label: string }> = {};
-        for (const s of weekSkips) {
-          const key = s.categoryLabel ?? "Other";
-          if (!totals[key]) totals[key] = { amount: 0, emoji: s.categoryEmoji ?? "", label: key };
-          totals[key].amount += s.amount;
+        for (const skip of recentSkips) {
+          const key = skip.categoryLabel ?? "Other";
+          if (!totals[key]) totals[key] = { amount: 0, emoji: skip.categoryEmoji ?? "", label: key };
+          totals[key].amount += skip.amount;
         }
         return Object.values(totals).sort((a, b) => b.amount - a.amount)[0];
+      })()
+    : null;
+  const mostSkippedCategory = recentSkips.length > 0
+    ? (() => {
+        const totals: Record<string, { count: number; emoji: string; label: string }> = {};
+        for (const skip of recentSkips) {
+          const key = skip.categoryLabel ?? "Other";
+          if (!totals[key]) totals[key] = { count: 0, emoji: skip.categoryEmoji ?? "", label: key };
+          totals[key].count += 1;
+        }
+        return Object.values(totals).sort((a, b) => b.count - a.count)[0];
       })()
     : null;
 
@@ -96,6 +110,7 @@ export default function ProfilePage() {
     border: "1px solid var(--border-default)",
     borderRadius: 16,
   };
+  const firstName = profile.displayName.split(" ")[0] || profile.displayName;
 
   async function handleRecalculate() {
     setRecalcState("loading");
@@ -111,11 +126,52 @@ export default function ProfilePage() {
   }
 
   return (
-    <div className="p-5 md:p-10 max-w-2xl mx-auto pb-24 md:pb-10">
+    <div className="p-5 md:p-10 max-w-3xl mx-auto pb-24 md:pb-10">
       <h1 className="text-2xl font-bold mb-10" style={{ color: "var(--text-primary)" }}>Profile</h1>
 
+      <div
+        className="mb-5 overflow-hidden"
+        style={{
+          borderRadius: 24,
+          background: "linear-gradient(145deg, rgba(46,204,113,0.16), rgba(15,45,32,0.96) 46%, rgba(139,92,246,0.1))",
+          border: "1px solid rgba(46,204,113,0.24)",
+        }}
+      >
+        <div className="p-6 md:p-7 flex flex-col md:flex-row md:items-center md:justify-between gap-6">
+          <div className="flex items-center gap-5 min-w-0">
+            <div
+              className="w-20 h-20 rounded-full flex items-center justify-center text-3xl flex-shrink-0 overflow-hidden"
+              style={{ background: "rgba(237,245,240,0.08)", color: "var(--green-primary)", border: "1px solid rgba(237,245,240,0.15)" }}
+            >
+              {profile.photoURL ? (
+                <img src={profile.photoURL} alt="" className="w-full h-full object-cover" />
+              ) : (
+                profile.displayName.charAt(0).toUpperCase()
+              )}
+            </div>
+            <div className="min-w-0">
+              <p className="text-2xl font-black truncate" style={{ color: "var(--text-primary)" }}>{firstName}</p>
+              <p className="text-sm truncate" style={{ color: "var(--text-secondary)" }}>{profile.email}</p>
+              <div className="mt-3 flex flex-wrap gap-2">
+                <span className="text-xs font-black px-3 py-1 rounded-full" style={{ background: "rgba(46,204,113,0.12)", color: "var(--green-primary)", border: "1px solid rgba(46,204,113,0.28)" }}>
+                  Level {profile.level}
+                </span>
+                <span className="text-xs font-black px-3 py-1 rounded-full" style={{ background: "rgba(237,245,240,0.08)", color: "var(--text-primary)", border: "1px solid rgba(237,245,240,0.12)" }}>
+                  {profile.totalSkips} skip{profile.totalSkips !== 1 ? "s" : ""}
+                </span>
+              </div>
+            </div>
+          </div>
+          <div className="md:text-right">
+            <p className="text-xs font-black uppercase tracking-[0.14em]" style={{ color: "var(--text-secondary)" }}>Skip Bank</p>
+            <p className="text-4xl font-black mt-1" style={{ color: "var(--green-primary)", letterSpacing: 0 }}>{formatCurrency(skipBalance.availableFromSkips)}</p>
+            <p className="text-sm mt-1" style={{ color: "var(--text-secondary)" }}>ready for goals or fundraisers</p>
+          </div>
+        </div>
+      </div>
+
       {/* Avatar & name */}
-      <div className="p-8 mb-8 flex items-center gap-6" style={{ ...cardStyle, borderRadius: 20 }}>
+      <div className="hidden" style={{ ...cardStyle, borderRadius: 20 }}>
         <div
           className="w-20 h-20 rounded-full flex items-center justify-center text-3xl flex-shrink-0 overflow-hidden"
           style={{ background: "var(--bg-surface-2)", color: "var(--green-primary)" }}
@@ -140,25 +196,29 @@ export default function ProfilePage() {
 
       {/* Lifetime stats */}
       <div className="mb-8">
-        <div className="px-5 py-5 mb-4 flex items-center justify-between" style={{ ...cardStyle, borderRadius: 20 }}>
-          <div>
-            <p className="text-xs font-semibold uppercase tracking-wide" style={{ color: "var(--text-secondary)" }}>Total Skipped</p>
-            <p className="text-2xl font-bold mt-0.5" style={{ color: "var(--text-primary)" }}>{formatCurrency(profile.totalSaved)}</p>
-            <p className="text-xs mt-0.5" style={{ color: "var(--text-muted)" }}>across {profile.totalSkips} skip{profile.totalSkips !== 1 ? "s" : ""}</p>
-          </div>
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-4">
+          {[
+            { label: "Skipped", value: formatCurrency(skipBalance.lifetimeSaved), note: `${profile.totalSkips} no-thanks`, color: "var(--text-primary)" },
+            { label: "Spent", value: formatCurrency(skipBalance.spentFromSkips), note: "on goals", color: "#A78BFA" },
+            { label: "Donated", value: formatCurrency(skipBalance.donatedFromSkips), note: "to fundraisers", color: "var(--green-primary)" },
+          ].map((s, i) => (
+            <div key={s.label} className="px-4 py-4" style={{ ...cardStyle, borderRadius: 16 }}>
+              <p className="text-[10px] font-black uppercase tracking-[0.12em]" style={{ color: "var(--text-secondary)" }}>{s.label}</p>
+              <p className="text-xl font-black mt-1" style={{ color: s.color }}>{s.value}</p>
+              <p className="text-xs mt-0.5" style={{ color: "var(--text-muted)" }}>{s.note}</p>
+            </div>
+          ))}
         </div>
-        <div className="px-5 py-5 mb-4 flex items-center justify-between" style={{ borderRadius: 20, background: "linear-gradient(150deg, rgba(46,204,113,0.14), rgba(46,204,113,0.03))", border: "1px solid var(--border-emphasis)" }}>
+        <div className="px-5 py-4 mb-4 flex items-center justify-between gap-4" style={{ borderRadius: 20, background: "linear-gradient(150deg, rgba(46,204,113,0.1), rgba(237,245,240,0.035))", border: "1px solid rgba(46,204,113,0.18)" }}>
           <div>
             <p className="text-xs font-semibold uppercase tracking-wide" style={{ color: "var(--text-secondary)" }}>⚡ Impact Score</p>
-            <p className="text-2xl font-bold mt-0.5" style={{ color: "var(--green-primary)" }}>{impactScore(profile).toLocaleString()}</p>
             <p className="text-xs mt-0.5" style={{ color: "var(--text-muted)" }}>
-              {referralPledgedDollars(profile) > 0
-                ? `includes ${pointsForDollars(referralPledgedDollars(profile)).toLocaleString()} from friends you invited`
-                : "1 point for every $1 pledged to a cause"}
+              1 point for every $1 you donate
             </p>
           </div>
+          <p className="text-2xl font-black" style={{ color: "var(--green-primary)" }}>{impactScore(profile).toLocaleString()}</p>
         </div>
-        <div className="grid grid-cols-3 gap-3 mb-4">
+        <div className="hidden">
           {[
             { emoji: "💚", label: "donated", value: formatCurrency(profile.totalDonated), color: "var(--green-primary)" },
             { emoji: "🛍️", label: "spent", value: formatCurrency(profile.totalSpent ?? 0), color: "#8B5CF6" },
@@ -171,33 +231,37 @@ export default function ProfilePage() {
             </div>
           ))}
         </div>
-        <div className="grid grid-cols-3 gap-3">
+        <div className="flex items-stretch" style={{ borderRadius: 18, background: "rgba(237,245,240,0.035)", border: "1px solid rgba(237,245,240,0.08)", overflow: "hidden" }}>
           {[
             { label: "Longest Streak", value: formatWeeks(profile.longestStreak), emoji: "🏆" },
             { label: "Current Streak", value: formatWeeks(profile.streak), emoji: "🔥" },
             { label: "Friends Joined", value: String(profile.referralCount ?? 0), emoji: "🤝" },
-          ].map((s) => (
-            <div key={s.label} className="p-4" style={cardStyle}>
-              <p className="text-lg mb-1">{s.emoji}</p>
-              <p className="text-lg font-bold" style={{ color: "var(--text-primary)" }}>{s.value}</p>
-              <p className="text-xs" style={{ color: "var(--text-secondary)" }}>{s.label}</p>
+          ].map((s, i) => (
+            <div key={s.label} className="px-4 py-3" style={{ flex: 1, borderRight: i < 2 ? "1px solid rgba(237,245,240,0.08)" : "none" }}>
+              <p className="text-[10px] font-black uppercase tracking-[0.12em]" style={{ color: "var(--text-muted)" }}>{s.label}</p>
+              <p className="text-base font-black mt-1" style={{ color: "var(--text-primary)" }}>{s.value}</p>
             </div>
           ))}
         </div>
 
-        {/* This Week */}
+        {/* Personal records */}
         <div className="mt-4 p-5" style={{ ...cardStyle, borderRadius: 20 }}>
-          <p className="text-sm font-semibold mb-4" style={{ color: "var(--text-secondary)", letterSpacing: 0.5 }}>This Week</p>
+          <div className="flex items-end justify-between gap-4 mb-4">
+            <div>
+              <p className="text-xs font-black uppercase tracking-[0.14em]" style={{ color: "var(--green-primary)" }}>Personal bests</p>
+              <p className="text-lg font-black" style={{ color: "var(--text-primary)" }}>Your skip records</p>
+            </div>
+            <p className="text-2xl font-black" style={{ color: "var(--green-primary)" }}>{profile.totalSkips}</p>
+          </div>
           {[
-            { label: "Skips logged", value: String(weekSkips.length), color: "var(--green-primary)" },
-            { label: "Give jar", value: formatCurrency(weekGive), color: "#2BBAA4" },
-            { label: "Reward jar", value: formatCurrency(weekLive), color: "#8B5CF6" },
-            { label: "Top category", value: topCat ? `${topCat.emoji} ${topCat.label}` : "—", color: "#E8924A" },
+            { label: "Largest skip", value: largestSkip ? formatCurrency(largestSkip.amount) : "None yet", color: "var(--green-primary)" },
+            { label: "Top category", value: topCategory ? `${topCategory.emoji} ${topCategory.label}` : "None yet", color: "#E8924A" },
+            { label: "Most skipped category", value: mostSkippedCategory ? `${mostSkippedCategory.emoji} ${mostSkippedCategory.label}` : "None yet", color: "#A78BFA" },
           ].map((row, i) => (
             <div key={i} style={{
               display: "flex", justifyContent: "space-between", alignItems: "center",
               padding: "10px 0",
-              borderBottom: i < 3 ? "1px solid var(--border-default)" : "none",
+              borderBottom: i < 2 ? "1px solid var(--border-default)" : "none",
             }}>
               <span className="text-sm" style={{ color: "var(--text-muted)" }}>{row.label}</span>
               <span className="text-sm font-bold" style={{ color: row.color }}>{row.value}</span>
@@ -206,9 +270,9 @@ export default function ProfilePage() {
         </div>
       </div>
 
-      {/* Recalculate */}
+      {/* Settings */}
       <div className="mb-8">
-        <div className="p-5 mb-4" style={{ ...cardStyle, borderRadius: 20 }}>
+        <div className="hidden">
           <p className="text-sm font-bold mb-1" style={{ color: "var(--text-primary)" }}>🔄 Recalculate totals</p>
           <p className="text-xs mb-4" style={{ color: "var(--text-secondary)" }}>
             If your jar balances look off, this recomputes your totals from your actual logged skips. Donations and purchases are not affected.

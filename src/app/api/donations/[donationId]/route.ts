@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { FieldValue } from "firebase-admin/firestore";
 import { getAdminDb } from "@/lib/services/firebaseAdmin";
 import { requireUid, ApiError, handleApiError } from "@/lib/services/apiAuth";
+import { getSkipBalanceSummary } from "@/lib/utils/skipBalances";
 import { UserProfile, DonationEvent } from "@/lib/types/models";
 
 type RouteContext = { params: Promise<{ donationId: string }> };
@@ -24,24 +25,38 @@ export async function PATCH(req: NextRequest, ctx: RouteContext) {
     await db.runTransaction(async (tx) => {
       const [donationSnap, userSnap] = await Promise.all([tx.get(donationRef), tx.get(userRef)]);
       if (!donationSnap.exists) throw new ApiError(404, "Donation not found");
-      const donation = donationSnap.data() as DonationEvent;
+      const donation = donationSnap.data() as DonationEvent & { jarDecrease?: number };
       const oldAmount = donation.amount;
       const delta = newAmount - oldAmount;
       if (delta === 0 && date === undefined) return;
-
-      const donationUpdates: Record<string, unknown> = { amount: newAmount };
-      if (date !== undefined) donationUpdates.date = date;
-      tx.update(donationRef, donationUpdates);
 
       if (delta !== 0) {
         const profile = userSnap.data() as UserProfile;
         const causeId = donation.causeId;
         const currentBal = profile.causeJarBalances?.[causeId] ?? 0;
-        const jarDelta = delta > 0 ? -Math.min(delta, Math.max(0, currentBal)) : -delta;
+        const availableFromSkips = getSkipBalanceSummary(profile).availableFromSkips;
+        if (delta > Math.max(0, currentBal) + availableFromSkips) {
+          throw new ApiError(400, "Donation exceeds available skipped savings");
+        }
+        const oldJarDecrease = donation.jarDecrease ?? oldAmount;
+        const jarDecreaseDelta = delta > 0
+          ? Math.min(delta, Math.max(0, currentBal))
+          : -Math.min(-delta, Math.max(0, oldJarDecrease));
+        const jarDelta = -jarDecreaseDelta;
         tx.update(userRef, {
           totalDonated: FieldValue.increment(delta),
           [`causeJarBalances.${causeId}`]: FieldValue.increment(jarDelta),
         });
+        const donationUpdates: Record<string, unknown> = {
+          amount: newAmount,
+          jarDecrease: Math.max(0, oldJarDecrease + jarDecreaseDelta),
+        };
+        if (date !== undefined) donationUpdates.date = date;
+        tx.update(donationRef, donationUpdates);
+      } else {
+        const donationUpdates: Record<string, unknown> = { amount: newAmount };
+        if (date !== undefined) donationUpdates.date = date;
+        tx.update(donationRef, donationUpdates);
       }
     });
 
