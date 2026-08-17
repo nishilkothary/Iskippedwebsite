@@ -8,7 +8,7 @@ import { Project } from "@/lib/types/models";
 import { switchCause, setUserCauseGoal } from "@/lib/services/firebase/users";
 import { addCustomProject, isChallengeProject, isProjectEnded, updateCustomProject, OFFICIAL_PROJECTS, PARTNER_CHALLENGE_IDS } from "@/lib/services/firebase/projects";
 import { formatCurrency } from "@/lib/utils/currency";
-import { formatUnits, oneUnitPhrase } from "@/lib/utils/impact";
+import { oneUnitPhrase } from "@/lib/utils/impact";
 import { appendRefParam, getChallengeSharePath } from "@/lib/utils/share";
 import { getDirectChallengeShareText } from "@/lib/utils/challengeShareCopy";
 import { ShareButton } from "@/components/share/ShareButton";
@@ -26,6 +26,8 @@ type ChallengeCard = {
   impactLine: string | null;
   skipChallengeLine: string | null;
   goalInviteLine: string | null;
+  skipHelpLine: string;
+  skipHelpDetail: string | null;
   goal: number;
   goalLine: string;
   pledgedLine: string;
@@ -101,9 +103,21 @@ function visibilityTagFor(visibility: ChallengeVisibility) {
 function defaultUnitDisplay(unitName: string): string {
   const trimmed = unitName.trim();
   if (!trimmed) return "";
-  if (/(?:s|x|z|ch|sh)$/i.test(trimmed)) return `${trimmed}es`;
+  if (/\s/.test(trimmed) && /s$/i.test(trimmed)) return trimmed;
+  if (/s$/i.test(trimmed) && !/ss$/i.test(trimmed)) return trimmed;
+  if (/(?:ss|x|z|ch|sh)$/i.test(trimmed)) return `${trimmed}es`;
   if (/[^aeiou]y$/i.test(trimmed)) return `${trimmed.slice(0, -1)}ies`;
   return `${trimmed}s`;
+}
+
+function normalizeUnitDisplay(unitName: string, unitDisplay: string): string {
+  const trimmedName = unitName.trim();
+  const trimmedDisplay = unitDisplay.trim();
+  if (!trimmedName) return trimmedDisplay;
+  if (trimmedName.endsWith("s") && trimmedDisplay.toLowerCase() === `${trimmedName}es`.toLowerCase()) {
+    return trimmedName;
+  }
+  return trimmedDisplay || defaultUnitDisplay(trimmedName);
 }
 
 function getSkipChallengeLine(project: Project): string | null {
@@ -112,6 +126,33 @@ function getSkipChallengeLine(project: Project): string | null {
   const levels = [milestones.level1, milestones.level2, milestones.level3].filter((value) => Number.isFinite(value) && value > 0);
   if (levels.length === 0) return null;
   return `Level 1: ${levels[0]} ${levels[0] === 1 ? "Skip" : "Skips"}`;
+}
+
+function descriptionAfterSkipLead(description: string): string {
+  return description
+    .replace(/^your\s+(?:skips|savings|skipped savings)\s+(?:can\s+)?(?:help\s+)?fund\s+/i, "")
+    .replace(/^your\s+(?:skips|savings|skipped savings)\s+(?:can\s+)?(?:help\s+)?provide\s+/i, "")
+    .replace(/^your\s+(?:skips|savings|skipped savings)\s+(?:can\s+)?(?:help\s+)?/i, "")
+    .replace(/^help\s+(?:fund|provide|equip)\s+/i, "")
+    .trim();
+}
+
+function skipHelpDetail(project: Project): string | null {
+  if (project.unitIsGoal && (project.unitPhrase || project.unitName)) {
+    const phrase = (project.unitPhrase ?? oneUnitPhrase(project.unitName!)).trim();
+    const location = project.location?.trim();
+    const withLocation = location && !phrase.toLowerCase().includes(location.toLowerCase())
+      ? `${phrase} in ${location}`
+      : phrase;
+    return `${withLocation}.`;
+  }
+  return null;
+}
+
+function sentenceCaseStart(value: string): string {
+  const trimmed = value.trim();
+  if (!trimmed) return "";
+  return trimmed.charAt(0).toUpperCase() + trimmed.slice(1);
 }
 
 function challengeFromProject(project: Project): ChallengeCard {
@@ -129,7 +170,7 @@ function challengeFromProject(project: Project): ChallengeCard {
     project,
     title: challengeTitle(project),
     beneficiary: project.location ? `for ${project.location}` : project.sponsor ? `by ${project.sponsor}` : "community fundraiser",
-    description: project.description || "Skip anything. Your small choices help this move.",
+    description: descriptionAfterSkipLead(project.description || "Skip anything. Your small choices help this move."),
     category,
     imageURL: project.imageURL || (project.isCustom ? null : fallback.imageURL),
     fallbackLabel: fallback.label,
@@ -142,6 +183,8 @@ function challengeFromProject(project: Project): ChallengeCard {
     goalInviteLine: hasUnits
       ? `Help fund ${goalUnits.toLocaleString()} ${unitLabel} with skipped savings.`
       : null,
+    skipHelpLine: "Your skips could help fund...",
+    skipHelpDetail: skipHelpDetail(project),
     goal,
     goalLine: hasUnits
       ? `${donatedUnits.toLocaleString()} / ${goalUnits.toLocaleString()} ${unitLabel} donated`
@@ -719,10 +762,10 @@ function SectionHeader({ title, subtitle }: { title: string; subtitle?: string }
   );
 }
 
-function Badge({ children }: { children: React.ReactNode }) {
+function Badge({ children, compact = false }: { children: React.ReactNode; compact?: boolean }) {
   return (
     <span
-      className="px-2.5 py-1 rounded-full text-[11px] font-bold"
+      className={`${compact ? "px-2 py-0.5 text-[10px]" : "px-2.5 py-1 text-[11px]"} rounded-full font-bold`}
       style={{ background: "rgba(46,204,113,0.12)", color: "var(--green-primary)", border: "1px solid rgba(46,204,113,0.18)" }}
     >
       {children}
@@ -734,13 +777,15 @@ function accessBadgeLabel(challenge: ChallengeCard) {
   return isPrivateChallenge(challenge.project) ? "Private" : "Public";
 }
 
-function ProgressBar({ challenge, className = "" }: { challenge: ChallengeCard; className?: string }) {
+function ProgressBar({ challenge, className = "", showLabels = true }: { challenge: ChallengeCard; className?: string; showLabels?: boolean }) {
   return (
     <div className={className}>
-      <div className="flex justify-between gap-3 text-xs font-semibold mb-1.5">
-        <span style={{ color: "var(--green-primary)" }}>{challenge.goalLine}</span>
-        <span style={{ color: "var(--text-muted)" }}>{challenge.progressPct}%</span>
-      </div>
+      {showLabels && (
+        <div className="flex justify-between gap-3 text-xs font-semibold mb-1.5">
+          <span style={{ color: "var(--green-primary)" }}>{challenge.goalLine}</span>
+          <span style={{ color: "var(--text-muted)" }}>{challenge.progressPct}%</span>
+        </div>
+      )}
       <div className="h-2 rounded-full overflow-hidden" style={{ background: "var(--bg-surface-3)" }}>
         <div
           className="h-full rounded-full"
@@ -806,17 +851,15 @@ function ChallengeListCard({
       <div className="min-w-0 flex-1 flex flex-col">
         <div className="flex items-start justify-between gap-2">
           <div className="min-w-0 flex-1">
-            {challenge.trustLabel !== "Community" && (
-              <div className="mb-1.5">
-                <Badge>{challenge.trustLabel}</Badge>
-              </div>
-            )}
             <div className="flex items-center gap-1.5 flex-wrap">
               <p className="text-sm font-black leading-snug" style={{ color: "var(--text-primary)" }}>
                 {challenge.project.groupName ?? challenge.title}
               </p>
             </div>
-            <p className="text-xs mt-0.5 truncate" style={{ color: "var(--text-muted)" }}>{challenge.project.sponsor || challenge.beneficiary}</p>
+            <div className="mt-0.5 flex items-center gap-2 min-w-0 flex-wrap">
+              <p className="text-xs truncate" style={{ color: "var(--text-muted)" }}>{challenge.project.sponsor || challenge.beneficiary}</p>
+              {challenge.trustLabel !== "Community" && <Badge compact>{challenge.trustLabel}</Badge>}
+            </div>
           </div>
           <div className="flex items-center gap-1.5 shrink-0">
             <button
@@ -849,23 +892,15 @@ function ChallengeListCard({
             )}
           </div>
         </div>
-        <p className="text-xs mt-1.5 leading-relaxed line-clamp-2" style={{ color: "var(--text-secondary)" }}>
-          {challenge.description}
+        <p className="text-xs mt-2 leading-relaxed line-clamp-3" style={{ color: "var(--text-secondary)" }}>
+          <span className="font-bold" style={{ color: "var(--text-primary)" }}>{challenge.skipHelpLine}</span>{" "}
+          {challenge.skipHelpDetail ? `${challenge.skipHelpDetail} ` : ""}
+          {challenge.skipHelpDetail ? sentenceCaseStart(challenge.description) : challenge.description}
         </p>
         {challenge.skipChallengeLine && (
           <p className="text-xs mt-1.5 font-bold" style={{ color: "var(--text-secondary)" }}>{challenge.skipChallengeLine}</p>
         )}
-        {challenge.project.groupName && (
-          <p className="text-xs mt-1.5 font-semibold truncate" style={{ color: "var(--green-primary)" }}>
-            Fundraising for: {challenge.project.title}
-          </p>
-        )}
-        {challenge.goalInviteLine && (
-          <p className="text-xs mt-1.5 font-bold" style={{ color: "var(--text-primary)" }}>
-            {challenge.goalInviteLine}
-          </p>
-        )}
-        {challenge.impactLine && <p className="text-xs mt-1 font-semibold" style={{ color: "var(--green-primary)" }}>{challenge.impactLine}</p>}
+        {challenge.impactLine && <p className="text-xs mt-2 font-semibold" style={{ color: "var(--green-primary)" }}>{challenge.impactLine}</p>}
         {challenge.goal > 0
           ? <ProgressBar challenge={challenge} className="mt-2" />
           : (challenge.project.totalRaised ?? 0) > 0 || (challenge.project.totalSkips ?? 0) > 0
@@ -1308,7 +1343,6 @@ function CreateChallengeWizard({
   const [impactUnitName, setImpactUnitName] = useState(initialProject?.unitName ?? "");
   const [impactUnitDisplay, setImpactUnitDisplay] = useState(initialProject?.unitDisplay ?? "");
   const [impactUnitCost, setImpactUnitCost] = useState(initialProject?.unitCost ? String(initialProject.unitCost) : "");
-  const [impactUnitIsGoal, setImpactUnitIsGoal] = useState(Boolean(initialProject?.unitIsGoal));
   const [imageURL, setImageURL] = useState(initialProject?.imageURL ?? "");
   const [imgPos, setImgPos] = useState({ x: 50, y: 50 });
   const [imageError, setImageError] = useState("");
@@ -1322,19 +1356,30 @@ function CreateChallengeWizard({
   const [isOrg, setIsOrg] = useState(Boolean(initialProject?.tags?.includes("organization")));
   const [groupName, setGroupName] = useState(initialProject?.groupName ?? "");
   const [goalAmountStr, setGoalAmountStr] = useState(initialProject?.goalAmount ? String(initialProject.goalAmount) : "");
+  const [goalUnitsStr, setGoalUnitsStr] = useState(initialProject?.goalAmount && initialProject?.unitCost
+    ? String(Math.round(initialProject.goalAmount / initialProject.unitCost))
+    : "");
   const [noDonationLink, setNoDonationLink] = useState(!initialProject?.donationURL && Boolean(initialProject?.donationNote));
   const [donationNote, setDonationNote] = useState(initialProject?.donationNote ?? "");
 
   const parsedImpactUnitCost = parseFloat(impactUnitCost);
-  const resolvedImpactUnitDisplay = impactUnitDisplay.trim() || defaultUnitDisplay(impactUnitName);
-  const samplePledgeAmount = 5;
-  const sampleImpactMessage = useImpactUnit && impactUnitName.trim() && parsedImpactUnitCost > 0
-    ? impactUnitIsGoal
-      ? `${Math.max(1, Math.round((samplePledgeAmount / parsedImpactUnitCost) * 100))}% of ${oneUnitPhrase(impactUnitName.trim())} pledged`
-      : `${formatUnits(samplePledgeAmount, parsedImpactUnitCost, impactUnitName.trim(), resolvedImpactUnitDisplay)} pledged`
-    : `${formatCurrency(samplePledgeAmount)} pledged${title.trim() ? ` toward ${title.trim()}` : ""}`;
+  const parsedGoalUnits = parseFloat(goalUnitsStr);
+  const parsedGoalAmount = parseFloat(goalAmountStr);
+  const resolvedImpactUnitDisplay = normalizeUnitDisplay(impactUnitName, impactUnitDisplay);
+  const estimatedGoalAmount = parsedImpactUnitCost > 0 && parsedGoalUnits > 0
+    ? parsedGoalUnits * parsedImpactUnitCost
+    : 0;
+  const previewGoalAmount = useImpactUnit ? estimatedGoalAmount : parsedGoalAmount;
+  const previewGoalUnits = useImpactUnit && parsedImpactUnitCost > 0 && previewGoalAmount > 0
+    ? Math.round(previewGoalAmount / parsedImpactUnitCost)
+    : 0;
+  const previewGoalLine = useImpactUnit && previewGoalUnits > 0
+    ? `0 / ${previewGoalUnits.toLocaleString()} ${resolvedImpactUnitDisplay} donated`
+    : previewGoalAmount > 0
+      ? `${formatCurrency(0)} / ${formatCurrency(previewGoalAmount)}`
+      : null;
   const canContinueBasics = groupName.trim().length > 0;
-  const canContinueImpact = title.trim().length > 0 && (!useImpactUnit || (impactUnitName.trim().length > 0 && parsedImpactUnitCost > 0));
+  const canContinueImpact = description.trim().length > 0 && (!useImpactUnit || (impactUnitName.trim().length > 0 && parsedImpactUnitCost > 0));
   const canContinueSetup = (noDonationLink || donationURL.trim().length > 0);
   const canCreate = canContinueBasics && canContinueImpact && canContinueSetup;
 
@@ -1373,9 +1418,11 @@ function CreateChallengeWizard({
 
   function handleCreate() {
     if (!canCreate) return;
-    const parsedGoalAmount = parseFloat(goalAmountStr);
+    const calculatedGoalAmount = useImpactUnit && parsedImpactUnitCost > 0 && parsedGoalUnits > 0
+      ? parsedGoalUnits * parsedImpactUnitCost
+      : parsedGoalAmount;
     onCreate({
-      title: title.trim(),
+      title: title.trim() || groupName.trim(),
       organizer: organizer.trim(),
       description: description.trim(),
       donationURL: noDonationLink ? "" : donationURL.trim(),
@@ -1385,7 +1432,7 @@ function CreateChallengeWizard({
       impactUnitName: useImpactUnit ? impactUnitName.trim() : undefined,
       impactUnitDisplay: useImpactUnit ? resolvedImpactUnitDisplay : undefined,
       impactUnitCost: useImpactUnit ? parsedImpactUnitCost : undefined,
-      impactUnitIsGoal: useImpactUnit ? impactUnitIsGoal : undefined,
+      impactUnitIsGoal: useImpactUnit ? true : undefined,
       category,
       visibility,
       durationDays: isEditing ? undefined : (durationDays === "custom"
@@ -1393,7 +1440,7 @@ function CreateChallengeWizard({
         : durationDays),
       isOrganization: isOrg,
       groupName: groupName.trim() || undefined,
-      goalAmount: parsedGoalAmount > 0 ? parsedGoalAmount : 0,
+      goalAmount: calculatedGoalAmount > 0 ? calculatedGoalAmount : 0,
     });
   }
 
@@ -1426,12 +1473,12 @@ function CreateChallengeWizard({
                 <p className="text-sm font-black mb-1" style={{ color: "var(--text-primary)" }}>Basics</p>
               </div>
               <div>
-                <p className="text-xs font-bold uppercase tracking-wide mb-1.5" style={{ color: "var(--text-muted)" }}>Group Name</p>
+                <p className="text-xs font-bold uppercase tracking-wide mb-1.5" style={{ color: "var(--text-muted)" }}>Fundraiser Name</p>
                 <input
                   type="text"
                   value={groupName}
                   onChange={(event) => setGroupName(event.target.value)}
-                  placeholder="e.g. The Coffee Skipping Club"
+                  placeholder="e.g. Books for Students in Kenya"
                   className="w-full rounded-xl px-4 py-3 text-sm focus:outline-none"
                   style={{ background: "var(--bg-surface-2)", border: "1px solid var(--border-default)", color: "var(--text-primary)" }}
                   maxLength={100}
@@ -1448,18 +1495,6 @@ function CreateChallengeWizard({
                   className="w-full rounded-xl px-4 py-3 text-sm focus:outline-none"
                   style={{ background: "var(--bg-surface-2)", border: "1px solid var(--border-default)", color: "var(--text-primary)" }}
                   maxLength={100}
-                />
-              </div>
-              <div>
-                <p className="text-xs font-bold uppercase tracking-wide mb-1.5" style={{ color: "var(--text-muted)" }}>About this fundraiser</p>
-                <textarea
-                  value={description}
-                  onChange={(event) => setDescription(event.target.value)}
-                  placeholder="Tell people what this fundraiser is all about..."
-                  rows={4}
-                  className="w-full rounded-xl px-4 py-3 text-sm resize-none focus:outline-none"
-                  style={{ background: "var(--bg-surface-2)", border: "1px solid var(--border-default)", color: "var(--text-primary)" }}
-                  maxLength={400}
                 />
               </div>
               <div>
@@ -1525,38 +1560,39 @@ function CreateChallengeWizard({
               <div>
                 <p className="text-sm font-black mb-1" style={{ color: "var(--text-primary)" }}>Impact</p>
               </div>
-              <div>
-                <p className="text-xs font-bold uppercase tracking-wide mb-1.5" style={{ color: "var(--text-muted)" }}>A Skip Helps Fund...</p>
-                <input
-                  type="text"
-                  value={title}
-                  onChange={(event) => setTitle(event.target.value)}
-                  placeholder="e.g. A Child's Education"
-                  className="w-full rounded-xl px-4 py-3 text-sm focus:outline-none"
-                  style={{ background: "var(--bg-surface-2)", border: "1px solid var(--border-default)", color: "var(--text-primary)" }}
-                  maxLength={100}
+              <div className="rounded-xl p-4" style={{ background: "rgba(46,204,113,0.08)", border: "1px solid rgba(46,204,113,0.2)" }}>
+                <p className="text-xs font-bold uppercase tracking-wide mb-2" style={{ color: "var(--green-primary)" }}>Skips will help fund...</p>
+                <textarea
+                  value={description}
+                  onChange={(event) => setDescription(event.target.value)}
+                  placeholder="e.g. book kits for students in Kenya"
+                  rows={5}
+                  className="w-full rounded-xl px-4 py-3 text-sm resize-none focus:outline-none"
+                  style={{ background: "var(--bg-surface-1)", border: "1px solid var(--border-default)", color: "var(--text-primary)" }}
+                  maxLength={400}
                   autoFocus
                 />
               </div>
-              <div>
-                <p className="text-xs font-bold uppercase tracking-wide mb-2" style={{ color: "var(--text-muted)" }}>Group Fundraising Target</p>
-                <div className="relative">
-                  <span className="absolute left-4 top-1/2 -translate-y-1/2 text-sm" style={{ color: "var(--text-muted)" }}>$</span>
-                  <input
-                    type="number"
-                    value={goalAmountStr}
-                    onChange={(event) => setGoalAmountStr(event.target.value)}
-                    placeholder="e.g. 500"
-                    className="w-full rounded-xl pl-8 pr-4 py-3 text-sm focus:outline-none"
-                    style={{ background: "var(--bg-surface-2)", border: "1px solid var(--border-default)", color: "var(--text-primary)" }}
-                    min="0"
-                  />
-                </div>
-              </div>
               <div className="rounded-xl p-4" style={{ background: "var(--bg-surface-2)", border: "1px solid var(--border-default)" }}>
+                <div className="flex items-start justify-between gap-3 mb-3">
+                  <div>
+                    <p className="text-xs font-bold uppercase tracking-wide" style={{ color: "var(--text-muted)" }}>Unit cost</p>
+                    <p className="text-xs mt-1" style={{ color: "var(--text-secondary)" }}>Optional, but helps people understand impact.</p>
+                  </div>
+                  <label className="flex items-center gap-2 cursor-pointer shrink-0">
+                    <input
+                      type="checkbox"
+                      checked={!useImpactUnit}
+                      onChange={(event) => setUseImpactUnit(!event.target.checked)}
+                      className="w-3.5 h-3.5 accent-green-500"
+                    />
+                    <span className="text-xs font-semibold" style={{ color: "var(--text-muted)" }}>
+                      No unit
+                    </span>
+                  </label>
+                </div>
                 {useImpactUnit && (
                   <div>
-                    <p className="text-xs font-bold uppercase tracking-wide mb-1.5" style={{ color: "var(--text-muted)" }}>Impact formula</p>
                     <div className="flex items-center gap-2">
                       <span className="text-sm font-black shrink-0" style={{ color: "var(--text-primary)" }}>1</span>
                       <input
@@ -1564,12 +1600,13 @@ function CreateChallengeWizard({
                         value={impactUnitName}
                         onChange={(event) => {
                           const previousDefault = defaultUnitDisplay(impactUnitName);
+                          const previousBadDefault = impactUnitName.trim().endsWith("s") ? `${impactUnitName.trim()}es` : "";
                           setImpactUnitName(event.target.value);
-                          if (!impactUnitDisplay.trim() || impactUnitDisplay === previousDefault) {
+                          if (!impactUnitDisplay.trim() || impactUnitDisplay === previousDefault || impactUnitDisplay === previousBadDefault) {
                             setImpactUnitDisplay(defaultUnitDisplay(event.target.value));
                           }
                         }}
-                        placeholder="school lunch"
+                        placeholder="book kit"
                         aria-label="Impact unit name"
                         className="min-w-0 flex-1 rounded-xl px-4 py-3 text-sm focus:outline-none"
                         style={{ background: "var(--bg-surface-1)", border: "1px solid var(--border-default)", color: "var(--text-primary)" }}
@@ -1582,27 +1619,13 @@ function CreateChallengeWizard({
                           type="number"
                           value={impactUnitCost}
                           onChange={(event) => setImpactUnitCost(event.target.value)}
-                          placeholder="3.00"
+                          placeholder="25.00"
                           aria-label="Impact unit cost"
                           className="w-full rounded-xl pl-8 pr-4 py-3 text-sm focus:outline-none"
                           style={{ background: "var(--bg-surface-1)", border: "1px solid var(--border-default)", color: "var(--text-primary)" }}
                         />
                       </div>
                     </div>
-                    <label
-                      className="mt-3 flex items-center gap-2 rounded-lg px-3 py-2 cursor-pointer"
-                      style={{ background: "var(--bg-surface-1)", border: "1px solid var(--border-default)" }}
-                    >
-                      <input
-                        type="checkbox"
-                        checked={impactUnitIsGoal}
-                        onChange={(event) => setImpactUnitIsGoal(event.target.checked)}
-                        className="w-3.5 h-3.5 accent-green-500"
-                      />
-                      <span className="text-xs font-semibold" style={{ color: "var(--text-muted)" }}>
-                        Show as % of one larger item
-                      </span>
-                    </label>
                   </div>
                 )}
                 {!useImpactUnit && (
@@ -1610,25 +1633,42 @@ function CreateChallengeWizard({
                     This fundraiser will show dollars pledged instead of funded units.
                   </p>
                 )}
-                <label
-                  className="mt-3 flex items-center gap-2 rounded-lg px-3 py-2 cursor-pointer"
-                  style={{ background: "var(--bg-surface-1)", border: "1px solid var(--border-default)" }}
-                >
-                  <input
-                    type="checkbox"
-                    checked={!useImpactUnit}
-                    onChange={(event) => setUseImpactUnit(!event.target.checked)}
-                    className="w-3.5 h-3.5 accent-green-500"
-                  />
-                  <span className="text-xs font-semibold" style={{ color: "var(--text-muted)" }}>
-                    No specific impact unit
-                  </span>
-                </label>
               </div>
-              <div className="rounded-xl p-4" style={{ background: "rgba(46,204,113,0.1)", border: "1px solid rgba(46,204,113,0.25)" }}>
-                <p className="text-xs font-bold uppercase tracking-wide mb-2" style={{ color: "var(--green-primary)" }}>What users will see after each skip</p>
-                <p className="text-sm leading-relaxed font-semibold" style={{ color: "var(--text-primary)" }}>{sampleImpactMessage}</p>
-                <p className="text-xs mt-1.5" style={{ color: "var(--text-muted)" }}>Preview assumes {formatCurrency(samplePledgeAmount)} goes to the Giving Jar.</p>
+              <div>
+                <p className="text-xs font-bold uppercase tracking-wide mb-2" style={{ color: "var(--text-muted)" }}>
+                  {useImpactUnit ? `Group goal${impactUnitName.trim() ? ` (in ${resolvedImpactUnitDisplay})` : ""}` : "Group fundraising target"}
+                </p>
+                {useImpactUnit ? (
+                  <>
+                    <input
+                      type="number"
+                      value={goalUnitsStr}
+                      onChange={(event) => setGoalUnitsStr(event.target.value)}
+                      placeholder={impactUnitName.trim() ? `e.g. 100 ${resolvedImpactUnitDisplay}` : "e.g. 100"}
+                      className="w-full rounded-xl px-4 py-3 text-sm focus:outline-none"
+                      style={{ background: "var(--bg-surface-2)", border: "1px solid var(--border-default)", color: "var(--text-primary)" }}
+                      min="0"
+                    />
+                    {estimatedGoalAmount > 0 && (
+                      <p className="text-xs mt-1.5 font-semibold" style={{ color: "var(--text-muted)" }}>
+                        Approx. dollar goal: <span style={{ color: "var(--color-primary)" }}>{formatCurrency(estimatedGoalAmount)}</span>
+                      </p>
+                    )}
+                  </>
+                ) : (
+                  <div className="relative">
+                    <span className="absolute left-4 top-1/2 -translate-y-1/2 text-sm" style={{ color: "var(--text-muted)" }}>$</span>
+                    <input
+                      type="number"
+                      value={goalAmountStr}
+                      onChange={(event) => setGoalAmountStr(event.target.value)}
+                      placeholder="e.g. 500"
+                      className="w-full rounded-xl pl-8 pr-4 py-3 text-sm focus:outline-none"
+                      style={{ background: "var(--bg-surface-2)", border: "1px solid var(--border-default)", color: "var(--text-primary)" }}
+                      min="0"
+                    />
+                  </div>
+                )}
               </div>
             </div>
           )}
@@ -1687,9 +1727,8 @@ function CreateChallengeWizard({
               {!isEditing && (
                 <div>
                   <p className="text-xs font-bold uppercase tracking-wide mb-2" style={{ color: "var(--text-muted)" }}>Fundraiser duration</p>
-                  <div className="flex flex-wrap gap-2">
+                  <div className="flex flex-nowrap gap-2">
                     {([
-                      { label: "2 weeks", days: 14 as number | null | "custom" },
                       { label: "1 month", days: 30 as number | null | "custom" },
                       { label: "2 months", days: 60 as number | null | "custom" },
                       { label: "Pick a date", days: "custom" as number | null | "custom" },
@@ -1766,27 +1805,28 @@ function CreateChallengeWizard({
               <div className="rounded-xl overflow-hidden" style={{ background: "var(--bg-surface-2)", border: "1px solid var(--border-default)" }}>
                 {imageURL && <img src={imageURL} alt="" className="w-full h-28 object-cover" />}
                 <div className="p-4">
-                  <div className="flex gap-2 mb-2">
-                    <Badge>Community</Badge>
-                    <Badge>{visibility === "private" ? "Invite Only" : "Public"}</Badge>
-                  </div>
                   <p className="text-lg font-black leading-tight" style={{ color: "var(--text-primary)" }}>{groupName || title || "Group name"}</p>
-                  {groupName && title && (
-                    <p className="text-xs mt-0.5 font-semibold" style={{ color: "var(--green-primary)" }}>Skipping for: {title}</p>
-                  )}
                   <p className="text-xs mt-1" style={{ color: "var(--text-muted)" }}>{organizer || "Organizer"}</p>
                   <p className="text-sm mt-3 leading-relaxed line-clamp-2" style={{ color: "var(--text-secondary)" }}>
-                    {description || "Your fundraiser story will appear here."}
+                    <span className="font-bold" style={{ color: "var(--text-primary)" }}>Your skips could help fund...</span>{" "}
+                    {description ? sentenceCaseStart(description) : "The impact you choose."}
                   </p>
                   {useImpactUnit && impactUnitName && parsedImpactUnitCost > 0 && (
                     <p className="text-sm mt-3 font-black" style={{ color: "var(--green-primary)" }}>
                       {formatCurrency(parsedImpactUnitCost)} = 1 {impactUnitName}
                     </p>
                   )}
-                  <div className="mt-3 rounded-xl px-3 py-2.5" style={{ background: "rgba(46,204,113,0.1)", border: "1px solid rgba(46,204,113,0.22)" }}>
-                    <p className="text-[11px] font-bold uppercase tracking-wide mb-1" style={{ color: "var(--green-primary)" }}>What users will see after each skip</p>
-                    <p className="text-xs leading-relaxed font-semibold" style={{ color: "var(--text-primary)" }}>{sampleImpactMessage}</p>
-                  </div>
+                  {previewGoalLine && (
+                    <div className="mt-3">
+                      <div className="flex justify-between gap-3 text-xs font-semibold mb-1.5">
+                        <span style={{ color: "var(--green-primary)" }}>{previewGoalLine}</span>
+                        <span style={{ color: "var(--text-muted)" }}>0%</span>
+                      </div>
+                      <div className="h-2 rounded-full overflow-hidden" style={{ background: "var(--bg-surface-3)" }}>
+                        <div className="h-full rounded-full" style={{ width: "0%", background: "linear-gradient(135deg, var(--green-primary), var(--green-grad-end))" }} />
+                      </div>
+                    </div>
+                  )}
                   {noDonationLink && (
                     <div className="mt-3 rounded-xl px-3 py-2.5" style={{ background: "rgba(245,158,11,0.1)", border: "1px solid rgba(245,158,11,0.35)" }}>
                       <p className="text-xs font-bold" style={{ color: "#F59E0B" }}>No external donation link</p>

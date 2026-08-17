@@ -1269,20 +1269,20 @@ export default function HomePage() {
       ))}
 
       {/* Scoreboard */}
-      <div style={{ ...cardStyle, marginBottom: 26, position: "relative", textAlign: "center" }}>
-        <p style={{ fontSize: 11, color: "var(--text-muted)", fontWeight: 900, letterSpacing: 1.5, textTransform: "uppercase", marginBottom: 16 }}>
+      <div style={{ ...cardStyle, marginBottom: 32, position: "relative", textAlign: "center" }}>
+        <p style={{ fontSize: 11, color: "var(--text-muted)", fontWeight: 900, letterSpacing: 1.5, textTransform: "uppercase", marginBottom: 18 }}>
           Your skip scoreboard
         </p>
         <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 18, alignItems: "center" }}>
           <div>
             <p style={{ fontSize: 13, fontWeight: 800, color: "var(--text-secondary)", marginBottom: 5 }}>You said iSkip</p>
-            <p style={{ fontSize: 48, fontWeight: 900, color: "var(--green-primary)", lineHeight: 1, letterSpacing: -2 }}>
+            <p style={{ fontSize: 50, fontWeight: 900, color: "var(--green-primary)", lineHeight: 1, letterSpacing: -2 }}>
               {profile.totalSkips}<span style={{ fontSize: 18, letterSpacing: 0, marginLeft: 4 }}>times</span>
             </p>
           </div>
-          <div style={{ borderLeft: "1px solid var(--border-default)" }}>
+          <div style={{ borderLeft: "1px solid rgba(237,245,240,0.1)" }}>
             <p style={{ fontSize: 13, fontWeight: 800, color: "var(--text-secondary)", marginBottom: 5 }}>You saved</p>
-            <p style={{ fontSize: 48, fontWeight: 900, color: "var(--green-primary)", lineHeight: 1, letterSpacing: -2 }}>
+            <p style={{ fontSize: 50, fontWeight: 900, color: "var(--green-primary)", lineHeight: 1, letterSpacing: -2 }}>
               {formatCurrencyRounded(skipBalance.lifetimeSaved)}
             </p>
           </div>
@@ -1290,10 +1290,10 @@ export default function HomePage() {
       </div>
 
       {/* What it could become */}
-      <div style={{ marginTop: 18, marginBottom: 28 }}>
-        <div style={{ margin: "0 2px 10px" }}>
-          <p style={{ fontSize: 15, fontWeight: 900, color: "var(--text-primary)", marginBottom: 3 }}>Put your skips to work</p>
-          <p style={{ fontSize: 12, color: "var(--text-muted)" }}>
+      <div style={{ marginTop: 32, marginBottom: 28 }}>
+        <div style={{ margin: "0 2px 16px", textAlign: "center" }}>
+          <p style={{ fontSize: 17, fontWeight: 900, color: "var(--text-primary)", lineHeight: 1.1, marginBottom: 5 }}>Put your skips to work</p>
+          <p style={{ fontSize: 12, color: "var(--text-secondary)" }}>
             <strong style={{ color: "var(--green-primary)" }}>{formatCurrencyRounded(skipBalance.availableFromSkips)}</strong> left in my Skip Bank
           </p>
         </div>
