@@ -1309,7 +1309,7 @@ export default function HomePage() {
             </p>
           </div>
           <div style={{ borderLeft: "1px solid rgba(237,245,240,0.1)" }}>
-            <p style={{ fontSize: 13, fontWeight: 800, color: "var(--text-secondary)", marginBottom: 5 }}>You saved</p>
+            <p style={{ fontSize: 13, fontWeight: 800, color: "var(--text-secondary)", marginBottom: 5 }}>Lifetime savings</p>
             <p style={{ fontSize: 50, fontWeight: 900, color: "var(--green-primary)", lineHeight: 1, letterSpacing: -2 }}>
               {formatCurrencyRounded(skipBalance.lifetimeSaved)}
             </p>
@@ -1378,7 +1378,7 @@ export default function HomePage() {
               }}
               style={{ width: "100%", borderRadius: 12, padding: "11px 12px", background: "rgba(237,245,240,0.06)", color: "var(--text-primary)", border: "1px solid rgba(237,245,240,0.08)", fontSize: 13, fontWeight: 900, marginTop: activeGoal ? 0 : "auto" }}
             >
-              {activeGoal ? "Spend skips on this" : "Choose a goal"}
+              {activeGoal ? "Spend some skips" : "Choose a goal"}
             </button>
           </div>
 

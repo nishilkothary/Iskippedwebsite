@@ -59,6 +59,8 @@ export interface UserProfile {
   referralImpactPoints?: number;
   /** True once the user has explicitly opted in to push notifications via the profile toggle. Server-only write (via /api/push/token). */
   pushOptIn?: boolean;
+  /** Whether newly opened skip forms default to sharing in the community feed. Defaults to true. */
+  shareSkipsByDefault?: boolean;
   /** Registered FCM device tokens for this user. Server-only write (via /api/push/token). */
   fcmTokens?: string[];
   /** Set when the user snoozes the post-skip setup prompt for home-screen install / weekly reminders. */

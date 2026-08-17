@@ -79,7 +79,7 @@ function goalCoverage(balance: number, target: number) {
   return { percent, remaining: Math.max(0, target - balance) };
 }
 
-function RewardArtwork({ label, link, imageURL, imagePosition, featured = false }: { label: string; link?: string; imageURL?: string; imagePosition?: string; featured?: boolean }) {
+function RewardArtwork({ label, amount, link, imageURL, imagePosition, featured = false }: { label: string; amount?: number; link?: string; imageURL?: string; imagePosition?: string; featured?: boolean }) {
   const art = rewardArtFor(label);
   const retailer = retailerName(link);
   const previewImageURL = imageURL ?? amazonProductImage(link);
@@ -104,8 +104,13 @@ function RewardArtwork({ label, link, imageURL, imagePosition, featured = false 
         </>
       )}
       <div className="relative flex h-full flex-col justify-between p-4" style={{ color: art.accent }}>
-        <div className="flex items-start gap-2">
+        <div className="flex flex-col items-start gap-1.5">
           <span className="text-[10px] font-black uppercase tracking-[0.16em] opacity-80">{retailer ?? "Wish list"}</span>
+          {amount !== undefined && (
+            <span className="rounded-full bg-black/25 px-2 py-1 text-xs font-black text-white shadow-sm">
+              {formatCurrency(amount)}
+            </span>
+          )}
         </div>
         <div>
           <p className={`font-black leading-tight text-white ${featured ? "text-2xl" : "text-lg"}`}>{label}</p>
@@ -372,7 +377,7 @@ function JarsPageInner() {
   return (
     <div className="p-4 md:p-8 max-w-2xl mx-auto pb-20 md:pb-8">
       <div className="mb-5">
-        <h1 className="text-3xl font-black tracking-tight" style={{ color: "var(--text-primary)" }}>Goals</h1>
+        <h1 className="text-3xl font-black tracking-tight" style={{ color: "var(--text-primary)" }}>My Rewards</h1>
         <p className="text-sm mt-2" style={{ color: "var(--text-secondary)" }}>
           Save toward rewards you actually want.
         </p>
@@ -1735,7 +1740,7 @@ function SplurgeTab({
                     border: isActive ? "2px solid #8B5CF6" : "1px solid rgba(139,92,246,0.3)",
                   }}
                 >
-                  <RewardArtwork label={preset.label} />
+                          <RewardArtwork label={preset.label} amount={preset.amount} />
                   <div className="p-3">
                   <div className="flex items-center justify-between gap-2">
                     <div className="text-[10px] font-bold" style={{ color: "#8B5CF6" }}>{goalCoverage(spendingBalance, preset.amount).percent}% covered</div>
@@ -1757,7 +1762,7 @@ function SplurgeTab({
                   className="relative overflow-hidden rounded-2xl text-left transition-all hover:scale-[1.02] active:scale-[0.98]"
                   style={{ background: "var(--bg-surface-1)", border: deletingGoalId === goal.id ? "1px solid rgba(239,68,68,0.4)" : isActiveGoal ? "2px solid #8B5CF6" : "1px solid rgba(139,92,246,0.3)" }}
                 >
-                  <RewardArtwork label={goal.label} link={goal.shoppingLink} imageURL={goal.imageURL} imagePosition={goal.imagePosition} />
+                            <RewardArtwork label={goal.label} amount={goal.targetAmount} link={goal.shoppingLink} imageURL={goal.imageURL} imagePosition={goal.imagePosition} />
                   {deletingGoalId === goal.id ? (
                     <div className="p-3" onClick={(e) => e.stopPropagation()}>
                       <p className="mb-2 text-xs text-red-400">Delete &quot;{goal.label}&quot;?</p>
@@ -1795,10 +1800,11 @@ function SplurgeTab({
                         </div>
                       </div>
                       <div className="mt-1 text-sm font-bold" style={{ color: "var(--text-primary)" }}>{goal.label}</div>
-                      <div className="mt-1 flex items-center justify-between gap-2">
-                        <div className="text-base font-extrabold" style={{ color: "var(--text-primary)" }}>{formatCurrency(goal.targetAmount)}</div>
-                        {retailerName(goal.shoppingLink) && <div className="text-[10px] font-bold" style={{ color: "var(--text-secondary)" }}>{retailerName(goal.shoppingLink)}</div>}
-                      </div>
+                              {retailerName(goal.shoppingLink) && (
+                                <div className="mt-1 text-[10px] font-bold" style={{ color: "var(--text-secondary)" }}>
+                                  {retailerName(goal.shoppingLink)}
+                                </div>
+                              )}
                       {isActiveGoal ? (
                         <div className="mt-3 rounded-lg py-2 text-center text-[10px] font-black uppercase tracking-wide" style={{ background: "rgba(139,92,246,0.17)", color: "#C4B5FD" }}>
                           ✓ My main goal

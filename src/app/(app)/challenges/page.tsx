@@ -42,7 +42,7 @@ function isVisibleChallenge(project: Project): boolean {
   return isChallengeProject(project);
 }
 
-const CATEGORY_OPTIONS = ["All", "Public", "My Fundraisers", "Archived"] as const;
+const CATEGORY_OPTIONS = ["All", "My Fundraisers", "Verified Partners", "Community", "Public", "Archived"] as const;
 type CreateChallengeCategory =
   | "education"
   | "food"
@@ -204,7 +204,7 @@ export default function ChallengesPage() {
   const editId = searchParams.get("edit");
   const { user, profile, updateProfile } = useAuthStore();
   const { projects, refetch } = useProjects();
-  const [selectedCategory, setSelectedCategory] = useState<(typeof CATEGORY_OPTIONS)[number]>("My Fundraisers");
+  const [selectedCategory, setSelectedCategory] = useState<(typeof CATEGORY_OPTIONS)[number]>("All");
   const [joiningId, setJoiningId] = useState<string | null>(null);
   const [joinChoice, setJoinChoice] = useState<ChallengeCard | null>(null);
   const [showCreateForm, setShowCreateForm] = useState(false);
@@ -222,13 +222,20 @@ export default function ChallengesPage() {
     () => OFFICIAL_PROJECTS.filter((p) => PARTNER_CHALLENGE_IDS.includes(p.id)).map(challengeFromProject),
     []
   );
+  const allChallenges = useMemo(() => {
+    const challengesById = new Map<string, ChallengeCard>();
+    [...partnerChallenges, ...challenges].forEach((challenge) => {
+      challengesById.set(challenge.project.id, challenge);
+    });
+    return Array.from(challengesById.values());
+  }, [challenges, partnerChallenges]);
   const archivedChallenges = useMemo(() => {
     if (!profile) return [];
     const joined = new Set([...(profile.joinedProjectIds ?? []), ...(profile.activeProjectId ? [profile.activeProjectId] : [])]);
-    return [...challenges, ...partnerChallenges]
-      .filter((c, i, arr) => arr.findIndex((x) => x.project.id === c.project.id) === i) // dedupe
-      .filter((c) => joined.has(c.project.id) && isProjectEnded(c.project));
-  }, [challenges, partnerChallenges, profile?.joinedProjectIds, profile?.activeProjectId]);
+    return allChallenges.filter((challenge) => (
+      joined.has(challenge.project.id) || challenge.project.createdBy === user?.uid
+    ) && isProjectEnded(challenge.project));
+  }, [allChallenges, profile?.joinedProjectIds, profile?.activeProjectId, user?.uid]);
 
   // Open share modal once the newly created challenge appears in the list
   useEffect(() => {
@@ -257,7 +264,7 @@ export default function ChallengesPage() {
     if (found) setEditingChallenge(found);
   }, [editId, challenges]);
   const activeProject = projects.find((project) => project.id === profile?.activeProjectId) ?? null;
-  const activeChallenge = [...partnerChallenges, ...challenges].find(
+  const activeChallenge = allChallenges.find(
     (challenge) => challenge.project.id === profile?.activeProjectId
   ) ?? null;
   const skipBalance = getSkipBalanceSummary(profile);
@@ -265,11 +272,13 @@ export default function ChallengesPage() {
     () => new Set([...(profile?.joinedProjectIds ?? []), ...(profile?.activeProjectId ? [profile.activeProjectId] : [])]),
     [profile?.joinedProjectIds, profile?.activeProjectId]
   );
-  const filteredChallenges = challenges.filter((challenge) => {
+  const filteredChallenges = allChallenges.filter((challenge) => {
     if (challenge.project.status === "ended") return false;
     if (selectedCategory === "All") return !isPrivateChallenge(challenge.project) || joinedProjectIds.has(challenge.project.id);
-    if (selectedCategory === "Public") return !isPrivateChallenge(challenge.project);
     if (selectedCategory === "My Fundraisers") return challenge.project.createdBy === user?.uid || joinedProjectIds.has(challenge.project.id);
+    if (selectedCategory === "Verified Partners") return challenge.trustLabel === "Verified Partner";
+    if (selectedCategory === "Community") return challenge.trustLabel === "Community";
+    if (selectedCategory === "Public") return !isPrivateChallenge(challenge.project);
     return true;
   });
   const visibleListChallenges = filteredChallenges.slice(0, 20);
@@ -543,43 +552,13 @@ export default function ChallengesPage() {
         </div>
       </div>
 
-      {selectedCategory !== "Archived" && <section className="mt-6">
-        <SectionHeader title="Partner Fundraisers" subtitle="Fundraisers created with verified charities" />
-        <div className="space-y-3">
-          {partnerChallenges.map((challenge) => (
-            <ChallengeListCard
-              key={challenge.project.id}
-              challenge={challenge}
-              isActive={challenge.project.id === profile?.activeProjectId}
-              isJoining={joiningId === challenge.project.id}
-              canEdit={canManageChallenge(challenge)}
-              onOpen={() => router.push(`/challenges/${challenge.project.id}`)}
-              onEdit={() => router.push(`/challenges/${challenge.project.id}/manage`)}
-              onShare={() => handleShareChallenge(challenge)}
-              onJoin={() => handleJoin(challenge)}
-            />
-          ))}
-        </div>
-      </section>}
-
-      <div className="mt-8 mb-3 flex items-center justify-between gap-3">
-        <div>
-          <p className="text-sm font-bold mb-0.5" style={{ color: "var(--text-primary)" }}>Community Fundraisers</p>
-          <p className="text-xs" style={{ color: "var(--text-secondary)" }}>Started by people skipping together.</p>
-        </div>
-        <button
-          type="button"
-          onClick={() => setShowCreateForm(true)}
-          className="px-4 py-2.5 rounded-full text-sm font-black shrink-0"
-          style={{
-            background: "linear-gradient(135deg, var(--gold-cta), var(--gold-light))",
-            color: "var(--bg-base)",
-            boxShadow: "0 4px 18px var(--gold-glow)",
-          }}
-        >
-          + Create
-        </button>
-      </div>
+      <section className="mt-8">
+        <SectionHeader
+          title={selectedCategory === "My Fundraisers" ? "My Fundraisers" : "Explore Fundraisers"}
+          subtitle={selectedCategory === "My Fundraisers"
+            ? "Fundraisers you have joined or created."
+            : "Find a cause to skip alongside."}
+        />
 
       <div className="flex gap-2 overflow-x-auto pb-2 -mx-1 px-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
         {CATEGORY_OPTIONS.map((category) => (
@@ -653,10 +632,15 @@ export default function ChallengesPage() {
         </div>
       ) : (
         <div className="mt-3 rounded-xl py-8 text-center" style={{ background: "var(--bg-surface-1)", border: "1px solid var(--border-default)" }}>
-          <p className="text-sm font-semibold" style={{ color: "var(--text-muted)" }}>No community fundraisers yet.</p>
-          <p className="text-xs mt-1" style={{ color: "var(--text-muted)" }}>Be the first to start one.</p>
+          <p className="text-sm font-semibold" style={{ color: "var(--text-muted)" }}>
+            {selectedCategory === "My Fundraisers" ? "No fundraisers joined yet." : "No fundraisers match this filter yet."}
+          </p>
+          <p className="text-xs mt-1" style={{ color: "var(--text-muted)" }}>
+            {selectedCategory === "My Fundraisers" ? "Join a fundraiser or create one to see it here." : "Try another filter or create a fundraiser."}
+          </p>
         </div>
       )}
+      </section>
 
 
       {showCreateForm && (
@@ -917,7 +901,7 @@ function ChallengeListCard({
             </div>
             <div className="mt-0.5 flex items-center gap-2 min-w-0 flex-wrap">
               <p className="text-xs truncate" style={{ color: "var(--text-muted)" }}>{challenge.project.sponsor || challenge.beneficiary}</p>
-              {challenge.trustLabel !== "Community" && <Badge compact>{challenge.trustLabel}</Badge>}
+                <Badge compact>{challenge.trustLabel}</Badge>
             </div>
           </div>
           <div className="flex items-center gap-1.5 shrink-0">
@@ -1181,7 +1165,7 @@ function ChallengeDetailModal({
 
         <div className="p-5">
           <div className="flex flex-wrap gap-2 mb-3">
-            {challenge.trustLabel !== "Community" && <Badge>{challenge.trustLabel}</Badge>}
+              <Badge>{challenge.trustLabel}</Badge>
             <Badge>{accessBadgeLabel(challenge)}</Badge>
           </div>
 

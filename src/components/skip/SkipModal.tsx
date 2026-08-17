@@ -8,18 +8,25 @@ import { useAuthStore } from "@/store/authStore";
 import { SKIP_CATEGORIES } from "@/lib/constants/skipCategories";
 import { formatCurrency } from "@/lib/utils/currency";
 import { normalizeJarSplit, normalizeSpendingGoals } from "@/lib/services/firebase/users";
-import { formatAggregateImpactUnitsDecimal, formatAggregateImpactUnits, formatUnits, oneUnitPhrase } from "@/lib/utils/impact";
-import { isChallengeProject } from "@/lib/services/firebase/projects";
+import { formatAggregateImpactUnitsDecimal, formatUnits, oneUnitPhrase } from "@/lib/utils/impact";
 import { getChallengeCountdown } from "@/lib/utils/dates";
 import { appendRefParam, getChallengeSharePath } from "@/lib/utils/share";
 import { getPostSkipShareText } from "@/lib/utils/challengeShareCopy";
 import { ShareButton } from "@/components/share/ShareButton";
-import { useCountUp } from "@/hooks/useCountUp";
 import { SkipSetupPrompt } from "@/components/setup/SkipSetupPrompt";
 
 interface Props {
   onClose: () => void;
 }
+type SuccessMoment =
+  | "personal"
+  | "goal-progress"
+  | "goal-ready"
+  | "fundraiser"
+  | "milestone"
+  | "skip-bank"
+  | "lifetime"
+  | "future";
 
 export function SkipModal({ onClose }: Props) {
   const router = useRouter();
@@ -35,32 +42,33 @@ export function SkipModal({ onClose }: Props) {
   const [amountStr, setAmountStr] = useState("");
   const [customLabel, setCustomLabel] = useState("");
   const [whatSkipped, setWhatSkipped] = useState("");
-  const [shareWithCommunity, setShareWithCommunity] = useState(true);
+  const [shareWithCommunity, setShareWithCommunity] = useState(profile?.shareSkipsByDefault !== false);
   const shareToggleTouchedRef = useRef(false);
   const [projectId] = useState<string | null>(profile?.activeProjectId ?? null);
   const [success, setSuccess] = useState(false);
-  const [successProjectTitle, setSuccessProjectTitle] = useState<string | null>(null);
   const [successProjectUnitName, setSuccessProjectUnitName] = useState<string | null>(null);
   const [successProjectUnitDisplay, setSuccessProjectUnitDisplay] = useState<string | null>(null);
   const [successProjectUnitCost, setSuccessProjectUnitCost] = useState<number | null>(null);
   const [skipGivePct, setSkipGivePct] = useState(0);
   const [successOverflowCount, setSuccessOverflowCount] = useState<number | undefined>(undefined);
   const [successJarBalance, setSuccessJarBalance] = useState(0);
+  const [successSkipBank, setSuccessSkipBank] = useState(0);
+  const [successLifetimeSaved, setSuccessLifetimeSaved] = useState(0);
+  const [successMoment, setSuccessMoment] = useState<SuccessMoment>("personal");
   const [successStreak, setSuccessStreak] = useState(0);
   const [showSetupPrompt, setShowSetupPrompt] = useState(false);
   const dialogRef = useModalA11y(onClose);
   const activeProjectForSkip = projects.find((p) => p.id === projectId) ?? null;
-  const isActiveChallenge = activeProjectForSkip ? isChallengeProject(activeProjectForSkip) : false;
   // If the active project has expired, don't credit this skip to its jar
   const effectiveProjectId = activeProjectForSkip && getChallengeCountdown(activeProjectForSkip).isExpired
     ? null
     : projectId;
 
   useEffect(() => {
-    if (isActiveChallenge && !shareToggleTouchedRef.current) {
-      setShareWithCommunity(true);
+    if (!shareToggleTouchedRef.current) {
+      setShareWithCommunity(profile?.shareSkipsByDefault !== false);
     }
-  }, [isActiveChallenge]);
+  }, [profile?.shareSkipsByDefault]);
 
   function handleCatSelect(cat: typeof defaultCat) {
     setSelectedCat(cat);
@@ -69,6 +77,16 @@ export function SkipModal({ onClose }: Props) {
 
   async function handleSubmit() {
     const selectedProject = projects.find((p) => p.id === projectId);
+    const { goals: availableGoals, activeId: activeGoalId } = normalizeSpendingGoals(profile ?? {} as any);
+    const activeGoal = availableGoals.find((goal) => goal.id === activeGoalId) ?? null;
+    const skipBankBefore = Math.max(
+      0,
+      (profile?.totalSaved ?? 0) - (profile?.totalSpent ?? 0) - (profile?.totalDonated ?? 0)
+    );
+    const projectedSkipBank = Math.max(
+      0,
+      skipBankBefore + amount
+    );
 
     // Pre-compute jar-full state synchronously using same formula as jars page
     const personalGoal = profile?.causeGoalAmounts?.[projectId ?? ""] ?? selectedProject?.goalAmount ?? 0;
@@ -102,11 +120,47 @@ export function SkipModal({ onClose }: Props) {
     });
     if (result) {
       setSuccessStreak(result.newStreak ?? profile?.streak ?? 0);
-      setSuccessProjectTitle(selectedProject?.title ?? null);
       setSuccessProjectUnitName(selectedProject?.unitName ?? null);
       setSuccessProjectUnitDisplay(selectedProject?.unitDisplay ?? null);
       setSuccessProjectUnitCost(selectedProject?.unitCost ?? null);
       setSuccessJarBalance(expectedJarBal);
+      setSuccessSkipBank(projectedSkipBank);
+      setSuccessLifetimeSaved((profile?.totalSaved ?? 0) + amount);
+      const nextSkipCount = (profile?.totalSkips ?? 0) + 1;
+      const goalTarget = activeGoal?.targetAmount ?? 0;
+      const goalJustReached = goalTarget > 0
+        && skipBankBefore < goalTarget
+        && projectedSkipBank >= goalTarget;
+      const goalCoverageBefore = goalTarget > 0 ? (skipBankBefore / goalTarget) * 100 : 0;
+      const goalCoverageAfter = goalTarget > 0 ? (projectedSkipBank / goalTarget) * 100 : 0;
+      const goalProgressMilestoneHit = [25, 50, 75].some((threshold) =>
+        goalCoverageBefore < threshold && goalCoverageAfter >= threshold
+      );
+      const hasFundraiser = Boolean(
+        selectedProject?.unitCost && selectedProject.unitCost > 0
+      );
+      const rotatingMoments: SuccessMoment[] = [
+        "fundraiser",
+        "skip-bank",
+        "future",
+        "lifetime",
+        "personal",
+      ];
+      const eligibleMoments = rotatingMoments.filter((moment) =>
+        moment !== "fundraiser" || hasFundraiser
+      );
+      const rotatingMoment =
+        eligibleMoments[(nextSkipCount - 1) % eligibleMoments.length] ?? "personal";
+
+      if (goalJustReached) {
+        setSuccessMoment("goal-ready");
+      } else if (goalProgressMilestoneHit) {
+        setSuccessMoment("goal-progress");
+      } else if (nextSkipCount % 5 === 0) {
+        setSuccessMoment("milestone");
+      } else {
+        setSuccessMoment(rotatingMoment);
+      }
       if (willBeFull) {
         setSuccessOverflowCount(nextOverflowCount);
       }
@@ -120,7 +174,7 @@ export function SkipModal({ onClose }: Props) {
   if (success) {
     const skipGive = amount * (skipGivePct / 100);
     const successActiveProject = projects.find((p) => p.id === profile?.activeProjectId) ?? null;
-    const postLogSkipCount = (profile?.totalSkips ?? 0) + 1;
+    const postLogSkipCount = profile?.totalSkips ?? 0;
 
     function dismissSuccess() {
       if (postLogSkipCount === 1) {
@@ -136,14 +190,18 @@ export function SkipModal({ onClose }: Props) {
 
     // Build the success hero around the concrete transformation this skip becomes.
     const itemLabel = whatSkipped || customLabel || selectedCat.label.toLowerCase();
-    const causeTitle = successProjectTitle ?? null;
-    const impactStat = `${formatCurrency(amount)} saved`;
+    const { goals: successGoals, activeId: successActiveGoalId } = normalizeSpendingGoals(profile ?? {} as any);
+    const activeGoal = successGoals.find((goal) => goal.id === successActiveGoalId) ?? null;
+    const impactStat = `You skipped ${formatCurrency(amount)}.`;
     const challengeURL = successActiveProject
       ? appendRefParam(`${typeof window !== "undefined" ? window.location.origin : "https://iskipped.com"}${getChallengeSharePath(successActiveProject)}`, profile?.uid)
       : "https://iskipped.com";
     const shareIntentText = successActiveProject
-      ? getPostSkipShareText(successActiveProject, itemLabel, skipGivePct)
+      ? getPostSkipShareText(successActiveProject, itemLabel, amount)
       : `I skipped ${itemLabel} and saved ${formatCurrency(amount)}. Want to skip something this week too?`;
+    const inviteLabel = successActiveProject
+      ? `Invite someone to skip for ${successActiveProject.title}`
+      : "Share my skip";
 
     // Show jar-full celebration when give jar hits/exceeds goal (first time, then every 3rd skip)
     const overflowCount = successOverflowCount ?? 0;
@@ -243,28 +301,97 @@ export function SkipModal({ onClose }: Props) {
       );
     }
 
-    const causeImageURL = successActiveProject?.imageURL ?? null;
-    const totalImpactStat = (() => {
-      if (!causeTitle || !successProjectUnitCost || successProjectUnitCost <= 0 || successJarBalance <= 0 || !(successProjectUnitName || successProjectUnitDisplay)) {
-        return null;
-      }
-      if (successActiveProject?.unitIsGoal && successJarBalance < successProjectUnitCost) {
-        return formatAggregateImpactUnits(
-          successJarBalance,
-          successProjectUnitCost,
-          successProjectUnitName || successProjectUnitDisplay || "impact",
-          successProjectUnitDisplay,
-          true
-        );
-      }
-      return formatAggregateImpactUnitsDecimal(
-        successJarBalance,
-        successProjectUnitCost,
-        successProjectUnitName || successProjectUnitDisplay || "impact",
-        successProjectUnitDisplay,
-        successActiveProject?.unitIsGoal
-      ).toLowerCase();
-    })();
+    const goalTarget = activeGoal?.targetAmount ?? 0;
+    const goalCoverage = goalTarget > 0 ? Math.min(100, Math.round((successSkipBank / goalTarget) * 100)) : 0;
+    const hasGoalMoment = goalTarget > 0 && activeGoal != null;
+    const hasFundraiserMoment = successProjectUnitCost != null && successProjectUnitCost > 0 && (successProjectUnitName || successProjectUnitDisplay);
+    const momentType = (successMoment === "goal-progress" || successMoment === "goal-ready") && !hasGoalMoment
+      ? "personal"
+      : successMoment === "fundraiser" && !hasFundraiserMoment
+        ? "personal"
+        : successMoment;
+    const skipFundraiserImpactText = hasFundraiserMoment
+      ? (() => {
+          const unitName = successProjectUnitName || successProjectUnitDisplay || "impact";
+          const share = amount / successProjectUnitCost!;
+
+          if (share >= 1) {
+            const potential = formatAggregateImpactUnitsDecimal(
+              amount,
+              successProjectUnitCost!,
+              unitName,
+              successProjectUnitDisplay,
+              successActiveProject?.unitIsGoal
+            ).toLowerCase();
+            return `This skip could fund about ${potential} if you choose to redirect it to your fundraiser.`;
+          }
+
+          const percentage = share * 100;
+          const formattedPercentage = percentage < 0.001
+            ? "<0.001%"
+            : percentage < 1
+              ? `${Number(percentage.toFixed(3))}%`
+              : percentage < 10
+                ? `${Number(percentage.toFixed(1))}%`
+                : `${Math.round(percentage)}%`;
+          return `This skip could cover ${formattedPercentage} of ${oneUnitPhrase(unitName).toLowerCase()} if you choose to redirect it to your fundraiser.`;
+        })()
+      : null;
+    const momentCopy = momentType === "goal-ready" && activeGoal
+      ? {
+          eyebrow: "YOUR REWARD IS READY",
+          title: `${activeGoal.label} is ready when you are.`,
+          detail: `${formatCurrency(Math.min(successSkipBank, goalTarget))} ready of ${formatCurrency(goalTarget)}.`,
+          accent: "#A78BFA",
+        }
+      : momentType === "goal-progress" && activeGoal
+        ? {
+            eyebrow: "YOUR REWARD IS GETTING CLOSER",
+            title: `${goalCoverage}% of ${activeGoal.label} is covered.`,
+            detail: `${formatCurrency(Math.min(successSkipBank, goalTarget))} ready of ${formatCurrency(goalTarget)}.`,
+            accent: "#A78BFA",
+          }
+      : momentType === "fundraiser" && skipFundraiserImpactText
+        ? {
+            eyebrow: null,
+            title: "This skip could make a difference.",
+            detail: skipFundraiserImpactText,
+            accent: "var(--green-primary)",
+          }
+        : momentType === "milestone"
+          ? {
+              eyebrow: "MILESTONE UNLOCKED",
+              title: `${postLogSkipCount} times you chose not to spend.`,
+              detail: `${formatCurrency(successSkipBank)} is now waiting in your Skip Bank.`,
+              accent: "#F59E0B",
+            }
+          : momentType === "skip-bank"
+            ? {
+                eyebrow: "YOUR SKIP BANK GREW",
+                title: `${formatCurrency(successSkipBank)} is ready for whatever comes next.`,
+                detail: `Your latest ${formatCurrency(amount)} skip is safely in the bank.`,
+                accent: "var(--green-primary)",
+              }
+            : momentType === "lifetime"
+              ? {
+                  eyebrow: "LIFETIME SAVINGS",
+                  title: `You have skipped ${formatCurrency(successLifetimeSaved)} altogether.`,
+                  detail: `That is ${postLogSkipCount} choices in your favor.`,
+                  accent: "#A78BFA",
+                }
+              : momentType === "future"
+                ? {
+                    eyebrow: "A LITTLE MATH, A LOT OF POSSIBILITY",
+                    title: `One ${formatCurrency(amount)} skip a week = ${formatCurrency(amount * 52)} in a year.`,
+                    detail: "Today counts as the first one.",
+                    accent: "#F59E0B",
+                  }
+                : {
+              eyebrow: "A SMALL WIN THAT ADDS UP",
+              title: `That was skip #${postLogSkipCount}. Keep choosing your future self.`,
+              detail: `${formatCurrency(successSkipBank)} is now waiting in your Skip Bank.`,
+              accent: "#A78BFA",
+                };
     return (
       <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4" onClick={dismissSuccess}>
         <div
@@ -277,55 +404,40 @@ export function SkipModal({ onClose }: Props) {
           style={{ background: "var(--bg-surface-1)", border: "1px solid var(--border-default)", outline: "none" }}
           onClick={(e) => e.stopPropagation()}
         >
-          {causeImageURL ? (
-            <div className="relative">
-              <img src={causeImageURL} className="w-full h-32 object-cover" alt={successProjectTitle ?? ""} />
-              <button onClick={dismissSuccess} aria-label="Close" className="absolute top-3 right-3 text-xl leading-none w-8 h-8 flex items-center justify-center rounded-full" style={{ background: "rgba(0,0,0,0.4)", color: "#fff" }}>x</button>
-            </div>
-          ) : (
-            <button onClick={dismissSuccess} aria-label="Close" className="absolute top-4 right-4 text-2xl leading-none z-10" style={{ color: "var(--text-muted)" }}>x</button>
-          )}
-          <div className="px-6 pb-6" style={{ paddingTop: causeImageURL ? 14 : 24 }}>
+          <button onClick={dismissSuccess} aria-label="Close" className="absolute top-4 right-4 text-2xl leading-none z-10" style={{ color: "var(--text-muted)" }}>x</button>
+          <div className="px-6 pb-6 pt-6">
             <p id="skip-success-title" className="text-[1.55rem] font-black leading-tight mx-auto max-w-[290px]" style={{ color: "var(--green-primary)" }}>
               {impactStat}
             </p>
             <StreakCheckHero streak={successStreak} />
-            <div className="mt-6 mb-6 grid grid-cols-3 gap-2">
-              <div className="iskip-chip rounded-xl py-2.5 px-2" style={{ background: "var(--bg-surface-2)", border: "1px solid var(--border-default)", animationDelay: "40ms" }}>
-                <p className="text-base font-black leading-none" style={{ color: "var(--text-primary)" }}>
-                  <CountUp value={amount} render={(n) => formatCurrency(n)} />
+            <div className="mt-4 mb-5 rounded-xl px-4 py-4 text-left" style={{ background: "var(--bg-surface-2)", border: "1px solid var(--border-default)" }}>
+              {momentCopy.eyebrow && (
+                <p className="text-[10px] font-black tracking-[0.14em]" style={{ color: momentCopy.accent }}>
+                  {momentCopy.eyebrow}
                 </p>
-                <p className="text-[10px] font-bold uppercase tracking-wide mt-1" style={{ color: "var(--text-muted)" }}>saved</p>
-              </div>
-              <div className="iskip-chip rounded-xl py-2.5 px-2" style={{ background: "rgba(249,115,22,0.1)", border: "1px solid rgba(249,115,22,0.25)", animationDelay: "120ms" }}>
-                <p className="text-base font-black leading-none" style={{ color: "#2BBAA4" }}>
-                  <CountUp value={successJarBalance || skipGive} render={(n) => formatCurrency(n)} />
-                </p>
-                <p className="text-[10px] font-bold uppercase tracking-wide mt-1" style={{ color: "var(--text-muted)" }}>giving jar</p>
-              </div>
-              <div className="iskip-chip rounded-xl py-2.5 px-2 relative" style={{ background: "rgba(46,204,113,0.1)", border: "1px solid var(--border-emphasis)", animationDelay: "200ms" }}>
-                <p
-                  className={totalImpactStat ? "text-[12px] font-black leading-tight min-h-[32px] flex items-center justify-center" : "text-base font-black leading-none"}
-                  style={{ color: "var(--green-primary)" }}
-                >
-                  {totalImpactStat ?? <CountUp value={skipGive} render={(n) => formatCurrency(n)} />}
-                </p>
-                <p className="text-[10px] font-bold uppercase tracking-wide mt-1" style={{ color: "var(--text-muted)" }}>{totalImpactStat ? "total impact" : "giving jar"}</p>
-              </div>
+              )}
+              <p className={`${momentCopy.eyebrow ? "mt-1 " : ""}text-base font-black leading-snug`} style={{ color: "var(--text-primary)" }}>
+                {momentCopy.title}
+              </p>
+              <p className="mt-1 text-xs font-semibold leading-relaxed" style={{ color: "var(--text-secondary)" }}>
+                {momentCopy.detail}
+              </p>
             </div>
 
-            <div>
-              <ShareButton
-                variant="block"
-                tone="primary"
-                label="Share the challenge"
-                url={challengeURL}
-                text={shareIntentText}
-                title={successActiveProject?.title ?? "iSkipped"}
-              />
-            </div>
+            {momentType === "fundraiser" && successActiveProject && (
+              <div>
+                <ShareButton
+                  variant="block"
+                  tone="primary"
+                  label={inviteLabel}
+                  url={challengeURL}
+                  text={shareIntentText}
+                  title={successActiveProject.title}
+                />
+              </div>
+            )}
 
-            <div className="mt-3 flex items-center justify-center text-xs font-semibold">
+            <div className={`${momentType === "fundraiser" && successActiveProject ? "mt-3" : "mt-1"} flex items-center justify-center text-xs font-semibold`}>
               <button onClick={dismissSuccess} className="px-3 py-2" style={{ color: "var(--text-muted)" }}>Done</button>
             </div>
           </div>
@@ -526,21 +638,25 @@ export function SkipModal({ onClose }: Props) {
           </div>
 
           {/* Share toggle */}
-          <label className="flex items-center gap-3 cursor-pointer">
-            <div
+          <div className="flex items-center gap-3">
+            <button
+              type="button"
               onClick={() => {
                 shareToggleTouchedRef.current = true;
                 setShareWithCommunity((v) => !v);
               }}
+              role="switch"
+              aria-checked={shareWithCommunity}
+              aria-label="Share this skip with the community"
               className="w-11 h-6 rounded-full transition-colors relative"
               style={{ background: shareWithCommunity ? "var(--green-primary)" : "var(--bg-surface-3)" }}
             >
               <span
                 className={`absolute top-0.5 left-0.5 w-5 h-5 rounded-full bg-white shadow transition-transform ${shareWithCommunity ? "translate-x-5" : ""}`}
               />
-            </div>
-            <span className="text-sm" style={{ color: "var(--text-primary)" }}>Share my skip with the community (It motivates others)!</span>
-          </label>
+            </button>
+            <span className="text-sm" style={{ color: "var(--text-primary)" }}>Share my skip with the community</span>
+          </div>
         </div>
 
         {/* Submit */}
@@ -562,7 +678,6 @@ export function SkipModal({ onClose }: Props) {
     </div>
   );
 }
-
 /** Duolingo-style weekly streak checkoff for the post-skip success state. */
 function StreakCheckHero({ streak }: { streak: number }) {
   const currentStreak = Math.max(1, streak || 1);
@@ -574,11 +689,11 @@ function StreakCheckHero({ streak }: { streak: number }) {
   }));
 
   return (
-    <div className="mt-5">
+    <div className="mt-4">
       <p className="text-[11px] font-black uppercase tracking-widest" style={{ color: "var(--text-muted)" }}>
         Weekly skip streak
       </p>
-      <div className="iskip-streak-row mt-2" aria-label={`${currentStreak} week skip streak`}>
+      <div className="iskip-streak-row mt-1.5" aria-label={`${currentStreak} week skip streak`}>
         {weeks.map((week) => (
           <div key={week.weekNumber} className="iskip-streak-slot">
             <span
@@ -593,10 +708,4 @@ function StreakCheckHero({ streak }: { streak: number }) {
       </div>
     </div>
   );
-}
-
-/** Animated count-up number. `render` formats the current value (e.g. currency). */
-function CountUp({ value, from = 0, ms = 900, render }: { value: number; from?: number; ms?: number; render?: (n: number) => string }) {
-  const n = useCountUp(value, ms, from);
-  return <>{render ? render(n) : Math.round(n).toLocaleString()}</>;
 }

@@ -7,7 +7,7 @@ import { signOut } from "@/lib/services/firebase/auth";
 import { deleteAccount } from "@/lib/services/firebase/account";
 import { formatCurrency } from "@/lib/utils/currency";
 import { impactScore } from "@/lib/utils/impactScore";
-import { normalizeJarSplit, recalculateTotals } from "@/lib/services/firebase/users";
+import { normalizeJarSplit, recalculateTotals, setShareSkipsByDefault } from "@/lib/services/firebase/users";
 import { isPushSupported, registerForPush, unregisterPush } from "@/lib/services/firebase/push";
 import { useSkips } from "@/hooks/useSkips";
 import { DeleteAccountModal } from "@/components/profile/DeleteAccountModal";
@@ -125,6 +125,18 @@ export default function ProfilePage() {
     }
   }
 
+  async function handleToggleShareSkipsByDefault() {
+    if (!user || !profile) return;
+    const shareSkipsByDefault = profile.shareSkipsByDefault === false;
+    try {
+      await setShareSkipsByDefault(user.uid, shareSkipsByDefault);
+      updateProfile({ shareSkipsByDefault });
+      toast.success(shareSkipsByDefault ? "New skips will be shared by default." : "New skips will stay private by default.");
+    } catch {
+      toast.error("Couldn't update your sharing preference.");
+    }
+  }
+
   return (
     <div className="p-5 md:p-10 max-w-3xl mx-auto pb-24 md:pb-10">
       <h1 className="text-2xl font-bold mb-10" style={{ color: "var(--text-primary)" }}>Profile</h1>
@@ -209,7 +221,7 @@ export default function ProfilePage() {
             </div>
           ))}
         </div>
-        <div className="px-5 py-4 mb-4 flex items-center justify-between gap-4" style={{ borderRadius: 20, background: "linear-gradient(150deg, rgba(46,204,113,0.1), rgba(237,245,240,0.035))", border: "1px solid rgba(46,204,113,0.18)" }}>
+        <div className="hidden">
           <div>
             <p className="text-xs font-semibold uppercase tracking-wide" style={{ color: "var(--text-secondary)" }}>⚡ Impact Score</p>
             <p className="text-xs mt-0.5" style={{ color: "var(--text-muted)" }}>
@@ -298,6 +310,38 @@ export default function ProfilePage() {
           >
             {recalcState === "loading" ? "Recalculating…" : "Recalculate"}
           </button>
+        </div>
+
+        <div className="p-5 mb-4" style={{ ...cardStyle, borderRadius: 20 }}>
+          <div className="flex items-center justify-between gap-4">
+            <div>
+              <p className="text-sm font-bold" style={{ color: "var(--text-primary)" }}>Share skips by default</p>
+              <p className="text-xs mt-1" style={{ color: "var(--text-secondary)" }}>
+                New skips start shared with the community. You can still change this on each skip.
+              </p>
+            </div>
+            <button
+              type="button"
+              onClick={handleToggleShareSkipsByDefault}
+              role="switch"
+              aria-checked={profile.shareSkipsByDefault !== false}
+              aria-label="Toggle sharing skips by default"
+              className="relative flex-shrink-0 w-12 h-7 rounded-full transition-colors"
+              style={{
+                background: profile.shareSkipsByDefault !== false ? "var(--green-primary)" : "var(--bg-surface-3)",
+                border: "1px solid var(--border-default)",
+              }}
+            >
+              <span
+                className="absolute top-0.5 w-5 h-5 rounded-full transition-transform"
+                style={{
+                  background: "#fff",
+                  left: 2,
+                  transform: profile.shareSkipsByDefault !== false ? "translateX(20px)" : "translateX(0)",
+                }}
+              />
+            </button>
+          </div>
         </div>
 
         {pushSupported && (

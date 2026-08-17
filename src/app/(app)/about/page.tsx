@@ -23,7 +23,7 @@ const STEPS = [
   {
     number: "03",
     title: "Put your skips to work",
-    copy: "Use your Skip Bank when you are ready: spend it on a goal or contribute it to a fundraiser you care about.",
+    copy: "Spend it on a goal, contribute it to a fundraiser, or save it for the future.",
     body: "Pick something you're saving toward — dinner out, a splurge, a small treat. A share of every skip fills your Reward Jar alongside your giving. All good deeds deserve a reward.",
     color: "#8B5CF6",
     bgColor: "rgba(139,92,246,0.10)",
@@ -146,7 +146,7 @@ export default function AboutPage() {
           <span style={{ color: "var(--green-primary)" }}>iSkipped.</span>
         </p>
         <p className="text-sm max-w-xs mx-auto leading-relaxed" style={{ color: "var(--text-secondary)" }}>
-          To make a difference in the world we just have to skip a few expenses.
+          Our hard-earned money becomes more valuable when we can say iSkipped.
         </p>
       </div>
 

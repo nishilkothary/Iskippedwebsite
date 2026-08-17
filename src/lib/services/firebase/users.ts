@@ -113,6 +113,7 @@ export async function createOrUpdateUser(user: User): Promise<boolean> {
       lastSkipDate: null,
       favoriteCauseIds: [],
       jarSplit: { give: 50, live: 50 },
+      shareSkipsByDefault: true,
       emailVerified: user.emailVerified,
       onboardingCompletedAt: null,
       createdAt: serverTimestamp(),
@@ -139,6 +140,10 @@ export async function updateJarSettings(
   jarSplit: { give: number; live: number }
 ): Promise<void> {
   await updateDoc(doc(db, "users", uid), { jarSplit });
+}
+
+export async function setShareSkipsByDefault(uid: string, shareSkipsByDefault: boolean): Promise<void> {
+  await updateDoc(doc(db, "users", uid), { shareSkipsByDefault });
 }
 
 export async function setActiveProject(uid: string, projectId: string | null): Promise<void> {
