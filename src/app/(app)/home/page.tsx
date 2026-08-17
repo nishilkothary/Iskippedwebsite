@@ -1020,6 +1020,9 @@ export default function HomePage() {
   const fundraiserUnitsDonated = activeProject?.unitCost
     ? formatCommunityUnitCount(fundraiserDonatedTotal, activeProject.unitCost, activeProject.unitIsGoal)
     : null;
+  const fundraiserPersonalUnitPotential = activeProject?.unitCost
+    ? formatCommunityUnitCount(skipBalance.availableFromSkips, activeProject.unitCost, activeProject.unitIsGoal)
+    : null;
   const personalGoal = profile.causeGoalAmounts?.[activeProject?.id ?? ""]
     ?? (!isActiveChallenge ? activeProject?.goalAmount ?? 0 : 0);
   const hasPersonalGivingGoal = personalGoal > 0;
@@ -1062,12 +1065,18 @@ export default function HomePage() {
     displayedGroupTotal,
     challengeFeedAllItems.reduce((sum, item) => sum + Math.max(0, item.skipAmount ?? 0), 0)
   );
+  const challengeSkippedUnitPotential = activeProject?.unitCost
+    ? formatCommunityUnitCount(challengeSkippedAmount, activeProject.unitCost, activeProject.unitIsGoal)
+    : null;
   const challengeCommunitySkipCount = challengeFeedItems.length > 0 ? challengeFeedItems.length : challengeSkips.length;
   const todaySkipCount = activeProject && isActiveChallenge
     ? communityFeed.filter((item) =>
         (item.projectTitle === activeProject.title || item.projectId === activeProject.id)
         && item.createdAt?.toDate?.()?.toDateString() === new Date().toDateString()
       ).length
+    : 0;
+  const groupSkipsThisWeek = activeProject && isActiveChallenge
+    ? challengeFeedAllItems.filter((item) => item.createdAt?.toDate && isSameWeek(item.createdAt.toDate().toISOString().split("T")[0])).length
     : 0;
   const socialFeedItems = activeProject && isActiveChallenge
     ? (communityFeed.filter((item) => item.projectTitle === activeProject.title).length > 0
@@ -1316,7 +1325,7 @@ export default function HomePage() {
                   </div>
                   <div style={{ minWidth: 0 }}>
                     <p style={{ fontSize: 11, fontWeight: 900, letterSpacing: 1.4, textTransform: "uppercase", color: "#A78BFA", marginBottom: 4 }}>
-                      Reward cost
+                      {activeGoal.type === "splurge" ? "Trip cost" : "Goal cost"}
                     </p>
                   </div>
                 </div>
@@ -1376,6 +1385,11 @@ export default function HomePage() {
                     <p style={{ fontSize: 11, fontWeight: 900, letterSpacing: 1.4, textTransform: "uppercase", color: "var(--green-primary)", marginBottom: 4 }}>
                       Per {fundraiserUnitLabelSingular}
                     </p>
+                    <p style={{ fontSize: 12, fontWeight: 800, color: "var(--gold-cta)", lineHeight: 1.3 }}>
+                      {fundraiserPersonalUnitPotential && fundraiserUnitCost
+                        ? `Your skips could fund up to ${fundraiserPersonalUnitPotential} ${fundraiserUnitLabel}.`
+                        : `Your skips could fund up to ${formatCurrencyRounded(skipBalance.availableFromSkips)}.`}
+                    </p>
                   </div>
                 </div>
                 <div style={{ marginBottom: 14 }}>
@@ -1406,59 +1420,39 @@ export default function HomePage() {
       </div>
 
       {activeProject && isActiveChallenge && activeProject.status !== "ended" && (
-        <div style={{ ...cardStyle, marginBottom: 28, padding: 18, background: "linear-gradient(145deg, rgba(20,26,31,0.98), rgba(10,26,22,0.96) 58%, rgba(139,92,246,0.08))", border: "1px solid rgba(237,245,240,0.11)", boxShadow: "0 18px 44px rgba(0,0,0,0.2)" }}>
-          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 12, marginBottom: 14 }}>
+        <div style={{ ...cardStyle, marginBottom: 36, padding: 18, background: "linear-gradient(145deg, rgba(20,26,31,0.98), rgba(10,26,22,0.96) 58%, rgba(43,186,164,0.06))", border: "1px solid rgba(237,245,240,0.11)", boxShadow: "0 14px 34px rgba(0,0,0,0.16)" }}>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 12, marginBottom: 16 }}>
             <div style={{ minWidth: 0 }}>
               <p style={{ fontSize: 11, fontWeight: 900, letterSpacing: 1.3, textTransform: "uppercase", color: "#2BBAA4", marginBottom: 5 }}>
-                Live group feed
+                Skipping together
               </p>
               <p style={{ fontSize: 18, fontWeight: 900, lineHeight: 1.15, color: "var(--text-primary)" }}>
                 {activeProject.groupName ?? activeProject.title}
               </p>
-              <p style={{ fontSize: 12, color: "var(--text-secondary)", lineHeight: 1.4, marginTop: 5 }}>
-                {liveChallengeTotalSkips.toLocaleString()} skips logged by the group.
+              <p style={{ fontSize: 12, fontWeight: 700, color: "var(--text-secondary)", lineHeight: 1.45, marginTop: 12, maxWidth: 430 }}>
+                Together, the group has skipped {formatCurrencyRounded(challengeSkippedAmount)}.{" "}
+                {challengeSkippedUnitPotential && activeProject.unitCost
+                  ? `That could fund up to ${challengeSkippedUnitPotential} ${fundraiserUnitLabel}.`
+                  : ""}
               </p>
             </div>
-            <button
-              type="button"
-              onClick={() => router.push(`/challenges/${activeProject.id}/activity`)}
-              style={{ background: "rgba(43,186,164,0.12)", border: "1px solid rgba(43,186,164,0.25)", borderRadius: 999, color: "#2BBAA4", fontSize: 11, fontWeight: 900, padding: "7px 11px", whiteSpace: "nowrap", cursor: "pointer" }}
-            >
-              View feed
-            </button>
-          </div>
-
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(3, minmax(0, 1fr))", marginBottom: 12, padding: "2px 0 12px", borderBottom: "1px solid rgba(237,245,240,0.08)" }}>
-            <div style={{ padding: "4px 12px 4px 0", borderRight: "1px solid rgba(237,245,240,0.08)" }}>
-              <p style={{ fontSize: 18, fontWeight: 900, color: "var(--text-primary)", lineHeight: 1 }}>
-                {liveChallengeTotalSkips.toLocaleString()}
-              </p>
-              <p style={{ fontSize: 9, fontWeight: 900, letterSpacing: 1, textTransform: "uppercase", color: "var(--text-muted)", marginTop: 4 }}>
-                skips
-              </p>
-            </div>
-            <div style={{ padding: "4px 12px", borderRight: "1px solid rgba(237,245,240,0.08)" }}>
-              <p style={{ fontSize: 18, fontWeight: 900, color: "var(--text-primary)", lineHeight: 1 }}>
-                {formatCurrencyRounded(challengeSkippedAmount)}
-              </p>
-              <p style={{ fontSize: 9, fontWeight: 900, letterSpacing: 1, textTransform: "uppercase", color: "var(--text-muted)", marginTop: 4 }}>
-                skipped
-              </p>
-            </div>
-            <div style={{ padding: "4px 0 4px 12px" }}>
-              <p style={{ fontSize: 18, fontWeight: 900, color: "#2BBAA4", lineHeight: 1 }}>
-                {fundraiserDonatedUnits !== null ? Math.floor(fundraiserDonatedUnits).toLocaleString("en-US") : formatCurrencyRounded(fundraiserDonatedTotal)}
-              </p>
-              <p style={{ fontSize: 9, fontWeight: 900, letterSpacing: 1, textTransform: "uppercase", color: "var(--text-muted)", marginTop: 4 }}>
-                {fundraiserDonatedUnits !== null ? `${fundraiserUnitLabel} donated` : "donated"}
-              </p>
+            <div style={{ display: "flex", flexDirection: "column", gap: 8, alignItems: "flex-end", flexShrink: 0 }}>
+              <ShareButton
+                variant="pill"
+                label="Invite"
+                title={activeProject.title}
+                text={getDirectChallengeShareText(activeProject)}
+                url={appendRefParam(`${typeof window !== "undefined" ? window.location.origin : "https://iskipped.com"}${getChallengeSharePath(activeProject)}`, user?.uid)}
+              />
             </div>
           </div>
 
           {featuredChallengeFeedItem ? (
-            <div>
-              {challengeFeedItems.slice(0, 2).map((item, index) => (
-                <div key={item.id} style={{ display: "grid", gridTemplateColumns: "34px minmax(0, 1fr) auto", alignItems: "center", gap: 10, padding: "10px 0", borderBottom: index < Math.min(2, challengeFeedItems.length) - 1 ? "1px solid rgba(237,245,240,0.08)" : "none" }}>
+            <div style={{ borderTop: "1px solid rgba(237,245,240,0.08)", borderBottom: "1px solid rgba(237,245,240,0.08)" }}>
+              {(() => {
+                const item = challengeFeedItems[Math.min(featuredFeedIndex, challengeFeedItems.length - 1)] ?? featuredChallengeFeedItem;
+                return (
+                <div key={item.id} style={{ display: "grid", gridTemplateColumns: "34px minmax(0, 1fr) auto", alignItems: "center", gap: 10, padding: "12px 0" }}>
                   <div style={{ width: 34, height: 34, borderRadius: 12, background: "rgba(43,186,164,0.14)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 17, flexShrink: 0 }}>
                     {item.skipEmoji ?? "."}
                   </div>
@@ -1467,25 +1461,42 @@ export default function HomePage() {
                       {getFeedActionLine(item)}
                     </p>
                     <p style={{ fontSize: 10, color: "var(--text-muted)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", marginTop: 2 }}>
+                      Skipped with the group
+                      {" · "}
                       {formatRelativeTime(item.createdAt.toDate())}
                     </p>
                   </div>
-                  <div style={{ display: "flex", alignItems: "center", gap: 10, flexShrink: 0 }}>
-                    {(item.giveAmount ?? item.skipAmount) !== undefined && (
-                        <p style={{ fontSize: 14, fontWeight: 900, color: "#2BBAA4" }}>
-                        +{formatCurrency(item.giveAmount ?? item.skipAmount!)}
-                      </p>
-                    )}
-                    <button
-                      type="button"
-                      aria-label="Like skip"
-                      style={{ width: 28, height: 28, borderRadius: 999, border: "1px solid rgba(237,245,240,0.08)", background: "transparent", color: "var(--text-muted)", display: "grid", placeItems: "center", cursor: "pointer", fontSize: 13 }}
-                    >
-                      ♥
-                    </button>
-                  </div>
+                  {(item.giveAmount ?? item.skipAmount) !== undefined && (
+                    <p style={{ fontSize: 14, fontWeight: 900, color: "#2BBAA4", whiteSpace: "nowrap" }}>
+                      +{formatCurrency(item.giveAmount ?? item.skipAmount!)}
+                    </p>
+                  )}
                 </div>
-              ))}
+                );
+              })()}
+              {challengeFeedItems.length > 1 && (
+                <div style={{ display: "flex", gap: 5, paddingBottom: 8 }}>
+                  {challengeFeedItems.map((item, index) => (
+                    <span
+                      key={item.id}
+                      style={{
+                        width: 4,
+                        height: 4,
+                        borderRadius: 999,
+                        background: index === Math.min(featuredFeedIndex, challengeFeedItems.length - 1) ? "#2BBAA4" : "rgba(237,245,240,0.18)",
+                        transition: "all 180ms ease",
+                      }}
+                    />
+                  ))}
+                </div>
+              )}
+              <button
+                type="button"
+                onClick={() => router.push(`/challenges/${activeProject.id}/activity`)}
+                style={{ width: "100%", border: "none", background: "transparent", color: "#2BBAA4", fontSize: 12, fontWeight: 900, textAlign: "left", cursor: "pointer", padding: "10px 0" }}
+              >
+                View full feed →
+              </button>
             </div>
           ) : (
             <button
@@ -1941,11 +1952,10 @@ export default function HomePage() {
       )}
 
       {/* Recent Skips */}
-      <div style={{ marginTop: 4 }}>
-        <div style={cardStyle}>
+      <div style={{ marginTop: 10, padding: "0 4px" }}>
           <div style={{
             display: "flex", justifyContent: "space-between", alignItems: "center",
-            marginBottom: 16,
+            marginBottom: 12,
           }}>
             <span style={{ fontSize: 13, fontWeight: 600, color: "var(--text-secondary)", letterSpacing: 0.5 }}>
               My Recent Skips
@@ -1962,7 +1972,7 @@ export default function HomePage() {
           </div>
 
           {recentSkips.length === 0 ? (
-            <div style={{ textAlign: "center", padding: "24px 0" }}>
+            <div style={{ textAlign: "center", padding: "24px 0", borderTop: rowDivider, borderBottom: rowDivider }}>
               <p style={{ fontSize: 32, marginBottom: 8 }}>☕</p>
               <p style={{ fontSize: 13, color: "var(--text-muted)" }}>No skips yet!</p>
             </div>
@@ -1973,7 +1983,8 @@ export default function HomePage() {
                 style={{
                   display: "flex", alignItems: "center", gap: 12,
                   padding: "10px 0",
-                  borderBottom: i < Math.min(recentSkips.length, 3) - 1 ? rowDivider : "none",
+                  borderTop: i === 0 ? rowDivider : "none",
+                  borderBottom: rowDivider,
                 }}
               >
                 <div style={{
@@ -2012,7 +2023,6 @@ export default function HomePage() {
               </div>
             ))
           )}
-        </div>
       </div>
 
       <SkipSetupPrompt mode="footer" />
