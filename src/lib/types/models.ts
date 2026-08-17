@@ -6,6 +6,8 @@ export interface SpendingGoal {
   targetAmount: number;
   type: "splurge" | "donation";
   shoppingLink?: string;
+  imageURL?: string;
+  imagePosition?: string;
   donationURL?: string;
 }
 

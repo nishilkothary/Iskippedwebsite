@@ -6,21 +6,24 @@ import { useRouter } from "next/navigation";
 const STEPS = [
   {
     number: "01",
-    title: "Join or start a challenge",
+    title: "Skip something",
+    copy: "Say no to an expense you do not need, from coffee and takeout to an impulse purchase.",
     body: "Pick a partner cause or start a group challenge with friends, family, or colleagues. Everyone skips toward the same goal.",
     color: "var(--green-primary)",
     bgColor: "rgba(46,204,113,0.10)",
   },
   {
     number: "02",
-    title: "Skip anything small",
+    title: "Log the skip",
+    copy: "Add what you skipped and its value. That amount goes into your Skip Bank.",
     body: "Coffee, takeout, impulse buy — anything you can do without. Log it in iSkipped and your Giving Jar grows with every skip.",
     color: "var(--gold-cta)",
     bgColor: "rgba(255,183,0,0.10)",
   },
   {
     number: "03",
-    title: "Treat yourself too",
+    title: "Put your skips to work",
+    copy: "Use your Skip Bank when you are ready: spend it on a goal or contribute it to a fundraiser you care about.",
     body: "Pick something you're saving toward — dinner out, a splurge, a small treat. A share of every skip fills your Reward Jar alongside your giving. All good deeds deserve a reward.",
     color: "#8B5CF6",
     bgColor: "rgba(139,92,246,0.10)",
@@ -34,7 +37,7 @@ const STEPS = [
   },
 ];
 
-const FAQ_ITEMS = [
+const LEGACY_FAQ_ITEMS = [
   {
     q: "How do I empty my jar once I've donated or made a purchase?",
     a: "Head to the Jars page and open the relevant tab. For your Giving Jar, log a donation using the 'Log Donation' button — enter the amount you donated and confirm. For your Reward Jar, tap 'Log a Purchase' on your active reward, enter what you spent, and confirm. Both actions record your real-world action and clear that amount from your jar balance so you can start fresh toward your next goal.",
@@ -77,6 +80,49 @@ const FAQ_ITEMS = [
   },
 ];
 
+const FAQ_ITEMS = [
+  {
+    q: "What is my Skip Bank?",
+    a: "Your Skip Bank is the total value of everything you have logged as skipped, less purchases you have logged and donations you have confirmed.",
+  },
+  {
+    q: "Does money move when I log a skip?",
+    a: "No. iSkipped helps you track the amount you chose not to spend. No money moves automatically into or through iSkipped.",
+  },
+  {
+    q: "How do I use my Skip Bank?",
+    a: "Choose a goal when you want to spend on something meaningful, or choose a fundraiser when you want to contribute to a cause. You decide how much to use at that moment.",
+  },
+  {
+    q: "Do I need to join a fundraiser?",
+    a: "No. You can use your Skip Bank only for personal goals, only for fundraisers, or a mix of both whenever you are ready.",
+  },
+  {
+    q: "What happens when I contribute to a fundraiser?",
+    a: "Choose an amount from your Skip Bank, then iSkipped takes you to the fundraiser's external donation page. When you return, you can confirm the donation so your Skip Bank and the fundraiser progress stay up to date.",
+  },
+  {
+    q: "What happens when I spend on a goal?",
+    a: "Choose how much to spend. If you saved a shopping link, we can take you there; otherwise, confirm the purchase after you make it outside iSkipped.",
+  },
+  {
+    q: "Can I create a fundraiser with friends or an organization?",
+    a: "Yes. Create a fundraiser, set the impact and its goal, then invite people to skip together for the same cause.",
+  },
+  {
+    q: "Does iSkipped process donations or purchases?",
+    a: "No. Donations are processed by the external organization and purchases happen with the retailer you choose. iSkipped tracks the choices you confirm.",
+  },
+  {
+    q: "What does sharing with the community do?",
+    a: "It shares your first name and what you skipped with a group feed to help motivate others. Turn it off to keep your skip private.",
+  },
+  {
+    q: "I have feedback. Where can I share it?",
+    a: "We would love to hear from you. Email iskippedfor@gmail.com and we will get back to you.",
+  },
+];
+
 export default function AboutPage() {
   const router = useRouter();
   const [openFaq, setOpenFaq] = useState<number | null>(null);
@@ -112,7 +158,7 @@ export default function AboutPage() {
             How it works
           </p>
           <div className="space-y-3">
-            {STEPS.map((step) => (
+            {STEPS.slice(0, 3).map((step) => (
               <div
                 key={step.number}
                 className="rounded-2xl p-4 flex gap-4 items-start"
@@ -126,7 +172,7 @@ export default function AboutPage() {
                 </div>
                 <div className="min-w-0">
                   <p className="text-sm font-black mb-0.5" style={{ color: "var(--text-primary)" }}>{step.title}</p>
-                  <p className="text-xs leading-relaxed" style={{ color: "var(--text-secondary)" }}>{step.body}</p>
+                  <p className="text-xs leading-relaxed" style={{ color: "var(--text-secondary)" }}>{step.copy}</p>
                 </div>
               </div>
             ))}
@@ -140,7 +186,7 @@ export default function AboutPage() {
               boxShadow: "0 4px 18px var(--gold-glow)",
             }}
           >
-            Browse challenges →
+            Browse fundraisers →
           </button>
           <button
             onClick={() => router.push("/community")}
@@ -165,7 +211,7 @@ export default function AboutPage() {
             iSkipped is a <span className="font-semibold" style={{ color: "var(--text-primary)" }}>motivation and tracking tool</span> — it helps you log, visualize, and stay accountable to the money you save by skipping. No funds move automatically.
           </p>
           <p className="text-sm leading-relaxed" style={{ color: "var(--text-secondary)" }}>
-            When you&apos;re ready to donate, your Giving Jar links you directly to each charitable organization. <span className="font-semibold" style={{ color: "var(--text-primary)" }}>All donations are processed by the cause itself</span> — iSkipped never holds or handles your funds.
+            When you&apos;re ready to donate, iSkipped links you directly to each charitable organization. <span className="font-semibold" style={{ color: "var(--text-primary)" }}>All donations are processed by the cause itself</span> — iSkipped never holds or handles your funds.
           </p>
         </div>
 

@@ -1,0 +1,51 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>iSkipped</title>
+    <link rel="stylesheet" href="popup.css" />
+  </head>
+  <body>
+    <main>
+      <p class="brand">i<span>skipped</span></p>
+      <p class="lede">Is there anything you can skip?</p>
+      <p class="sublede">Turn this into impact and a reward.</p>
+      <section class="split-card" aria-live="polite">
+        <div class="jar-row">
+          <p class="jar-label giving">Giving Jar</p>
+          <p class="jar-main"><strong id="giveAmount">$0.00</strong> <span id="giveLine">Enter an amount</span></p>
+        </div>
+        <div class="jar-row">
+          <p class="jar-label reward">Reward Jar</p>
+          <p class="jar-main"><strong id="rewardAmount">$0.00</strong> <span id="rewardLine">Reward Jar</span></p>
+        </div>
+      </section>
+
+      <label>
+        Amount
+        <input id="amount" inputmode="decimal" placeholder="25.00" />
+      </label>
+
+      <label>
+        What you skipped
+        <input id="item" placeholder="Online purchase" />
+      </label>
+
+      <button id="logSkip" type="button">Skip this</button>
+
+      <details>
+        <summary>Settings</summary>
+        <label>
+          iSkipped web app
+          <input id="appUrl" placeholder="https://iskipped.com" />
+        </label>
+        <button id="saveUrl" type="button" class="secondary">Save URL</button>
+        <button id="clearSnooze" type="button" class="secondary">Clear snooze</button>
+        <button id="clearMuted" type="button" class="secondary">Show on all sites</button>
+        <p id="saved" role="status"></p>
+      </details>
+    </main>
+    <script src="popup.js"></script>
+  </body>
+</html>

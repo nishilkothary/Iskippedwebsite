@@ -1,0 +1,74 @@
+{
+  "manifest_version": 3,
+  "name": "iSkipped Checkout Pause",
+  "description": "A gentle checkout nudge that helps you skip purchases and log savings in iSkipped.",
+  "version": "0.1.0",
+  "icons": {
+    "16": "icons/icon-16.png",
+    "32": "icons/icon-32.png",
+    "48": "icons/icon-48.png",
+    "128": "icons/icon-128.png"
+  },
+  "action": {
+    "default_title": "iSkipped",
+    "default_icon": {
+      "16": "icons/icon-16.png",
+      "32": "icons/icon-32.png",
+      "48": "icons/icon-48.png",
+      "128": "icons/icon-128.png"
+    },
+    "default_popup": "popup.html"
+  },
+  "background": {
+    "service_worker": "background.js"
+  },
+  "permissions": ["storage", "tabs"],
+  "host_permissions": [
+    "http://localhost:3000/*",
+    "https://iskipped.com/*",
+    "*://*.amazon.com/*",
+    "*://*.target.com/*",
+    "*://*.walmart.com/*",
+    "*://*.bestbuy.com/*",
+    "*://*.ebay.com/*",
+    "*://*.etsy.com/*",
+    "*://*.nike.com/*",
+    "*://*.sephora.com/*",
+    "*://*.doordash.com/*",
+    "*://*.ubereats.com/*",
+    "*://*.instacart.com/*",
+    "*://*.stubhub.com/*",
+    "*://*.ticketmaster.com/*",
+    "*://*.seatgeek.com/*",
+    "*://*.vividseats.com/*"
+  ],
+  "content_scripts": [
+    {
+      "matches": ["http://localhost:3000/*", "https://iskipped.com/*"],
+      "js": ["app-sync-v2.js"],
+      "run_at": "document_idle"
+    },
+    {
+      "matches": [
+        "*://*.amazon.com/*",
+        "*://*.target.com/*",
+        "*://*.walmart.com/*",
+        "*://*.bestbuy.com/*",
+        "*://*.ebay.com/*",
+        "*://*.etsy.com/*",
+        "*://*.nike.com/*",
+        "*://*.sephora.com/*",
+        "*://*.doordash.com/*",
+        "*://*.ubereats.com/*",
+        "*://*.instacart.com/*",
+        "*://*.stubhub.com/*",
+        "*://*.ticketmaster.com/*",
+        "*://*.seatgeek.com/*",
+        "*://*.vividseats.com/*"
+      ],
+      "js": ["content-script.js"],
+      "css": ["content-styles.css"],
+      "run_at": "document_idle"
+    }
+  ]
+}

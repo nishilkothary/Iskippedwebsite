@@ -9,6 +9,7 @@ import { switchCause, setUserCauseGoal } from "@/lib/services/firebase/users";
 import { addCustomProject, isChallengeProject, isProjectEnded, updateCustomProject, OFFICIAL_PROJECTS, PARTNER_CHALLENGE_IDS } from "@/lib/services/firebase/projects";
 import { formatCurrency } from "@/lib/utils/currency";
 import { oneUnitPhrase } from "@/lib/utils/impact";
+import { getSkipBalanceSummary } from "@/lib/utils/skipBalances";
 import { appendRefParam, getChallengeSharePath } from "@/lib/utils/share";
 import { getDirectChallengeShareText } from "@/lib/utils/challengeShareCopy";
 import { ShareButton } from "@/components/share/ShareButton";
@@ -256,7 +257,10 @@ export default function ChallengesPage() {
     if (found) setEditingChallenge(found);
   }, [editId, challenges]);
   const activeProject = projects.find((project) => project.id === profile?.activeProjectId) ?? null;
-  const activeChallenge = challenges.find((challenge) => challenge.project.id === profile?.activeProjectId) ?? null;
+  const activeChallenge = [...partnerChallenges, ...challenges].find(
+    (challenge) => challenge.project.id === profile?.activeProjectId
+  ) ?? null;
+  const skipBalance = getSkipBalanceSummary(profile);
   const joinedProjectIds = useMemo(
     () => new Set([...(profile?.joinedProjectIds ?? []), ...(profile?.activeProjectId ? [profile.activeProjectId] : [])]),
     [profile?.joinedProjectIds, profile?.activeProjectId]
@@ -482,6 +486,61 @@ export default function ChallengesPage() {
         >
           + Create
         </button>
+      </div>
+
+      <div
+        className="mb-7 rounded-2xl p-5"
+        style={{ background: "var(--bg-surface-1)", border: "1px solid var(--border-default)" }}
+      >
+        <div className="flex items-end justify-between gap-5">
+          <div>
+            <p className="text-[11px] font-black uppercase tracking-[0.14em]" style={{ color: "var(--green-primary)" }}>
+              Skip Bank
+            </p>
+            <p className="mt-1 text-3xl font-black leading-none" style={{ color: "var(--green-primary)" }}>
+              {formatCurrency(skipBalance.availableFromSkips)}
+            </p>
+            <p className="mt-1 text-xs font-semibold" style={{ color: "var(--text-muted)" }}>available to contribute</p>
+          </div>
+          {activeChallenge ? (
+            <div className="max-w-[58%] text-right">
+              <button
+                type="button"
+              onClick={() => router.push(`/challenges/${activeChallenge.project.id}`)}
+              className="text-right"
+              >
+                <p className="text-[11px] font-black uppercase tracking-[0.14em]" style={{ color: "var(--text-muted)" }}>
+                  Current fundraiser
+                </p>
+                <p className="mt-1 text-sm font-black leading-tight" style={{ color: "var(--text-primary)" }}>
+                  {activeChallenge.title} <span style={{ color: "var(--green-primary)" }}>→</span>
+                </p>
+              </button>
+              <div className="mt-3 flex justify-end gap-2">
+                <button
+                  type="button"
+                  onClick={() => router.push("/home?contribute=log")}
+                  className="rounded-lg px-3 py-2 text-xs font-black"
+                  style={{ border: "1px solid rgba(46,204,113,0.38)", color: "var(--green-primary)" }}
+                >
+                  Log donation
+                </button>
+                <button
+                  type="button"
+                  onClick={() => router.push("/home?contribute=1")}
+                  className="rounded-lg px-3 py-2 text-xs font-black"
+                  style={{ background: "var(--green-primary)", color: "#0B1A14" }}
+                >
+                  Contribute
+                </button>
+              </div>
+            </div>
+          ) : (
+            <p className="max-w-[52%] text-right text-sm font-semibold" style={{ color: "var(--text-muted)" }}>
+              Join a fundraiser to skip together.
+            </p>
+          )}
+        </div>
       </div>
 
       {selectedCategory !== "Archived" && <section className="mt-6">

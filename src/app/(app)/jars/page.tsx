@@ -1,5 +1,5 @@
 ﻿"use client";
-import { useEffect, useState, Suspense } from "react";
+import { useEffect, useRef, useState, Suspense } from "react";
 import { toast } from "sonner";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useAuthStore } from "@/store/authStore";
@@ -26,6 +26,94 @@ import { formatUnits } from "@/lib/utils/impact";
 import { SpendingHistoryEvent, Project, SpendingGoal, DonationEvent } from "@/lib/types/models";
 
 type Tab = "cause" | "live";
+
+const rewardArtwork = [
+  { background: "linear-gradient(135deg, #4C1D95 0%, #8B5CF6 48%, #E9D5FF 140%)", accent: "#E9D5FF" },
+  { background: "linear-gradient(135deg, #064E3B 0%, #0F766E 48%, #99F6E4 140%)", accent: "#CCFBF1" },
+  { background: "linear-gradient(135deg, #78350F 0%, #D97706 48%, #FDE68A 140%)", accent: "#FEF3C7" },
+  { background: "linear-gradient(135deg, #831843 0%, #DB2777 48%, #FBCFE8 140%)", accent: "#FCE7F3" },
+  { background: "linear-gradient(135deg, #0C4A6E 0%, #0284C7 48%, #BAE6FD 140%)", accent: "#E0F2FE" },
+];
+
+function rewardArtFor(label: string) {
+  const index = [...label].reduce((total, char) => total + char.charCodeAt(0), 0) % rewardArtwork.length;
+  return rewardArtwork[index];
+}
+
+function retailerName(link?: string) {
+  if (!link) return null;
+  try {
+    const host = new URL(link.includes("://") ? link : `https://${link}`).hostname.replace(/^www\./, "");
+    if (host.includes("amazon")) return "Amazon";
+    if (host.includes("target")) return "Target";
+    if (host.includes("walmart")) return "Walmart";
+    if (host.includes("bestbuy")) return "Best Buy";
+    if (host.includes("etsy")) return "Etsy";
+    if (host.includes("apple")) return "Apple";
+    return host.split(".")[0];
+  } catch {
+    return null;
+  }
+}
+
+function normalizeExternalLink(link: string) {
+  const trimmed = link.trim();
+  if (!trimmed) return "";
+  return trimmed.includes("://") ? trimmed : `https://${trimmed}`;
+}
+
+function amazonProductImage(link?: string) {
+  if (!link) return null;
+  try {
+    const url = new URL(normalizeExternalLink(link));
+    if (!url.hostname.includes("amazon.")) return null;
+    const asin = url.pathname.match(/(?:\/dp\/|\/gp\/product\/)([A-Z0-9]{10})/i)?.[1];
+    return asin ? `https://images-na.ssl-images-amazon.com/images/P/${asin.toUpperCase()}.01.LZZZZZZZ.jpg` : null;
+  } catch {
+    return null;
+  }
+}
+
+function goalCoverage(balance: number, target: number) {
+  const percent = target > 0 ? Math.min(100, Math.round((balance / target) * 100)) : 0;
+  return { percent, remaining: Math.max(0, target - balance) };
+}
+
+function RewardArtwork({ label, link, imageURL, imagePosition, featured = false }: { label: string; link?: string; imageURL?: string; imagePosition?: string; featured?: boolean }) {
+  const art = rewardArtFor(label);
+  const retailer = retailerName(link);
+  const previewImageURL = imageURL ?? amazonProductImage(link);
+  return (
+    <div className={`relative overflow-hidden ${featured ? "min-h-44 sm:min-h-full" : "aspect-[1.35]"}`} style={{ background: art.background }}>
+      {previewImageURL && (
+        <>
+          <img
+            src={previewImageURL}
+            alt=""
+            className="absolute inset-0 h-full w-full object-cover"
+            style={{ objectPosition: imagePosition ?? "50% 50%" }}
+            onError={(event) => { event.currentTarget.style.display = "none"; }}
+          />
+          <div className="absolute inset-0 bg-gradient-to-t from-[#071B14]/95 via-[#071B14]/25 to-transparent" />
+        </>
+      )}
+      {!previewImageURL && (
+        <>
+          <div className="absolute -right-8 -top-10 h-32 w-32 rounded-full border border-white/20 bg-white/10" />
+          <div className="absolute -bottom-12 -left-8 h-28 w-28 rounded-full border border-black/10 bg-black/10" />
+        </>
+      )}
+      <div className="relative flex h-full flex-col justify-between p-4" style={{ color: art.accent }}>
+        <div className="flex items-start gap-2">
+          <span className="text-[10px] font-black uppercase tracking-[0.16em] opacity-80">{retailer ?? "Wish list"}</span>
+        </div>
+        <div>
+          <p className={`font-black leading-tight text-white ${featured ? "text-2xl" : "text-lg"}`}>{label}</p>
+        </div>
+      </div>
+    </div>
+  );
+}
 
 function JarsPageInner() {
   const router = useRouter();
@@ -64,9 +152,12 @@ function JarsPageInner() {
 
   const split = normalizeJarSplit(profile.jarSplit as any);
   const giveTotal = profile.totalGiveAllocated ?? profile.totalSaved * (split.give / 100);
-  const liveTotal = profile.totalLiveAllocated ?? profile.totalSaved * (split.live / 100);
   const globalGivingBalance = Math.max(0, giveTotal - (profile.totalDonated ?? 0));
-  const globalSpendingBalance = Math.max(0, liveTotal - (profile.totalSpent ?? 0));
+  // The Skip Bank is a single pot: every logged skip, less purchases and confirmed donations.
+  const skipBankBalance = Math.max(
+    0,
+    profile.totalSaved - (profile.totalSpent ?? 0) - (profile.totalDonated ?? 0)
+  );
 
   const activeProject = projects.find((p) => p.id === profile.activeProjectId) ?? null;
 
@@ -84,7 +175,7 @@ function JarsPageInner() {
   const activeGoal = spendingGoals.find((g) => g.id === activeSpendingGoalId) ?? null;
 
   const givingBalance = globalGivingBalance;
-  const spendingBalance = globalSpendingBalance;
+  const spendingBalance = skipBankBalance;
 
   async function handleSelectCause(project: Project) {
     let transfer;
@@ -231,7 +322,7 @@ function JarsPageInner() {
 
   const splurgeProps = {
     spendingBalance,
-    totalLiveAllocated: liveTotal,
+    totalLiveAllocated: skipBankBalance,
     totalSpent: profile.totalSpent ?? 0,
     goals: spendingGoals,
     activeGoalId: activeSpendingGoalId,
@@ -281,10 +372,9 @@ function JarsPageInner() {
   return (
     <div className="p-4 md:p-8 max-w-2xl mx-auto pb-20 md:pb-8">
       <div className="mb-5">
-        <p className="text-xs font-black uppercase tracking-[0.16em]" style={{ color: "#8B5CF6" }}>Goals</p>
-        <h1 className="text-3xl font-black mt-1" style={{ color: "var(--text-primary)", letterSpacing: 0 }}>Spend your skips</h1>
+        <h1 className="text-3xl font-black tracking-tight" style={{ color: "var(--text-primary)" }}>Goals</h1>
         <p className="text-sm mt-2" style={{ color: "var(--text-secondary)" }}>
-          Use your Skip Bank for goals and rewards you actually want.
+          Save toward rewards you actually want.
         </p>
       </div>
       <SplurgeTab {...splurgeProps} />
@@ -1114,7 +1204,12 @@ function SplurgeTab({
   const [addLabel, setAddLabel] = useState("");
   const [addAmount, setAddAmount] = useState("");
   const [addLink, setAddLink] = useState("");
+  const [addImageURL, setAddImageURL] = useState("");
+  const [addImagePosition, setAddImagePosition] = useState({ x: 50, y: 50 });
+  const [addImageSource, setAddImageSource] = useState<"manual" | "product" | null>(null);
+  const [addImageError, setAddImageError] = useState("");
   const [saving, setSaving] = useState(false);
+  const rewardImageDragStart = useRef<{ clientX: number; clientY: number; posX: number; posY: number } | null>(null);
 
   const [editingGoalId, setEditingGoalId] = useState<string | null>(null);
   const [editLabel, setEditLabel] = useState("");
@@ -1138,15 +1233,12 @@ function SplurgeTab({
   const [purchasing, setPurchasing] = useState(false);
   const [deactivatingGoal, setDeactivatingGoal] = useState(false);
   const [deactivating, setDeactivating] = useState(false);
-  const [rewardFilter, setRewardFilter] = useState<"all" | "prebuilt" | "custom">("all");
 
   const activeGoal = activeGoalProp;
   const rewardPresets = [
-    { label: "Coffee Date", amount: 25, note: "Small treat" },
+    { label: "Weekend Trip", amount: 300, note: "A little getaway" },
     { label: "New Book", amount: 40, note: "Quiet win" },
     { label: "Dinner Out", amount: 75, note: "Night off" },
-    { label: "New Shoes", amount: 120, note: "Worth waiting" },
-    { label: "Weekend Trip", amount: 300, note: "Bigger goal" },
   ];
   const savedRewardNames = new Set(goals.map((goal) => goal.label.trim().toLowerCase()));
   const suggestedRewards = rewardPresets.filter((preset) => !savedRewardNames.has(preset.label.toLowerCase()));
@@ -1159,6 +1251,62 @@ function SplurgeTab({
     }
   }
 
+  async function enrichGoalImage(goalId: string, shoppingLink: string) {
+    try {
+      const response = await fetch(`/api/product-preview?url=${encodeURIComponent(shoppingLink)}`);
+      if (!response.ok) return;
+      const preview = await response.json() as { imageURL?: string | null };
+      if (preview.imageURL) await onEditGoal(goalId, { imageURL: preview.imageURL });
+    } catch {
+      // Retailers may block preview requests; the artwork fallback remains visible.
+    }
+  }
+
+  async function previewProductImage() {
+    if (!addLink.trim() || addImageSource === "manual") return;
+    try {
+      const response = await fetch(`/api/product-preview?url=${encodeURIComponent(normalizeExternalLink(addLink))}`);
+      if (!response.ok) return;
+      const preview = await response.json() as { imageURL?: string | null };
+      if (preview.imageURL) {
+        setAddImageURL(preview.imageURL);
+        setAddImagePosition({ x: 50, y: 50 });
+        setAddImageSource("product");
+      }
+    } catch {
+      // A reward can still be saved when a retailer blocks image previews.
+    }
+  }
+
+  function handleRewardImage(file: File | undefined) {
+    if (!file) return;
+    setAddImageError("");
+    if (!file.type.startsWith("image/")) {
+      setAddImageError("Please choose an image file.");
+      return;
+    }
+
+    const objectURL = URL.createObjectURL(file);
+    const image = new Image();
+    image.onload = () => {
+      URL.revokeObjectURL(objectURL);
+      const maxWidth = 900;
+      const scale = image.width > maxWidth ? maxWidth / image.width : 1;
+      const canvas = document.createElement("canvas");
+      canvas.width = Math.round(image.width * scale);
+      canvas.height = Math.round(image.height * scale);
+      canvas.getContext("2d")?.drawImage(image, 0, 0, canvas.width, canvas.height);
+      setAddImageURL(canvas.toDataURL("image/jpeg", 0.8));
+      setAddImagePosition({ x: 50, y: 50 });
+      setAddImageSource("manual");
+    };
+    image.onerror = () => {
+      URL.revokeObjectURL(objectURL);
+      setAddImageError("Could not read that image. Try another file.");
+    };
+    image.src = objectURL;
+  }
+
   async function handleAddGoal() {
     const amount = parseFloat(addAmount);
     if (!addLabel.trim() || !amount || amount <= 0) return;
@@ -1168,11 +1316,20 @@ function SplurgeTab({
       targetAmount: amount,
       type: "splurge",
     };
-    if (addLink.trim()) goal.shoppingLink = addLink.trim();
-    await onAddGoal(goal);
+    if (addLink.trim()) goal.shoppingLink = normalizeExternalLink(addLink);
+    if (addImageURL) {
+      goal.imageURL = addImageURL;
+      goal.imagePosition = `${addImagePosition.x}% ${addImagePosition.y}%`;
+    }
+    const goalId = await onAddGoal(goal);
+    if (goal.shoppingLink && !goal.imageURL) void enrichGoalImage(goalId, goal.shoppingLink);
     setAddLabel("");
     setAddAmount("");
     setAddLink("");
+    setAddImageURL("");
+    setAddImagePosition({ x: 50, y: 50 });
+    setAddImageSource(null);
+    setAddImageError("");
     setShowAddForm(false);
     setSaving(false);
   }
@@ -1191,7 +1348,7 @@ function SplurgeTab({
       label,
       targetAmount: amount,
       type: "splurge",
-    }, true);
+    });
     setSaving(false);
   }
 
@@ -1207,14 +1364,21 @@ function SplurgeTab({
     if (!editLabel.trim() || !amount || amount <= 0) return;
     setEditWorking(true);
     const updates: Partial<SpendingGoal> = { label: editLabel.trim(), targetAmount: amount };
+    let shoppingLink = "";
     if (editLink.trim()) {
-      if (goalType === "splurge") updates.shoppingLink = editLink.trim();
-      else updates.donationURL = editLink.trim();
+      if (goalType === "splurge") {
+        shoppingLink = normalizeExternalLink(editLink);
+        updates.shoppingLink = shoppingLink;
+        updates.imageURL = undefined;
+      }
+      else updates.donationURL = normalizeExternalLink(editLink);
     } else {
       updates.shoppingLink = undefined;
       updates.donationURL = undefined;
+      if (goalType === "splurge") updates.imageURL = undefined;
     }
     await onEditGoal(goalId, updates);
+    if (goalType === "splurge" && shoppingLink) void enrichGoalImage(goalId, shoppingLink);
     setEditingGoalId(null);
     setEditWorking(false);
   }
@@ -1349,22 +1513,15 @@ function SplurgeTab({
               </div>
             ) : (
               <>
-                <p className="text-xs mb-4" style={{ color: "var(--text-muted)" }}>
-                  Current active goal: <span className="font-semibold" style={{ color: "var(--text-primary)" }}>{activeGoal.label}</span>
-                </p>
-                <div className="grid grid-cols-3 gap-3 mb-4">
-                  <div className="rounded-xl p-3 text-center" style={{ background: "var(--bg-surface-2)", border: "1px solid var(--border-default)" }}>
-                    <p className="text-[10px] font-bold uppercase tracking-wide mb-1" style={{ color: "var(--text-muted)" }}>Lifetime Saved</p>
-                    <p className="text-lg font-extrabold leading-tight" style={{ color: "var(--text-primary)" }}>{formatCurrency(totalLiveAllocated)}</p>
+                <div className="mb-4 flex items-end justify-between gap-4">
+                  <div>
+                    <p className="text-xs font-black uppercase tracking-[0.14em]" style={{ color: "#C4B5FD" }}>Skip Bank</p>
+                    <p className="mt-1 text-3xl font-extrabold leading-none" style={{ color: "#8B5CF6" }}>{formatCurrency(spendingBalance)}</p>
+                    <p className="mt-1 text-xs" style={{ color: "var(--text-muted)" }}>available to use</p>
                   </div>
-                  <div className="rounded-xl p-3 text-center" style={{ background: "var(--bg-surface-2)", border: "1px solid var(--border-default)" }}>
-                    <p className="text-[10px] font-bold uppercase tracking-wide mb-1" style={{ color: "var(--text-muted)" }}>Lifetime Spent</p>
-                    <p className="text-lg font-extrabold leading-tight" style={{ color: "var(--text-primary)" }}>{formatCurrency(totalSpent)}</p>
-                  </div>
-                  <div className="rounded-xl p-3 text-center" style={{ background: "rgba(139,92,246,0.08)", border: "1px solid rgba(139,92,246,0.35)" }}>
-                    <p className="text-[10px] font-bold uppercase tracking-wide mb-1" style={{ color: "#8B5CF6" }}>Available from Skip Bank</p>
-                    <p className="text-lg font-extrabold leading-tight" style={{ color: "#8B5CF6" }}>{formatCurrency(spendingBalance)}</p>
-                  </div>
+                  <p className="max-w-36 text-right text-xs font-semibold" style={{ color: "var(--text-muted)" }}>
+                    Ready when you are.
+                  </p>
                 </div>
                 <div className="mt-3">
                 {purchasingId === activeGoal.id ? (
@@ -1546,36 +1703,23 @@ function SplurgeTab({
 
       {/* Goals list */}
       {!showAddForm && !editingGoalId && (
-        <div className="mt-2">
-          {/* Filter tabs */}
-          <div className="flex gap-1.5 mb-3">
-            {(["all", "prebuilt", "custom"] as const).map((f) => (
-              <button
-                key={f}
-                onClick={() => setRewardFilter(f)}
-                className="px-3 py-1.5 rounded-full text-xs font-bold"
-                style={rewardFilter === f
-                  ? { background: "rgba(139,92,246,0.18)", border: "1px solid rgba(139,92,246,0.45)", color: "#8B5CF6" }
-                  : { background: "var(--bg-surface-2)", border: "1px solid var(--border-default)", color: "var(--text-secondary)" }}
-              >
-                {f === "all" ? "All" : f === "prebuilt" ? "Pre-built" : "Custom"}
-              </button>
-            ))}
-          </div>
-          {/* Add button */}
-          <div className="flex justify-start mb-4">
+        <div className="mt-6">
+          <div className="mb-4 flex items-end justify-between gap-3">
+            <div>
+              <p className="text-xs font-black uppercase tracking-[0.16em]" style={{ color: "#8B5CF6" }}>Your reward wishlist</p>
+              <p className="mt-1 text-sm" style={{ color: "var(--text-secondary)" }}>Save the things you want. Your skips will catch up.</p>
+            </div>
             <button
               onClick={() => setShowAddForm(true)}
-              className="px-4 py-2.5 rounded-full text-sm font-black shrink-0"
+              className="shrink-0 rounded-full px-3 py-2 text-xs font-black"
               style={{ background: "white", color: "#0B1A14", border: "none" }}
             >
-              + Add a Goal
+              + Add to my list
             </button>
           </div>
 
           <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
-            {/* Pre-built cards */}
-            {rewardFilter !== "custom" && rewardPresets.map((preset) => {
+            {suggestedRewards.map((preset) => {
               const matchingGoal = goals.find(
                 (g) => g.label.toLowerCase() === preset.label.toLowerCase() && g.targetAmount === preset.amount
               );
@@ -1585,55 +1729,89 @@ function SplurgeTab({
                   key={`preset-${preset.label}`}
                   onClick={() => handleAddPresetGoal(preset.label, preset.amount)}
                   disabled={saving}
-                  className="rounded-2xl p-4 text-left transition-all hover:scale-[1.02] active:scale-[0.98] disabled:opacity-60"
+                  className="overflow-hidden rounded-2xl text-left transition-all hover:scale-[1.02] active:scale-[0.98] disabled:opacity-60"
                   style={{
                     background: isActive ? "rgba(139,92,246,0.16)" : "var(--bg-surface-1)",
                     border: isActive ? "2px solid #8B5CF6" : "1px solid rgba(139,92,246,0.3)",
                   }}
                 >
-                  {isActive && (
-                    <span className="text-[10px] font-bold px-2 py-0.5 rounded-full mb-1.5 inline-block" style={{ background: "rgba(139,92,246,0.2)", color: "#8B5CF6" }}>
-                      Active
-                    </span>
-                  )}
-                  <div className="text-[10px] font-bold uppercase tracking-wide mb-1" style={{ color: "var(--text-muted)" }}>Pre-built</div>
-                  <div className="text-sm font-bold mb-1" style={{ color: "#8B5CF6" }}>{preset.label}</div>
-                  <div className="text-lg font-extrabold" style={{ color: "var(--text-primary)" }}>{formatCurrency(preset.amount)}</div>
-                  <div className="text-xs mt-1" style={{ color: "var(--text-muted)" }}>{matchingGoal ? "tap to activate" : preset.note}</div>
+                  <RewardArtwork label={preset.label} />
+                  <div className="p-3">
+                  <div className="flex items-center justify-between gap-2">
+                    <div className="text-[10px] font-bold" style={{ color: "#8B5CF6" }}>{goalCoverage(spendingBalance, preset.amount).percent}% covered</div>
+                  </div>
+                  <div className="mt-1 text-sm font-bold" style={{ color: "var(--text-primary)" }}>{preset.label}</div>
+                  <div className="mt-1 text-xs" style={{ color: "var(--text-muted)" }}>{matchingGoal ? "Already saved" : preset.note}</div>
+                  <div className="mt-3 rounded-lg py-2 text-center text-[10px] font-black uppercase tracking-wide" style={{ background: "rgba(139,92,246,0.17)", color: "#C4B5FD" }}>
+                    Add to my list
+                  </div>
+                  </div>
                 </button>
               );
             })}
-
-            {/* Custom goal cards */}
-            {rewardFilter !== "prebuilt" && goals.map((goal) => {
+            {goals.map((goal) => {
               const isActiveGoal = goal.id === activeGoalId;
               return (
                 <div
                   key={goal.id}
-                  className="rounded-2xl p-4 text-left transition-all hover:scale-[1.02] active:scale-[0.98] relative"
+                  className="relative overflow-hidden rounded-2xl text-left transition-all hover:scale-[1.02] active:scale-[0.98]"
                   style={{ background: "var(--bg-surface-1)", border: deletingGoalId === goal.id ? "1px solid rgba(239,68,68,0.4)" : isActiveGoal ? "2px solid #8B5CF6" : "1px solid rgba(139,92,246,0.3)" }}
                 >
-                  <div className="absolute top-2 right-2 flex gap-0.5" onClick={(e) => e.stopPropagation()}>
-                    <button onClick={() => { startEditGoal(goal); setDeletingGoalId(null); }} className="text-[rgba(237,245,240,0.3)] hover:text-[#8B5CF6] p-1 text-sm leading-none" title="Edit">✏️</button>
-                    <button onClick={() => setDeletingGoalId(deletingGoalId === goal.id ? null : goal.id)} className="text-[rgba(237,245,240,0.3)] hover:text-red-400 p-1 text-sm leading-none" title="Delete">🗑️</button>
-                  </div>
+                  <RewardArtwork label={goal.label} link={goal.shoppingLink} imageURL={goal.imageURL} imagePosition={goal.imagePosition} />
                   {deletingGoalId === goal.id ? (
-                    <div onClick={(e) => e.stopPropagation()}>
-                      <p className="text-xs text-red-400 mb-2 pr-12">Delete &quot;{goal.label}&quot;?</p>
+                    <div className="p-3" onClick={(e) => e.stopPropagation()}>
+                      <p className="mb-2 text-xs text-red-400">Delete &quot;{goal.label}&quot;?</p>
                       <div className="flex gap-1.5">
                         <button onClick={() => { onDeleteGoal(goal.id); setDeletingGoalId(null); }} className="flex-1 bg-red-500 text-white font-semibold py-1.5 rounded-lg text-xs">Delete</button>
                         <button onClick={() => setDeletingGoalId(null)} className="flex-1 text-[rgba(237,245,240,0.6)] font-semibold py-1.5 rounded-lg text-xs" style={{ border: "1px solid rgba(139,92,246,0.12)" }}>Cancel</button>
                       </div>
                     </div>
                   ) : (
-                    <div onClick={() => !isActiveGoal && handleSetActiveGoalWithCheck(goal)} className={isActiveGoal ? "" : "cursor-pointer"}>
+                    <div className="p-3">
                       {isActiveGoal && (
                         <span className="text-[10px] font-bold px-2 py-0.5 rounded-full mb-1.5 inline-block" style={{ background: "rgba(139,92,246,0.15)", color: "#8B5CF6" }}>✓ Active</span>
                       )}
-                      <div className="text-[10px] font-bold uppercase tracking-wide mb-1" style={{ color: "var(--text-muted)" }}>Custom</div>
-                      <div className="text-sm font-bold mb-1 pr-12" style={{ color: "#8B5CF6" }}>{goal.label}</div>
-                      <div className="text-lg font-extrabold" style={{ color: "var(--text-primary)" }}>{formatCurrency(goal.targetAmount)}</div>
-                      {!isActiveGoal && <div className="text-xs mt-1" style={{ color: "var(--text-muted)" }}>tap to activate</div>}
+                      <div className="flex items-center justify-between gap-2">
+                        <div className="text-[10px] font-bold" style={{ color: "#8B5CF6" }}>{goalCoverage(spendingBalance, goal.targetAmount).percent}% covered</div>
+                        <div className="flex gap-1">
+                          <button
+                            onClick={() => { startEditGoal(goal); setDeletingGoalId(null); }}
+                            className="flex h-7 w-7 items-center justify-center rounded-full text-sm leading-none transition-colors hover:bg-[#8B5CF6]"
+                            style={{ background: "rgba(139,92,246,0.13)", border: "1px solid rgba(139,92,246,0.36)", color: "#C4B5FD" }}
+                            title="Edit reward"
+                            aria-label="Edit reward"
+                          >
+                            ✎
+                          </button>
+                          <button
+                            onClick={() => setDeletingGoalId(goal.id)}
+                            className="flex h-7 w-7 items-center justify-center rounded-full text-sm leading-none transition-colors hover:bg-red-500"
+                            style={{ background: "rgba(239,68,68,0.08)", border: "1px solid rgba(248,113,113,0.32)", color: "#FCA5A5" }}
+                            title="Delete reward"
+                            aria-label="Delete reward"
+                          >
+                            ×
+                          </button>
+                        </div>
+                      </div>
+                      <div className="mt-1 text-sm font-bold" style={{ color: "var(--text-primary)" }}>{goal.label}</div>
+                      <div className="mt-1 flex items-center justify-between gap-2">
+                        <div className="text-base font-extrabold" style={{ color: "var(--text-primary)" }}>{formatCurrency(goal.targetAmount)}</div>
+                        {retailerName(goal.shoppingLink) && <div className="text-[10px] font-bold" style={{ color: "var(--text-secondary)" }}>{retailerName(goal.shoppingLink)}</div>}
+                      </div>
+                      {isActiveGoal ? (
+                        <div className="mt-3 rounded-lg py-2 text-center text-[10px] font-black uppercase tracking-wide" style={{ background: "rgba(139,92,246,0.17)", color: "#C4B5FD" }}>
+                          ✓ My main goal
+                        </div>
+                      ) : (
+                        <button
+                          onClick={() => handleSetActiveGoalWithCheck(goal)}
+                          className="mt-3 w-full rounded-lg py-2 text-[10px] font-black uppercase tracking-wide transition-colors hover:bg-[rgba(139,92,246,0.26)]"
+                          style={{ background: "rgba(139,92,246,0.17)", color: "#C4B5FD" }}
+                        >
+                          Select as my main goal
+                        </button>
+                      )}
                     </div>
                   )}
                 </div>
@@ -1645,11 +1823,29 @@ function SplurgeTab({
 
       {/* Custom goal form */}
       {showAddForm && (
-        <div className="rounded-2xl p-4 space-y-3" style={{ background: "var(--bg-surface-1)", border: "1px solid var(--border-default)" }}>
-          <p className="text-sm font-semibold" style={{ color: "var(--text-primary)" }}>Create Goal</p>
+        <div className="overflow-hidden rounded-2xl" style={{ background: "var(--bg-surface-1)", border: "1px solid rgba(139,92,246,0.35)" }}>
+          <div className="p-4" style={{ background: "linear-gradient(120deg, rgba(139,92,246,0.18), rgba(15,118,110,0.08))" }}>
+            <p className="text-xs font-black uppercase tracking-[0.16em]" style={{ color: "#C4B5FD" }}>Save a reward</p>
+            <p className="mt-1 text-sm font-semibold" style={{ color: "var(--text-primary)" }}>What would feel good to say yes to later?</p>
+          </div>
+          <div className="space-y-3 p-4">
+          <input
+            type="url"
+            placeholder="Paste a product link (Amazon, Target, etc.)"
+            value={addLink}
+            onChange={(e) => {
+              setAddLink(e.target.value);
+              if (addImageSource === "product") {
+                setAddImageURL("");
+                setAddImageSource(null);
+              }
+            }}
+            onBlur={() => void previewProductImage()}
+            className="w-full rounded-xl px-4 py-3 text-sm focus:outline-none" style={{ background: "var(--bg-surface-2)", border: "1px solid rgba(139,92,246,0.4)", color: "var(--text-primary)" }}
+          />
           <input
             type="text"
-            placeholder="e.g. AirPods, Vacation, Shoes"
+            placeholder="Reward name, e.g. headphones or a trip"
             value={addLabel}
             onChange={(e) => setAddLabel(e.target.value)}
             className="w-full rounded-xl px-4 py-3 text-sm focus:outline-none" style={{ background: "var(--bg-surface-2)", border: "1px solid var(--border-default)", color: "var(--text-primary)" }}
@@ -1664,31 +1860,80 @@ function SplurgeTab({
               className="w-full pl-8 rounded-xl px-4 py-3 text-sm focus:outline-none" style={{ background: "var(--bg-surface-2)", border: "1px solid var(--border-default)", color: "var(--text-primary)" }}
             />
           </div>
-          <div className="relative">
-            <span className="absolute left-4 top-1/2 -translate-y-1/2 text-sm text-[rgba(237,245,240,0.6)]">🔗</span>
-            <input
-              type="url"
-              placeholder="Shopping link (optional)"
-              value={addLink}
-              onChange={(e) => setAddLink(e.target.value)}
-              className="w-full pl-10 rounded-xl px-4 py-3 text-sm focus:outline-none" style={{ background: "var(--bg-surface-2)", border: "1px solid var(--border-default)", color: "var(--text-primary)" }}
-            />
+          <div>
+            <p className="mb-2 text-xs font-black uppercase tracking-[0.14em]" style={{ color: "#C4B5FD" }}>Inspo pic</p>
+            <div
+              className="relative flex h-36 select-none items-center justify-center overflow-hidden rounded-xl"
+              style={{ background: "var(--bg-surface-2)", border: "1px dashed rgba(139,92,246,0.52)", cursor: addImageURL ? "grab" : "default" }}
+              onPointerDown={(event) => {
+                if (!addImageURL) return;
+                event.currentTarget.setPointerCapture(event.pointerId);
+                rewardImageDragStart.current = { clientX: event.clientX, clientY: event.clientY, posX: addImagePosition.x, posY: addImagePosition.y };
+              }}
+              onPointerMove={(event) => {
+                if (!rewardImageDragStart.current) return;
+                const dx = event.clientX - rewardImageDragStart.current.clientX;
+                const dy = event.clientY - rewardImageDragStart.current.clientY;
+                setAddImagePosition({
+                  x: Math.min(100, Math.max(0, rewardImageDragStart.current.posX - dx / 2)),
+                  y: Math.min(100, Math.max(0, rewardImageDragStart.current.posY - dy / 2)),
+                });
+              }}
+              onPointerUp={() => { rewardImageDragStart.current = null; }}
+              onPointerCancel={() => { rewardImageDragStart.current = null; }}
+              onDragOver={(event) => event.preventDefault()}
+              onDrop={(event) => {
+                event.preventDefault();
+                handleRewardImage(event.dataTransfer.files?.[0]);
+              }}
+            >
+              {addImageURL ? (
+                <>
+                  <img src={addImageURL} alt="Reward preview" className="h-full w-full object-cover" style={{ objectPosition: `${addImagePosition.x}% ${addImagePosition.y}%`, pointerEvents: "none" }} draggable={false} />
+                  <div className="absolute inset-x-0 bottom-0 flex justify-center py-1.5" style={{ background: "rgba(0,0,0,0.48)" }}>
+                    <span className="text-xs font-bold text-white">Drag to reposition</span>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={(event) => {
+                      event.stopPropagation();
+                      setAddImageURL("");
+                      setAddImagePosition({ x: 50, y: 50 });
+                      setAddImageSource(null);
+                    }}
+                    className="absolute right-2 top-2 rounded-full px-2 py-1 text-xs font-bold"
+                    style={{ background: "rgba(7,27,20,0.82)", color: "white" }}
+                  >
+                    Remove
+                  </button>
+                </>
+              ) : (
+                <span className="text-sm font-semibold" style={{ color: "var(--text-muted)" }}>Add an inspo pic</span>
+              )}
+            </div>
+            <label className="mt-2 inline-flex cursor-pointer items-center rounded-full px-4 py-2 text-sm font-bold" style={{ background: "rgba(139,92,246,0.16)", color: "#C4B5FD" }}>
+              Upload photo
+              <input type="file" accept="image/*" className="hidden" onChange={(event) => handleRewardImage(event.target.files?.[0])} />
+            </label>
+            {addImageError && <p className="mt-1.5 text-xs text-red-400">{addImageError}</p>}
           </div>
+          <p className="text-xs" style={{ color: "var(--text-muted)" }}>The link opens at the retailer when you are ready. iSkipped does not process the purchase.</p>
           <div className="flex gap-2">
             <button
               onClick={handleAddGoal}
               disabled={saving || !addLabel.trim() || !addAmount}
               className="flex-1 py-3 bg-[#8B5CF6] text-white font-semibold rounded-xl text-sm disabled:opacity-50"
             >
-              {saving ? "Saving..." : "Create Goal"}
+              {saving ? "Saving..." : "Save to wishlist"}
             </button>
             <button
-              onClick={() => { setShowAddForm(false); setAddLabel(""); setAddAmount(""); setAddLink(""); }}
+              onClick={() => { setShowAddForm(false); setAddLabel(""); setAddAmount(""); setAddLink(""); setAddImageURL(""); setAddImagePosition({ x: 50, y: 50 }); setAddImageSource(null); setAddImageError(""); }}
               className="px-5 py-3 text-[rgba(237,245,240,0.6)] font-semibold rounded-xl text-sm hover:text-[#EDF5F0] transition-colors"
               style={{ border: "1px solid rgba(139,92,246,0.12)" }}
             >
               Cancel
             </button>
+          </div>
           </div>
         </div>
       )}

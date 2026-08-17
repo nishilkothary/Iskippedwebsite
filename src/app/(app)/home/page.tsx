@@ -1,7 +1,7 @@
 ﻿"use client";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 import { useAuthStore } from "@/store/authStore";
 import { useSkips } from "@/hooks/useSkips";
@@ -518,6 +518,7 @@ function FundraiserContributionModal({
   availableFromSkips,
   unitCost,
   unitLabel,
+  mode = "contribute",
   onClose,
   onComplete,
 }: {
@@ -525,6 +526,7 @@ function FundraiserContributionModal({
   availableFromSkips: number;
   unitCost: number | null;
   unitLabel: string;
+  mode?: "contribute" | "log";
   onClose: () => void;
   onComplete: (amount: number) => Promise<boolean>;
 }) {
@@ -537,13 +539,19 @@ function FundraiserContributionModal({
   const canContinue = cleanAmount > 0 && cleanAmount <= availableFromSkips;
   const quickAmounts = [5, 10, 25, 50].filter((value) => value <= availableFromSkips);
   const impactText = unitCost && unitCost > 0 && cleanAmount > 0
-    ? `${formatCommunityUnitCount(cleanAmount, unitCost, project.unitIsGoal)} ${unitLabel}`
+    ? formatAggregateImpactUnitsDecimal(
+        cleanAmount,
+        unitCost,
+        project.unitName ?? unitLabel,
+        unitLabel,
+        project.unitIsGoal
+      )
     : null;
 
   function handleAmountSubmit(event?: React.FormEvent) {
     event?.preventDefault();
     if (!canContinue) return;
-    setStep("ready");
+    setStep(mode === "log" ? "confirm" : "ready");
   }
 
   async function handleExternalStep() {
@@ -588,21 +596,25 @@ function FundraiserContributionModal({
           x
         </button>
         <p className="text-[11px] font-black uppercase tracking-[0.14em] mb-2" style={{ color: "var(--green-primary)" }}>
-          Contribute skips
+          {mode === "log" ? "Log donation" : "Contribute skips"}
         </p>
         <p id="fundraiser-contribution-title" className="text-2xl font-black leading-tight pr-5" style={{ color: "var(--text-primary)" }}>
           {step === "confirm"
             ? "Did you make the donation?"
             : step === "ready"
               ? "Nice. Your skips can cover this."
-              : `Help ${project.title}`}
+              : mode === "log"
+                ? `Log a donation to ${project.title}`
+                : `Help ${project.title}`}
         </p>
         <p className="text-sm leading-relaxed mt-3" style={{ color: "var(--text-secondary)" }}>
           {step === "confirm"
             ? "When you come back, confirm the outside donation so your Skip Bank and fundraiser impact stay accurate."
             : step === "ready"
               ? `${formatCurrencyRounded(cleanAmount)} is ready from your Skip Bank${impactText ? `, about ${impactText}` : ""}.`
-              : "How much do you want to contribute from your Skip Bank?"}
+              : mode === "log"
+                ? "How much did you donate outside iSkipped?"
+                : "How much do you want to contribute from your Skip Bank?"}
         </p>
 
         <form className="mt-5 rounded-xl p-4" style={{ background: "rgba(237,245,240,0.045)", border: "1px solid rgba(237,245,240,0.08)" }} onSubmit={handleAmountSubmit}>
@@ -620,7 +632,7 @@ function FundraiserContributionModal({
               max={availableFromSkips}
               step="0.01"
               value={amount}
-              disabled={step !== "amount"}
+              disabled={step === "ready"}
               onChange={(event) => setAmount(event.target.value)}
               style={{ flex: 1, minWidth: 0, background: "transparent", border: "none", borderBottom: "2px solid var(--green-primary)", color: "var(--text-primary)", fontSize: 28, fontWeight: 900, outline: "none" }}
             />
@@ -631,7 +643,7 @@ function FundraiserContributionModal({
                 <button
                   key={value}
                   type="button"
-                  disabled={step !== "amount"}
+                  disabled={step === "ready"}
                   onClick={() => setAmount(value.toString())}
                   style={{ border: "1px solid rgba(46,204,113,0.28)", background: cleanAmount === value ? "var(--green-primary)" : "rgba(46,204,113,0.08)", color: cleanAmount === value ? "#0B1A14" : "var(--green-primary)", borderRadius: 999, padding: "7px 12px", fontSize: 12, fontWeight: 900 }}
                 >
@@ -663,7 +675,7 @@ function FundraiserContributionModal({
             className="mt-5 w-full py-3 rounded-xl text-sm font-black disabled:opacity-50"
             style={{ background: "var(--green-primary)", color: "#0B1A14" }}
           >
-            Enter amount
+            {mode === "log" ? "Confirm donation amount" : "Enter amount"}
           </button>
         ) : step === "ready" ? (
           <>
@@ -870,7 +882,7 @@ function GoalSpendModal({
               className="mt-3 w-full py-3 rounded-xl text-sm font-black disabled:opacity-50"
               style={{ background: "#A78BFA", color: "#0B1A14" }}
             >
-              {goal.shoppingLink ? "Take me to the purchase page" : "I will buy this outside iSkipped"}
+              {goal.shoppingLink ? "Take me to the purchase page" : "I purchased it"}
             </button>
           </>
         ) : (
@@ -908,6 +920,7 @@ function GoalSpendModal({
 
 export default function HomePage() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const { user, profile, updateProfile } = useAuthStore();
   const { recentSkips, donate } = useSkips();
   const { projects } = useProjects();
@@ -919,7 +932,22 @@ export default function HomePage() {
   const [liveChallengeTotalRaised, setLiveChallengeTotalRaised] = useState<number>(0);
   const [liveChallengeTotalSkips, setLiveChallengeTotalSkips] = useState<number>(0);
   const [showContributionModal, setShowContributionModal] = useState(false);
+  const [contributionMode, setContributionMode] = useState<"contribute" | "log">("contribute");
   const [showSpendModal, setShowSpendModal] = useState(false);
+  const handledContributionQuery = useRef<string | null>(null);
+
+  useEffect(() => {
+    const requestedMode = searchParams.get("contribute");
+    const activeProject = projects.find((project) => project.id === profile?.activeProjectId);
+    const requestKey = `${requestedMode ?? ""}:${activeProject?.id ?? ""}`;
+
+    if (!requestedMode || !activeProject || handledContributionQuery.current === requestKey) return;
+
+    handledContributionQuery.current = requestKey;
+    setContributionMode(requestedMode === "log" ? "log" : "contribute");
+    setShowContributionModal(true);
+    router.replace("/home");
+  }, [profile?.activeProjectId, projects, router, searchParams]);
 
   useEffect(() => {
     return subscribeToCommunityFeed(setCommunityFeed);
@@ -1325,7 +1353,7 @@ export default function HomePage() {
                   </div>
                   <div style={{ minWidth: 0 }}>
                     <p style={{ fontSize: 11, fontWeight: 900, letterSpacing: 1.4, textTransform: "uppercase", color: "#A78BFA", marginBottom: 4 }}>
-                      {activeGoal.type === "splurge" ? "Trip cost" : "Goal cost"}
+                      {activeGoal.type === "splurge" ? "Reward cost" : "Goal cost"}
                     </p>
                   </div>
                 </div>
@@ -2066,6 +2094,7 @@ export default function HomePage() {
           availableFromSkips={skipBalance.availableFromSkips}
           unitCost={fundraiserUnitCost}
           unitLabel={fundraiserUnitLabel}
+          mode={contributionMode}
           onClose={() => setShowContributionModal(false)}
           onComplete={(amount) => donate(amount, activeProject.id, activeProject.title)}
         />
