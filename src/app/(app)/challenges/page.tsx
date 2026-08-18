@@ -5,7 +5,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { useAuthStore } from "@/store/authStore";
 import { useProjects } from "@/hooks/useProjects";
 import { Project } from "@/lib/types/models";
-import { switchCause, setUserCauseGoal } from "@/lib/services/firebase/users";
+import { pinProjectToHome, setFavoriteCause } from "@/lib/services/firebase/users";
 import { addCustomProject, isChallengeProject, isProjectEnded, updateCustomProject, OFFICIAL_PROJECTS, PARTNER_CHALLENGE_IDS } from "@/lib/services/firebase/projects";
 import { formatCurrency } from "@/lib/utils/currency";
 import { oneUnitPhrase } from "@/lib/utils/impact";
@@ -42,7 +42,7 @@ function isVisibleChallenge(project: Project): boolean {
   return isChallengeProject(project);
 }
 
-const CATEGORY_OPTIONS = ["All", "My Fundraisers", "Verified Partners", "Community", "Public", "Archived"] as const;
+const CATEGORY_OPTIONS = ["All", "My Fundraisers", "Archived"] as const;
 type CreateChallengeCategory =
   | "education"
   | "food"
@@ -206,7 +206,6 @@ export default function ChallengesPage() {
   const { projects, refetch } = useProjects();
   const [selectedCategory, setSelectedCategory] = useState<(typeof CATEGORY_OPTIONS)[number]>("All");
   const [joiningId, setJoiningId] = useState<string | null>(null);
-  const [joinChoice, setJoinChoice] = useState<ChallengeCard | null>(null);
   const [showCreateForm, setShowCreateForm] = useState(false);
   const [editingChallenge, setEditingChallenge] = useState<ChallengeCard | null>(null);
   const [shareChallenge, setShareChallenge] = useState<ChallengeCard | null>(null);
@@ -215,7 +214,6 @@ export default function ChallengesPage() {
   const [pendingActivationProjectId, setPendingActivationProjectId] = useState<string | null>(null);
   const [pendingActivationChallenge, setPendingActivationChallenge] = useState<ChallengeCard | null>(null);
   const [creating, setCreating] = useState(false);
-  const [goalPickerProjectId, setGoalPickerProjectId] = useState<string | null>(null);
 
   const challenges = useMemo(() => projects.filter(isVisibleChallenge).map(challengeFromProject), [projects]);
   const partnerChallenges = useMemo(
@@ -263,7 +261,6 @@ export default function ChallengesPage() {
     const found = challenges.find((c) => c.project.id === editId);
     if (found) setEditingChallenge(found);
   }, [editId, challenges]);
-  const activeProject = projects.find((project) => project.id === profile?.activeProjectId) ?? null;
   const activeChallenge = allChallenges.find(
     (challenge) => challenge.project.id === profile?.activeProjectId
   ) ?? null;
@@ -272,13 +269,14 @@ export default function ChallengesPage() {
     () => new Set([...(profile?.joinedProjectIds ?? []), ...(profile?.activeProjectId ? [profile.activeProjectId] : [])]),
     [profile?.joinedProjectIds, profile?.activeProjectId]
   );
+  const favoriteProjectIds = useMemo(
+    () => new Set(profile?.favoriteCauseIds ?? []),
+    [profile?.favoriteCauseIds]
+  );
   const filteredChallenges = allChallenges.filter((challenge) => {
     if (challenge.project.status === "ended") return false;
     if (selectedCategory === "All") return !isPrivateChallenge(challenge.project) || joinedProjectIds.has(challenge.project.id);
-    if (selectedCategory === "My Fundraisers") return challenge.project.createdBy === user?.uid || joinedProjectIds.has(challenge.project.id);
-    if (selectedCategory === "Verified Partners") return challenge.trustLabel === "Verified Partner";
-    if (selectedCategory === "Community") return challenge.trustLabel === "Community";
-    if (selectedCategory === "Public") return !isPrivateChallenge(challenge.project);
+    if (selectedCategory === "My Fundraisers") return favoriteProjectIds.has(challenge.project.id);
     return true;
   });
   const visibleListChallenges = filteredChallenges.slice(0, 20);
@@ -286,14 +284,8 @@ export default function ChallengesPage() {
     challenge.project.createdBy === user?.uid || profile?.email === ADMIN_EMAIL
   );
 
-  const givingBalance = Math.max(0, (profile?.totalGiveAllocated ?? 0) - (profile?.totalDonated ?? 0));
-
   async function beginJoin(challenge: ChallengeCard) {
     if (!user || joiningId) return;
-    if (activeProject && profile?.activeProjectId !== challenge.project.id && givingBalance > 0) {
-      setJoinChoice(challenge);
-      return;
-    }
     await completeJoin(challenge);
   }
 
@@ -304,20 +296,13 @@ export default function ChallengesPage() {
 
   async function completeJoin(challenge: ChallengeCard) {
     if (!user || joiningId) return;
-    // Close any choice modal immediately so the user gets instant feedback
-    setJoinChoice(null);
     setJoiningId(challenge.project.id);
     try {
-      const balanceTransfer = await switchCause(user.uid, profile?.activeProjectId ?? null, challenge.project.id);
-      const causeJarBalances = balanceTransfer
-        ? { ...(profile?.causeJarBalances ?? {}), ...balanceTransfer }
-        : profile?.causeJarBalances;
+      await pinProjectToHome(user.uid, challenge.project.id);
       updateProfile({
         activeProjectId: challenge.project.id,
         joinedProjectIds: Array.from(new Set([...(profile?.joinedProjectIds ?? []), challenge.project.id])),
-        ...(causeJarBalances ? { causeJarBalances } : {}),
       });
-      setGoalPickerProjectId(challenge.project.id);
     } catch (err) {
       console.error("completeJoin failed:", err);
     } finally {
@@ -333,14 +318,8 @@ export default function ChallengesPage() {
     if (!pendingActivationChallenge) return;
     const challenge = pendingActivationChallenge;
     setPendingActivationChallenge(null);
-    if (activeProject && givingBalance > 0) {
-      // Show switch-warning modal first; share fires after that flow completes via shareAfterJoinId
-      setJoinChoice(challenge);
-      shareAfterJoinId.current = challenge.project.id;
-    } else {
-      await completeJoin(challenge);
-      setPendingShareId(challenge.project.id);
-    }
+    await completeJoin(challenge);
+    setPendingShareId(challenge.project.id);
   }
 
   function handleSkipActivation() {
@@ -461,6 +440,24 @@ export default function ChallengesPage() {
     setShareChallenge(challenge);
   }
 
+  async function handleToggleFavorite(challenge: ChallengeCard) {
+    if (!user || !profile) return;
+    const projectId = challenge.project.id;
+    const currentFavorites = profile.favoriteCauseIds ?? [];
+    const isFavorite = currentFavorites.includes(projectId);
+    const nextFavorites = isFavorite
+      ? currentFavorites.filter((id) => id !== projectId)
+      : Array.from(new Set([...currentFavorites, projectId]));
+
+    updateProfile({ favoriteCauseIds: nextFavorites });
+    try {
+      await setFavoriteCause(user.uid, projectId, !isFavorite);
+    } catch (err) {
+      console.error("setFavoriteCause failed:", err);
+      updateProfile({ favoriteCauseIds: currentFavorites });
+    }
+  }
+
   return (
     <div className="p-4 md:p-8 max-w-2xl mx-auto pb-24 md:pb-8">
       <div className="flex md:hidden items-center justify-between mb-5">
@@ -553,28 +550,21 @@ export default function ChallengesPage() {
       </div>
 
       <section className="mt-8">
-        <SectionHeader
-          title={selectedCategory === "My Fundraisers" ? "My Fundraisers" : "Explore Fundraisers"}
-          subtitle={selectedCategory === "My Fundraisers"
-            ? "Fundraisers you have joined or created."
-            : "Find a cause to skip alongside."}
-        />
-
-      <div className="flex gap-2 overflow-x-auto pb-2 -mx-1 px-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
-        {CATEGORY_OPTIONS.map((category) => (
-          <button
-            key={category}
-            onClick={() => setSelectedCategory(category)}
-            className="flex-shrink-0 px-4 py-2.5 rounded-full text-sm font-semibold transition-colors"
-            style={selectedCategory === category
-              ? { background: "#2ECC71", color: "#0B1A14" }
-              : { border: "1px solid rgba(46,204,113,0.3)", color: "var(--text-secondary)" }
-            }
-          >
-            {category}
-          </button>
-        ))}
-      </div>
+        <div className="flex gap-2 overflow-x-auto pb-2 -mx-1 px-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+          {CATEGORY_OPTIONS.map((category) => (
+            <button
+              key={category}
+              onClick={() => setSelectedCategory(category)}
+              className="flex-shrink-0 px-4 py-2.5 rounded-full text-sm font-semibold transition-colors"
+              style={selectedCategory === category
+                ? { background: "#2ECC71", color: "#0B1A14" }
+                : { border: "1px solid rgba(46,204,113,0.3)", color: "var(--text-secondary)" }
+              }
+            >
+              {category}
+            </button>
+          ))}
+        </div>
 
       {selectedCategory === "Archived" ? (
         archivedChallenges.length > 0 ? (
@@ -588,9 +578,11 @@ export default function ChallengesPage() {
                     isActive={false}
                     isJoining={false}
                     canEdit={canManageChallenge(challenge)}
+                    isFavorite={favoriteProjectIds.has(challenge.project.id)}
                     onOpen={() => router.push(`/challenges/${challenge.project.id}`)}
                     onEdit={() => router.push(`/challenges/${challenge.project.id}/manage`)}
                     onShare={() => {}}
+                    onToggleFavorite={() => handleToggleFavorite(challenge)}
                     onJoin={() => {}}
                   />
                   {remaining > 0 && (
@@ -623,9 +615,11 @@ export default function ChallengesPage() {
               isActive={challenge.project.id === profile?.activeProjectId}
               isJoining={joiningId === challenge.project.id}
               canEdit={canManageChallenge(challenge)}
+              isFavorite={favoriteProjectIds.has(challenge.project.id)}
               onOpen={() => router.push(`/challenges/${challenge.project.id}`)}
               onEdit={() => router.push(`/challenges/${challenge.project.id}/manage`)}
               onShare={() => handleShareChallenge(challenge)}
+              onToggleFavorite={() => handleToggleFavorite(challenge)}
               onJoin={() => handleJoin(challenge)}
             />
           ))}
@@ -633,10 +627,10 @@ export default function ChallengesPage() {
       ) : (
         <div className="mt-3 rounded-xl py-8 text-center" style={{ background: "var(--bg-surface-1)", border: "1px solid var(--border-default)" }}>
           <p className="text-sm font-semibold" style={{ color: "var(--text-muted)" }}>
-            {selectedCategory === "My Fundraisers" ? "No fundraisers joined yet." : "No fundraisers match this filter yet."}
+            {selectedCategory === "My Fundraisers" ? "No saved fundraisers yet." : "No fundraisers match this filter yet."}
           </p>
           <p className="text-xs mt-1" style={{ color: "var(--text-muted)" }}>
-            {selectedCategory === "My Fundraisers" ? "Join a fundraiser or create one to see it here." : "Try another filter or create a fundraiser."}
+            {selectedCategory === "My Fundraisers" ? "Tap a heart to save a fundraiser for later." : "Try another filter or create a fundraiser."}
           </p>
         </div>
       )}
@@ -671,19 +665,6 @@ export default function ChallengesPage() {
         />
       )}
 
-      {joinChoice && (
-        <JoinChoiceModal
-          challenge={joinChoice}
-          activeTitle={activeProject?.groupName ?? activeProject?.title ?? "your current jar"}
-          pledgeAmount={givingBalance}
-          isJoining={joiningId === joinChoice.project.id}
-          onClose={() => setJoinChoice(null)}
-          onDonateNow={() => router.push("/jars?tab=cause")}
-
-          onMovePledge={() => completeJoin(joinChoice)}
-        />
-      )}
-
       {shareChallenge && (
         <ShareChallengeModal
           challenge={shareChallenge}
@@ -692,104 +673,6 @@ export default function ChallengesPage() {
         />
       )}
 
-      {goalPickerProjectId && (
-        <PersonalGoalPickerModal
-          onClose={() => setGoalPickerProjectId(null)}
-          onSet={async (amount) => {
-            if (!user) return;
-            await setUserCauseGoal(user.uid, goalPickerProjectId, amount);
-            updateProfile({ causeGoalAmounts: { ...(profile?.causeGoalAmounts ?? {}), [goalPickerProjectId]: amount } });
-            setGoalPickerProjectId(null);
-          }}
-        />
-      )}
-    </div>
-  );
-}
-
-function PersonalGoalPickerModal({
-  onClose,
-  onSet,
-}: {
-  onClose: () => void;
-  onSet: (amount: number) => Promise<void>;
-}) {
-  const PRESETS = [25, 50, 100, 200];
-  const [custom, setCustom] = useState("");
-  const [selected, setSelected] = useState<number | null>(null);
-  const [saving, setSaving] = useState(false);
-
-  async function handleSet(amount: number) {
-    if (saving || amount <= 0) return;
-    setSaving(true);
-    try { await onSet(amount); } finally { setSaving(false); }
-  }
-
-  const parsedCustom = parseFloat(custom);
-  const customValid = !isNaN(parsedCustom) && parsedCustom > 0;
-  const saveAmount = customValid ? parsedCustom : selected;
-  const canSave = saveAmount !== null && saveAmount > 0;
-
-  return (
-    <div className="fixed inset-0 bg-black/60 z-50 flex items-end sm:items-center justify-center p-4" onClick={onClose}>
-      <div
-        className="rounded-2xl w-full max-w-md p-5 shadow-2xl"
-        style={{ background: "var(--bg-surface-1)", border: "1px solid var(--border-default)" }}
-        onClick={(e) => e.stopPropagation()}
-      >
-        <div className="flex items-start justify-between gap-4 mb-4">
-          <div>
-            <p className="text-xl font-black" style={{ color: "var(--text-primary)" }}>You&apos;re in! 🙌</p>
-            <p className="text-sm mt-1" style={{ color: "var(--text-muted)" }}>Set a personal savings goal for this fundraiser. Your Skip Bank will show your progress toward it.</p>
-          </div>
-          <button onClick={onClose} aria-label="Close" className="text-xl leading-none" style={{ color: "var(--text-muted)" }}>×</button>
-        </div>
-
-        <div className="grid grid-cols-4 gap-2 mb-4">
-          {PRESETS.map((amount) => {
-            const isSelected = selected === amount && !customValid;
-            return (
-              <button
-                key={amount}
-                type="button"
-                onClick={() => { setSelected(amount); setCustom(""); }}
-                disabled={saving}
-                className="py-3 rounded-xl text-sm font-black disabled:opacity-50"
-                style={{
-                  background: isSelected ? "#2ECC71" : "var(--bg-surface-2)",
-                  border: isSelected ? "1px solid #2ECC71" : "1px solid var(--border-default)",
-                  color: isSelected ? "#0B1A14" : "var(--text-primary)",
-                }}
-              >
-                ${amount}
-              </button>
-            );
-          })}
-        </div>
-
-        <div className="relative">
-          <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm" style={{ color: "var(--text-muted)" }}>$</span>
-          <input
-            type="number"
-            min={1}
-            value={custom}
-            onChange={(e) => { setCustom(e.target.value); setSelected(null); }}
-            placeholder="Custom amount"
-            className="w-full rounded-xl pl-7 pr-4 py-3 text-sm focus:outline-none"
-            style={{ background: "var(--bg-surface-2)", border: "1px solid var(--border-default)", color: "var(--text-primary)" }}
-          />
-        </div>
-
-        <button
-          type="button"
-          onClick={() => canSave && handleSet(saveAmount!)}
-          disabled={saving || !canSave}
-          className="mt-3 w-full py-3 rounded-xl text-sm font-black disabled:opacity-40"
-          style={{ background: "#2ECC71", color: "#0B1A14" }}
-        >
-          {saving ? "Saving…" : "Save"}
-        </button>
-      </div>
     </div>
   );
 }
@@ -865,23 +748,27 @@ function ChallengeListCard({
   isActive,
   isJoining,
   canEdit,
+  isFavorite,
   onOpen,
   onEdit,
   onShare,
+  onToggleFavorite,
   onJoin,
 }: {
   challenge: ChallengeCard;
   isActive: boolean;
   isJoining: boolean;
   canEdit: boolean;
+  isFavorite: boolean;
   onOpen: () => void;
   onEdit: () => void;
   onShare: () => void;
+  onToggleFavorite: () => void;
   onJoin: () => void;
 }) {
   const endDateMs = challenge.project.endDate?.toMillis?.();
   const isExpired = challenge.project.status === "ended" || (endDateMs ? endDateMs < Date.now() : false);
-  const joinLabel = isActive ? "Active" : isJoining ? "Joining..." : "Join Fundraiser";
+  const joinLabel = isActive ? "Pinned to Home" : isJoining ? "Pinning..." : "Pin to Home";
   const showImage = Boolean(challenge.imageURL || !challenge.project.isCustom);
 
   return (
@@ -905,6 +792,24 @@ function ChallengeListCard({
             </div>
           </div>
           <div className="flex items-center gap-1.5 shrink-0">
+            <button
+              type="button"
+              onClick={(event) => {
+                event.stopPropagation();
+                onToggleFavorite();
+              }}
+              className="w-8 h-8 rounded-full text-base font-bold transition-transform active:scale-95"
+              aria-label={isFavorite ? "Unsave fundraiser" : "Save fundraiser"}
+              aria-pressed={isFavorite}
+              title={isFavorite ? "Unsave fundraiser" : "Save fundraiser"}
+              style={{
+                border: isFavorite ? "1px solid rgba(244,63,94,0.42)" : "1px solid var(--border-emphasis)",
+                color: isFavorite ? "#F43F5E" : "var(--text-muted)",
+                background: isFavorite ? "rgba(244,63,94,0.12)" : "transparent",
+              }}
+            >
+              {isFavorite ? "♥" : "♡"}
+            </button>
             <button
               type="button"
               onClick={(event) => {
@@ -1015,12 +920,12 @@ function MakeActivePromptModal({
         style={{ background: "var(--bg-surface-1)", border: "1px solid var(--border-emphasis)" }}
       >
         <div className="px-5 pt-5 pb-4" style={{ borderBottom: "1px solid var(--border-default)" }}>
-          <p className="text-2xl font-black" style={{ color: "var(--text-primary)" }}>Make this your active jar?</p>
+          <p className="text-2xl font-black" style={{ color: "var(--text-primary)" }}>Pin this fundraiser to Home?</p>
           <p className="text-sm mt-1 font-bold" style={{ color: "var(--green-primary)" }}>{name}</p>
         </div>
         <div className="px-5 py-4">
           <p className="text-sm leading-relaxed" style={{ color: "var(--text-secondary)" }}>
-            Would you like skips you log to go toward <strong>{name}</strong>?
+            Future skips you log will track toward <strong>{name}</strong> by default.
           </p>
         </div>
         <div className="px-5 pb-5 space-y-3 text-center">
@@ -1034,7 +939,7 @@ function MakeActivePromptModal({
               boxShadow: "0 4px 18px var(--gold-glow)",
             }}
           >
-            Yes, make it active
+            Pin to Home
           </button>
           <button
             type="button"
@@ -1042,77 +947,7 @@ function MakeActivePromptModal({
             className="text-xs font-bold underline"
             style={{ color: "var(--text-secondary)", background: "transparent", border: "none", cursor: "pointer" }}
           >
-            No, keep my current jar
-          </button>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-function JoinChoiceModal({
-  challenge,
-  activeTitle,
-  pledgeAmount,
-  isJoining,
-  onClose,
-  onDonateNow,
-  onMovePledge,
-}: {
-  challenge: ChallengeCard;
-  activeTitle: string;
-  pledgeAmount: number;
-  isJoining: boolean;
-  onClose: () => void;
-  onDonateNow: () => void;
-  onMovePledge: () => void;
-}) {
-  const destinationType = isChallengeProject(challenge.project) ? "challenge" : "cause";
-
-  return (
-    <div className="fixed inset-0 bg-black/60 z-50 flex items-end sm:items-center justify-center p-4" onClick={onClose}>
-      <div
-        className="rounded-2xl w-full max-w-md shadow-2xl"
-        style={{ background: "var(--bg-surface-1)", border: "1px solid var(--border-emphasis)" }}
-        onClick={(event) => event.stopPropagation()}
-      >
-        <div className="px-5 pt-5 pb-4 relative" style={{ borderBottom: "1px solid var(--border-default)" }}>
-          <button onClick={onClose} aria-label="Close" className="absolute top-4 right-4 text-xl leading-none" style={{ color: "var(--text-muted)" }}>×</button>
-          <p className="text-2xl font-black pr-6" style={{ color: "var(--text-primary)" }}>Before you switch to:</p>
-          <p className="text-sm mt-1 font-bold" style={{ color: "var(--green-primary)" }}>{challenge.project.groupName ?? challenge.title}</p>
-        </div>
-
-        <div className="px-5 pt-4">
-          <div className="rounded-xl p-4" style={{ background: "var(--bg-surface-2)", border: "1px solid var(--border-default)" }}>
-            <p className="text-base font-black" style={{ color: "var(--coral-primary)" }}>{formatCurrency(pledgeAmount)} pledged to {activeTitle}</p>
-          </div>
-          <p className="text-sm leading-relaxed mt-4" style={{ color: "var(--text-secondary)" }}>
-            You have {formatCurrency(pledgeAmount)} pledged to {activeTitle}. We recommend donating before switching to a new {destinationType}.
-          </p>
-        </div>
-
-        <div className="px-5 py-4 space-y-3 text-center">
-          <button
-            type="button"
-            onClick={onDonateNow}
-            disabled={isJoining}
-            className="block w-full py-3 rounded-full text-sm font-black disabled:opacity-60"
-            style={{
-              background: "linear-gradient(135deg, var(--gold-cta), var(--gold-light))",
-              color: "var(--bg-base)",
-              boxShadow: "0 4px 18px var(--gold-glow)",
-            }}
-          >
-            Donate funds
-          </button>
-          <button
-            type="button"
-            onClick={onMovePledge}
-            disabled={isJoining}
-            className="text-xs font-bold underline disabled:opacity-60"
-            style={{ color: "var(--text-secondary)", background: "transparent", border: "none", cursor: "pointer" }}
-          >
-            Move balance to this {destinationType}
+            Not now
           </button>
         </div>
       </div>
@@ -1238,7 +1073,7 @@ function ChallengeDetailModal({
                 boxShadow: "0 4px 18px var(--gold-glow)",
               }}
             >
-              {isActive ? "Log a Skip" : isJoining ? "Joining..." : "Join Fundraiser"}
+              {isActive ? "Log a Skip" : isJoining ? "Pinning..." : "Pin to Home"}
             </button>
             {challenge.project.donationURL && (
               <a
@@ -1673,7 +1508,7 @@ function CreateChallengeWizard({
                 )}
                 {!useImpactUnit && (
                   <p className="text-sm font-semibold" style={{ color: "var(--text-secondary)" }}>
-                    This fundraiser will show dollars pledged instead of funded units.
+                    This fundraiser will show dollars raised instead of funded units.
                   </p>
                 )}
               </div>

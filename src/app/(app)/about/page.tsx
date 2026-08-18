@@ -143,7 +143,7 @@ export default function AboutPage() {
           style={{ color: "var(--text-primary)", letterSpacing: "-0.5px" }}
         >
           All it takes is saying<br />
-          <span style={{ color: "var(--green-primary)" }}>iSkipped.</span>
+          <span style={{ color: "var(--green-primary)" }}>iSkipped</span>
         </p>
         <p className="text-sm max-w-xs mx-auto leading-relaxed" style={{ color: "var(--text-secondary)" }}>
           Our hard-earned money becomes more valuable when we can say iSkipped.

@@ -11,6 +11,7 @@ export async function POST(req: NextRequest) {
     const uid = await requireUid(req);
     const body = await req.json();
     const newCauseId = validateNonEmptyString(body.newCauseId, "newCauseId");
+    const transferBalance = body.transferBalance !== false;
 
     const db = getAdminDb();
     const userRef = db.collection("users").doc(uid);
@@ -28,17 +29,19 @@ export async function POST(req: NextRequest) {
       let totalTransferred = 0;
 
       const allJarBalances = profile.causeJarBalances ?? {};
-      for (const [causeId, bal] of Object.entries(allJarBalances)) {
-        const amount = Math.max(0, Number(bal) || 0);
-        if (causeId === newCauseId || amount === 0) continue;
-        updates[`causeJarBalances.${causeId}`] = 0;
-        balanceTransfer[causeId] = 0;
-        totalTransferred += amount;
-        tx.set(db.collection("projects").doc(causeId), { totalRaised: FieldValue.increment(-amount) }, { merge: true });
-      }
-      if (totalTransferred > 0) {
-        updates[`causeJarBalances.${newCauseId}`] = FieldValue.increment(totalTransferred);
-        balanceTransfer[newCauseId] = (allJarBalances[newCauseId] ?? 0) + totalTransferred;
+      if (transferBalance) {
+        for (const [causeId, bal] of Object.entries(allJarBalances)) {
+          const amount = Math.max(0, Number(bal) || 0);
+          if (causeId === newCauseId || amount === 0) continue;
+          updates[`causeJarBalances.${causeId}`] = 0;
+          balanceTransfer[causeId] = 0;
+          totalTransferred += amount;
+          tx.set(db.collection("projects").doc(causeId), { totalRaised: FieldValue.increment(-amount) }, { merge: true });
+        }
+        if (totalTransferred > 0) {
+          updates[`causeJarBalances.${newCauseId}`] = FieldValue.increment(totalTransferred);
+          balanceTransfer[newCauseId] = (allJarBalances[newCauseId] ?? 0) + totalTransferred;
+        }
       }
 
       tx.update(userRef, updates);

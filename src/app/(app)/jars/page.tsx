@@ -104,10 +104,10 @@ function RewardArtwork({ label, amount, link, imageURL, imagePosition, featured 
         </>
       )}
       <div className="relative flex h-full flex-col justify-between p-4" style={{ color: art.accent }}>
-        <div className="flex flex-col items-start gap-1.5">
+        <div className="flex items-start justify-between gap-3">
           <span className="text-[10px] font-black uppercase tracking-[0.16em] opacity-80">{retailer ?? "Wish list"}</span>
           {amount !== undefined && (
-            <span className="rounded-full bg-black/25 px-2 py-1 text-xs font-black text-white shadow-sm">
+            <span className="shrink-0 rounded-full bg-black/25 px-2 py-1 text-xs font-black text-white shadow-sm">
               {formatCurrency(amount)}
             </span>
           )}
@@ -1518,17 +1518,43 @@ function SplurgeTab({
               </div>
             ) : (
               <>
-                <div className="mb-4 flex items-end justify-between gap-4">
+                <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
                   <div>
                     <p className="text-xs font-black uppercase tracking-[0.14em]" style={{ color: "#C4B5FD" }}>Skip Bank</p>
                     <p className="mt-1 text-3xl font-extrabold leading-none" style={{ color: "#8B5CF6" }}>{formatCurrency(spendingBalance)}</p>
                     <p className="mt-1 text-xs" style={{ color: "var(--text-muted)" }}>available to use</p>
                   </div>
-                  <p className="max-w-36 text-right text-xs font-semibold" style={{ color: "var(--text-muted)" }}>
-                    Ready when you are.
-                  </p>
+                  {purchasingId !== activeGoal.id && (
+                    <div className="flex flex-col items-stretch gap-2 sm:items-end">
+                      <p className="text-left text-xs font-semibold sm:text-right" style={{ color: "var(--text-muted)" }}>
+                        Ready when you are.
+                      </p>
+                      <div className="flex gap-2">
+                        {activeGoal.shoppingLink && (
+                          <a
+                            href={activeGoal.shoppingLink}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="flex items-center justify-center rounded-xl px-4 py-2 text-sm font-bold"
+                            style={{ background: "#8B5CF6", color: "white", textDecoration: "none" }}
+                          >
+                            Buy Now ↗
+                          </a>
+                        )}
+                        <button
+                          onClick={() => { setPurchasingId(activeGoal.id); setPurchaseAmountStr(String(activeGoal.targetAmount)); }}
+                          className="rounded-xl px-4 py-2 text-sm font-bold"
+                          style={activeGoal.shoppingLink
+                            ? { border: "1px solid rgba(139,92,246,0.4)", color: "#8B5CF6" }
+                            : { background: "#8B5CF6", color: "white" }}
+                        >
+                          Log Purchase
+                        </button>
+                      </div>
+                    </div>
+                  )}
                 </div>
-                <div className="mt-3">
+                <div className={purchasingId === activeGoal.id ? "mt-3" : ""}>
                 {purchasingId === activeGoal.id ? (
                   <div className="space-y-2">
                     <div className="relative">
@@ -1565,30 +1591,7 @@ function SplurgeTab({
                       Cancel
                     </button>
                   </div>
-                ) : (
-                  <div className="flex gap-2">
-                    {activeGoal.shoppingLink && (
-                      <a
-                        href={activeGoal.shoppingLink}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="flex-1 flex items-center justify-center py-2.5 font-bold rounded-xl text-sm"
-                        style={{ background: "#8B5CF6", color: "white", textDecoration: "none" }}
-                      >
-                        Buy Now ↗
-                      </a>
-                    )}
-                    <button
-                      onClick={() => { setPurchasingId(activeGoal.id); setPurchaseAmountStr(String(activeGoal.targetAmount)); }}
-                      className="flex-1 py-2.5 font-bold rounded-xl text-sm"
-                      style={activeGoal.shoppingLink
-                        ? { border: "1px solid rgba(139,92,246,0.4)", color: "#8B5CF6" }
-                        : { background: "#8B5CF6", color: "white" }}
-                    >
-                      Log Purchase
-                    </button>
-                  </div>
-                    )}
+                ) : null}
                 </div>
 
                 {deletingActiveGoal && (
@@ -1712,7 +1715,6 @@ function SplurgeTab({
           <div className="mb-4 flex items-end justify-between gap-3">
             <div>
               <p className="text-xs font-black uppercase tracking-[0.16em]" style={{ color: "#8B5CF6" }}>Your reward wishlist</p>
-              <p className="mt-1 text-sm" style={{ color: "var(--text-secondary)" }}>Save the things you want. Your skips will catch up.</p>
             </div>
             <button
               onClick={() => setShowAddForm(true)}
@@ -1773,9 +1775,6 @@ function SplurgeTab({
                     </div>
                   ) : (
                     <div className="p-3">
-                      {isActiveGoal && (
-                        <span className="text-[10px] font-bold px-2 py-0.5 rounded-full mb-1.5 inline-block" style={{ background: "rgba(139,92,246,0.15)", color: "#8B5CF6" }}>✓ Active</span>
-                      )}
                       <div className="flex items-center justify-between gap-2">
                         <div className="text-[10px] font-bold" style={{ color: "#8B5CF6" }}>{goalCoverage(spendingBalance, goal.targetAmount).percent}% covered</div>
                         <div className="flex gap-1">
@@ -1807,7 +1806,7 @@ function SplurgeTab({
                               )}
                       {isActiveGoal ? (
                         <div className="mt-3 rounded-lg py-2 text-center text-[10px] font-black uppercase tracking-wide" style={{ background: "rgba(139,92,246,0.17)", color: "#C4B5FD" }}>
-                          ✓ My main goal
+                          Pinned to Home
                         </div>
                       ) : (
                         <button
@@ -1815,7 +1814,7 @@ function SplurgeTab({
                           className="mt-3 w-full rounded-lg py-2 text-[10px] font-black uppercase tracking-wide transition-colors hover:bg-[rgba(139,92,246,0.26)]"
                           style={{ background: "rgba(139,92,246,0.17)", color: "#C4B5FD" }}
                         >
-                          Select as my main goal
+                          Pin to Home
                         </button>
                       )}
                     </div>

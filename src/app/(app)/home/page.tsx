@@ -13,7 +13,7 @@ import { SkipSetupPrompt } from "@/components/setup/SkipSetupPrompt";
 import { normalizeJarSplit, normalizeSpendingGoals, recordPurchase } from "@/lib/services/firebase/users";
 import { levelForXp } from "@/lib/utils/xp";
 import { isChallengeProject, subscribeToProject } from "@/lib/services/firebase/projects";
-import { subscribeToCommunityFeed, subscribeToGlobalStats } from "@/lib/services/firebase/social";
+import { subscribeToChallengeFeed, subscribeToCommunityFeed, subscribeToGlobalStats } from "@/lib/services/firebase/social";
 import { EditSkipModal } from "@/components/skip/EditSkipModal";
 import { FeedItem, GlobalStats, Project, Skip, SpendingGoal } from "@/lib/types/models";
 import { appendRefParam, getChallengeSharePath } from "@/lib/utils/share";
@@ -487,6 +487,7 @@ function formatCommunityUnitCount(amount: number, unitCost: number, unitIsGoal?:
 }
 
 function formatCurrencyRounded(amount: number): string {
+  if (amount > 0 && amount < 1) return `${Math.round(amount * 100)}¢`;
   return `$${Math.round(amount).toLocaleString("en-US")}`;
 }
 
@@ -927,6 +928,7 @@ export default function HomePage() {
   const { showSkipPicker, setShowSkipPicker } = useUIStore();
   const [editingSkip, setEditingSkip] = useState<Skip | null>(null);
   const [communityFeed, setCommunityFeed] = useState<FeedItem[]>([]);
+  const [activeChallengeFeed, setActiveChallengeFeed] = useState<FeedItem[]>([]);
   const [globalStats, setGlobalStats] = useState<GlobalStats | null>(null);
   const [liveFeedIndex, setLiveFeedIndex] = useState(0);
   const [liveChallengeTotalRaised, setLiveChallengeTotalRaised] = useState<number>(0);
@@ -954,6 +956,20 @@ export default function HomePage() {
   }, []);
 
   useEffect(() => {
+    const activeProjectId = profile?.activeProjectId;
+    if (!activeProjectId) {
+      setActiveChallengeFeed([]);
+      return;
+    }
+    const active = projects.find((project) => project.id === activeProjectId);
+    if (!active || !isChallengeProject(active)) {
+      setActiveChallengeFeed([]);
+      return;
+    }
+    return subscribeToChallengeFeed(activeProjectId, setActiveChallengeFeed);
+  }, [profile?.activeProjectId, projects]);
+
+  useEffect(() => {
     const unsubscribe = subscribeToGlobalStats(setGlobalStats);
     return unsubscribe;
   }, []);
@@ -961,7 +977,7 @@ export default function HomePage() {
   useEffect(() => {
     const active = projects.find((project) => project.id === profile?.activeProjectId) ?? null;
     const challengeItems = active && isChallengeProject(active)
-      ? communityFeed.filter((item) => item.projectTitle === active.title)
+      ? activeChallengeFeed
       : [];
     const feedCount = challengeItems.length > 0
       ? challengeItems.length
@@ -979,7 +995,7 @@ export default function HomePage() {
     }, 4500);
 
     return () => window.clearInterval(timer);
-  }, [communityFeed, profile?.activeProjectId, projects, recentSkips.length]);
+  }, [activeChallengeFeed, communityFeed, profile?.activeProjectId, projects, recentSkips.length]);
 
   useEffect(() => {
     const activeProjectId = profile?.activeProjectId;
@@ -1085,30 +1101,24 @@ export default function HomePage() {
     ? profile.causeStats?.[activeProject.id]?.donated ?? 0
     : 0;
   const challengeFeedAllItems = activeProject && isActiveChallenge
-    ? communityFeed.filter((item) => item.projectTitle === activeProject.title || item.projectId === activeProject.id)
+    ? activeChallengeFeed
     : [];
   const challengeFeedItems = challengeFeedAllItems.slice(0, 3);
   const featuredChallengeFeedItem = challengeFeedItems[0] ?? null;
-  const challengeSkippedAmount = Math.max(
-    displayedGroupTotal,
-    challengeFeedAllItems.reduce((sum, item) => sum + Math.max(0, item.skipAmount ?? 0), 0)
-  );
+  const challengeSkippedAmount = challengeFeedAllItems.reduce((sum, item) => sum + Math.max(0, item.skipAmount ?? 0), 0);
   const challengeSkippedUnitPotential = activeProject?.unitCost
     ? formatCommunityUnitCount(challengeSkippedAmount, activeProject.unitCost, activeProject.unitIsGoal)
     : null;
   const challengeCommunitySkipCount = challengeFeedItems.length > 0 ? challengeFeedItems.length : challengeSkips.length;
   const todaySkipCount = activeProject && isActiveChallenge
-    ? communityFeed.filter((item) =>
-        (item.projectTitle === activeProject.title || item.projectId === activeProject.id)
-        && item.createdAt?.toDate?.()?.toDateString() === new Date().toDateString()
-      ).length
+    ? activeChallengeFeed.filter((item) => item.createdAt?.toDate?.()?.toDateString() === new Date().toDateString()).length
     : 0;
   const groupSkipsThisWeek = activeProject && isActiveChallenge
     ? challengeFeedAllItems.filter((item) => item.createdAt?.toDate && isSameWeek(item.createdAt.toDate().toISOString().split("T")[0])).length
     : 0;
   const socialFeedItems = activeProject && isActiveChallenge
-    ? (communityFeed.filter((item) => item.projectTitle === activeProject.title).length > 0
-        ? communityFeed.filter((item) => item.projectTitle === activeProject.title)
+    ? (activeChallengeFeed.length > 0
+        ? activeChallengeFeed
         : communityFeed)
     : communityFeed;
   const liveTotalSkips = globalStats?.totalSkips ?? communityFeed.length;
@@ -1458,11 +1468,18 @@ export default function HomePage() {
                 {activeProject.groupName ?? activeProject.title}
               </p>
               <p style={{ fontSize: 12, fontWeight: 700, color: "var(--text-secondary)", lineHeight: 1.45, marginTop: 12, maxWidth: 430 }}>
-                Together, the group has skipped {formatCurrencyRounded(challengeSkippedAmount)}.{" "}
-                {challengeSkippedUnitPotential && activeProject.unitCost
-                  ? `That could fund up to ${challengeSkippedUnitPotential} ${fundraiserUnitLabel}.`
+                {challengeSkippedAmount > 0
+                  ? `Together, the group has skipped ${formatCurrencyRounded(challengeSkippedAmount)} while supporting this fundraiser.`
+                  : "No group skips logged for this fundraiser yet."}
+                {challengeSkippedAmount > 0 && challengeSkippedUnitPotential && activeProject.unitCost
+                  ? ` That could fund up to ${challengeSkippedUnitPotential} ${fundraiserUnitLabel}.`
                   : ""}
               </p>
+              {fundraiserDonatedTotal > 0 && (
+                <p style={{ fontSize: 12, fontWeight: 800, color: "#2BBAA4", lineHeight: 1.45, marginTop: 6 }}>
+                  Donations logged: {formatCurrencyRounded(fundraiserDonatedTotal)}
+                </p>
+              )}
             </div>
             <div style={{ display: "flex", flexDirection: "column", gap: 8, alignItems: "flex-end", flexShrink: 0 }}>
               <ShareButton

@@ -6,7 +6,7 @@ import { useAuthStore } from "@/store/authStore";
 import { useUIStore } from "@/store/uiStore";
 import { useProjects } from "@/hooks/useProjects";
 import { Project } from "@/lib/types/models";
-import { switchCause, setUserCauseGoal, normalizeJarSplit, setChallengeEmailConsent } from "@/lib/services/firebase/users";
+import { pinProjectToHome, normalizeJarSplit, setChallengeEmailConsent } from "@/lib/services/firebase/users";
 import { isChallengeProject, getProject } from "@/lib/services/firebase/projects";
 import { formatCurrency } from "@/lib/utils/currency";
 import { getChallengeCountdown } from "@/lib/utils/dates";
@@ -147,7 +147,7 @@ function ProgressBar({ challenge, pledgedAmount = challenge.raised }: { challeng
   return (
     <div>
       <div className="flex justify-between gap-3 text-sm font-black mb-2">
-        <span style={{ color: "var(--green-primary)" }}>Pledged {formatCurrency(pledgedAmount)}</span>
+        <span style={{ color: "var(--green-primary)" }}>Raised {formatCurrency(pledgedAmount)}</span>
         <span style={{ color: "var(--text-muted)" }}>{progressPct}%</span>
       </div>
       <div className="h-3 rounded-full overflow-hidden" style={{ background: "var(--bg-surface-3)" }}>
@@ -203,10 +203,8 @@ export default function ChallengeDetailPage() {
   const { setShowSkipPicker } = useUIStore();
   const { projects, loading: projectsLoading } = useProjects();
   const [joining, setJoining] = useState(false);
-  const [showJoinChoice, setShowJoinChoice] = useState(false);
   const [showEmailConsent, setShowEmailConsent] = useState(false);
   const [shareEmailOnJoin, setShareEmailOnJoin] = useState(true);
-  const [goalPickerProjectId, setGoalPickerProjectId] = useState<string | null>(null);
   const [showShare, setShowShare] = useState(false);
   const canNativeShare = typeof navigator !== "undefined" && typeof navigator.share === "function";
 
@@ -264,11 +262,8 @@ export default function ChallengeDetailPage() {
 
   const isActive = challenge.project.id === profile?.activeProjectId;
   const countdown = getChallengeCountdown(challenge.project);
-  const activeChallenge = projects.find((item) => item.id === profile?.activeProjectId);
-  const activePledgeBalance = profile?.activeProjectId ? profile?.causeJarBalances?.[profile.activeProjectId] ?? 0 : 0;
   const split = normalizeJarSplit(profile?.jarSplit as any);
   const giveTotal = profile ? (profile.totalGiveAllocated ?? profile.totalSaved * (split.give / 100)) : 0;
-  const globalGivingBalance = profile ? Math.max(0, giveTotal - (profile.totalDonated ?? 0)) : 0;
   const profileChallengeBalance = profile?.causeJarBalances?.[challenge.project.id] ?? 0;
   const pledgedAmount = Math.max(challenge.project.totalRaised || 0, profileChallengeBalance);
   const challengeUrl = appendRefParam(
@@ -316,10 +311,6 @@ export default function ChallengeDetailPage() {
 
   async function beginJoin() {
     if (!user || !challenge || joining) return;
-    if (profile?.activeProjectId && profile.activeProjectId !== challenge.project.id) {
-      setShowJoinChoice(true);
-      return;
-    }
     await completeJoin();
   }
 
@@ -327,16 +318,11 @@ export default function ChallengeDetailPage() {
     if (!user || !challenge || joining) return;
     setJoining(true);
     try {
-      const balanceTransfer = await switchCause(user.uid, profile?.activeProjectId ?? null, challenge.project.id);
+      await pinProjectToHome(user.uid, challenge.project.id);
       updateProfile({
         activeProjectId: challenge.project.id,
         joinedProjectIds: Array.from(new Set([...(profile?.joinedProjectIds ?? []), challenge.project.id])),
-        ...(balanceTransfer
-          ? { causeJarBalances: { ...(profile?.causeJarBalances ?? {}), ...balanceTransfer } }
-          : {}),
       });
-      setGoalPickerProjectId(challenge.project.id);
-      setShowJoinChoice(false);
     } finally {
       setJoining(false);
     }
@@ -385,7 +371,7 @@ export default function ChallengeDetailPage() {
           {countdown.isExpired && (
             <div className="rounded-xl px-4 py-3 mb-3" style={{ background: "rgba(239,68,68,0.06)", border: "1px solid rgba(239,68,68,0.15)" }}>
               <p className="text-sm font-semibold" style={{ color: "var(--text-secondary)" }}>
-                {countdown.label}. Donations are still open — any pledge you made counts.
+                {countdown.label}. Donations are still open.
               </p>
             </div>
           )}
@@ -519,7 +505,7 @@ export default function ChallengeDetailPage() {
                   boxShadow: "0 4px 18px var(--gold-glow)",
                 }}
               >
-                {isActive ? (profileChallengeBalance > 0 ? "Log a Skip" : "Log your first skip") : joining ? "Joining..." : "Join Fundraiser"}
+                {isActive ? (profileChallengeBalance > 0 ? "Log a Skip" : "Log your first skip") : joining ? "Pinning..." : "Pin to Home"}
               </button>
             )}
             {challenge.project.donationURL && (
@@ -537,84 +523,6 @@ export default function ChallengeDetailPage() {
         </div>
       </article>
 
-      {showJoinChoice && (
-        <div className="fixed inset-0 bg-black/60 z-50 flex items-end sm:items-center justify-center p-4" onClick={() => setShowJoinChoice(false)}>
-          <div
-            className="rounded-2xl w-full max-w-md p-5 shadow-2xl"
-            style={{ background: "var(--bg-surface-1)", border: "1px solid var(--border-default)" }}
-            onClick={(event) => event.stopPropagation()}
-          >
-            <div className="flex items-start justify-between gap-4">
-              <div>
-              <p className="text-xl font-black" style={{ color: "var(--text-primary)" }}>{activePledgeBalance > 0 ? "Before you switch" : "Join challenge"}</p>
-              <p className="text-sm mt-1" style={{ color: "var(--text-muted)" }}>{challenge.title}</p>
-              </div>
-              <button onClick={() => setShowJoinChoice(false)} aria-label="Close" className="text-xl leading-none" style={{ color: "var(--text-muted)" }}>x</button>
-            </div>
-
-            <div className="rounded-xl p-4 mt-4" style={{ background: "var(--bg-surface-2)", border: "1px solid var(--border-default)" }}>
-              <p className="text-xs uppercase tracking-wide font-bold" style={{ color: "var(--text-muted)" }}>Your skips currently go to</p>
-              <p className="text-sm font-black mt-1" style={{ color: "var(--text-primary)" }}>{activeChallenge ? challengeTitle(activeChallenge) : "your current challenge"}</p>
-              {activePledgeBalance > 0 && (
-                <p className="text-sm font-black mt-2" style={{ color: "var(--coral-primary)" }}>
-                  {formatCurrency(activePledgeBalance)} pledged
-                </p>
-              )}
-            </div>
-
-            <p className="text-sm leading-relaxed mt-4" style={{ color: "var(--text-secondary)" }}>
-              {activePledgeBalance > 0
-                ? "We recommend donating what you've pledged before making a new challenge active. You can also keep that pledge and move it into the new jar."
-                : "Join this challenge to follow it, or make it active so your next skip goes here by default."}
-            </p>
-
-            <div className="grid grid-cols-1 gap-2 mt-5">
-              {activePledgeBalance > 0 && (
-                <button
-                  type="button"
-                  onClick={() => router.push("/jars?tab=cause")}
-                  disabled={joining}
-                  className="py-3 rounded-full text-sm font-black disabled:opacity-60"
-                  style={{
-                    background: "linear-gradient(135deg, var(--gold-cta), var(--gold-light))",
-                    color: "var(--bg-base)",
-                    boxShadow: "0 4px 18px var(--gold-glow)",
-                  }}
-                >
-                  Review pledge first
-                </button>
-              )}
-              {activePledgeBalance > 0 && (
-                <button
-                  type="button"
-                  onClick={() => completeJoin()}
-                  disabled={joining}
-                  className="py-3 rounded-full text-sm font-black disabled:opacity-60"
-                  style={{ border: "1px solid var(--border-emphasis)", color: "var(--green-primary)" }}
-                >
-                  Keep pledge and move it here
-                </button>
-              )}
-              {activePledgeBalance === 0 && (
-                <button
-                  type="button"
-                  onClick={() => completeJoin()}
-                  disabled={joining}
-                  className="py-3 rounded-full text-sm font-black disabled:opacity-60"
-                  style={{
-                    background: "linear-gradient(135deg, var(--gold-cta), var(--gold-light))",
-                    color: "var(--bg-base)",
-                    boxShadow: "0 4px 18px var(--gold-glow)",
-                  }}
-                >
-                  {joining ? "Joining..." : "Join Fundraiser"}
-                </button>
-              )}
-            </div>
-          </div>
-        </div>
-      )}
-
       {showShare && (
         <ShareDetailModal
           title={challenge.project.groupName ?? challenge.title}
@@ -628,12 +536,12 @@ export default function ChallengeDetailPage() {
       {showEmailConsent && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4" style={{ background: "rgba(0,0,0,0.62)" }}>
           <div className="w-full max-w-md rounded-2xl p-5" style={{ background: "var(--bg-surface-1)", border: "1px solid var(--border-emphasis)" }}>
-            <p className="text-lg font-black" style={{ color: "var(--text-primary)" }}>Join this challenge?</p>
+            <p className="text-lg font-black" style={{ color: "var(--text-primary)" }}>Pin this fundraiser?</p>
             <p className="text-sm leading-relaxed mt-2" style={{ color: "var(--text-secondary)" }}>
-              Organizers can see your challenge progress, including pledged amounts, donations logged for this challenge, and recent skip activity.
+              This puts the fundraiser on Home and makes future skips track toward it by default. Organizers can see donations logged for this fundraiser and recent skip activity.
             </p>
             <p className="text-sm leading-relaxed mt-2" style={{ color: "var(--text-secondary)" }}>
-              Your email is shared by default for challenge updates or reminders, but you can uncheck this and still join.
+              Your email is shared by default for fundraiser updates or reminders, but you can uncheck this and still pin it.
             </p>
             <label
               className="mt-4 flex items-start gap-3 rounded-xl p-3 cursor-pointer"
@@ -659,7 +567,7 @@ export default function ChallengeDetailPage() {
                 className="py-3 rounded-full text-sm font-black"
                 style={{ background: "linear-gradient(135deg, var(--gold-cta), var(--gold-light))", color: "var(--bg-base)" }}
               >
-                Join Fundraiser
+                Pin to Home
               </button>
               <button
                 type="button"
@@ -674,120 +582,6 @@ export default function ChallengeDetailPage() {
         </div>
       )}
 
-      {goalPickerProjectId && (
-        <PersonalGoalPickerModal
-          onClose={() => setGoalPickerProjectId(null)}
-          onSkip={() => {
-            setGoalPickerProjectId(null);
-            setShowSkipPicker(true);
-          }}
-          onSet={async (amount) => {
-            if (!user) return;
-            await setUserCauseGoal(user.uid, goalPickerProjectId, amount);
-            updateProfile({ causeGoalAmounts: { ...(profile?.causeGoalAmounts ?? {}), [goalPickerProjectId]: amount } });
-            setGoalPickerProjectId(null);
-            setShowSkipPicker(true);
-          }}
-        />
-      )}
-    </div>
-  );
-}
-
-function PersonalGoalPickerModal({
-  onClose,
-  onSkip,
-  onSet,
-}: {
-  onClose: () => void;
-  onSkip: () => void;
-  onSet: (amount: number) => Promise<void>;
-}) {
-  const PRESETS = [25, 50, 100, 200];
-  const [custom, setCustom] = useState("");
-  const [selected, setSelected] = useState<number | null>(null);
-  const [saving, setSaving] = useState(false);
-
-  async function handleSet(amount: number) {
-    if (saving || amount <= 0) return;
-    setSaving(true);
-    try { await onSet(amount); } finally { setSaving(false); }
-  }
-
-  const parsedCustom = parseFloat(custom);
-  const customValid = !isNaN(parsedCustom) && parsedCustom > 0;
-  const saveAmount = customValid ? parsedCustom : selected;
-  const canSave = saveAmount !== null && saveAmount > 0;
-
-  return (
-    <div className="fixed inset-0 bg-black/60 z-50 flex items-end sm:items-center justify-center p-4" onClick={onClose}>
-      <div
-        className="rounded-2xl w-full max-w-md p-5 shadow-2xl"
-        style={{ background: "var(--bg-surface-1)", border: "1px solid var(--border-default)" }}
-        onClick={(e) => e.stopPropagation()}
-      >
-        <div className="flex items-start justify-between gap-4 mb-4">
-          <div>
-            <p className="text-xl font-black" style={{ color: "var(--text-primary)" }}>You&apos;re in! 🙌</p>
-            <p className="text-sm mt-1" style={{ color: "var(--text-muted)" }}>Set a personal goal if you want, then log your first skip for this challenge.</p>
-          </div>
-          <button onClick={onClose} aria-label="Close" className="text-xl leading-none" style={{ color: "var(--text-muted)" }}>×</button>
-        </div>
-
-        <div className="grid grid-cols-4 gap-2 mb-4">
-          {PRESETS.map((amount) => {
-            const isSelected = selected === amount && !customValid;
-            return (
-              <button
-                key={amount}
-                type="button"
-                onClick={() => { setSelected(amount); setCustom(""); }}
-                disabled={saving}
-                className="py-3 rounded-xl text-sm font-black disabled:opacity-50"
-                style={{
-                  background: isSelected ? "#2ECC71" : "var(--bg-surface-2)",
-                  border: isSelected ? "1px solid #2ECC71" : "1px solid var(--border-default)",
-                  color: isSelected ? "#0B1A14" : "var(--text-primary)",
-                }}
-              >
-                ${amount}
-              </button>
-            );
-          })}
-        </div>
-
-        <div className="relative">
-          <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm" style={{ color: "var(--text-muted)" }}>$</span>
-          <input
-            type="number"
-            min={1}
-            value={custom}
-            onChange={(e) => { setCustom(e.target.value); setSelected(null); }}
-            placeholder="Custom amount"
-            className="w-full rounded-xl pl-7 pr-4 py-3 text-sm focus:outline-none"
-            style={{ background: "var(--bg-surface-2)", border: "1px solid var(--border-default)", color: "var(--text-primary)" }}
-          />
-        </div>
-
-        <button
-          type="button"
-          onClick={() => canSave && handleSet(saveAmount!)}
-          disabled={saving || !canSave}
-          className="mt-3 w-full py-3 rounded-xl text-sm font-black disabled:opacity-40"
-          style={{ background: "#2ECC71", color: "#0B1A14" }}
-        >
-          {saving ? "Saving..." : "Save & log first skip"}
-        </button>
-        <button
-          type="button"
-          onClick={onSkip}
-          disabled={saving}
-          className="mt-2 w-full py-2 text-xs font-bold disabled:opacity-50"
-          style={{ color: "var(--text-muted)" }}
-        >
-          Skip goal for now
-        </button>
-      </div>
     </div>
   );
 }

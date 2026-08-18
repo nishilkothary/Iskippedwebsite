@@ -12,6 +12,7 @@ import {
   Unsubscribe,
   getDocs,
   arrayUnion,
+  arrayRemove,
 } from "firebase/firestore";
 import { User } from "firebase/auth";
 import { db } from "./config";
@@ -168,6 +169,12 @@ export async function setUserCauseGoal(uid: string, causeId: string, amount: num
   await updateDoc(doc(db, "users", uid), { [`causeGoalAmounts.${causeId}`]: amount });
 }
 
+export async function setFavoriteCause(uid: string, causeId: string, favorite: boolean): Promise<void> {
+  await updateDoc(doc(db, "users", uid), {
+    favoriteCauseIds: favorite ? arrayUnion(causeId) : arrayRemove(causeId),
+  });
+}
+
 export async function switchCause(
   uid: string,
   oldCauseId: string | null,
@@ -175,6 +182,10 @@ export async function switchCause(
 ): Promise<Record<string, number> | null> {
   const result = await apiRequest<{ balanceTransfer: Record<string, number> | null }>("/api/causes/switch", "POST", { newCauseId });
   return result.balanceTransfer;
+}
+
+export async function pinProjectToHome(uid: string, projectId: string): Promise<void> {
+  await apiRequest("/api/causes/switch", "POST", { newCauseId: projectId, transferBalance: false });
 }
 
 export async function switchGoal(

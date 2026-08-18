@@ -123,7 +123,7 @@ export default function ManageChallengePage() {
     : "the end of the challenge";
   const challengeCauseName = (challenge.groupName ?? challenge.title).replace(/[.!?]+$/, "");
   const nudgeGoalLine = challenge.goalAmount > 0
-    ? `Our goal is to pledge at least ${formatCurrency(challenge.goalAmount)}${endDateMs ? ` by ${endDateLabel}` : ""}.`
+    ? `Our goal is to raise at least ${formatCurrency(challenge.goalAmount)}${endDateMs ? ` by ${endDateLabel}` : ""}.`
     : "Every skipped expense helps this group make progress.";
   const nudgeMessage = `Join me in skipping at least one expense a week to help fund ${challengeCauseName}. ${nudgeGoalLine}\n\n${challengeUrl}`;
   const progressUpdateText = buildProgressUpdate({
@@ -239,7 +239,7 @@ export default function ManageChallengePage() {
               {formatCurrency(totalRaised)}
             </p>
             <p className="text-xs mt-0.5" style={{ color: "var(--text-muted)" }}>
-              {challenge.goalAmount > 0 ? `of ${formatCurrency(challenge.goalAmount)} goal` : "pledged"}
+              {challenge.goalAmount > 0 ? `of ${formatCurrency(challenge.goalAmount)} goal` : "raised"}
             </p>
           </div>
           <div>
@@ -299,7 +299,7 @@ export default function ManageChallengePage() {
                       <div className="grid grid-cols-2 gap-3 text-right shrink-0">
                         <div>
                           <p className="text-sm font-black leading-none" style={{ color: "var(--green-primary)" }}>{formatCurrency(m.pledged)}</p>
-                          <p className="text-[10px] font-bold uppercase mt-1" style={{ color: "var(--text-muted)" }}>pledged</p>
+                          <p className="text-[10px] font-bold uppercase mt-1" style={{ color: "var(--text-muted)" }}>saved</p>
                         </div>
                         <div>
                           <p className="text-sm font-black leading-none" style={{ color: "var(--coral-primary)" }}>{formatCurrency(Number.isFinite(m.donated) ? m.donated : 0)}</p>
@@ -850,9 +850,9 @@ function buildProgressUpdate({
   const lines = [`${cleanTitle} Progress Update!`, ""];
 
   if (goalAmount > 0) {
-    lines.push(`${totalSkips.toLocaleString()} ${totalSkips === 1 ? "skip has" : "skips have"} been logged, with ${formatCurrency(raised)} pledged toward our ${formatCurrency(goalAmount)} goal (${progressPct}%).`);
+    lines.push(`${totalSkips.toLocaleString()} ${totalSkips === 1 ? "skip has" : "skips have"} been logged, with ${formatCurrency(raised)} raised toward our ${formatCurrency(goalAmount)} goal (${progressPct}%).`);
   } else {
-    lines.push(`${totalSkips.toLocaleString()} ${totalSkips === 1 ? "skip has" : "skips have"} been logged, with ${formatCurrency(raised)} pledged so far.`);
+    lines.push(`${totalSkips.toLocaleString()} ${totalSkips === 1 ? "skip has" : "skips have"} been logged, with ${formatCurrency(raised)} raised so far.`);
   }
 
   if (unitCost && unitCost > 0 && raised > 0 && (unitDisplay || unitName)) {
@@ -892,7 +892,7 @@ function getEmailTemplate({
   if (template === "donation") {
     return {
       subject: `Could you help fund ${challengeTitle}?`,
-      body: `Hi {name},\n\nThanks for skipping with the ${readableTitle} group.\n\nPlease consider turning your pledges into real-world donations. We could greatly use the support at this time.\n\nYou can learn more or donate here, and don't forget to log your donation:\n${donationLink}\n\nWe hope you continue to skip for this cause, and thank you for everything you have skipped for our cause thus far.`,
+      body: `Hi {name},\n\nThanks for skipping with the ${readableTitle} group.\n\nPlease consider turning your skipped savings into a real-world donation. We could greatly use the support at this time.\n\nYou can learn more or donate here, and don't forget to log your donation:\n${donationLink}\n\nWe hope you continue to skip for this cause, and thank you for everything you have skipped for our cause thus far.`,
     };
   }
 
@@ -935,7 +935,7 @@ function MemberEmailOutreach({
   const selectedMember = emailableMembers.find((member) => member.uid === selectedUid) ?? emailableMembers[0] ?? null;
   const emailList = emailableMembers.map((member) => member.email).join(", ");
   const personalBody = selectedMember ? personalizeMessage(body, selectedMember) : body;
-  const groupBody = body.replaceAll("{name}", "there").replaceAll("{pledged}", "your pledge");
+  const groupBody = body.replaceAll("{name}", "there").replaceAll("{pledged}", "your skipped savings");
   const personalMailto = selectedMember
     ? buildMailto({ to: selectedMember.email, subject, body: personalBody })
     : "";
@@ -1126,7 +1126,7 @@ function personalizeMessage(template: string, member: ChallengeMember): string {
   const firstName = member.displayName.trim().split(/\s+/)[0] || "there";
   return template
     .replaceAll("{name}", firstName)
-    .replaceAll("{pledged}", member.pledged > 0 ? formatCurrency(member.pledged) : "your pledge");
+    .replaceAll("{pledged}", member.pledged > 0 ? formatCurrency(member.pledged) : "your skipped savings");
 }
 
 function buildMailto({
