@@ -243,19 +243,6 @@ export default function ProfilePage() {
             </div>
           ))}
         </div>
-        <div className="flex items-stretch" style={{ borderRadius: 18, background: "rgba(237,245,240,0.035)", border: "1px solid rgba(237,245,240,0.08)", overflow: "hidden" }}>
-          {[
-            { label: "Longest Streak", value: formatWeeks(profile.longestStreak), emoji: "🏆" },
-            { label: "Current Streak", value: formatWeeks(profile.streak), emoji: "🔥" },
-            { label: "Friends Joined", value: String(profile.referralCount ?? 0), emoji: "🤝" },
-          ].map((s, i) => (
-            <div key={s.label} className="px-4 py-3" style={{ flex: 1, borderRight: i < 2 ? "1px solid rgba(237,245,240,0.08)" : "none" }}>
-              <p className="text-[10px] font-black uppercase tracking-[0.12em]" style={{ color: "var(--text-muted)" }}>{s.label}</p>
-              <p className="text-base font-black mt-1" style={{ color: "var(--text-primary)" }}>{s.value}</p>
-            </div>
-          ))}
-        </div>
-
         {/* Personal records */}
         <div className="mt-4 p-5" style={{ ...cardStyle, borderRadius: 20 }}>
           <div className="flex items-end justify-between gap-4 mb-4">
@@ -263,17 +250,18 @@ export default function ProfilePage() {
               <p className="text-xs font-black uppercase tracking-[0.14em]" style={{ color: "var(--green-primary)" }}>Personal bests</p>
               <p className="text-lg font-black" style={{ color: "var(--text-primary)" }}>Your skip records</p>
             </div>
-            <p className="text-2xl font-black" style={{ color: "var(--green-primary)" }}>{profile.totalSkips}</p>
           </div>
           {[
+            { label: "Longest streak", value: formatWeeks(profile.longestStreak), color: "var(--text-primary)" },
+            { label: "Current streak", value: formatWeeks(profile.streak), color: "var(--text-primary)" },
             { label: "Largest skip", value: largestSkip ? formatCurrency(largestSkip.amount) : "None yet", color: "var(--green-primary)" },
             { label: "Top category", value: topCategory ? `${topCategory.emoji} ${topCategory.label}` : "None yet", color: "#E8924A" },
             { label: "Most skipped category", value: mostSkippedCategory ? `${mostSkippedCategory.emoji} ${mostSkippedCategory.label}` : "None yet", color: "#A78BFA" },
-          ].map((row, i) => (
+          ].map((row, i, rows) => (
             <div key={i} style={{
               display: "flex", justifyContent: "space-between", alignItems: "center",
               padding: "10px 0",
-              borderBottom: i < 2 ? "1px solid var(--border-default)" : "none",
+              borderBottom: i < rows.length - 1 ? "1px solid var(--border-default)" : "none",
             }}>
               <span className="text-sm" style={{ color: "var(--text-muted)" }}>{row.label}</span>
               <span className="text-sm font-bold" style={{ color: row.color }}>{row.value}</span>

@@ -6,7 +6,7 @@ import { useRouter } from "next/navigation";
 const STEPS = [
   {
     number: "01",
-    title: "Skip something",
+    title: "Skip It",
     copy: "Say no to an expense you do not need, from coffee and takeout to an impulse purchase.",
     body: "Pick a partner cause or start a group challenge with friends, family, or colleagues. Everyone skips toward the same goal.",
     color: "var(--green-primary)",
@@ -14,16 +14,16 @@ const STEPS = [
   },
   {
     number: "02",
-    title: "Log the skip",
-    copy: "Add what you skipped and its value. That amount goes into your Skip Bank.",
+    title: "Log It",
+    copy: "Add what you skipped and its value, and watch your savings grow.",
     body: "Coffee, takeout, impulse buy — anything you can do without. Log it in iSkipped and your Giving Jar grows with every skip.",
     color: "var(--gold-cta)",
     bgColor: "rgba(255,183,0,0.10)",
   },
   {
     number: "03",
-    title: "Put your skips to work",
-    copy: "Spend it on a goal, contribute it to a fundraiser, or save it for the future.",
+    title: "Use It",
+    copy: "Spend it on something you have been saving for, or use it to impact someone else's life. Either way, you will be glad you said iSkipped.",
     body: "Pick something you're saving toward — dinner out, a splurge, a small treat. A share of every skip fills your Reward Jar alongside your giving. All good deeds deserve a reward.",
     color: "#8B5CF6",
     bgColor: "rgba(139,92,246,0.10)",
@@ -154,31 +154,35 @@ export default function AboutPage() {
 
         {/* How it works */}
         <section>
-          <p className="text-base font-black uppercase tracking-widest mb-4" style={{ color: "var(--text-primary)" }}>
-            How it works
-          </p>
-          <div className="space-y-3">
+          <div className="mb-6">
+            <p className="text-xs font-black uppercase tracking-[0.18em]" style={{ color: "var(--green-primary)" }}>
+              How it works
+            </p>
+            <h2 className="mt-1 text-3xl font-black leading-tight" style={{ color: "var(--text-primary)", letterSpacing: 0 }}>
+              3 easy steps
+            </h2>
+          </div>
+          <div className="space-y-6">
             {STEPS.slice(0, 3).map((step) => (
               <div
                 key={step.number}
-                className="rounded-2xl p-4 flex gap-4 items-start"
-                style={{ background: "var(--bg-surface-1)", border: "1px solid var(--border-default)" }}
+                className="flex gap-4 items-start"
               >
                 <div
-                  className="w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0 text-sm font-black"
-                  style={{ background: step.bgColor, color: step.color }}
+                  className="flex h-12 w-12 flex-shrink-0 items-center justify-center rounded-2xl text-base font-black"
+                  style={{ background: step.bgColor, color: step.color, border: "1px solid var(--border-default)" }}
                 >
                   {step.number}
                 </div>
                 <div className="min-w-0">
-                  <p className="text-sm font-black mb-0.5" style={{ color: "var(--text-primary)" }}>{step.title}</p>
-                  <p className="text-xs leading-relaxed" style={{ color: "var(--text-secondary)" }}>{step.copy}</p>
+                  <p className="text-lg font-black leading-tight" style={{ color: "var(--text-primary)" }}>{step.title}</p>
+                  <p className="mt-1 text-sm leading-relaxed" style={{ color: "var(--text-secondary)" }}>{step.copy}</p>
                 </div>
               </div>
             ))}
           </div>
           <button
-            onClick={() => router.push("/challenges")}
+            onClick={() => router.push("/jars")}
             className="mt-6 w-full py-3 rounded-2xl text-sm font-black"
             style={{
               background: "linear-gradient(135deg, var(--gold-cta), var(--gold-light))",
@@ -186,10 +190,10 @@ export default function AboutPage() {
               boxShadow: "0 4px 18px var(--gold-glow)",
             }}
           >
-            Browse fundraisers →
+            Create a Skipped Reward →
           </button>
           <button
-            onClick={() => router.push("/community")}
+            onClick={() => router.push("/challenges")}
             className="mt-3 w-full py-3 rounded-2xl text-sm font-semibold"
             style={{
               border: "1px solid var(--border-emphasis)",
@@ -197,7 +201,7 @@ export default function AboutPage() {
               background: "transparent",
             }}
           >
-            See what everyone is skipping →
+            Browse iSkipped Fundraisers →
           </button>
         </section>
 

@@ -1338,7 +1338,7 @@ export default function HomePage() {
         <div style={{ display: "grid", gridTemplateColumns: "minmax(0, 1fr) minmax(0, 1fr)", gap: 14 }}>
           <div style={{ ...cardStyle, padding: 18, display: "flex", flexDirection: "column", minHeight: 330 }}>
             <div style={{ marginBottom: 14 }}>
-              <p style={{ fontSize: 11, fontWeight: 900, letterSpacing: 1.1, textTransform: "uppercase", color: "#A78BFA" }}>Goal</p>
+              <p style={{ fontSize: 11, fontWeight: 900, letterSpacing: 1.1, textTransform: "uppercase", color: "#A78BFA" }}>My Reward</p>
               <p style={{ fontSize: 22, fontWeight: 900, lineHeight: 1.1, color: "var(--text-primary)", marginTop: 4 }}>
                 {activeGoal?.label ?? "Choose a goal"}
               </p>
