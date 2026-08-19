@@ -2288,19 +2288,23 @@ function SplurgeTab({
             </div>
             <div className="px-5 py-4 space-y-2">
               <button
+                onClick={() => setDeactivateTarget(null)}
+                className="w-full rounded-xl px-4 py-3 text-sm font-black"
+                style={{ background: "#2ECC71", border: "1px solid rgba(46,204,113,0.45)", color: "#071B14" }}
+              >
+                Keep this active
+              </button>
+              <button
                 onClick={async () => {
                   if (deactivateTarget.balance > 0) await onReleaseJar(deactivateTarget.target);
                   await onSetSkipTarget(null);
                   setDeactivateTarget(null);
                   toast.success("Your jar was moved back to the Skip Bank.");
                 }}
-                className="w-full rounded-xl px-4 py-3 text-sm font-bold text-left"
-                style={{ background: "var(--bg-surface-2)", color: "var(--text-primary)" }}
+                className="w-full rounded-xl px-4 py-3 text-sm font-bold"
+                style={{ background: "var(--bg-surface-2)", border: "1px solid rgba(237,245,240,0.08)", color: "var(--text-secondary)" }}
               >
                 I no longer want to skip for this
-              </button>
-              <button onClick={() => setDeactivateTarget(null)} className="w-full py-2 text-sm font-semibold" style={{ background: "none", border: "none", color: "var(--text-muted)" }}>
-                Keep this active
               </button>
             </div>
           </div>
