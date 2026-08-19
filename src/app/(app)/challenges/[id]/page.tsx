@@ -166,6 +166,24 @@ function ProgressBar({ challenge, pledgedAmount = challenge.raised }: { challeng
   );
 }
 
+function donationHost(url?: string | null) {
+  if (!url) return null;
+  try {
+    return new URL(url).hostname.replace(/^www\./, "");
+  } catch {
+    return url;
+  }
+}
+
+function DetailTile({ label, value, accent = "var(--text-primary)" }: { label: string; value: string; accent?: string }) {
+  return (
+    <div className="rounded-xl p-3" style={{ background: "rgba(237,245,240,0.045)", border: "1px solid rgba(237,245,240,0.08)" }}>
+      <p className="text-[10px] font-black uppercase tracking-[0.13em]" style={{ color: "var(--text-muted)" }}>{label}</p>
+      <p className="mt-1 text-sm font-black leading-snug" style={{ color: accent }}>{value}</p>
+    </div>
+  );
+}
+
 function SkipChallenge({ project }: { project: Project }) {
   const milestones = project.skipMilestones;
   if (!milestones) return null;
@@ -248,9 +266,9 @@ export default function ChallengeDetailPage() {
       );
     }
     return (
-      <div className="p-4 md:p-8 max-w-3xl mx-auto pb-24 md:pb-8">
-        <button onClick={() => router.push("/challenges")} className="text-sm font-bold mb-5" style={{ color: "var(--green-primary)" }}>
-          Back to challenges
+      <div className="p-4 md:p-8 max-w-4xl mx-auto pb-24 md:pb-8">
+        <button onClick={() => router.push("/jars?tab=fundraisers")} className="text-sm font-bold mb-5" style={{ color: "var(--green-primary)" }}>
+          Back to fundraisers
         </button>
         <div className="rounded-xl p-5" style={{ background: "var(--bg-surface-1)", border: "1px solid var(--border-default)" }}>
           <p className="text-xl font-black" style={{ color: "var(--text-primary)" }}>Challenge not found</p>
@@ -321,6 +339,7 @@ export default function ChallengeDetailPage() {
       await pinProjectToHome(user.uid, challenge.project.id);
       updateProfile({
         activeProjectId: challenge.project.id,
+        activeSkipTarget: { type: "fundraiser", id: challenge.project.id },
         joinedProjectIds: Array.from(new Set([...(profile?.joinedProjectIds ?? []), challenge.project.id])),
       });
     } finally {
@@ -329,10 +348,10 @@ export default function ChallengeDetailPage() {
   }
 
   return (
-    <div className="p-4 md:p-8 max-w-3xl mx-auto pb-28 md:pb-8">
+    <div className="p-4 md:p-8 max-w-4xl mx-auto pb-28 md:pb-8">
       <div className="flex items-center justify-between mb-4">
-        <button onClick={() => router.push("/challenges")} className="text-sm font-bold" style={{ color: "var(--green-primary)" }}>
-          ← Back
+        <button onClick={() => router.push("/jars?tab=fundraisers")} className="text-sm font-bold" style={{ color: "var(--green-primary)" }}>
+          ← Back to fundraisers
         </button>
         <button
           type="button"
@@ -344,8 +363,8 @@ export default function ChallengeDetailPage() {
         </button>
       </div>
 
-      <article className="rounded-xl overflow-hidden" style={{ background: "var(--bg-surface-1)", border: "1px solid var(--border-default)" }}>
-        {challenge.imageURL && <ChallengeImage challenge={challenge} className="h-56 md:h-72" />}
+      <article className="rounded-2xl overflow-hidden" style={{ background: "var(--bg-surface-1)", border: "1px solid rgba(46,204,113,0.28)" }}>
+        {challenge.imageURL && <ChallengeImage challenge={challenge} className="h-64 md:h-96" />}
         <div className="p-5">
           <div className="flex flex-wrap gap-2 mb-3">
             <Badge>{challenge.trustLabel}</Badge>
@@ -378,6 +397,19 @@ export default function ChallengeDetailPage() {
 
           <h1 className="text-3xl font-black leading-tight" style={{ color: "var(--text-primary)" }}>{challenge.title}</h1>
           <p className="text-sm mt-1" style={{ color: "var(--text-muted)" }}>{challenge.organizerLine}</p>
+
+          <section className="mt-5 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+            <DetailTile label="Country / region" value={challenge.project.location || "Not specified"} accent="#A7F3D0" />
+            <DetailTile label="Donation goal" value={challenge.goal > 0 ? formatCurrency(challenge.goal) : "Open goal"} />
+            <DetailTile
+              label="Unit cost"
+              value={challenge.project.unitCost
+                ? `${formatCurrency(challenge.project.unitCost)} / ${challenge.project.unitName ?? getUnitLabel(challenge.project)}`
+                : "Any amount"}
+              accent="var(--gold-cta)"
+            />
+            <DetailTile label="Donate through" value={donationHost(challenge.project.donationURL) ?? challenge.project.sponsor ?? "Organizer"} accent="#7DD3FC" />
+          </section>
 
           <section className="mt-4">
             <p className="text-xs uppercase tracking-wide font-bold mb-2" style={{ color: "var(--text-muted)" }}>About this cause</p>
@@ -461,12 +493,12 @@ export default function ChallengeDetailPage() {
           <SkipChallenge project={challenge.project} />
 
           {/* Where donations go */}
-          {challenge.project.donationURL && (
-            <div className="mt-5 rounded-xl px-4 py-4" style={{ background: "var(--bg-surface-2)", border: "1px solid var(--border-default)" }}>
-              <p className="text-xs uppercase tracking-wide font-bold mb-2" style={{ color: "var(--text-muted)" }}>Where your donation goes</p>
-              <p className="text-sm font-black" style={{ color: "var(--text-primary)" }}>
-                {challenge.project.sponsor || challenge.title}
-              </p>
+          <div className="mt-5 rounded-xl px-4 py-4" style={{ background: "var(--bg-surface-2)", border: "1px solid var(--border-default)" }}>
+            <p className="text-xs uppercase tracking-wide font-bold mb-2" style={{ color: "var(--text-muted)" }}>Where your donation goes</p>
+            <p className="text-sm font-black" style={{ color: "var(--text-primary)" }}>
+              {challenge.project.sponsor || challenge.title}
+            </p>
+            {challenge.project.donationURL ? (
               <a
                 href={challenge.project.donationURL}
                 target="_blank"
@@ -474,24 +506,26 @@ export default function ChallengeDetailPage() {
                 className="text-xs mt-0.5 block hover:underline"
                 style={{ color: "var(--green-primary)" }}
               >
-                {(() => { try { return new URL(challenge.project.donationURL).hostname.replace("www.", ""); } catch { return challenge.project.donationURL; } })()}
+                {donationHost(challenge.project.donationURL)}
               </a>
-              {challenge.project.learnMoreURL && (
-                <a
-                  href={challenge.project.learnMoreURL}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="text-xs mt-1 block hover:underline"
-                  style={{ color: "var(--text-muted)" }}
-                >
-                  Learn more →
-                </a>
-              )}
-              <p className="text-xs mt-3 leading-relaxed" style={{ color: "var(--text-muted)" }}>
-                iSkipped doesn&apos;t process payments. When you tap Donate, you go directly to {challenge.project.sponsor || "the organizer"} to complete your gift.
-              </p>
-            </div>
-          )}
+            ) : (
+              <p className="text-xs mt-1" style={{ color: "var(--text-muted)" }}>No donation link has been added yet.</p>
+            )}
+            {challenge.project.learnMoreURL && (
+              <a
+                href={challenge.project.learnMoreURL}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-xs mt-1 block hover:underline"
+                style={{ color: "var(--text-muted)" }}
+              >
+                Learn more →
+              </a>
+            )}
+            <p className="text-xs mt-3 leading-relaxed" style={{ color: "var(--text-muted)" }}>
+              iSkipped doesn&apos;t process payments. When you tap Donate, you go directly to {challenge.project.sponsor || "the organizer"} to complete your gift.
+            </p>
+          </div>
 
           <div className="flex gap-2 mt-4">
             {!countdown.isExpired && (
@@ -505,7 +539,7 @@ export default function ChallengeDetailPage() {
                   boxShadow: "0 4px 18px var(--gold-glow)",
                 }}
               >
-                {isActive ? (profileChallengeBalance > 0 ? "Log a Skip" : "Log your first skip") : joining ? "Pinning..." : "Pin to Home"}
+                {isActive ? (profileChallengeBalance > 0 ? "Log a Skip" : "Log your first skip") : joining ? "Choosing..." : "Skip for this"}
               </button>
             )}
             {challenge.project.donationURL && (
@@ -567,7 +601,7 @@ export default function ChallengeDetailPage() {
                 className="py-3 rounded-full text-sm font-black"
                 style={{ background: "linear-gradient(135deg, var(--gold-cta), var(--gold-light))", color: "var(--bg-base)" }}
               >
-                Pin to Home
+                Skip for this
               </button>
               <button
                 type="button"

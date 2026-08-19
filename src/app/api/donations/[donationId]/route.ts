@@ -34,8 +34,8 @@ export async function PATCH(req: NextRequest, ctx: RouteContext) {
         const profile = userSnap.data() as UserProfile;
         const causeId = donation.causeId;
         const currentBal = profile.causeJarBalances?.[causeId] ?? 0;
-        const availableFromSkips = getSkipBalanceSummary(profile).availableFromSkips;
-        if (delta > Math.max(0, currentBal) + availableFromSkips) {
+        const unassignedSkipBank = getSkipBalanceSummary(profile).unassignedSkipBank;
+        if (delta > Math.max(0, currentBal) + unassignedSkipBank) {
           throw new ApiError(400, "Donation exceeds available skipped savings");
         }
         const oldJarDecrease = donation.jarDecrease ?? oldAmount;

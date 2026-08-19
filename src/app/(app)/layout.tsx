@@ -15,8 +15,7 @@ import { Project } from "@/lib/types/models";
 
 const NAV_ITEMS = [
   { href: "/home",        label: "Home",       emoji: "🏠", tab: null },
-  { href: "/challenges",  label: "Fundraisers", emoji: "🎯", tab: null },
-  { href: "/jars",        label: "My Rewards", emoji: "🫙", tab: null },
+  { href: "/jars",        label: "Skip Jars",  emoji: "🎯", tab: null },
   { href: "/about",       label: "About",      emoji: "💡", tab: null },
   { href: "/profile",     label: "Profile",    emoji: "👤", tab: null },
 ];

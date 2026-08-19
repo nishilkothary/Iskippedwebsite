@@ -8,7 +8,7 @@ import { UserProfile, Skip } from "@/lib/types/models";
 
 type RouteContext = { params: Promise<{ skipId: string }> };
 
-const EDITABLE_FIELDS = ["category", "categoryLabel", "categoryEmoji", "amount", "projectId", "projectTitle", "whatSkipped", "notes", "jarSplit"] as const;
+const EDITABLE_FIELDS = ["category", "categoryLabel", "categoryEmoji", "amount", "projectId", "projectTitle", "whatSkipped", "notes", "jarSplit", "allocationTarget"] as const;
 
 export async function PATCH(req: NextRequest, ctx: RouteContext) {
   try {
@@ -49,19 +49,25 @@ export async function PATCH(req: NextRequest, ctx: RouteContext) {
       const giveAllocDelta = newGiveAlloc - oldGiveAlloc;
       const liveAllocDelta = newLiveAlloc - oldLiveAlloc;
       const projectId = skip.projectId;
+      const allocationTarget = skip.allocationTarget ?? null;
 
       if (Object.keys(updates).length > 0) tx.update(skipRef, updates);
 
       const userUpdate: Record<string, unknown> = {};
       if (amountDelta !== 0) userUpdate.totalSaved = FieldValue.increment(amountDelta);
-      if (giveAllocDelta !== 0) userUpdate.totalGiveAllocated = FieldValue.increment(giveAllocDelta);
-      if (liveAllocDelta !== 0) userUpdate.totalLiveAllocated = FieldValue.increment(liveAllocDelta);
-      if (giveAllocDelta !== 0 && projectId) userUpdate[`causeJarBalances.${projectId}`] = FieldValue.increment(giveAllocDelta);
+      if (skip.allocationMode === "skip-pot") {
+        if (amountDelta !== 0 && allocationTarget?.type === "goal") userUpdate[`goalJarBalances.${allocationTarget.id}`] = FieldValue.increment(amountDelta);
+        if (amountDelta !== 0 && allocationTarget?.type === "fundraiser") userUpdate[`causeJarBalances.${allocationTarget.id}`] = FieldValue.increment(amountDelta);
+      } else {
+        if (giveAllocDelta !== 0) userUpdate.totalGiveAllocated = FieldValue.increment(giveAllocDelta);
+        if (liveAllocDelta !== 0) userUpdate.totalLiveAllocated = FieldValue.increment(liveAllocDelta);
+        if (giveAllocDelta !== 0 && projectId) userUpdate[`causeJarBalances.${projectId}`] = FieldValue.increment(giveAllocDelta);
+      }
       if (Object.keys(userUpdate).length > 0) tx.update(userRef, userUpdate);
 
       return {
-        projectId,
-        giveAllocDelta,
+        projectId: allocationTarget?.type === "fundraiser" ? allocationTarget.id : projectId,
+        giveAllocDelta: allocationTarget?.type === "fundraiser" ? amountDelta : giveAllocDelta,
         amountDelta,
         resolvedAmount: newAmount,
         resolvedCategoryLabel: (updates.categoryLabel as string | undefined) ?? skip.categoryLabel,
@@ -113,6 +119,7 @@ export async function DELETE(req: NextRequest, ctx: RouteContext) {
       if (!skipSnap.exists) throw new ApiError(404, "Skip not found");
       const skip = skipSnap.data() as Skip;
       const profile = userSnap.data() as UserProfile;
+      const allocationTarget = skip.allocationTarget ?? null;
       const split = skip.allocationMode === "skip-pot"
         ? { give: 0, live: 0 }
         : (skip.jarSplit ?? normalizeJarSplitServer(profile.jarSplit as any));
@@ -120,15 +127,25 @@ export async function DELETE(req: NextRequest, ctx: RouteContext) {
       const liveAllocAmount = skip.amount * (split.live / 100);
 
       tx.delete(skipRef);
-      tx.update(userRef, {
+      const userUpdate: Record<string, unknown> = {
         totalSaved: FieldValue.increment(-skip.amount),
         totalSkips: FieldValue.increment(-1),
-        totalGiveAllocated: FieldValue.increment(-giveAllocAmount),
-        totalLiveAllocated: FieldValue.increment(-liveAllocAmount),
-        ...(skip.projectId ? { [`causeJarBalances.${skip.projectId}`]: FieldValue.increment(-giveAllocAmount) } : {}),
-      });
+      };
+      if (skip.allocationMode === "skip-pot") {
+        if (allocationTarget?.type === "goal") userUpdate[`goalJarBalances.${allocationTarget.id}`] = FieldValue.increment(-skip.amount);
+        if (allocationTarget?.type === "fundraiser") userUpdate[`causeJarBalances.${allocationTarget.id}`] = FieldValue.increment(-skip.amount);
+      } else {
+        userUpdate.totalGiveAllocated = FieldValue.increment(-giveAllocAmount);
+        userUpdate.totalLiveAllocated = FieldValue.increment(-liveAllocAmount);
+        if (skip.projectId) userUpdate[`causeJarBalances.${skip.projectId}`] = FieldValue.increment(-giveAllocAmount);
+      }
+      tx.update(userRef, userUpdate);
 
-      return { projectId: skip.projectId, giveAllocAmount, deletedAmount: skip.amount };
+      return {
+        projectId: allocationTarget?.type === "fundraiser" ? allocationTarget.id : skip.projectId,
+        giveAllocAmount: allocationTarget?.type === "fundraiser" ? skip.amount : giveAllocAmount,
+        deletedAmount: skip.amount,
+      };
     });
 
     await adjustGlobalStats(-deletedAmount, -1);

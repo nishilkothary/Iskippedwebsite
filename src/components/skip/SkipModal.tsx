@@ -30,7 +30,7 @@ type SuccessMoment =
 
 export function SkipModal({ onClose }: Props) {
   const router = useRouter();
-  const { log, isLogging } = useSkips();
+  const { log, isLogging, recentSkips } = useSkips();
   const { projects } = useProjects();
   const { profile } = useAuthStore();
 
@@ -44,7 +44,12 @@ export function SkipModal({ onClose }: Props) {
   const [whatSkipped, setWhatSkipped] = useState("");
   const [shareWithCommunity, setShareWithCommunity] = useState(profile?.shareSkipsByDefault !== false);
   const shareToggleTouchedRef = useRef(false);
-  const [projectId] = useState<string | null>(profile?.activeProjectId ?? null);
+  const selectedFundraiserId = profile?.activeSkipTarget?.type === "fundraiser"
+    ? profile.activeSkipTarget.id
+    : profile?.activeSkipTarget?.type === "goal"
+      ? null
+      : profile?.activeProjectId ?? null;
+  const [projectId] = useState<string | null>(selectedFundraiserId);
   const [success, setSuccess] = useState(false);
   const [successProjectUnitName, setSuccessProjectUnitName] = useState<string | null>(null);
   const [successProjectUnitDisplay, setSuccessProjectUnitDisplay] = useState<string | null>(null);
@@ -54,11 +59,14 @@ export function SkipModal({ onClose }: Props) {
   const [successJarBalance, setSuccessJarBalance] = useState(0);
   const [successSkipBank, setSuccessSkipBank] = useState(0);
   const [successLifetimeSaved, setSuccessLifetimeSaved] = useState(0);
+  const [successGroupTotal, setSuccessGroupTotal] = useState(0);
+  const [successLargestSkip, setSuccessLargestSkip] = useState(0);
   const [successMoment, setSuccessMoment] = useState<SuccessMoment>("personal");
   const [successStreak, setSuccessStreak] = useState(0);
   const [showSetupPrompt, setShowSetupPrompt] = useState(false);
   const dialogRef = useModalA11y(onClose);
   const activeProjectForSkip = projects.find((p) => p.id === projectId) ?? null;
+  const isFundraiserSkip = profile?.activeSkipTarget?.type === "fundraiser" && !!activeProjectForSkip;
   // If the active project has expired, don't credit this skip to its jar
   const effectiveProjectId = activeProjectForSkip && getChallengeCountdown(activeProjectForSkip).isExpired
     ? null
@@ -89,16 +97,20 @@ export function SkipModal({ onClose }: Props) {
     );
 
     // Pre-compute jar-full state synchronously using same formula as jars page
-    const personalGoal = profile?.causeGoalAmounts?.[projectId ?? ""] ?? selectedProject?.goalAmount ?? 0;
-    // Mirror jars page: globalGivingBalance = totalGiveAllocated - totalDonated
-    const giveTotal = profile?.totalGiveAllocated ?? (profile?.totalSaved ?? 0) * (profileSplit.give / 100);
-    const currentJarBal = Math.max(0, giveTotal - (profile?.totalDonated ?? 0));
-    const giveAmt = amount * (skipGivePct / 100);
-    const expectedJarBal = currentJarBal + giveAmt;
-    const willBeFull = projectId != null && personalGoal > 0 && giveAmt > 0
+    const activeTarget = profile?.activeSkipTarget ?? null;
+    const personalGoal = activeTarget?.type === "goal"
+      ? availableGoals.find((goal) => goal.id === activeTarget.id)?.targetAmount ?? 0
+      : 0;
+    const currentJarBal = activeTarget?.type === "fundraiser"
+      ? profile?.causeJarBalances?.[activeTarget.id] ?? 0
+      : activeTarget?.type === "goal"
+        ? profile?.goalJarBalances?.[activeTarget.id] ?? 0
+        : 0;
+    const expectedJarBal = Math.max(0, currentJarBal) + amount;
+    const willBeFull = activeTarget?.type === "goal" && personalGoal > 0
       && expectedJarBal >= personalGoal;
     const nextOverflowCount = willBeFull
-      ? (profile?.causeJarOverflowCounts?.[projectId ?? ""] ?? 0) + 1
+      ? (profile?.causeJarOverflowCounts?.[activeTarget.id] ?? 0) + 1
       : 0;
 
     const result = await log({
@@ -113,10 +125,11 @@ export function SkipModal({ onClose }: Props) {
       projectUnitCost: selectedProject?.unitCost ?? null,
       projectUnitDisplay: selectedProject?.unitDisplay ?? null,
       projectUnitIsGoal: selectedProject?.unitIsGoal ?? null,
-      shareWithCommunity,
+      shareWithCommunity: isFundraiserSkip && shareWithCommunity,
       whatSkipped: whatSkipped || undefined,
       jarSplit: { give: 0, live: 0 },
       causeGoalAmount: personalGoal,
+      allocationTarget: profile?.activeSkipTarget ?? null,
     });
     if (result) {
       setSuccessStreak(result.newStreak ?? profile?.streak ?? 0);
@@ -124,6 +137,8 @@ export function SkipModal({ onClose }: Props) {
       setSuccessProjectUnitDisplay(selectedProject?.unitDisplay ?? null);
       setSuccessProjectUnitCost(selectedProject?.unitCost ?? null);
       setSuccessJarBalance(expectedJarBal);
+      setSuccessGroupTotal(selectedProject ? Math.max(0, (selectedProject.totalRaised ?? 0) + amount) : 0);
+      setSuccessLargestSkip(Math.max(amount, ...recentSkips.filter((skip) => skip.projectId === effectiveProjectId).map((skip) => skip.amount)));
       setSuccessSkipBank(projectedSkipBank);
       setSuccessLifetimeSaved((profile?.totalSaved ?? 0) + amount);
       const nextSkipCount = (profile?.totalSkips ?? 0) + 1;
@@ -193,6 +208,17 @@ export function SkipModal({ onClose }: Props) {
     const { goals: successGoals, activeId: successActiveGoalId } = normalizeSpendingGoals(profile ?? {} as any);
     const activeGoal = successGoals.find((goal) => goal.id === successActiveGoalId) ?? null;
     const impactStat = `You skipped ${formatCurrency(amount)}.`;
+    const recentLargestSkip = Math.max(
+      0,
+      ...recentSkips.filter((skip) => skip.projectId === (successActiveProject?.id ?? null)).map((skip) => skip.amount)
+    );
+    const successHighlight = successMoment === "milestone" && successStreak > 1
+      ? "streak"
+      : amount > recentLargestSkip && amount > 0
+        ? "largest"
+        : postLogSkipCount % 10 === 0
+          ? "skip-number"
+          : null;
     const challengeURL = successActiveProject
       ? appendRefParam(`${typeof window !== "undefined" ? window.location.origin : "https://iskipped.com"}${getChallengeSharePath(successActiveProject)}`, profile?.uid)
       : "https://iskipped.com";
@@ -200,8 +226,8 @@ export function SkipModal({ onClose }: Props) {
       ? getPostSkipShareText(successActiveProject, itemLabel, amount)
       : `I skipped ${itemLabel} and saved ${formatCurrency(amount)}. Want to skip something this week too?`;
     const inviteLabel = successActiveProject
-      ? `Invite someone to skip for ${successActiveProject.title}`
-      : "Share my skip";
+      ? "Invite someone to skip with you"
+      : "Invite someone to skip";
 
     // Show jar-full celebration when give jar hits/exceeds goal (first time, then every 3rd skip)
     const overflowCount = successOverflowCount ?? 0;
@@ -304,14 +330,29 @@ export function SkipModal({ onClose }: Props) {
     const goalTarget = activeGoal?.targetAmount ?? 0;
     const goalCoverage = goalTarget > 0 ? Math.min(100, Math.round((successSkipBank / goalTarget) * 100)) : 0;
     const hasGoalMoment = goalTarget > 0 && activeGoal != null;
-    const hasFundraiserMoment = successProjectUnitCost != null && successProjectUnitCost > 0 && (successProjectUnitName || successProjectUnitDisplay);
-    const momentType = (successMoment === "goal-progress" || successMoment === "goal-ready") && !hasGoalMoment
+    const hasFundraiserMoment = successActiveProject != null;
+    const momentType = successActiveProject
+      ? "fundraiser"
+      : (successMoment === "goal-progress" || successMoment === "goal-ready") && !hasGoalMoment
       ? "personal"
       : successMoment === "fundraiser" && !hasFundraiserMoment
         ? "personal"
         : successMoment;
     const skipFundraiserImpactText = hasFundraiserMoment
       ? (() => {
+          const groupImpact = successActiveProject?.unitCost
+            ? formatAggregateImpactUnitsDecimal(
+                successGroupTotal,
+                successActiveProject.unitCost,
+                successActiveProject.unitName ?? successActiveProject.unitDisplay ?? "unit",
+                successActiveProject.unitDisplay,
+                successActiveProject.unitIsGoal,
+              )
+            : formatCurrency(successGroupTotal);
+          const personalImpact = formatCurrency(amount);
+          if (!successProjectUnitCost || !successProjectUnitName && !successProjectUnitDisplay) {
+            return `Your jar +${personalImpact}. Group jar: ${groupImpact}.`;
+          }
           const unitName = successProjectUnitName || successProjectUnitDisplay || "impact";
           const share = amount / successProjectUnitCost!;
 
@@ -323,7 +364,7 @@ export function SkipModal({ onClose }: Props) {
               successProjectUnitDisplay,
               successActiveProject?.unitIsGoal
             ).toLowerCase();
-            return `This skip could fund about ${potential} if you choose to redirect it to your fundraiser.`;
+            return `Your jar +${personalImpact}. Group jar: ${groupImpact}. This skip could fund about ${potential}.`;
           }
 
           const percentage = share * 100;
@@ -334,7 +375,7 @@ export function SkipModal({ onClose }: Props) {
               : percentage < 10
                 ? `${Number(percentage.toFixed(1))}%`
                 : `${Math.round(percentage)}%`;
-          return `This skip could cover ${formattedPercentage} of ${oneUnitPhrase(unitName).toLowerCase()} if you choose to redirect it to your fundraiser.`;
+          return `Your jar +${personalImpact}. Group jar: ${groupImpact}. This skip covers ${formattedPercentage} of ${oneUnitPhrase(unitName).toLowerCase()}.`;
         })()
       : null;
     const momentCopy = momentType === "goal-ready" && activeGoal
@@ -362,7 +403,9 @@ export function SkipModal({ onClose }: Props) {
           ? {
               eyebrow: "MILESTONE UNLOCKED",
               title: `${postLogSkipCount} times you chose not to spend.`,
-              detail: `${formatCurrency(successSkipBank)} is now waiting in your Skip Bank.`,
+              detail: activeGoal
+                ? `${formatCurrency(successJarBalance)} in ${activeGoal.label}. ${formatCurrency(successSkipBank)} remains in your Skip Bank.`
+                : `${formatCurrency(successSkipBank)} is now waiting in your Skip Bank.`,
               accent: "#F59E0B",
             }
           : momentType === "skip-bank"
@@ -389,7 +432,9 @@ export function SkipModal({ onClose }: Props) {
                 : {
               eyebrow: "A SMALL WIN THAT ADDS UP",
               title: `That was skip #${postLogSkipCount}. Keep choosing your future self.`,
-              detail: `${formatCurrency(successSkipBank)} is now waiting in your Skip Bank.`,
+                  detail: activeGoal
+                    ? `${formatCurrency(successJarBalance)} in ${activeGoal.label}. ${formatCurrency(successSkipBank)} remains in your Skip Bank.`
+                    : `${formatCurrency(successSkipBank)} is now waiting in your Skip Bank.`,
               accent: "#A78BFA",
                 };
     return (
@@ -409,7 +454,19 @@ export function SkipModal({ onClose }: Props) {
             <p id="skip-success-title" className="text-[1.55rem] font-black leading-tight mx-auto max-w-[290px]" style={{ color: "var(--green-primary)" }}>
               {impactStat}
             </p>
-            <StreakCheckHero streak={successStreak} />
+            {successHighlight === "streak" && <StreakCheckHero streak={successStreak} />}
+            {successHighlight === "largest" && (
+              <div className="mt-3 rounded-xl px-3 py-2 text-left" style={{ background: "var(--bg-surface-2)" }}>
+                <p className="text-[10px] font-black uppercase tracking-[0.12em]" style={{ color: "var(--text-muted)" }}>Largest skip</p>
+                <p className="mt-0.5 text-sm font-black" style={{ color: "var(--text-primary)" }}>{formatCurrency(amount)}</p>
+              </div>
+            )}
+            {successHighlight === "skip-number" && (
+              <div className="mt-3 rounded-xl px-3 py-2 text-left" style={{ background: "var(--bg-surface-2)" }}>
+                <p className="text-[10px] font-black uppercase tracking-[0.12em]" style={{ color: "var(--text-muted)" }}>Skip milestone</p>
+                <p className="mt-0.5 text-sm font-black" style={{ color: "var(--text-primary)" }}>#{postLogSkipCount}</p>
+              </div>
+            )}
             <div className="mt-4 mb-5 rounded-xl px-4 py-4 text-left" style={{ background: "var(--bg-surface-2)", border: "1px solid var(--border-default)" }}>
               {momentCopy.eyebrow && (
                 <p className="text-[10px] font-black tracking-[0.14em]" style={{ color: momentCopy.accent }}>
@@ -446,11 +503,20 @@ export function SkipModal({ onClose }: Props) {
     );
   }
 
-  const skipGiveLive = amount * (skipGivePct / 100);
-  const skipLiveLive = amount * ((100 - skipGivePct) / 100);
-  const activeProjectLive = projects.find((p) => p.id === profile?.activeProjectId) ?? null;
+  const skipGiveLive = amount;
+  const skipLiveLive = amount;
+  const activeTargetLive = profile?.activeSkipTarget ?? null;
   const { goals: spendingGoals, activeId: activeSpendingGoalId } = normalizeSpendingGoals(profile ?? {} as any);
-  const activeGoalLive = spendingGoals.find((g) => g.id === activeSpendingGoalId) ?? null;
+  const activeProjectLive = activeTargetLive?.type === "fundraiser"
+    ? projects.find((p) => p.id === activeTargetLive.id) ?? null
+    : activeTargetLive
+      ? null
+      : projects.find((p) => p.id === profile?.activeProjectId) ?? null;
+  const activeGoalLive = activeTargetLive?.type === "goal"
+    ? spendingGoals.find((g) => g.id === activeTargetLive.id) ?? null
+    : activeTargetLive
+      ? null
+      : spendingGoals.find((g) => g.id === activeSpendingGoalId) ?? null;
   const spendingGoalLabelLive = activeGoalLive?.label ?? "Reward Jar";
   const giveGoalAmount = activeProjectLive?.goalAmount ?? 0;
   const giveContribPctLive = giveGoalAmount > 0 ? (skipGiveLive / giveGoalAmount) * 100 : 0;
@@ -563,12 +629,19 @@ export function SkipModal({ onClose }: Props) {
 
           {/* This Skip's Impact */}
           {amount > 0 && (
-            <div style={{ display: "none" }}>
+            <div style={{ display: "block" }}>
               <p className="text-xs font-semibold uppercase tracking-widest mb-2" style={{ color: "var(--text-muted)" }}>This Skip&apos;s Impact</p>
               <div className="space-y-1">
                 <p className="text-sm font-semibold" style={{ color: "var(--coral-primary)" }}>
                   🤲 {(() => {
-                    if (activeProjectLive?.unitCost && !activeProjectLive.unitIsGoal) {
+                    if (activeGoalLive) {
+                      const pct = liveGoalAmount > 0
+                        ? Math.max(1, Math.round((skipLiveLive / liveGoalAmount) * 100))
+                        : 0;
+                      return pct > 0
+                        ? `${pct}% toward ${spendingGoalLabelLive}`
+                        : `${formatCurrency(skipLiveLive)} toward ${spendingGoalLabelLive}`;
+                    } else if (activeProjectLive?.unitCost && !activeProjectLive.unitIsGoal) {
                       const units = formatUnits(skipGiveLive, activeProjectLive.unitCost, activeProjectLive.unitName!, activeProjectLive.unitDisplay);
                       return activeProjectLive.location ? `${units} in ${activeProjectLive.location}` : units;
                     } else if (activeProjectLive?.unitCost && activeProjectLive.unitIsGoal) {
@@ -585,7 +658,7 @@ export function SkipModal({ onClose }: Props) {
                     }
                   })()}
                 </p>
-                <p className="text-sm font-semibold" style={{ color: "#2BBAA4" }}>
+                <p className="text-sm font-semibold" style={{ color: "#2BBAA4", display: "none" }}>
                   😊 {liveGoalAmount > 0 ? `${liveContribPctLive.toFixed(1)}% toward ${spendingGoalLabelLive}` : formatCurrency(skipLiveLive)}
                 </p>
               </div>
@@ -638,6 +711,7 @@ export function SkipModal({ onClose }: Props) {
           </div>
 
           {/* Share toggle */}
+          {isFundraiserSkip && (
           <div className="flex items-center gap-3">
             <button
               type="button"
@@ -647,7 +721,7 @@ export function SkipModal({ onClose }: Props) {
               }}
               role="switch"
               aria-checked={shareWithCommunity}
-              aria-label="Share this skip with the community"
+              aria-label="Share this fundraiser skip with the group"
               className="w-11 h-6 rounded-full transition-colors relative"
               style={{ background: shareWithCommunity ? "var(--green-primary)" : "var(--bg-surface-3)" }}
             >
@@ -655,8 +729,9 @@ export function SkipModal({ onClose }: Props) {
                 className={`absolute top-0.5 left-0.5 w-5 h-5 rounded-full bg-white shadow transition-transform ${shareWithCommunity ? "translate-x-5" : ""}`}
               />
             </button>
-            <span className="text-sm" style={{ color: "var(--text-primary)" }}>Share my skip with the community</span>
+            <span className="text-sm" style={{ color: "var(--text-primary)" }}>Share this skip with the fundraiser group</span>
           </div>
+          )}
         </div>
 
         {/* Submit */}

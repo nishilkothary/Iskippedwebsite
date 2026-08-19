@@ -202,6 +202,7 @@ export default function ChallengesPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const editId = searchParams.get("edit");
+  const createRequested = searchParams.get("create") === "1";
   const { user, profile, updateProfile } = useAuthStore();
   const { projects, refetch } = useProjects();
   const [selectedCategory, setSelectedCategory] = useState<(typeof CATEGORY_OPTIONS)[number]>("All");
@@ -214,6 +215,10 @@ export default function ChallengesPage() {
   const [pendingActivationProjectId, setPendingActivationProjectId] = useState<string | null>(null);
   const [pendingActivationChallenge, setPendingActivationChallenge] = useState<ChallengeCard | null>(null);
   const [creating, setCreating] = useState(false);
+
+  useEffect(() => {
+    if (createRequested) setShowCreateForm(true);
+  }, [createRequested]);
 
   const challenges = useMemo(() => projects.filter(isVisibleChallenge).map(challengeFromProject), [projects]);
   const partnerChallenges = useMemo(
@@ -301,6 +306,7 @@ export default function ChallengesPage() {
       await pinProjectToHome(user.uid, challenge.project.id);
       updateProfile({
         activeProjectId: challenge.project.id,
+        activeSkipTarget: { type: "fundraiser", id: challenge.project.id },
         joinedProjectIds: Array.from(new Set([...(profile?.joinedProjectIds ?? []), challenge.project.id])),
       });
     } catch (err) {
@@ -768,7 +774,7 @@ function ChallengeListCard({
 }) {
   const endDateMs = challenge.project.endDate?.toMillis?.();
   const isExpired = challenge.project.status === "ended" || (endDateMs ? endDateMs < Date.now() : false);
-  const joinLabel = isActive ? "Pinned to Home" : isJoining ? "Pinning..." : "Pin to Home";
+  const joinLabel = isActive ? "Skipping for this" : isJoining ? "Choosing..." : "Skip for this";
   const showImage = Boolean(challenge.imageURL || !challenge.project.isCustom);
 
   return (
@@ -920,7 +926,7 @@ function MakeActivePromptModal({
         style={{ background: "var(--bg-surface-1)", border: "1px solid var(--border-emphasis)" }}
       >
         <div className="px-5 pt-5 pb-4" style={{ borderBottom: "1px solid var(--border-default)" }}>
-          <p className="text-2xl font-black" style={{ color: "var(--text-primary)" }}>Pin this fundraiser to Home?</p>
+          <p className="text-2xl font-black" style={{ color: "var(--text-primary)" }}>Skip for this fundraiser?</p>
           <p className="text-sm mt-1 font-bold" style={{ color: "var(--green-primary)" }}>{name}</p>
         </div>
         <div className="px-5 py-4">
@@ -939,7 +945,7 @@ function MakeActivePromptModal({
               boxShadow: "0 4px 18px var(--gold-glow)",
             }}
           >
-            Pin to Home
+            Skip for this
           </button>
           <button
             type="button"
@@ -1073,7 +1079,7 @@ function ChallengeDetailModal({
                 boxShadow: "0 4px 18px var(--gold-glow)",
               }}
             >
-              {isActive ? "Log a Skip" : isJoining ? "Pinning..." : "Pin to Home"}
+              {isActive ? "Log a Skip" : isJoining ? "Choosing..." : "Skip for this"}
             </button>
             {challenge.project.donationURL && (
               <a

@@ -131,7 +131,7 @@ export default function ProfilePage() {
     try {
       await setShareSkipsByDefault(user.uid, shareSkipsByDefault);
       updateProfile({ shareSkipsByDefault });
-      toast.success(shareSkipsByDefault ? "New skips will be shared by default." : "New skips will stay private by default.");
+      toast.success(shareSkipsByDefault ? "Fundraiser skips will be shared by default." : "Fundraiser skips will stay private by default.");
     } catch {
       toast.error("Couldn't update your sharing preference.");
     }
@@ -303,9 +303,9 @@ export default function ProfilePage() {
         <div className="p-5 mb-4" style={{ ...cardStyle, borderRadius: 20 }}>
           <div className="flex items-center justify-between gap-4">
             <div>
-              <p className="text-sm font-bold" style={{ color: "var(--text-primary)" }}>Share skips by default</p>
+              <p className="text-sm font-bold" style={{ color: "var(--text-primary)" }}>Share fundraiser skips by default</p>
               <p className="text-xs mt-1" style={{ color: "var(--text-secondary)" }}>
-                New skips start shared with the community. You can still change this on each skip.
+                When you are skipping with a fundraiser, new skips start shared with the group. Personal reward skips stay private.
               </p>
             </div>
             <button
@@ -313,7 +313,7 @@ export default function ProfilePage() {
               onClick={handleToggleShareSkipsByDefault}
               role="switch"
               aria-checked={profile.shareSkipsByDefault !== false}
-              aria-label="Toggle sharing skips by default"
+              aria-label="Toggle sharing fundraiser skips by default"
               className="relative flex-shrink-0 w-12 h-7 rounded-full transition-colors"
               style={{
                 background: profile.shareSkipsByDefault !== false ? "var(--green-primary)" : "var(--bg-surface-3)",

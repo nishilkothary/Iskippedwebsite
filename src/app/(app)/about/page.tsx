@@ -15,7 +15,7 @@ const STEPS = [
   {
     number: "02",
     title: "Log It",
-    copy: "Add what you skipped and its value, and watch your savings grow.",
+    copy: "Log a skip on iSkipped, and watch your savings grow.",
     body: "Coffee, takeout, impulse buy — anything you can do without. Log it in iSkipped and your Giving Jar grows with every skip.",
     color: "var(--gold-cta)",
     bgColor: "rgba(255,183,0,0.10)",
@@ -23,7 +23,7 @@ const STEPS = [
   {
     number: "03",
     title: "Use It",
-    copy: "Spend it on something you have been saving for, or use it to impact someone else's life. Either way, you will be glad you said iSkipped.",
+    copy: "Turn your savings into purpose by picking a savings jar for a personal reward or a group fundraiser working toward a shared goal.",
     body: "Pick something you're saving toward — dinner out, a splurge, a small treat. A share of every skip fills your Reward Jar alongside your giving. All good deeds deserve a reward.",
     color: "#8B5CF6",
     bgColor: "rgba(139,92,246,0.10)",
@@ -145,9 +145,6 @@ export default function AboutPage() {
           All it takes is saying<br />
           <span style={{ color: "var(--green-primary)" }}>iSkipped</span>
         </p>
-        <p className="text-sm max-w-xs mx-auto leading-relaxed" style={{ color: "var(--text-secondary)" }}>
-          Our hard-earned money becomes more valuable when we can say iSkipped.
-        </p>
       </div>
 
       <div className="px-4 max-w-lg mx-auto space-y-10 pt-8">
@@ -188,18 +185,16 @@ export default function AboutPage() {
               background: "linear-gradient(135deg, var(--gold-cta), var(--gold-light))",
               color: "var(--bg-base)",
               boxShadow: "0 4px 18px var(--gold-glow)",
+              fontSize: 0,
             }}
           >
+            <span style={{ fontSize: 14 }}>Choose a Skip Jar</span>
             Create a Skipped Reward →
           </button>
           <button
             onClick={() => router.push("/challenges")}
             className="mt-3 w-full py-3 rounded-2xl text-sm font-semibold"
-            style={{
-              border: "1px solid var(--border-emphasis)",
-              color: "var(--green-primary)",
-              background: "transparent",
-            }}
+            style={{ display: "none" }}
           >
             Browse iSkipped Fundraisers →
           </button>

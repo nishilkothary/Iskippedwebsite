@@ -43,6 +43,11 @@ interface JarProps {
   unitCount?: number;    // pre-computed count of units funded
   centerValueOverride?: string;
   centerLabelOverride?: string; // overrides the default "to goal" / "saved" center label
+  prominentLabel?: boolean;
+  topLabel?: string;
+  topLabelColor?: string;
+  hideBottomLabel?: boolean;
+  paused?: boolean;
 }
 
 interface DonationReminderPrompt {
@@ -54,6 +59,53 @@ interface DonationReminderPrompt {
   readyAmount: number;
   donatedAmount: number;
   donationURL?: string | null;
+}
+
+function ScoreboardValue({
+  value,
+  format = "number",
+  suffix,
+  paused = false,
+}: {
+  value: number;
+  format?: "number" | "currency";
+  suffix?: string;
+  paused?: boolean;
+}) {
+  const [displayValue, setDisplayValue] = useState(value);
+  const visibleValue = useRef(value);
+  const animationFrame = useRef<number | null>(null);
+
+  useEffect(() => {
+    if (paused) return;
+    const from = visibleValue.current;
+    if (from === value) return;
+
+    const startedAt = performance.now();
+    const duration = 650;
+    const tick = (now: number) => {
+      const progress = Math.min(1, (now - startedAt) / duration);
+      const eased = 1 - Math.pow(1 - progress, 3);
+      setDisplayValue(from + (value - from) * eased);
+      if (progress < 1) {
+        animationFrame.current = window.requestAnimationFrame(tick);
+      } else {
+        visibleValue.current = value;
+      }
+    };
+
+    if (animationFrame.current != null) window.cancelAnimationFrame(animationFrame.current);
+    animationFrame.current = window.requestAnimationFrame(tick);
+    return () => {
+      if (animationFrame.current != null) window.cancelAnimationFrame(animationFrame.current);
+    };
+  }, [paused, value]);
+
+  const rendered = format === "currency"
+    ? formatCurrencyRounded(displayValue)
+    : Math.round(displayValue).toLocaleString();
+
+  return <>{rendered}{suffix && <span className="scoreboard-suffix">{suffix}</span>}</>;
 }
 
 function DonationReminderModal({
@@ -206,8 +258,14 @@ function DonationReminderController({
   );
 }
 
-function Jar({ fillPercent, color, gradEnd, label, amount, emoji, causeLabel, goalAmount, emptyLabel, href, onClick, actionLabel, actionOnClick, actionColor, unitDisplay, unitCount, centerValueOverride, centerLabelOverride }: JarProps) {
-  const clamp = Math.min(Math.max(fillPercent, 0), 100);
+function Jar({ fillPercent, color, gradEnd, label, amount, emoji, causeLabel, goalAmount, emptyLabel, href, onClick, actionLabel, actionOnClick, actionColor, unitDisplay, unitCount, centerValueOverride, centerLabelOverride, prominentLabel, topLabel, topLabelColor, hideBottomLabel, paused = false }: JarProps) {
+  const [visibleFillPercent, setVisibleFillPercent] = useState(fillPercent);
+
+  useEffect(() => {
+    if (!paused) setVisibleFillPercent(fillPercent);
+  }, [fillPercent, paused]);
+
+  const clamp = Math.min(Math.max(visibleFillPercent, 0), 100);
   const w = 160;
   const h = 240;
   const scale = w / 120;
@@ -216,14 +274,16 @@ function Jar({ fillPercent, color, gradEnd, label, amount, emoji, causeLabel, go
   const yStart = jarH - fillH;
   const uid = `${label}-${color}-${Math.round(clamp)}`.replace(/\W/g, "");
   const hasAmount = amount !== "$0.00";
-  const showCenter = !!causeLabel || hasAmount;
-  const centerValue = centerValueOverride ?? (causeLabel ? `${Math.round(clamp)}%` : amount);
-  const centerLabel = centerLabelOverride ?? (causeLabel
+  const topDisplayLabel = topLabel ?? causeLabel ?? emptyLabel;
+  const hasGoalContext = !!causeLabel || !!topLabel;
+  const showCenter = hasGoalContext || hasAmount;
+  const centerValue = centerValueOverride ?? (hasGoalContext ? `${Math.round(clamp)}%` : amount);
+  const centerLabel = centerLabelOverride ?? (hasGoalContext
     ? goalAmount && goalAmount > 0 ? "to goal" : "saved"
     : "ready");
   const centerLabelLines = centerLabel.split("\n");
   const centerMultiLine = centerLabelLines.length > 1;
-  const hasGoalDisplay = !!(causeLabel && goalAmount && goalAmount > 0);
+  const hasGoalDisplay = !!(hasGoalContext && goalAmount && goalAmount > 0);
   const centerValueFontSize = centerValue.length > 7 ? 11 : centerValue.length > 5 ? 13 : 17;
   const cvY = centerMultiLine ? (hasGoalDisplay ? 76 : 84) : (hasGoalDisplay ? 84 : 92);
   const labelY0 = centerMultiLine ? (hasGoalDisplay ? 93 : 100) : (hasGoalDisplay ? 102 : 112);
@@ -257,8 +317,8 @@ function Jar({ fillPercent, color, gradEnd, label, amount, emoji, causeLabel, go
       onClick={onClick}
     >
       <div style={{ textAlign: "center", maxWidth: w, padding: "0 4px", height: 76, overflow: "hidden", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "flex-end" }}>
-        <div style={{ fontSize: 13, fontWeight: causeLabel ? 700 : 600, fontStyle: causeLabel ? "normal" : "italic", color: color, lineHeight: 1.35, letterSpacing: 0.2, display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", overflow: "hidden", textAlign: "center" }}>
-          {causeLabel ?? emptyLabel ?? "👆 Tap to pick a jar"}
+        <div style={{ fontSize: topLabel ? 12 : prominentLabel ? 22 : 13, fontWeight: topLabel ? 800 : prominentLabel ? 900 : causeLabel ? 700 : 600, fontStyle: topDisplayLabel ? "normal" : "italic", color: topLabelColor ?? (topLabel ? "var(--text-secondary)" : prominentLabel ? "var(--text-primary)" : color), lineHeight: prominentLabel && !topLabel ? 1.1 : 1.35, letterSpacing: topLabel ? 1.5 : 0.2, textTransform: topLabel ? "uppercase" : "none", display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", overflow: "hidden", textAlign: "center" }}>
+          {topDisplayLabel ?? "Tap to pick a jar"}
         </div>
       </div>
       <svg width={w} height={h} viewBox={`0 0 ${w} ${h}`}>
@@ -299,7 +359,7 @@ function Jar({ fillPercent, color, gradEnd, label, amount, emoji, causeLabel, go
             <animate
               attributeName="y"
               from={jarH} to={yStart}
-              dur="1.4s" fill="freeze"
+              dur="0.9s" fill="freeze"
               calcMode="spline" keySplines="0.25 0.1 0.25 1"
             />
           </rect>
@@ -421,13 +481,15 @@ function Jar({ fillPercent, color, gradEnd, label, amount, emoji, causeLabel, go
       </svg>
 
       <div style={{ textAlign: "center" }}>
-        <div style={{
-          fontSize: 12, fontWeight: 600,
-          color: "var(--text-secondary)",
-          letterSpacing: 1.5, textTransform: "uppercase",
-        }}>
-          {label}
-        </div>
+        {!hideBottomLabel && (
+          <div style={{
+            fontSize: 12, fontWeight: 600,
+            color: "var(--text-secondary)",
+            letterSpacing: 1.5, textTransform: "uppercase",
+          }}>
+            {label}
+          </div>
+        )}
         <div style={{
           fontSize: 28, fontWeight: 800,
           color: "var(--text-primary)",
@@ -1019,13 +1081,22 @@ export default function HomePage() {
   const globalGivingBalance = Math.max(0, giveTotal - (profile.totalDonated ?? 0));
   const globalSpendingBalance = Math.max(0, liveTotal - (profile.totalSpent ?? 0));
 
-  const activeProject = projects.find((p) => p.id === profile.activeProjectId) ?? null;
   const { goals: spendingGoals, activeId: activeSpendingGoalId } = normalizeSpendingGoals(profile);
-  const activeGoal = spendingGoals.find((g) => g.id === activeSpendingGoalId) ?? null;
+  const fallbackProject = projects.find((p) => p.id === profile.activeProjectId) ?? null;
+  const fallbackGoal = spendingGoals.find((g) => g.id === activeSpendingGoalId) ?? null;
+  const activeSkipTarget = profile.activeSkipTarget
+    ?? (activeSpendingGoalId ? { type: "goal" as const, id: activeSpendingGoalId } : null)
+    ?? (profile.activeProjectId ? { type: "fundraiser" as const, id: profile.activeProjectId } : null);
+  const activeGoal = activeSkipTarget?.type === "goal"
+    ? spendingGoals.find((g) => g.id === activeSkipTarget.id) ?? fallbackGoal
+    : null;
+  const activeProject = activeSkipTarget?.type === "fundraiser"
+    ? projects.find((p) => p.id === activeSkipTarget.id) ?? fallbackProject
+    : null;
   const skipBalance = getSkipBalanceSummary(profile);
 
-  const givingBalance = globalGivingBalance;
-  const spendingBalance = globalSpendingBalance;
+  const givingBalance = activeProject ? (profile.causeJarBalances?.[activeProject.id] ?? 0) : globalGivingBalance;
+  const spendingBalance = activeGoal ? (profile.goalJarBalances?.[activeGoal.id] ?? 0) : globalSpendingBalance;
 
 
   const isActiveChallenge = activeProject ? (isChallengeProject(activeProject) || !activeProject.isCustom) : false;
@@ -1047,29 +1118,23 @@ export default function HomePage() {
     : temporaryChallengeGoalUnits && fundraiserUnitCost
       ? temporaryChallengeGoalUnits * fundraiserUnitCost
       : communityGoal;
-  const fundraiserProgressPct = fundraiserGoalAmount > 0
-    ? Math.min(100, (fundraiserDonatedTotal / fundraiserGoalAmount) * 100)
-    : 0;
   const fundraiserGoalUnits = fundraiserUnitCost && fundraiserGoalAmount > 0
     ? fundraiserGoalAmount / fundraiserUnitCost
     : null;
-  const fundraiserDonatedUnits = fundraiserUnitCost
-    ? fundraiserDonatedTotal / fundraiserUnitCost
-    : null;
-  const fundraiserRemainingUnits = fundraiserGoalUnits !== null && fundraiserDonatedUnits !== null
-    ? Math.max(0, fundraiserGoalUnits - fundraiserDonatedUnits)
-    : null;
   const fundraiserUnitLabel = activeProject?.unitDisplay ?? activeProject?.unitName ?? "units";
   const fundraiserUnitLabelSingular = activeProject?.unitName ?? (fundraiserUnitLabel.replace(/s$/, "") || "unit");
-  const fundraiserUnitsDonated = activeProject?.unitCost
-    ? formatCommunityUnitCount(fundraiserDonatedTotal, activeProject.unitCost, activeProject.unitIsGoal)
-    : null;
   const fundraiserPersonalUnitPotential = activeProject?.unitCost
-    ? formatCommunityUnitCount(skipBalance.availableFromSkips, activeProject.unitCost, activeProject.unitIsGoal)
+    ? formatCommunityUnitCount(givingBalance + skipBalance.unassignedSkipBank, activeProject.unitCost, activeProject.unitIsGoal)
     : null;
   const personalGoal = profile.causeGoalAmounts?.[activeProject?.id ?? ""]
     ?? (!isActiveChallenge ? activeProject?.goalAmount ?? 0 : 0);
   const hasPersonalGivingGoal = personalGoal > 0;
+  const personalFundraiserPercent = hasPersonalGivingGoal
+    ? Math.min(100, Math.round((givingBalance / personalGoal) * 100))
+    : 0;
+  const groupFundraiserPercent = fundraiserGoalAmount > 0
+    ? Math.min(100, Math.round((displayedGroupTotal / fundraiserGoalAmount) * 100))
+    : 0;
   const givingStartedFillPct = givingBalance > 0 ? 16 : 0;
   const givingFillPct = hasPersonalGivingGoal ? Math.min(100, (givingBalance / personalGoal) * 100) : givingStartedFillPct;
   const destinationGoalAmount = hasPersonalGivingGoal ? personalGoal : undefined;
@@ -1086,9 +1151,29 @@ export default function HomePage() {
   const challengeSkips = activeProject && isActiveChallenge
     ? recentSkips.filter((skip) => skip.projectId === activeProject.id)
     : [];
+  const ownChallengeFeedItems: FeedItem[] = challengeSkips.map((skip) => ({
+    id: `local-${skip.id}`,
+    uid: skip.uid,
+    displayName: profile.displayName || "You",
+    photoURL: profile.photoURL,
+    type: "skip",
+    skipId: skip.id,
+    skipAmount: skip.amount,
+    skipCategory: skip.categoryLabel,
+    skipEmoji: skip.categoryEmoji,
+    projectId: skip.projectId,
+    projectTitle: skip.projectTitle ?? activeProject?.title,
+    projectLocation: activeProject?.location ?? null,
+    skipLabel: skip.whatSkipped || skip.categoryLabel,
+    message: `skipped ${skip.whatSkipped || skip.categoryLabel}`,
+    createdAt: skip.createdAt,
+  }));
   const hasSkippedThisWeek = isSameWeek(profile.lastSkipDate) || recentSkips.some((skip) => isSameWeek(skip.date));
   const hasActiveChallengeSkipThisWeek = challengeSkips.some((skip) => isSameWeek(skip.date));
   const hasCommunityUnit = !!(activeProject?.unitCost && activeProject.unitCost > 0);
+  const personalUnitCountDisplay = hasCommunityUnit && activeProject
+    ? formatCommunityUnitCount(givingBalance, activeProject.unitCost ?? 0, activeProject.unitIsGoal)
+    : null;
   const communityUnitCountDisplay = hasCommunityUnit && activeProject
     ? formatCommunityUnitCount(displayedGroupTotal, activeProject.unitCost ?? 0, activeProject.unitIsGoal)
     : null;
@@ -1101,7 +1186,8 @@ export default function HomePage() {
     ? profile.causeStats?.[activeProject.id]?.donated ?? 0
     : 0;
   const challengeFeedAllItems = activeProject && isActiveChallenge
-    ? activeChallengeFeed
+    ? [...ownChallengeFeedItems, ...activeChallengeFeed.filter((item) => !challengeSkips.some((skip) => skip.id === item.skipId))]
+        .sort((a, b) => b.createdAt.toMillis() - a.createdAt.toMillis())
     : [];
   const challengeFeedItems = challengeFeedAllItems.slice(0, 3);
   const featuredChallengeFeedItem = challengeFeedItems[0] ?? null;
@@ -1110,6 +1196,7 @@ export default function HomePage() {
     ? formatCommunityUnitCount(challengeSkippedAmount, activeProject.unitCost, activeProject.unitIsGoal)
     : null;
   const challengeCommunitySkipCount = challengeFeedItems.length > 0 ? challengeFeedItems.length : challengeSkips.length;
+  const liveFundraiserSkipCount = Math.max(liveChallengeTotalSkips, challengeCommunitySkipCount);
   const todaySkipCount = activeProject && isActiveChallenge
     ? activeChallengeFeed.filter((item) => item.createdAt?.toDate?.()?.toDateString() === new Date().toDateString()).length
     : 0;
@@ -1139,10 +1226,10 @@ export default function HomePage() {
   const featuredFeedIndex = liveFeed.length > 0 ? liveFeedIndex % liveFeed.length : 0;
   const featuredFeedItem = liveFeed.length > 0 ? liveFeed[featuredFeedIndex] : null;
   const spendingFillPct = activeGoal
-    ? Math.min(100, (skipBalance.availableFromSkips / activeGoal.targetAmount) * 100)
+    ? Math.min(100, (spendingBalance / activeGoal.targetAmount) * 100)
     : 0;
-  const goalCoveredAmount = activeGoal ? Math.min(skipBalance.availableFromSkips, activeGoal.targetAmount) : 0;
-  const goalRemainingAmount = activeGoal ? Math.max(0, activeGoal.targetAmount - skipBalance.availableFromSkips) : 0;
+  const goalCoveredAmount = activeGoal ? Math.min(spendingBalance, activeGoal.targetAmount) : 0;
+  const goalRemainingAmount = activeGoal ? Math.max(0, activeGoal.targetAmount - spendingBalance) : 0;
   const displayedStreak = getConsecutiveWeeklyStreak(recentSkips.map((skip) => skip.date));
   const streakChipValue = hasSkippedThisWeek ? Math.max(displayedStreak, profile.streak ?? 0) : profile.streak ?? 0;
   const activeCountdown = activeProject && isActiveChallenge ? getChallengeCountdown(activeProject) : null;
@@ -1307,74 +1394,77 @@ export default function HomePage() {
       ))}
 
       {/* Scoreboard */}
-      <div style={{ ...cardStyle, marginBottom: 32, position: "relative", textAlign: "center" }}>
-        <p style={{ fontSize: 11, color: "var(--text-muted)", fontWeight: 900, letterSpacing: 1.5, textTransform: "uppercase", marginBottom: 18 }}>
-          Your skip scoreboard
-        </p>
-        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 18, alignItems: "center" }}>
-          <div>
-            <p style={{ fontSize: 13, fontWeight: 800, color: "var(--text-secondary)", marginBottom: 5 }}>You said iSkip</p>
-            <p style={{ fontSize: 50, fontWeight: 900, color: "var(--green-primary)", lineHeight: 1, letterSpacing: -2 }}>
-              {profile.totalSkips}<span style={{ fontSize: 18, letterSpacing: 0, marginLeft: 4 }}>times</span>
-            </p>
+      <div className="iskip-scoreboard" style={{ marginBottom: 32 }}>
+        <div className="iskip-scoreboard-header">
+          <span>YOUR SKIP SCOREBOARD</span>
+        </div>
+        <div className="iskip-scoreboard-grid">
+          <div className="iskip-scoreboard-stat">
+            <p>You said iSkip</p>
+            <strong><ScoreboardValue value={profile.totalSkips} suffix="times" paused={showSkipPicker} /></strong>
           </div>
-          <div style={{ borderLeft: "1px solid rgba(237,245,240,0.1)" }}>
-            <p style={{ fontSize: 13, fontWeight: 800, color: "var(--text-secondary)", marginBottom: 5 }}>Lifetime savings</p>
-            <p style={{ fontSize: 50, fontWeight: 900, color: "var(--green-primary)", lineHeight: 1, letterSpacing: -2 }}>
-              {formatCurrencyRounded(skipBalance.lifetimeSaved)}
-            </p>
+          <div className="iskip-scoreboard-stat">
+            <p>Lifetime savings</p>
+            <strong><ScoreboardValue value={skipBalance.lifetimeSaved} format="currency" paused={showSkipPicker} /></strong>
+          </div>
+          <div className="iskip-scoreboard-stat">
+            <p>Skip Bank</p>
+            <strong><ScoreboardValue value={skipBalance.availableFromSkips} format="currency" paused={showSkipPicker} /></strong>
           </div>
         </div>
       </div>
 
       {/* What it could become */}
       <div style={{ marginTop: 32, marginBottom: 28 }}>
-        <div style={{ margin: "0 2px 16px", textAlign: "center" }}>
-          <p style={{ fontSize: 17, fontWeight: 900, color: "var(--text-primary)", lineHeight: 1.1, marginBottom: 5 }}>Put your skips to work</p>
-          <p style={{ fontSize: 12, color: "var(--text-secondary)" }}>
-            <strong style={{ color: "var(--green-primary)" }}>{formatCurrencyRounded(skipBalance.availableFromSkips)}</strong> left in my Skip Bank
-          </p>
-        </div>
-        <div style={{ display: "grid", gridTemplateColumns: "minmax(0, 1fr) minmax(0, 1fr)", gap: 14 }}>
-          <div style={{ ...cardStyle, padding: 18, display: "flex", flexDirection: "column", minHeight: 330 }}>
-            <div style={{ marginBottom: 14 }}>
-              <p style={{ fontSize: 11, fontWeight: 900, letterSpacing: 1.1, textTransform: "uppercase", color: "#A78BFA" }}>My Reward</p>
-              <p style={{ fontSize: 22, fontWeight: 900, lineHeight: 1.1, color: "var(--text-primary)", marginTop: 4 }}>
-                {activeGoal?.label ?? "Choose a goal"}
-              </p>
+        {!activeGoal && !activeProject && (
+          <div style={{ margin: "0 2px 16px", textAlign: "center" }}>
+            <p style={{ fontSize: 17, fontWeight: 900, color: "var(--text-primary)", lineHeight: 1.1 }}>Put your skips to work</p>
+          </div>
+        )}
+        <div style={{ display: "grid", gridTemplateColumns: activeGoal || activeProject ? "minmax(0, 1fr)" : "minmax(0, 1fr) minmax(0, 1fr)", gap: 14 }}>
+          {!activeProject && (
+          <div style={{ ...cardStyle, padding: 18, display: "flex", flexDirection: "column", minHeight: activeGoal ? 0 : 330, position: "relative" }}>
+            <div style={{ position: activeGoal ? "absolute" : "static", top: activeGoal ? 18 : undefined, left: activeGoal ? 18 : undefined, marginBottom: 0 }}>
+              <p style={{ fontSize: 11, fontWeight: 900, letterSpacing: 1.1, textTransform: "uppercase", color: "#A78BFA" }}>{firstName}'s Reward Jar</p>
               {activeGoal && (
-                <p style={{ fontSize: 13, color: "var(--text-secondary)", lineHeight: 1.4, marginTop: 6 }}>
-                  {goalRemainingAmount > 0
-                    ? `${formatCurrencyRounded(goalRemainingAmount)} left to unlock.`
-                    : "Your skips can cover this now."}
-                </p>
+                <>
+                  <p style={{ fontSize: 15, fontWeight: 900, color: "var(--text-primary)", lineHeight: 1.2, marginTop: 6 }}>
+                    {activeGoal.label}
+                  </p>
+                  <p style={{ fontSize: 13, color: "var(--text-secondary)", lineHeight: 1.3, marginTop: 4 }}>
+                    Cost: {formatCurrencyRounded(activeGoal.targetAmount)}
+                  </p>
+                </>
               )}
               {!activeGoal && (
                 <p style={{ fontSize: 13, color: "var(--text-secondary)", lineHeight: 1.4, marginTop: 6 }}>
                   Pick something worth spending your skipped savings on.
                 </p>
-              )}
-            </div>
+                )}
+              </div>
+            {activeGoal?.imageURL && (
+              <img
+                src={activeGoal.imageURL}
+                alt={activeGoal.label}
+                style={{ position: "absolute", top: 18, right: 18, width: 72, height: 72, borderRadius: 16, objectFit: "cover", objectPosition: activeGoal.imagePosition ?? "center", border: "1px solid rgba(139,92,246,0.35)" }}
+              />
+            )}
             {activeGoal && (
               <>
-                <div style={{ display: "grid", gridTemplateColumns: "62px minmax(0, 1fr)", gap: 12, alignItems: "center", padding: "10px 12px", borderRadius: 16, background: "rgba(237,245,240,0.055)", border: "1px solid rgba(237,245,240,0.08)", marginTop: "auto", marginBottom: 14 }}>
-                  <div style={{ width: 54, height: 46, borderRadius: 14, display: "grid", placeItems: "center", padding: "0 4px", boxSizing: "border-box", background: "rgba(139,92,246,0.12)", border: "1px solid rgba(139,92,246,0.32)", color: "#A78BFA", fontSize: "clamp(15px, 1.6vw, 18px)", fontWeight: 900, lineHeight: 1, textAlign: "center", whiteSpace: "nowrap", overflow: "hidden", letterSpacing: 0 }}>
-                    {formatCurrencyRounded(activeGoal.targetAmount)}
-                  </div>
-                  <div style={{ minWidth: 0 }}>
-                    <p style={{ fontSize: 11, fontWeight: 900, letterSpacing: 1.4, textTransform: "uppercase", color: "#A78BFA", marginBottom: 4 }}>
-                      {activeGoal.type === "splurge" ? "Reward cost" : "Goal cost"}
-                    </p>
-                  </div>
-                </div>
-                <div style={{ marginBottom: 14 }}>
-                <div style={{ display: "flex", justifyContent: "space-between", color: "var(--text-muted)", fontSize: 12, fontWeight: 700, marginBottom: 7 }}>
-                  <span>{Math.round(spendingFillPct)}% covered</span>
-                  <span>{formatCurrencyRounded(goalRemainingAmount)} left</span>
-                </div>
-                <div style={{ height: 9, borderRadius: 999, background: "rgba(237,245,240,0.07)", overflow: "hidden" }}>
-                  <div style={{ height: "100%", width: `${spendingFillPct}%`, borderRadius: 999, background: "linear-gradient(90deg, #7C3AED, #A78BFA)" }} />
-                </div>
+              <div style={{ display: "flex", justifyContent: "center", marginTop: activeGoal ? -10 : 2, marginBottom: 8 }}>
+                <Jar
+                  fillPercent={spendingFillPct}
+                  paused={showSkipPicker}
+                  color="#8B5CF6"
+                  gradEnd="#6D28D9"
+                  label="Saved for this reward"
+                  amount={formatCurrency(spendingBalance)}
+                  emoji=""
+                  goalAmount={undefined}
+                  centerValueOverride={`${Math.round(spendingFillPct)}%`}
+                  centerLabelOverride="to goal"
+                  hideBottomLabel
+                />
               </div>
               </>
             )}
@@ -1386,24 +1476,42 @@ export default function HomePage() {
                 }
                 router.push("/jars?tab=live");
               }}
-              style={{ width: "100%", borderRadius: 12, padding: "11px 12px", background: "rgba(237,245,240,0.06)", color: "var(--text-primary)", border: "1px solid rgba(237,245,240,0.08)", fontSize: 13, fontWeight: 900, marginTop: activeGoal ? 0 : "auto" }}
+              style={{ width: "100%", borderRadius: 12, padding: "11px 12px", background: activeGoal ? "rgba(139,92,246,0.16)" : "rgba(237,245,240,0.06)", color: activeGoal ? "#C4B5FD" : "var(--text-primary)", border: activeGoal ? "1px solid rgba(139,92,246,0.42)" : "1px solid rgba(237,245,240,0.08)", fontSize: 13, fontWeight: 900, marginTop: activeGoal ? 0 : "auto" }}
             >
-              {activeGoal ? "Spend some skips" : "Choose a goal"}
+              {activeGoal ? "I'm Ready to Buy This" : "Choose a goal"}
             </button>
           </div>
+          )}
 
+          {!activeGoal && (
           <div style={{ ...cardStyle, padding: 18, display: "flex", flexDirection: "column", minHeight: 330 }}>
-            <div style={{ display: "grid", gridTemplateColumns: activeProject?.imageURL ? "minmax(0, 1fr) 72px" : "minmax(0, 1fr)", gap: 12, alignItems: "start", marginBottom: 14 }}>
-              <div style={{ minWidth: 0 }}>
-                <p style={{ fontSize: 11, fontWeight: 900, letterSpacing: 1.1, textTransform: "uppercase", color: "var(--green-primary)" }}>Fundraiser</p>
+              <div style={{ display: "grid", gridTemplateColumns: activeProject?.imageURL ? "minmax(0, 1fr) 72px" : "minmax(0, 1fr)", gap: 12, alignItems: "start", marginBottom: 14 }}>
+                <div style={{ minWidth: 0 }}>
+                <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+                  <p style={{ fontSize: 11, fontWeight: 900, letterSpacing: 1.1, textTransform: "uppercase", color: "var(--green-primary)" }}>Fundraiser</p>
+                  {activeProject && (
+                    <span style={{ display: "inline-flex", alignItems: "center", gap: 5, borderRadius: 999, padding: "3px 8px", background: "rgba(46,204,113,0.12)", border: "1px solid rgba(46,204,113,0.28)", color: "#A7F3D0", fontSize: 10, fontWeight: 900, textTransform: "uppercase", letterSpacing: 0.8 }}>
+                      <span style={{ width: 6, height: 6, borderRadius: 999, background: "#2ECC71", boxShadow: "0 0 10px rgba(46,204,113,0.9)" }} />
+                      Live
+                    </span>
+                  )}
+                </div>
                 <p style={{ fontSize: 22, fontWeight: 900, lineHeight: 1.1, color: "var(--text-primary)", marginTop: 4 }}>
                   {activeProject?.title ?? "Pick a fundraiser"}
                 </p>
-                <p style={{ fontSize: 13, color: "var(--text-secondary)", lineHeight: 1.4, marginTop: 6 }}>
-                  {activeProject
-                    ? `${activeProject.memberUids?.length ?? 0} people skipping toward ${fundraiserGoalUnits ? Math.round(fundraiserGoalUnits).toLocaleString("en-US") : "more"} ${fundraiserUnitLabel}.`
-                    : "Find a cause where skipped savings can join a shared goal."}
-                </p>
+                {!activeProject && (
+                  <p style={{ fontSize: 13, color: "var(--text-secondary)", lineHeight: 1.4, marginTop: 6 }}>
+                    Find a cause where skipped savings can join a shared goal.
+                  </p>
+                )}
+                {activeProject && (
+                  <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap", marginTop: 12 }}>
+                    <span style={{ display: "inline-flex", alignItems: "center", gap: 5, color: "var(--green-primary)", fontSize: 12, fontWeight: 900 }}>
+                      {fundraiserUnitCost ? formatCurrencyRounded(fundraiserUnitCost) : "?"}
+                      <span style={{ fontSize: 10, letterSpacing: 1, textTransform: "uppercase" }}>per {fundraiserUnitLabelSingular}</span>
+                    </span>
+                  </div>
+                )}
               </div>
               {activeProject?.imageURL && (
                 <img
@@ -1415,49 +1523,117 @@ export default function HomePage() {
             </div>
             {activeProject ? (
               <>
-                <div style={{ display: "grid", gridTemplateColumns: "62px minmax(0, 1fr)", gap: 12, alignItems: "center", padding: "10px 12px", borderRadius: 16, background: "rgba(237,245,240,0.055)", border: "1px solid rgba(237,245,240,0.08)", marginTop: "auto", marginBottom: 14 }}>
-                  <div style={{ width: 54, height: 46, borderRadius: 14, display: "grid", placeItems: "center", background: "rgba(46,204,113,0.12)", border: "1px solid rgba(46,204,113,0.32)", color: "var(--green-primary)", fontSize: 18, fontWeight: 900 }}>
-                    {fundraiserUnitCost ? formatCurrencyRounded(fundraiserUnitCost) : "?"}
-                  </div>
-                  <div style={{ minWidth: 0 }}>
-                    <p style={{ fontSize: 11, fontWeight: 900, letterSpacing: 1.4, textTransform: "uppercase", color: "var(--green-primary)", marginBottom: 4 }}>
-                      Per {fundraiserUnitLabelSingular}
-                    </p>
-                    <p style={{ fontSize: 12, fontWeight: 800, color: "var(--gold-cta)", lineHeight: 1.3 }}>
-                      {fundraiserPersonalUnitPotential && fundraiserUnitCost
-                        ? `Your skips could fund up to ${fundraiserPersonalUnitPotential} ${fundraiserUnitLabel}.`
-                        : `Your skips could fund up to ${formatCurrencyRounded(skipBalance.availableFromSkips)}.`}
-                    </p>
-                  </div>
+              <div style={{ display: "grid", gridTemplateColumns: "minmax(0, 1fr) minmax(0, 1fr)", gap: 12, alignItems: "end", marginBottom: 14 }}>
+              <div>
+                  <Jar
+                    fillPercent={hasPersonalGivingGoal ? Math.min(100, (givingBalance / personalGoal) * 100) : (givingBalance > 0 ? 18 : 0)}
+                    paused={showSkipPicker}
+                    color="#2ECC71"
+                    gradEnd="#1E9485"
+                    label="My jar"
+                    amount={formatCurrency(givingBalance)}
+                    emoji=""
+                    causeLabel={activeProject.title}
+                    goalAmount={hasPersonalGivingGoal ? personalGoal : undefined}
+                    centerValueOverride={`${personalFundraiserPercent}%`}
+                    centerLabelOverride="to goal"
+                    topLabel="My jar"
+                    topLabelColor="#A7F3D0"
+                    hideBottomLabel
+                  />
+                  <p style={{ marginTop: 6, textAlign: "center", fontSize: 12, fontWeight: 900, color: "#A7F3D0", lineHeight: 1.25 }}>
+                    {hasCommunityUnit && personalUnitCountDisplay !== null
+                      ? `~ ${personalUnitCountDisplay} ${communityUnitLabel}`
+                      : `${formatCurrencyRounded(givingBalance)} pledged`}
+                  </p>
                 </div>
-                <div style={{ marginBottom: 14 }}>
-                <div style={{ display: "flex", justifyContent: "space-between", color: "var(--text-muted)", fontSize: 12, fontWeight: 700, marginBottom: 7 }}>
-                  <span>{activeProject.unitCost && fundraiserUnitsDonated ? `${fundraiserUnitsDonated} ${fundraiserUnitLabel} donated` : `${formatCurrencyRounded(fundraiserDonatedTotal)} donated`}</span>
-                  <span>{fundraiserRemainingUnits !== null ? `${Math.ceil(fundraiserRemainingUnits).toLocaleString("en-US")} to go` : ""}</span>
+                <div>
+                  <Jar
+                    fillPercent={fundraiserGoalAmount > 0 ? Math.min(100, (displayedGroupTotal / fundraiserGoalAmount) * 100) : (displayedGroupTotal > 0 ? 18 : 0)}
+                    paused={showSkipPicker}
+                    color="#2BBAA4"
+                    gradEnd="#1E9485"
+                    label="Group jar"
+                    amount={formatCurrency(displayedGroupTotal)}
+                    emoji=""
+                    causeLabel={activeProject.title}
+                    goalAmount={fundraiserGoalAmount > 0 ? fundraiserGoalAmount : undefined}
+                    centerValueOverride={`${groupFundraiserPercent}%`}
+                    centerLabelOverride="to goal"
+                    topLabel="Group jar"
+                    topLabelColor="#7DD3FC"
+                    hideBottomLabel
+                  />
+                  <p style={{ marginTop: 6, textAlign: "center", fontSize: 12, fontWeight: 900, color: "#7DD3FC", lineHeight: 1.25 }}>
+                    {hasCommunityUnit && communityUnitCountDisplay !== null
+                      ? `~ ${communityUnitCountDisplay} ${communityUnitLabel}`
+                      : `${formatCurrencyRounded(displayedGroupTotal)} raised`}
+                  </p>
                 </div>
-                <div style={{ height: 9, borderRadius: 999, background: "rgba(237,245,240,0.07)", overflow: "hidden" }}>
-                  <div style={{ height: "100%", width: `${fundraiserGoalAmount > 0 ? fundraiserProgressPct : 35}%`, borderRadius: 999, background: "linear-gradient(90deg, #1E9485, #2ECC71)" }} />
+              </div>
+              <button
+                onClick={() => {
+                  if (activeProject) {
+                    setShowContributionModal(true);
+                    return;
+                  }
+                  router.push("/challenges");
+                }}
+                style={{ width: "100%", borderRadius: 12, padding: "11px 12px", marginBottom: 14, background: activeProject ? "#2BBAA4" : "rgba(237,245,240,0.06)", color: activeProject ? "#06251D" : "var(--text-primary)", border: activeProject ? "1px solid #42D5BA" : "1px solid rgba(237,245,240,0.08)", fontSize: 13, fontWeight: 900 }}
+              >
+                {activeProject ? "Donate Your Savings" : "Browse fundraisers"}
+              </button>
+              <div style={{ borderTop: "1px solid rgba(237,245,240,0.08)", paddingTop: 12, marginBottom: 14 }}>
+                <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, marginBottom: 8 }}>
+                  <p style={{ fontSize: 10, fontWeight: 900, letterSpacing: 1.2, textTransform: "uppercase", color: "var(--text-muted)" }}>Live activity</p>
+                  <button
+                    type="button"
+                    onClick={() => router.push(`/challenges/${activeProject.id}/activity`)}
+                    style={{ border: "none", background: "transparent", color: "#2BBAA4", fontSize: 11, fontWeight: 900, cursor: "pointer" }}
+                  >
+                    Full feed
+                  </button>
                 </div>
+                {featuredChallengeFeedItem ? (() => {
+                  const item = challengeFeedItems[Math.min(featuredFeedIndex, challengeFeedItems.length - 1)] ?? featuredChallengeFeedItem;
+                  return (
+                    <div key={item.id} style={{ display: "grid", gridTemplateColumns: "34px minmax(0, 1fr) auto", alignItems: "center", gap: 10, borderRadius: 14, background: "rgba(237,245,240,0.045)", padding: "10px 12px" }}>
+                      <div style={{ width: 34, height: 34, borderRadius: 12, background: "rgba(43,186,164,0.14)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 17, flexShrink: 0 }}>
+                        {item.skipEmoji ?? "."}
+                      </div>
+                      <div style={{ minWidth: 0 }}>
+                        <p style={{ fontSize: 13, fontWeight: 900, color: "var(--text-primary)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+                          {getFeedActionLine(item)}
+                        </p>
+                        <p style={{ fontSize: 10, color: "var(--text-muted)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", marginTop: 2 }}>
+                          {item.createdAt?.toDate ? formatRelativeTime(item.createdAt.toDate()) : "just now"}
+                        </p>
+                      </div>
+                      {(item.giveAmount ?? item.skipAmount) !== undefined && (
+                        <p style={{ fontSize: 14, fontWeight: 900, color: "#2BBAA4", whiteSpace: "nowrap" }}>
+                          +{formatCurrency(item.giveAmount ?? item.skipAmount!)}
+                        </p>
+                      )}
+                    </div>
+                  );
+                })() : (
+                  <button
+                    type="button"
+                    onClick={() => setShowSkipPicker(true)}
+                    style={{ width: "100%", borderRadius: 14, background: "rgba(237,245,240,0.045)", border: "1px dashed rgba(46,204,113,0.28)", padding: "10px 12px", color: "var(--text-secondary)", fontSize: 13, fontWeight: 800, textAlign: "left", cursor: "pointer" }}
+                  >
+                    Be the first skip in this group.
+                  </button>
+                )}
               </div>
               </>
             ) : null}
-            <button
-              onClick={() => {
-                if (activeProject) {
-                  setShowContributionModal(true);
-                  return;
-                }
-                router.push("/challenges");
-              }}
-              style={{ width: "100%", borderRadius: 12, padding: "11px 12px", background: "rgba(237,245,240,0.06)", color: "var(--text-primary)", border: "1px solid rgba(237,245,240,0.08)", fontSize: 13, fontWeight: 900 }}
-            >
-              {activeProject ? "Contribute some skips" : "Browse fundraisers"}
-            </button>
           </div>
+          )}
         </div>
       </div>
 
-      {activeProject && isActiveChallenge && activeProject.status !== "ended" && (
+      {showLegacyHomeSocial && activeProject && isActiveChallenge && activeProject.status !== "ended" && (
         <div style={{ ...cardStyle, marginBottom: 36, padding: 18, background: "linear-gradient(145deg, rgba(20,26,31,0.98), rgba(10,26,22,0.96) 58%, rgba(43,186,164,0.06))", border: "1px solid rgba(237,245,240,0.11)", boxShadow: "0 14px 34px rgba(0,0,0,0.16)" }}>
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 12, marginBottom: 16 }}>
             <div style={{ minWidth: 0 }}>
@@ -2108,7 +2284,7 @@ export default function HomePage() {
       {showContributionModal && activeProject && (
         <FundraiserContributionModal
           project={activeProject}
-          availableFromSkips={skipBalance.availableFromSkips}
+          availableFromSkips={givingBalance + skipBalance.unassignedSkipBank}
           unitCost={fundraiserUnitCost}
           unitLabel={fundraiserUnitLabel}
           mode={contributionMode}
@@ -2120,12 +2296,18 @@ export default function HomePage() {
       {showSpendModal && activeGoal && user && (
         <GoalSpendModal
           goal={activeGoal}
-          availableFromSkips={skipBalance.availableFromSkips}
+          availableFromSkips={spendingBalance + skipBalance.unassignedSkipBank}
           onClose={() => setShowSpendModal(false)}
           onComplete={async (amount) => {
             try {
-              const amountFromSkips = await recordPurchase(user.uid, activeGoal.id, activeGoal.label, activeGoal.targetAmount, amount);
-              updateProfile({ totalSpent: (profile.totalSpent ?? 0) + amountFromSkips });
+              const result = await recordPurchase(user.uid, activeGoal.id, activeGoal.label, activeGoal.targetAmount, amount);
+              updateProfile({
+                totalSpent: (profile.totalSpent ?? 0) + result.amountFromSkips,
+                goalJarBalances: {
+                  ...(profile.goalJarBalances ?? {}),
+                  [activeGoal.id]: Math.max(0, (profile.goalJarBalances?.[activeGoal.id] ?? 0) - result.jarDecrease),
+                },
+              });
               return true;
             } catch (err) {
               console.error("recordPurchase failed", err);

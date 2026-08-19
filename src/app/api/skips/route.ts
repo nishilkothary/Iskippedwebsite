@@ -7,7 +7,15 @@ import { getImpactMessage } from "@/lib/constants/impactMessages";
 import { xpForSkip, levelForXp, REFERRAL_BONUS_XP } from "@/lib/utils/xp";
 import { getConsecutiveWeeklyStreak, getLongestWeeklyStreak, today } from "@/lib/utils/dates";
 import { adjustGlobalStats } from "@/lib/services/globalStats";
-import { UserProfile } from "@/lib/types/models";
+import { SkipAllocationTarget, UserProfile } from "@/lib/types/models";
+
+function parseAllocationTarget(raw: unknown): SkipAllocationTarget | null {
+  if (!raw || typeof raw !== "object") return null;
+  const data = raw as Record<string, unknown>;
+  const type = data.type === "goal" || data.type === "fundraiser" ? data.type : null;
+  const id = typeof data.id === "string" && data.id.trim() ? data.id.trim() : null;
+  return type && id ? { type, id } : null;
+}
 
 export async function POST(req: NextRequest) {
   try {
@@ -26,6 +34,7 @@ export async function POST(req: NextRequest) {
     const notes: string | undefined = typeof body.notes === "string" ? body.notes : undefined;
     const displayName: string | undefined = typeof body.displayName === "string" ? body.displayName : undefined;
     const photoURL: string | null | undefined = typeof body.photoURL === "string" ? body.photoURL : undefined;
+    const requestedAllocationTarget = parseAllocationTarget(body.allocationTarget);
 
     const db = getAdminDb();
     const userRef = db.collection("users").doc(uid);
@@ -68,6 +77,7 @@ export async function POST(req: NextRequest) {
 
       const impactMessage = getImpactMessage(amount);
       const message = `skipped ${whatSkipped || categoryLabel}${causeSuffix}`;
+      const allocationTarget = requestedAllocationTarget ?? profile.activeSkipTarget ?? null;
 
       tx.set(skipRef, {
         uid,
@@ -80,12 +90,13 @@ export async function POST(req: NextRequest) {
         projectTitle,
         impactMessage,
         allocationMode: "skip-pot",
+        ...(allocationTarget ? { allocationTarget } : {}),
         createdAt: FieldValue.serverTimestamp(),
         ...(whatSkipped ? { whatSkipped } : {}),
         ...(notes ? { notes } : {}),
       });
 
-      tx.update(userRef, {
+      const userUpdates: Record<string, unknown> = {
         totalSaved: newTotalSaved,
         totalSkips: FieldValue.increment(1),
         xp: newXp,
@@ -93,8 +104,11 @@ export async function POST(req: NextRequest) {
         streak: newStreak,
         longestStreak: newLongestStreak,
         lastSkipDate: todayStr,
-        savedTowardActiveCause: projectId ? FieldValue.increment(amount) : (profile.savedTowardActiveCause ?? 0),
-      });
+        savedTowardActiveCause: allocationTarget?.type === "fundraiser" ? FieldValue.increment(amount) : (profile.savedTowardActiveCause ?? 0),
+      };
+      if (allocationTarget?.type === "goal") userUpdates[`goalJarBalances.${allocationTarget.id}`] = FieldValue.increment(amount);
+      if (allocationTarget?.type === "fundraiser") userUpdates[`causeJarBalances.${allocationTarget.id}`] = FieldValue.increment(amount);
+      tx.update(userRef, userUpdates);
 
       tx.set(feedRef, {
         uid,
@@ -125,14 +139,15 @@ export async function POST(req: NextRequest) {
         tx.update(referrerRef, firstSkipBonus);
       }
 
-      return { newTotalSaved, newXp, newLevel, newStreak, newLongestStreak, message };
+      return { newTotalSaved, newXp, newLevel, newStreak, newLongestStreak, message, allocationTarget };
     });
 
     // Project totals for challenge group tracking (best-effort, non-atomic — matches prior behavior)
-    if (projectId) {
-      const projectRef = db.collection("projects").doc(projectId);
+    if (result.allocationTarget?.type === "fundraiser") {
+      const projectRef = db.collection("projects").doc(result.allocationTarget.id);
       projectRef.update({
         totalSkips: FieldValue.increment(1),
+        totalRaised: FieldValue.increment(amount),
         memberUids: FieldValue.arrayUnion(uid),
       }).catch((e) => console.warn("[skips] project totals update failed:", e));
     }
@@ -140,8 +155,8 @@ export async function POST(req: NextRequest) {
     // Global counters in Realtime DB
     await adjustGlobalStats(amount, 1);
 
-    // Community share — always visible, identity is opt-in
-    try {
+    // Community/group sharing only applies to fundraiser-targeted skips.
+    if (result.allocationTarget?.type === "fundraiser") try {
       const communityFeedRef = db.collection("communityFeed").doc(skipRef.id);
       await communityFeedRef.set({
         uid,
@@ -153,7 +168,7 @@ export async function POST(req: NextRequest) {
         skipCategory: category,
         skipEmoji: categoryEmoji,
         skipLabel: whatSkipped || categoryLabel,
-        projectId,
+        projectId: result.allocationTarget.id,
         projectTitle,
         ...(projectLocation ? { projectLocation } : {}),
         shareName: shareWithCommunity,
@@ -161,8 +176,8 @@ export async function POST(req: NextRequest) {
         createdAt: FieldValue.serverTimestamp(),
       });
 
-      if (shareWithCommunity && projectId) {
-        const causeTotalRef = getAdminRtdb().ref(`causeTotals/${projectId}`);
+      if (shareWithCommunity) {
+        const causeTotalRef = getAdminRtdb().ref(`causeTotals/${result.allocationTarget.id}`);
         await causeTotalRef.transaction((current) => (current || 0) + amount);
       }
     } catch {

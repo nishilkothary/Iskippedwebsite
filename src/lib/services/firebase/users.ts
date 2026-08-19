@@ -16,7 +16,7 @@ import {
 } from "firebase/firestore";
 import { User } from "firebase/auth";
 import { db } from "./config";
-import { UserProfile, DonationEvent, SpendingHistoryEvent, SpendingGoal } from "@/lib/types/models";
+import { UserProfile, DonationEvent, SpendingHistoryEvent, SpendingGoal, SkipAllocationTarget } from "@/lib/types/models";
 import { apiRequest } from "./apiClient";
 
 export function normalizeSpendingGoals(profile: UserProfile): {
@@ -151,6 +151,25 @@ export async function setActiveProject(uid: string, projectId: string | null): P
   await updateDoc(doc(db, "users", uid), { activeProjectId: projectId });
 }
 
+export async function setActiveSkipTarget(uid: string, target: SkipAllocationTarget | null): Promise<void> {
+  await updateDoc(doc(db, "users", uid), { activeSkipTarget: target });
+}
+
+export async function allocateSkipBankToJar(
+  uid: string,
+  target: SkipAllocationTarget,
+  amount: number,
+  mode: "increment" | "set" = "increment"
+): Promise<number> {
+  const result = await apiRequest<{ appliedAmount: number }>("/api/jars/allocate", "POST", { target, amount, mode });
+  return result.appliedAmount;
+}
+
+export async function releaseJarToSkipBank(uid: string, target: SkipAllocationTarget): Promise<number> {
+  const result = await apiRequest<{ releasedAmount: number }>("/api/jars/release", "POST", { target });
+  return result.releasedAmount;
+}
+
 export async function joinProject(uid: string, projectId: string, makeActive: boolean): Promise<void> {
   await Promise.all([
     updateDoc(doc(db, "users", uid), {
@@ -186,6 +205,7 @@ export async function switchCause(
 
 export async function pinProjectToHome(uid: string, projectId: string): Promise<void> {
   await apiRequest("/api/causes/switch", "POST", { newCauseId: projectId, transferBalance: false });
+  await updateDoc(doc(db, "users", uid), { activeSkipTarget: { type: "fundraiser", id: projectId } });
 }
 
 export async function switchGoal(
@@ -208,9 +228,14 @@ export async function recordDonation(uid: string, amount: number, projectId: str
   await apiRequest("/api/donations", "POST", { amount, projectId, projectTitle, date });
 }
 
-export async function recordPurchase(uid: string, goalId: string, goalLabel: string, targetAmount: number, amount: number): Promise<number> {
-  const result = await apiRequest<{ jarDecrease: number }>("/api/spending-history", "POST", { goalId, goalLabel, targetAmount, amount });
-  return result.jarDecrease;
+export async function recordPurchase(
+  uid: string,
+  goalId: string,
+  goalLabel: string,
+  targetAmount: number,
+  amount: number
+): Promise<{ amountFromSkips: number; jarDecrease: number }> {
+  return apiRequest<{ amountFromSkips: number; jarDecrease: number }>("/api/spending-history", "POST", { goalId, goalLabel, targetAmount, amount });
 }
 
 export function subscribeToDonations(uid: string, callback: (donations: DonationEvent[]) => void): Unsubscribe {

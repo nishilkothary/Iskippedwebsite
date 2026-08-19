@@ -8,11 +8,13 @@ interface Props {
   projectId: string;
   projectTitle: string;
   onClose: () => void;
+  initialAmount?: number;
+  onLogged?: () => void | Promise<void>;
 }
 
-export function DonationLogModal({ projectId, projectTitle, onClose }: Props) {
+export function DonationLogModal({ projectId, projectTitle, onClose, initialAmount, onLogged }: Props) {
   const { donate } = useSkips();
-  const [amount, setAmount] = useState("");
+  const [amount, setAmount] = useState(initialAmount && initialAmount > 0 ? String(initialAmount) : "");
   const [date, setDate] = useState(today());
   const [loading, setLoading] = useState(false);
   const [done, setDone] = useState(false);
@@ -26,7 +28,10 @@ export function DonationLogModal({ projectId, projectTitle, onClose }: Props) {
       const ok = await donate(num, projectId, projectTitle, date);
       if (ok) {
         setDone(true);
-        setTimeout(onClose, 2000);
+        setTimeout(async () => {
+          await onLogged?.();
+          onClose();
+        }, 2000);
       }
     } finally {
       setLoading(false);

@@ -23,8 +23,8 @@ export async function POST(req: NextRequest) {
       const userSnap = await tx.get(userRef);
       const profile = userSnap.data() as UserProfile | undefined;
       const currentBal = profile?.causeJarBalances?.[projectId] ?? 0;
-      const availableFromSkips = getSkipBalanceSummary(profile).availableFromSkips;
-      const usableFromSkips = Math.max(0, currentBal) + availableFromSkips;
+      const unassignedSkipBank = getSkipBalanceSummary(profile).unassignedSkipBank;
+      const usableFromSkips = Math.max(0, currentBal) + unassignedSkipBank;
       if (amount > usableFromSkips) {
         throw new ApiError(400, "Donation exceeds available skipped savings");
       }

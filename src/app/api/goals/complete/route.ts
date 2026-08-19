@@ -28,7 +28,10 @@ export async function POST(req: NextRequest) {
       const goal = goals.find((g) => g.id === goalId);
       const label = goal?.label ?? fallbackLabel ?? "";
       const targetAmount = goal?.targetAmount ?? fallbackTargetAmount ?? 0;
-      const amountSaved = Math.min(getSkipBalanceSummary(profile).availableFromSkips, targetAmount);
+      const currentBal = profile.goalJarBalances?.[goalId] ?? 0;
+      const unassignedSkipBank = getSkipBalanceSummary(profile).unassignedSkipBank;
+      const amountSaved = Math.min(Math.max(0, currentBal) + unassignedSkipBank, targetAmount);
+      const jarDecrease = Math.min(amountSaved, Math.max(0, currentBal));
 
       const newGoals = goals.filter((g) => g.id !== goalId);
       const newActiveId = activeId === goalId ? (newGoals[0]?.id ?? null) : activeId;
@@ -38,10 +41,12 @@ export async function POST(req: NextRequest) {
         label,
         targetAmount,
         amountSaved,
+        jarDecrease,
         purchasedAt: FieldValue.serverTimestamp(),
       });
       tx.update(userRef, {
         totalSpent: FieldValue.increment(amountSaved),
+        [`goalJarBalances.${goalId}`]: FieldValue.increment(-jarDecrease),
         spendingGoals: newGoals,
         activeSpendingGoalId: newActiveId,
         spendingGoal: null,

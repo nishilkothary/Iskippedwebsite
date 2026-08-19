@@ -11,6 +11,10 @@ export interface SpendingGoal {
   donationURL?: string;
 }
 
+export type SkipAllocationTarget =
+  | { type: "goal"; id: string }
+  | { type: "fundraiser"; id: string };
+
 export interface UserProfile {
   uid: string;
   displayName: string;
@@ -23,6 +27,7 @@ export interface UserProfile {
   xp: number;
   level: number;
   activeProjectId: string | null;
+  activeSkipTarget?: SkipAllocationTarget | null;
   joinedProjectIds?: string[];
   /** Per-challenge permission for organizers to see and email this address. */
   challengeEmailConsents?: Record<string, boolean>;
@@ -93,6 +98,7 @@ export interface Skip {
   notes?: string;
   jarSplit?: { give: number; live: number };
   allocationMode?: "jar-split" | "skip-pot";
+  allocationTarget?: SkipAllocationTarget | null;
 }
 
 export interface Project {

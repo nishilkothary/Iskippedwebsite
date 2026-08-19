@@ -8,7 +8,7 @@ import {
   Unsubscribe,
 } from "firebase/firestore";
 import { db } from "./config";
-import { Skip } from "@/lib/types/models";
+import { Skip, SkipAllocationTarget } from "@/lib/types/models";
 import { apiRequest } from "./apiClient";
 
 export interface LogSkipParams {
@@ -42,6 +42,7 @@ export interface LogSkipParams {
   causeGoalAmount?: number;
   causeJarBalance?: number;
   causeJarOverflowCount?: number;
+  allocationTarget?: SkipAllocationTarget | null;
 }
 
 export async function logSkip(params: LogSkipParams): Promise<{ skipId: string; newTotal: number; newXp: number; newLevel: number; newStreak: number; newLongestStreak: number; giveJarOverflowCount?: number }> {

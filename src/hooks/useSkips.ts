@@ -50,8 +50,26 @@ export function useSkips() {
         activeGoalId: null,
         causeJarBalance,
         causeJarOverflowCount,
+        allocationTarget: params.allocationTarget ?? profile.activeSkipTarget ?? null,
       });
       if (result) {
+        const allocationTarget = params.allocationTarget ?? profile.activeSkipTarget ?? null;
+        const targetedBalanceUpdates: {
+          goalJarBalances?: Record<string, number>;
+          causeJarBalances?: Record<string, number>;
+        } = {};
+        if (allocationTarget?.type === "goal") {
+          targetedBalanceUpdates.goalJarBalances = {
+            ...(profile.goalJarBalances ?? {}),
+            [allocationTarget.id]: (profile.goalJarBalances?.[allocationTarget.id] ?? 0) + params.amount,
+          };
+        }
+        if (allocationTarget?.type === "fundraiser") {
+          targetedBalanceUpdates.causeJarBalances = {
+            ...(profile.causeJarBalances ?? {}),
+            [allocationTarget.id]: (profile.causeJarBalances?.[allocationTarget.id] ?? 0) + params.amount,
+          };
+        }
         updateProfile({
           totalSaved: profile.totalSaved + params.amount,
           totalSkips: profile.totalSkips + 1,
@@ -60,6 +78,7 @@ export function useSkips() {
           streak: result.newStreak,
           longestStreak: result.newLongestStreak,
           lastSkipDate: today(),
+          ...targetedBalanceUpdates,
         });
       }
       return result;
