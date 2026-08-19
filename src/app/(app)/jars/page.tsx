@@ -2074,9 +2074,6 @@ function SplurgeTab({
               <p className="text-lg font-black leading-tight" style={{ color: "var(--text-primary)" }}>
                 Skip for {fundraiserSetup.groupName ?? fundraiserSetup.title}?
               </p>
-              <p className="text-sm mt-2 leading-relaxed" style={{ color: "var(--text-secondary)" }}>
-                Set your personal skipping goal for this fundraiser. Future skips will fill this jar.
-              </p>
             </div>
             <div className="space-y-4 p-5">
               <div>
