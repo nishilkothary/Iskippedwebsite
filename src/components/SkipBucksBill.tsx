@@ -1,7 +1,7 @@
 "use client";
 
 import type { CSSProperties } from "react";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 
 const billStyle = (compact: boolean, open: boolean): CSSProperties => ({
   position: "relative",
@@ -76,13 +76,22 @@ export function SkipBucksBill({
   amount,
   compact = false,
   onManage,
+  paused = false,
 }: {
   amount: number;
   compact?: boolean;
   onManage?: () => void;
+  paused?: boolean;
 }) {
   const [open, setOpen] = useState(false);
-  const skipBucks = Math.max(0, Math.round(amount));
+  const [displayAmount, setDisplayAmount] = useState(amount);
+
+  useEffect(() => {
+    if (paused) return;
+    setDisplayAmount(amount);
+  }, [amount, paused]);
+
+  const skipBucks = Math.max(0, Math.round(displayAmount));
 
   return (
     <div className="skip-bucks-wrap" style={{ position: "relative", zIndex: 3, display: "inline-flex" }}>

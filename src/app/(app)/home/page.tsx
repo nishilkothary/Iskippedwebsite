@@ -1470,6 +1470,7 @@ export default function HomePage() {
                 <SkipBucksBill
                   amount={skipBalance.availableFromSkips}
                   compact
+                  paused={showSkipPicker}
                   onManage={() => setShowSpendModal(true)}
                 />
               </div>
@@ -1553,6 +1554,7 @@ export default function HomePage() {
                     <SkipBucksBill
                       amount={skipBalance.availableFromSkips}
                       compact
+                      paused={showSkipPicker}
                       onManage={() => setShowContributionModal(true)}
                     />
                   )}
