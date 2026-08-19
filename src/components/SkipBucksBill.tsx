@@ -232,7 +232,6 @@ export function SkipBucksBill({
             x
           </button>
           <p className="skip-bucks-popover-kicker" style={{ color: "var(--green-primary)", fontSize: 10, fontWeight: 900, letterSpacing: "0.14em", textTransform: "uppercase" }}>Skip Bucks</p>
-          <p className="skip-bucks-popover-title" style={{ marginTop: 5, color: "var(--text-primary)", fontSize: 20, fontWeight: 900, lineHeight: 1.05 }}>{skipBucks.toLocaleString()} SB ready</p>
           <p className="skip-bucks-popover-copy" style={{ marginTop: 8, color: "var(--text-secondary)", fontSize: 12, fontWeight: 700, lineHeight: 1.45 }}>
             Skip Bucks are dollars available from your skipped expenses. They are your lifetime skipped savings minus purchases and donations you have logged.
           </p>
