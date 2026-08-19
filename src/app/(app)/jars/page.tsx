@@ -2021,19 +2021,12 @@ function SplurgeTab({
               <button
                 onClick={releasePreviousAndContinue}
                 disabled={switchWorking}
-                className="w-full py-1 text-sm font-black disabled:opacity-50"
-                style={{ color: "var(--text-secondary)" }}
+                className="w-full py-1 text-sm font-bold disabled:opacity-50"
+                style={{ background: "transparent", border: "none", color: "var(--text-muted)" }}
               >
                 {switchWorking
                   ? "Moving it back..."
                   : `I no longer want to skip for this ${switchPrompt.previous.type === "goal" ? "reward" : "cause"}`}
-              </button>
-              <button
-                onClick={() => setSwitchPrompt(null)}
-                className="w-full rounded-xl py-3 text-sm font-bold"
-                style={{ color: "var(--text-secondary)" }}
-              >
-                Cancel
               </button>
             </div>
           </div>
