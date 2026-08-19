@@ -1115,7 +1115,7 @@ export default function HomePage() {
     ? spendingGoals.find((g) => g.id === activeSkipTarget.id) ?? fallbackGoal
     : null;
   const activeGoalImageURL = activeGoal
-    ? activeGoal.imageURL ?? rewardDefaultImage(activeGoal.label, activeGoal.category)
+    ? activeGoal.imageURL || rewardDefaultImage(activeGoal.label, activeGoal.category)
     : null;
   const activeProject = activeSkipTarget?.type === "fundraiser"
     ? projects.find((p) => p.id === activeSkipTarget.id) ?? fallbackProject
