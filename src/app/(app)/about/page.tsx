@@ -15,7 +15,7 @@ const STEPS = [
   {
     number: "02",
     title: "Log It",
-    copy: "Log a skip on iSkipped, and watch your savings grow.",
+    copy: "Log a skip and turn that saved money into Skip Bucks.",
     body: "Coffee, takeout, impulse buy — anything you can do without. Log it in iSkipped and your Giving Jar grows with every skip.",
     color: "var(--gold-cta)",
     bgColor: "rgba(255,183,0,0.10)",
@@ -23,7 +23,7 @@ const STEPS = [
   {
     number: "03",
     title: "Use It",
-    copy: "Turn your savings into purpose by picking a savings jar for a personal reward or a group fundraiser working toward a shared goal.",
+    copy: "Turn your Skip Bucks into purpose by picking a savings jar for a personal reward or a group fundraiser working toward a shared goal.",
     body: "Pick something you're saving toward — dinner out, a splurge, a small treat. A share of every skip fills your Reward Jar alongside your giving. All good deeds deserve a reward.",
     color: "#8B5CF6",
     bgColor: "rgba(139,92,246,0.10)",
@@ -82,24 +82,24 @@ const LEGACY_FAQ_ITEMS = [
 
 const FAQ_ITEMS = [
   {
-    q: "What is my Skip Bank?",
-    a: "Your Skip Bank is the total value of everything you have logged as skipped, less purchases you have logged and donations you have confirmed.",
+    q: "What are Skip Bucks?",
+    a: "Skip Bucks are dollars available from your skipped expenses. They are your lifetime skipped savings minus purchases and donations you have logged.",
   },
   {
     q: "Does money move when I log a skip?",
     a: "No. iSkipped helps you track the amount you chose not to spend. No money moves automatically into or through iSkipped.",
   },
   {
-    q: "How do I use my Skip Bank?",
+    q: "How do I use my Skip Bucks?",
     a: "Choose a goal when you want to spend on something meaningful, or choose a fundraiser when you want to contribute to a cause. You decide how much to use at that moment.",
   },
   {
     q: "Do I need to join a fundraiser?",
-    a: "No. You can use your Skip Bank only for personal goals, only for fundraisers, or a mix of both whenever you are ready.",
+    a: "No. You can use your Skip Bucks only for personal goals, only for fundraisers, or a mix of both whenever you are ready.",
   },
   {
     q: "What happens when I contribute to a fundraiser?",
-    a: "Choose an amount from your Skip Bank, then iSkipped takes you to the fundraiser's external donation page. When you return, you can confirm the donation so your Skip Bank and the fundraiser progress stay up to date.",
+    a: "Choose an amount from your Skip Bucks, then iSkipped takes you to the fundraiser's external donation page. When you return, you can confirm the donation so your balance and the fundraiser progress stay up to date.",
   },
   {
     q: "What happens when I spend on a goal?",

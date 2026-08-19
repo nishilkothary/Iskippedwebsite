@@ -47,22 +47,6 @@ function rewardArtFor(label: string) {
   return rewardArtwork[index];
 }
 
-function retailerName(link?: string) {
-  if (!link) return null;
-  try {
-    const host = new URL(link.includes("://") ? link : `https://${link}`).hostname.replace(/^www\./, "");
-    if (host.includes("amazon")) return "Amazon";
-    if (host.includes("target")) return "Target";
-    if (host.includes("walmart")) return "Walmart";
-    if (host.includes("bestbuy")) return "Best Buy";
-    if (host.includes("etsy")) return "Etsy";
-    if (host.includes("apple")) return "Apple";
-    return host.split(".")[0];
-  } catch {
-    return null;
-  }
-}
-
 function normalizeExternalLink(link: string) {
   const trimmed = link.trim();
   if (!trimmed) return "";
@@ -86,7 +70,9 @@ function goalCoverage(balance: number, target: number) {
   return { percent, remaining: Math.max(0, target - balance) };
 }
 
-function rewardCategory(label: string) {
+function rewardCategory(label: string, explicitCategory?: string) {
+  const category = explicitCategory?.trim();
+  if (category) return { tag: category, accent: "#C4B5FD" };
   const normalized = label.toLowerCase();
   if (/(trip|flight|hotel|travel|weekend|vacation|getaway)/.test(normalized)) return { tag: "Getaway", accent: "#38BDF8" };
   if (/(book|course|class|learn|editor|laptop|camera|desk|tool)/.test(normalized)) return { tag: "Personal reward", accent: "#A78BFA" };
@@ -94,6 +80,122 @@ function rewardCategory(label: string) {
   if (/(shoe|jacket|watch|bag|clothes|style)/.test(normalized)) return { tag: "Upgrade", accent: "#F472B6" };
   return { tag: "Personal reward", accent: "#8B5CF6" };
 }
+
+function rewardDefaultImage(label: string, explicitCategory?: string) {
+  const normalized = `${label} ${explicitCategory ?? ""}`.toLowerCase();
+  if (/(spa|self-care|self care|massage|recharge)/.test(normalized)) {
+    return "https://images.unsplash.com/photo-1544161515-4ab6ce6db874?auto=format&fit=crop&w=900&q=80";
+  }
+  if (/(concert|ticket|music|show|experience)/.test(normalized)) {
+    return "https://images.unsplash.com/photo-1501386761578-eac5c94b800a?auto=format&fit=crop&w=900&q=80";
+  }
+  if (/(flight|abroad|plane|travel|trip|weekend|vacation|getaway)/.test(normalized)) {
+    return "https://images.unsplash.com/photo-1436491865332-7a61a109cc05?auto=format&fit=crop&w=900&q=80";
+  }
+  if (/(book|course|class|learn)/.test(normalized)) {
+    return "https://images.unsplash.com/photo-1512820790803-83ca734da794?auto=format&fit=crop&w=900&q=80";
+  }
+  if (/(editor|laptop|camera|desk|tool|upgrade)/.test(normalized)) {
+    return "https://images.unsplash.com/photo-1499750310107-5fef28a66643?auto=format&fit=crop&w=900&q=80";
+  }
+  if (/(dinner|coffee|meal|date|restaurant|brunch|treat)/.test(normalized)) {
+    return "https://images.unsplash.com/photo-1414235077428-338989a2e8c0?auto=format&fit=crop&w=900&q=80";
+  }
+  return null;
+}
+
+const rewardInspoPics = [
+  {
+    label: "Travel",
+    category: "Travel",
+    url: "https://images.unsplash.com/photo-1436491865332-7a61a109cc05?auto=format&fit=crop&w=900&q=80",
+  },
+  {
+    label: "Beach",
+    category: "Getaway",
+    url: "https://images.unsplash.com/photo-1507525428034-b723cf961d3e?auto=format&fit=crop&w=900&q=80",
+  },
+  {
+    label: "City",
+    category: "Getaway",
+    url: "https://images.unsplash.com/photo-1512453979798-5ea266f8880c?auto=format&fit=crop&w=900&q=80",
+  },
+  {
+    label: "Concert",
+    category: "Experience",
+    url: "https://images.unsplash.com/photo-1501386761578-eac5c94b800a?auto=format&fit=crop&w=900&q=80",
+  },
+  {
+    label: "Festival",
+    category: "Experience",
+    url: "https://images.unsplash.com/photo-1492684223066-81342ee5ff30?auto=format&fit=crop&w=900&q=80",
+  },
+  {
+    label: "Museum",
+    category: "Experience",
+    url: "https://images.unsplash.com/photo-1531058020387-3be344556be6?auto=format&fit=crop&w=900&q=80",
+  },
+  {
+    label: "Spa",
+    category: "Self-care",
+    url: "https://images.unsplash.com/photo-1544161515-4ab6ce6db874?auto=format&fit=crop&w=900&q=80",
+  },
+  {
+    label: "Wellness",
+    category: "Self-care",
+    url: "https://images.unsplash.com/photo-1506126613408-eca07ce68773?auto=format&fit=crop&w=900&q=80",
+  },
+  {
+    label: "Fitness",
+    category: "Wellness",
+    url: "https://images.unsplash.com/photo-1517836357463-d25dfeac3438?auto=format&fit=crop&w=900&q=80",
+  },
+  {
+    label: "Dinner",
+    category: "Date Night",
+    url: "https://images.unsplash.com/photo-1414235077428-338989a2e8c0?auto=format&fit=crop&w=900&q=80",
+  },
+  {
+    label: "Coffee",
+    category: "Treat yourself",
+    url: "https://images.unsplash.com/photo-1495474472287-4d71bcdd2085?auto=format&fit=crop&w=900&q=80",
+  },
+  {
+    label: "Dessert",
+    category: "Treat yourself",
+    url: "https://images.unsplash.com/photo-1488477181946-6428a0291777?auto=format&fit=crop&w=900&q=80",
+  },
+  {
+    label: "Books",
+    category: "Learning",
+    url: "https://images.unsplash.com/photo-1512820790803-83ca734da794?auto=format&fit=crop&w=900&q=80",
+  },
+  {
+    label: "Class",
+    category: "Learning",
+    url: "https://images.unsplash.com/photo-1522202176988-66273c2fd55f?auto=format&fit=crop&w=900&q=80",
+  },
+  {
+    label: "Camera",
+    category: "Creative",
+    url: "https://images.unsplash.com/photo-1516035069371-29a1b244cc32?auto=format&fit=crop&w=900&q=80",
+  },
+  {
+    label: "Setup",
+    category: "Upgrade",
+    url: "https://images.unsplash.com/photo-1499750310107-5fef28a66643?auto=format&fit=crop&w=900&q=80",
+  },
+  {
+    label: "Headphones",
+    category: "Upgrade",
+    url: "https://images.unsplash.com/photo-1505740420928-5e560c06d30e?auto=format&fit=crop&w=900&q=80",
+  },
+  {
+    label: "Style",
+    category: "Upgrade",
+    url: "https://images.unsplash.com/photo-1483985988355-763728e1935b?auto=format&fit=crop&w=900&q=80",
+  },
+];
 
 function rewardMomentumLine(balance: number, target: number, availableSkipBankBalance: number) {
   const remaining = Math.max(0, target - balance);
@@ -115,11 +217,10 @@ function rewardSkipEquivalentLine(balance: number, target: number) {
   return `~${coffees.toLocaleString()} skipped coffees could cover this.`;
 }
 
-function RewardArtwork({ label, amount, link, imageURL, imagePosition, featured = false }: { label: string; amount?: number; link?: string; imageURL?: string; imagePosition?: string; featured?: boolean }) {
+function RewardArtwork({ label, amount, link, imageURL, imagePosition, category: categoryLabel, featured = false }: { label: string; amount?: number; link?: string; imageURL?: string; imagePosition?: string; category?: string; featured?: boolean }) {
   const art = rewardArtFor(label);
-  const retailer = retailerName(link);
-  const previewImageURL = imageURL ?? amazonProductImage(link);
-  const category = rewardCategory(label);
+  const category = rewardCategory(label, categoryLabel);
+  const previewImageURL = imageURL ?? amazonProductImage(link) ?? rewardDefaultImage(label, category.tag);
   return (
     <div className={`relative overflow-hidden ${featured ? "min-h-44 sm:min-h-full" : "aspect-[1.35]"}`} style={{ background: art.background }}>
       {previewImageURL && (
@@ -142,8 +243,7 @@ function RewardArtwork({ label, amount, link, imageURL, imagePosition, featured 
         </>
       )}
       <div className="relative flex h-full flex-col justify-between p-4" style={{ color: art.accent }}>
-        <div className="flex items-start justify-between gap-3">
-          <span className="text-[10px] font-black uppercase tracking-[0.16em] opacity-90">{retailer ?? category.tag}</span>
+        <div className="flex items-start justify-end gap-3">
           {amount !== undefined && (
             <span className="shrink-0 rounded-full px-2 py-1 text-xs font-black text-white shadow-sm" style={{ background: "rgba(0,0,0,0.28)", boxShadow: `0 8px 18px ${category.accent}30` }}>
               {formatCurrency(amount)}
@@ -171,18 +271,28 @@ function RewardProgress({
 }) {
   const { percent, remaining } = goalCoverage(balance, target);
   const boostedPercent = target > 0 ? Math.min(100, Math.round(((balance + availableSkipBankBalance) / target) * 100)) : 0;
+  if (!active) {
+    return (
+      <div className="mt-3 rounded-xl px-3 py-2" style={{ background: "rgba(139,92,246,0.1)", border: "1px solid rgba(139,92,246,0.18)" }}>
+        <p className="text-[11px] font-bold leading-snug" style={{ color: "var(--text-secondary)" }}>
+          {rewardSkipEquivalentLine(balance, target)}
+        </p>
+      </div>
+    );
+  }
+
   return (
     <div className="mt-3">
-      <div className="flex items-center justify-between gap-2 text-[10px] font-black uppercase tracking-wide" style={{ color: active ? "#DDD6FE" : "#A78BFA" }}>
+      <div className="flex items-center justify-between gap-2 text-[10px] font-black uppercase tracking-wide" style={{ color: "#DDD6FE" }}>
         <span>{percent}% covered</span>
         <span>{remaining > 0 ? `${formatCurrency(remaining)} left` : "Ready"}</span>
       </div>
       <div className="relative mt-1.5 h-2 overflow-hidden rounded-full" style={{ background: "rgba(139,92,246,0.15)" }}>
         <div className="absolute inset-y-0 left-0 rounded-full" style={{ width: `${boostedPercent}%`, background: "rgba(167,139,250,0.26)" }} />
-        <div className="absolute inset-y-0 left-0 rounded-full" style={{ width: `${percent}%`, background: active ? "#8B5CF6" : "#A78BFA" }} />
+        <div className="absolute inset-y-0 left-0 rounded-full" style={{ width: `${percent}%`, background: "#8B5CF6" }} />
       </div>
       <p className="mt-2 min-h-8 text-[11px] font-bold leading-snug" style={{ color: "var(--text-secondary)" }}>
-        {active ? rewardMomentumLine(balance, target, availableSkipBankBalance) : rewardSkipEquivalentLine(balance, target)}
+        {rewardMomentumLine(balance, target, availableSkipBankBalance)}
       </p>
     </div>
   );
@@ -246,6 +356,36 @@ function JarsPageInner() {
   useEffect(() => {
     setSplitGive(normalizeJarSplit(profile?.jarSplit as any).give);
   }, [profile?.jarSplit]);
+
+  useEffect(() => {
+    if (!user || !profile?.spendingGoals?.length) return;
+
+    const { goals, activeId } = normalizeSpendingGoals(profile);
+    let changed = false;
+    const starterRewardsCleaned = goals.flatMap((goal) => {
+      const label = goal.label.trim().toLowerCase();
+      if (label === "new book" && goal.targetAmount === 40) {
+        changed = true;
+        return [];
+      }
+      if (label === "dinner out" && goal.targetAmount === 75) {
+        changed = true;
+        return [{ ...goal, label: "Date Night", category: goal.category ?? "Date Night" }];
+      }
+      return [goal];
+    });
+
+    if (!changed) return;
+    const nextActiveId = activeId && starterRewardsCleaned.some((goal) => goal.id === activeId)
+      ? activeId
+      : starterRewardsCleaned[0]?.id ?? null;
+
+    void updateSpendingGoals(user.uid, starterRewardsCleaned, nextActiveId)
+      .then(() => updateProfile({ spendingGoals: starterRewardsCleaned, activeSpendingGoalId: nextActiveId }))
+      .catch((error) => {
+        console.error("starter reward cleanup failed", error);
+      });
+  }, [profile, updateProfile, user]);
 
   if (!profile || !user) return null;
 
@@ -546,7 +686,7 @@ function JarsPageInner() {
   };
 
   return (
-    <div className="p-4 md:p-8 max-w-2xl mx-auto pb-20 md:pb-8">
+    <div className="p-4 md:p-8 max-w-3xl mx-auto pb-20 md:pb-8">
       <div className="mb-5">
         <h1 className="text-3xl font-black tracking-tight" style={{ color: "var(--text-primary)" }}>Skip for something</h1>
         <p className="text-sm mt-2" style={{ color: "var(--text-secondary)" }}>
@@ -1402,22 +1542,25 @@ function SplurgeTab({
 }) {
   const router = useRouter();
   const [shopView, setShopView] = useState<"rewards" | "fundraisers">(
-    activeSkipTarget?.type === "fundraiser" ? "fundraisers" : "rewards"
+    activeSkipTarget?.type === "goal" ? "rewards" : "fundraisers"
   );
   const [showAddForm, setShowAddForm] = useState(false);
   const [addLabel, setAddLabel] = useState("");
   const [addAmount, setAddAmount] = useState("");
+  const [addCategory, setAddCategory] = useState("");
   const [addLink, setAddLink] = useState("");
   const [addImageURL, setAddImageURL] = useState("");
   const [addImagePosition, setAddImagePosition] = useState({ x: 50, y: 50 });
   const [addImageSource, setAddImageSource] = useState<"manual" | "product" | null>(null);
   const [addImageError, setAddImageError] = useState("");
   const [saving, setSaving] = useState(false);
+  const [dismissedStarterIds, setDismissedStarterIds] = useState<string[]>([]);
   const rewardImageDragStart = useRef<{ clientX: number; clientY: number; posX: number; posY: number } | null>(null);
 
   const [editingGoalId, setEditingGoalId] = useState<string | null>(null);
   const [editLabel, setEditLabel] = useState("");
   const [editAmount, setEditAmount] = useState("");
+  const [editCategory, setEditCategory] = useState("");
   const [editLink, setEditLink] = useState("");
   const [editWorking, setEditWorking] = useState(false);
 
@@ -1470,18 +1613,31 @@ function SplurgeTab({
       )
     : null;
 
+  useEffect(() => {
+    try {
+      const stored = window.localStorage.getItem("iskipped.dismissedRewardStarters");
+      setDismissedStarterIds(stored ? JSON.parse(stored) as string[] : []);
+    } catch {
+      setDismissedStarterIds([]);
+    }
+  }, []);
+
   const activeGoal = activeGoalProp;
   const activeFundraiser = activeSkipTarget?.type === "fundraiser"
     ? projects.find((project) => project.id === activeSkipTarget.id) ?? activeProject
     : null;
   const activeFundraiserJarBalance = activeFundraiser ? fundraiserJar(activeFundraiser) : 0;
   const rewardPresets = [
-    { label: "Weekend Trip", amount: 300, note: "A little getaway" },
-    { label: "New Book", amount: 40, note: "Quiet win" },
-    { label: "Dinner Out", amount: 75, note: "Night off" },
+    { id: "weekend-trip", label: "Weekend Trip", amount: 300, category: "Getaway" },
+    { id: "concert-tickets", label: "Concert Tickets", amount: 180, category: "Experience" },
+    { id: "flight-abroad", label: "Flight Abroad", amount: 900, category: "Travel" },
+    { id: "spa-day", label: "Spa Day", amount: 150, category: "Self-care" },
   ];
   const savedRewardNames = new Set(goals.map((goal) => goal.label.trim().toLowerCase()));
-  const suggestedRewards = rewardPresets.filter((preset) => !savedRewardNames.has(preset.label.toLowerCase()));
+  const dismissedStarterSet = new Set(dismissedStarterIds);
+  const suggestedRewards = goals.length === 0
+    ? rewardPresets.filter((preset) => !savedRewardNames.has(preset.label.toLowerCase()) && !dismissedStarterSet.has(preset.id))
+    : [];
   const activeGoalJarBalance = activeGoal ? (goalJarBalances?.[activeGoal.id] ?? 0) : 0;
   const fundraisers = projects
     .filter((project) =>
@@ -1509,6 +1665,14 @@ function SplurgeTab({
   function unitCostLabel(project: Project) {
     if (!project.unitCost) return null;
     return `${formatCurrency(project.unitCost)}${project.unitName ? ` / ${project.unitName}` : ""}`;
+  }
+
+  function fundraiserGoalBadge(project: Project, groupGoal: number) {
+    if (groupGoal <= 0) return "Fundraiser";
+    if (project.unitCost && project.unitCost > 0 && project.unitName) {
+      return `Goal ${formatUnits(groupGoal, project.unitCost, project.unitName, project.unitDisplay)}`;
+    }
+    return `Goal ${formatCurrency(groupGoal)}`;
   }
 
   function fundraiserHelpCopy(project: Project) {
@@ -1631,6 +1795,29 @@ function SplurgeTab({
     return "this jar";
   }
 
+  function skipFundingPreview(target: SkipAllocationTarget | null, amountStr: string) {
+    const amount = parseFloat(amountStr);
+    if (!target || !amount || amount <= 0) return null;
+    if (target.type === "goal") {
+      const goal = goals.find((candidate) => candidate.id === target.id);
+      if (!goal?.targetAmount) return null;
+      const currentBalance = Math.max(0, goalJarBalances?.[goal.id] ?? 0);
+      const percent = Math.min(100, Math.round(((currentBalance + Math.min(amount, availableSkipBankBalance)) / goal.targetAmount) * 100));
+      return `This would fund ${percent}% of ${goal.label}.`;
+    }
+    const project = projects.find((candidate) => candidate.id === target.id);
+    if (project?.unitCost && project.unitCost > 0) {
+      return `That is about ${formatAggregateImpactUnitsDecimal(
+        Math.min(amount, availableSkipBankBalance),
+        project.unitCost,
+        project.unitName ?? project.unitDisplay ?? "unit",
+        project.unitDisplay,
+        project.unitIsGoal,
+      )}.`;
+    }
+    return null;
+  }
+
   function handleSetActiveGoalWithCheck(goal: SpendingGoal) {
     if (activeGoalId && activeGoalId !== goal.id) {
       setSwitchTarget(goal);
@@ -1704,6 +1891,7 @@ function SplurgeTab({
       targetAmount: amount,
       type: "splurge",
     };
+    if (addCategory.trim()) goal.category = addCategory.trim();
     if (addLink.trim()) goal.shoppingLink = normalizeExternalLink(addLink);
     if (addImageURL) {
       goal.imageURL = addImageURL;
@@ -1713,6 +1901,7 @@ function SplurgeTab({
     if (goal.shoppingLink && !goal.imageURL) void enrichGoalImage(goalId, goal.shoppingLink);
     setAddLabel("");
     setAddAmount("");
+    setAddCategory("");
     setAddLink("");
     setAddImageURL("");
     setAddImagePosition({ x: 50, y: 50 });
@@ -1720,10 +1909,10 @@ function SplurgeTab({
     setAddImageError("");
     setShowAddForm(false);
     setSaving(false);
-    await handleSkipFor({ type: "goal", id: goalId });
+    toast.success("Reward added to your list.");
   }
 
-  async function handleAddPresetGoal(label: string, amount: number) {
+  async function handleAddPresetGoal(label: string, amount: number, category?: string) {
     const existingGoal = goals.find(
       (goal) => goal.label.trim().toLowerCase() === label.toLowerCase()
     );
@@ -1737,15 +1926,39 @@ function SplurgeTab({
       label,
       targetAmount: amount,
       type: "splurge",
+      category: category ?? rewardCategory(label).tag,
     });
     setSaving(false);
     await handleSkipFor({ type: "goal", id: goalId });
+  }
+
+  function dismissStarterIdea(presetId: string) {
+    setDismissedStarterIds((current) => {
+      if (current.includes(presetId)) return current;
+      const next = [...current, presetId];
+      window.localStorage.setItem("iskipped.dismissedRewardStarters", JSON.stringify(next));
+      return next;
+    });
+  }
+
+  function startAddPresetGoal(label: string, amount: number, category?: string) {
+    const image = rewardDefaultImage(label, category);
+    setAddLabel(label);
+    setAddAmount(String(amount));
+    setAddCategory(category ?? rewardCategory(label).tag);
+    setAddLink("");
+    setAddImageURL(image ?? "");
+    setAddImagePosition({ x: 50, y: 50 });
+    setAddImageSource(image ? "manual" : null);
+    setAddImageError("");
+    setShowAddForm(true);
   }
 
   function startEditGoal(goal: SpendingGoal) {
     setEditingGoalId(goal.id);
     setEditLabel(goal.label);
     setEditAmount(String(goal.targetAmount));
+    setEditCategory(goal.category ?? "");
     setEditLink(goal.shoppingLink ?? goal.donationURL ?? "");
   }
 
@@ -1753,7 +1966,7 @@ function SplurgeTab({
     const amount = parseFloat(editAmount);
     if (!editLabel.trim() || !amount || amount <= 0) return;
     setEditWorking(true);
-    const updates: Partial<SpendingGoal> = { label: editLabel.trim(), targetAmount: amount };
+    const updates: Partial<SpendingGoal> = { label: editLabel.trim(), targetAmount: amount, category: editCategory.trim() || undefined };
     let shoppingLink = "";
     if (editLink.trim()) {
       if (goalType === "splurge") {
@@ -1967,6 +2180,11 @@ function SplurgeTab({
                   autoFocus
                 />
               </div>
+              {skipFundingPreview(fundingTarget, fundingAmountStr) && (
+                <p className="text-xs font-bold leading-relaxed" style={{ color: "#C4B5FD" }}>
+                  {skipFundingPreview(fundingTarget, fundingAmountStr)}
+                </p>
+              )}
               <button
                 onClick={confirmSkipBankFunding}
                 disabled={fundingWorking || !fundingAmountStr || parseFloat(fundingAmountStr) <= 0}
@@ -2096,17 +2314,6 @@ function SplurgeTab({
         <button
           type="button"
           onClick={() => {
-            setShopView("rewards");
-            setShowAddForm(false);
-          }}
-          className="rounded-full px-4 py-2 text-sm font-black transition-colors"
-          style={shopView === "rewards" ? { background: "#8B5CF6", color: "white" } : { color: "var(--text-secondary)" }}
-        >
-          Personal Rewards
-        </button>
-        <button
-          type="button"
-          onClick={() => {
             setShopView("fundraisers");
             setShowAddForm(false);
             setEditingGoalId(null);
@@ -2115,6 +2322,17 @@ function SplurgeTab({
           style={shopView === "fundraisers" ? { background: "#2ECC71", color: "#071B14" } : { color: "var(--text-secondary)" }}
         >
           Fundraisers
+        </button>
+        <button
+          type="button"
+          onClick={() => {
+            setShopView("rewards");
+            setShowAddForm(false);
+          }}
+          className="rounded-full px-4 py-2 text-sm font-black transition-colors"
+          style={shopView === "rewards" ? { background: "#8B5CF6", color: "white" } : { color: "var(--text-secondary)" }}
+        >
+          Personal Rewards
         </button>
       </div>
 
@@ -2146,7 +2364,7 @@ function SplurgeTab({
                     onChange={(e) => setEditAmount(e.target.value)}
                     className="w-full pl-7 rounded-xl px-3 py-2 text-sm focus:outline-none"
                     style={{ background: "var(--bg-surface-2)", border: "1px solid var(--border-default)", color: "var(--text-primary)" }}
-                    placeholder="Target amount"
+                    placeholder="Skipped amount needed"
                   />
                 </div>
                 <input
@@ -2155,7 +2373,7 @@ function SplurgeTab({
                   onChange={(e) => setEditLink(e.target.value)}
                   className="w-full rounded-xl px-3 py-2 text-sm focus:outline-none"
                   style={{ background: "var(--bg-surface-2)", border: "1px solid var(--border-default)", color: "var(--text-primary)" }}
-                  placeholder="Shopping link (optional)"
+                  placeholder="Shopping link"
                 />
                 <div className="flex gap-2">
                   <button
@@ -2298,6 +2516,14 @@ function SplurgeTab({
               placeholder="Savings goal name"
               autoFocus
             />
+            <input
+              type="text"
+              value={editCategory}
+              onChange={(e) => setEditCategory(e.target.value)}
+              className="w-full rounded-xl px-3 py-2 text-sm focus:outline-none"
+              style={{ background: "var(--bg-surface-2)", border: "1px solid var(--border-default)", color: "var(--text-primary)" }}
+              placeholder="Category (optional)"
+            />
             <div className="relative">
               <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-[rgba(237,245,240,0.6)]">$</span>
               <input
@@ -2306,7 +2532,7 @@ function SplurgeTab({
                 onChange={(e) => setEditAmount(e.target.value)}
                 className="w-full pl-7 rounded-xl px-3 py-2 text-sm focus:outline-none"
                 style={{ background: "var(--bg-surface-2)", border: "1px solid var(--border-default)", color: "var(--text-primary)" }}
-                placeholder="Target amount"
+                placeholder="Skipped amount needed"
               />
             </div>
             <input
@@ -2315,7 +2541,7 @@ function SplurgeTab({
               onChange={(e) => setEditLink(e.target.value)}
               className="w-full rounded-xl px-3 py-2 text-sm focus:outline-none"
               style={{ background: "var(--bg-surface-2)", border: "1px solid var(--border-default)", color: "var(--text-primary)" }}
-              placeholder="Shopping link (optional)"
+              placeholder="Shopping link"
             />
             <div className="flex gap-2">
               <button
@@ -2340,69 +2566,93 @@ function SplurgeTab({
       {/* Goals list */}
       {shopView === "rewards" && !showAddForm && !editingGoalId && (
         <div className="mt-6">
-          <div className="mb-4 rounded-2xl p-5" style={{ background: "linear-gradient(145deg, rgba(139,92,246,0.18), rgba(16,36,27,0.98) 54%, rgba(245,158,11,0.09))", border: "1px solid rgba(139,92,246,0.32)", overflow: "visible" }}>
-            <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-              <div className="min-w-0">
-                <p className="text-xs font-black uppercase tracking-[0.16em]" style={{ color: "#C4B5FD" }}>Reward vault</p>
-                <p className="mt-1 text-3xl font-extrabold leading-none" style={{ color: "var(--text-primary)" }}>
-                  {goals.length} saved idea{goals.length === 1 ? "" : "s"}
-                </p>
-                <p className="mt-2 text-xs font-bold leading-relaxed" style={{ color: "var(--text-secondary)" }}>
-                  {availableSkipBankBalance > 0
-                    ? `${formatCurrency(availableSkipBankBalance)} in Skip Bucks is ready when you pick a reward.`
-                    : "Pick a reward whenever you want future skips to fill it."}
-                </p>
-              </div>
-              <div className="flex shrink-0 flex-col items-start gap-3 sm:items-end">
-                <button
-                  onClick={() => setShowAddForm(true)}
-                  className="shrink-0 rounded-full px-3 py-2 text-xs font-black"
-                  style={{ background: "white", color: "#0B1A14", border: "none" }}
-                >
-                  + Add to my list
-                </button>
-              </div>
-            </div>
-          </div>
-
           <div className="mb-4 flex items-end justify-between gap-3">
             <div>
               <p className="text-xs font-black uppercase tracking-[0.16em]" style={{ color: "#8B5CF6" }}>Your reward wishlist</p>
             </div>
+            <button
+              onClick={() => setShowAddForm(true)}
+              className="shrink-0 rounded-full px-3 py-2 text-xs font-black"
+              style={{ background: "white", color: "#0B1A14", border: "none" }}
+            >
+              + Add to my list
+            </button>
           </div>
 
-          <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
-            {suggestedRewards.map((preset) => {
+          {suggestedRewards.length > 0 && (
+            <>
+              <p className="mb-2 text-[10px] font-black uppercase tracking-[0.16em]" style={{ color: "var(--text-muted)" }}>
+                Starter ideas
+              </p>
+              <div className="grid grid-cols-2 gap-4 sm:grid-cols-3">
+                {suggestedRewards.map((preset) => {
               const matchingGoal = goals.find(
                 (g) => g.label.toLowerCase() === preset.label.toLowerCase() && g.targetAmount === preset.amount
               );
               const isActive = activeSkipTarget?.type === "goal" && matchingGoal?.id === activeSkipTarget.id;
               const balance = matchingGoal ? (goalJarBalances?.[matchingGoal.id] ?? 0) : 0;
               return (
-                <button
+                <div
                   key={`preset-${preset.label}`}
-                  onClick={() => handleAddPresetGoal(preset.label, preset.amount)}
-                  disabled={saving}
-                  className="overflow-hidden rounded-2xl text-left transition-all hover:scale-[1.02] active:scale-[0.98] disabled:opacity-60"
+                  className="overflow-hidden rounded-2xl text-left transition-all hover:scale-[1.02] active:scale-[0.98]"
                   style={{
                     background: isActive ? "rgba(139,92,246,0.18)" : "linear-gradient(180deg, var(--bg-surface-1), rgba(16,36,27,0.86))",
                     border: isActive ? "2px solid #8B5CF6" : "1px solid rgba(139,92,246,0.3)",
                     boxShadow: isActive ? "0 18px 38px rgba(139,92,246,0.14)" : "0 12px 26px rgba(0,0,0,0.12)",
                   }}
                 >
-                  <RewardArtwork label={preset.label} amount={preset.amount} />
+                  <RewardArtwork label={preset.label} amount={preset.amount} category={preset.category} />
                   <div className="p-3">
                     <div className="flex items-center justify-between gap-2">
-                      <div className="text-[10px] font-black uppercase tracking-wide" style={{ color: "#C4B5FD" }}>{preset.note}</div>
+                      <div className="text-[10px] font-black uppercase tracking-wide" style={{ color: "#C4B5FD" }}>{preset.category}</div>
+                      <div className="flex gap-1">
+                        <button
+                          type="button"
+                          onClick={() => startAddPresetGoal(preset.label, preset.amount, preset.category)}
+                          className="flex h-7 w-7 items-center justify-center rounded-full text-sm leading-none transition-colors hover:bg-[#8B5CF6]"
+                          style={{ background: "rgba(139,92,246,0.13)", border: "1px solid rgba(139,92,246,0.36)", color: "#C4B5FD" }}
+                          title="Edit starter idea"
+                          aria-label="Edit starter idea"
+                        >
+                          ✎
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => dismissStarterIdea(preset.id)}
+                          className="flex h-7 w-7 items-center justify-center rounded-full text-sm leading-none transition-colors hover:bg-red-500"
+                          style={{ background: "rgba(239,68,68,0.08)", border: "1px solid rgba(248,113,113,0.32)", color: "#FCA5A5" }}
+                          title="Remove starter idea"
+                          aria-label="Remove starter idea"
+                        >
+                          ×
+                        </button>
+                      </div>
                     </div>
                     <RewardProgress balance={balance} target={preset.amount} availableSkipBankBalance={availableSkipBankBalance} active={isActive} />
-                    <div className="mt-3 rounded-lg py-2 text-center text-[10px] font-black uppercase tracking-wide" style={{ background: "rgba(139,92,246,0.2)", color: "#DDD6FE" }}>
-                      Add to vault
-                    </div>
+                    <button
+                      type="button"
+                      onClick={() => handleAddPresetGoal(preset.label, preset.amount, preset.category)}
+                      disabled={saving}
+                      className="mt-3 w-full rounded-lg py-2 text-center text-[10px] font-black uppercase tracking-wide disabled:opacity-60"
+                      style={{ background: "rgba(139,92,246,0.2)", color: "#DDD6FE" }}
+                    >
+                      Skip for this
+                    </button>
                   </div>
-                </button>
+                </div>
               );
             })}
+              </div>
+            </>
+          )}
+          {goals.length > 0 && (
+            <>
+              {suggestedRewards.length > 0 && (
+                <p className="mb-2 mt-5 text-[10px] font-black uppercase tracking-[0.16em]" style={{ color: "var(--text-muted)" }}>
+                  Saved rewards
+                </p>
+              )}
+              <div className="grid grid-cols-2 gap-4 sm:grid-cols-3">
             {goals.map((goal) => {
               const isActiveGoal = activeSkipTarget?.type === "goal" && goal.id === activeSkipTarget.id;
               const balance = goalJarBalances?.[goal.id] ?? 0;
@@ -2421,7 +2671,7 @@ function SplurgeTab({
                       Active
                     </div>
                   )}
-                  <RewardArtwork label={goal.label} amount={goal.targetAmount} link={goal.shoppingLink} imageURL={goal.imageURL} imagePosition={goal.imagePosition} />
+                  <RewardArtwork label={goal.label} amount={goal.targetAmount} link={goal.shoppingLink} imageURL={goal.imageURL} imagePosition={goal.imagePosition} category={goal.category} />
                   {deletingGoalId === goal.id ? (
                     <div className="p-3" onClick={(e) => e.stopPropagation()}>
                       <p className="mb-2 text-xs text-red-400">Delete &quot;{goal.label}&quot;?</p>
@@ -2432,10 +2682,7 @@ function SplurgeTab({
                     </div>
                   ) : (
                     <div className="p-3">
-                      <div className="flex items-center justify-between gap-2">
-                        <div className="text-[10px] font-black uppercase tracking-wide" style={{ color: "#C4B5FD" }}>
-                          {isActiveGoal ? "Active reward" : "Saved reward"}
-                        </div>
+                      <div className="flex items-center justify-end gap-2">
                         <div className="flex gap-1">
                           <button
                             onClick={() => { startEditGoal(goal); setDeletingGoalId(null); }}
@@ -2460,7 +2707,7 @@ function SplurgeTab({
                       <RewardProgress balance={balance} target={goal.targetAmount} availableSkipBankBalance={availableSkipBankBalance} active={isActiveGoal} />
                       {isActiveGoal ? (
                         <div className="mt-3 rounded-lg py-2 text-center text-[10px] font-black uppercase tracking-wide" style={{ background: "rgba(139,92,246,0.23)", color: "#DDD6FE" }}>
-                          Skipping for this
+                          Active jar
                         </div>
                       ) : (
                         <button
@@ -2468,7 +2715,7 @@ function SplurgeTab({
                           className="mt-3 w-full rounded-lg py-2 text-[10px] font-black uppercase tracking-wide transition-colors hover:bg-[rgba(139,92,246,0.26)]"
                           style={{ background: "rgba(139,92,246,0.17)", color: "#C4B5FD" }}
                         >
-                          Start skipping for this
+                          Skip for this
                         </button>
                       )}
                     </div>
@@ -2476,7 +2723,9 @@ function SplurgeTab({
                 </div>
               );
             })}
-          </div>
+              </div>
+            </>
+          )}
         </div>
       )}
 
@@ -2539,10 +2788,9 @@ function SplurgeTab({
               </p>
             </div>
           ) : (
-            <div className="grid gap-3 sm:grid-cols-2">
+            <div className="grid gap-x-3 gap-y-5 sm:grid-cols-2">
               {fundraisers.map((project) => {
                 const isActiveFundraiser = activeSkipTarget?.type === "fundraiser" && activeSkipTarget.id === project.id;
-                const goal = fundraiserGoal(project);
                 const groupGoal = project.goalAmount ?? 0;
                 const groupRaised = groupProgress[project.id] ?? Math.max(0, project.totalRaised ?? 0);
                 const groupPct = groupGoal > 0 ? Math.min(100, Math.round((groupRaised / groupGoal) * 100)) : 0;
@@ -2572,7 +2820,7 @@ function SplurgeTab({
                         <div className="flex items-start justify-end gap-2">
                           <div className="flex shrink-0 flex-col items-end gap-1">
                             <span className="rounded-full bg-black/25 px-2 py-1 text-xs font-black text-white shadow-sm">
-                              {goal > 0 ? `Goal ${formatCurrency(goal)}` : "Fundraiser"}
+                              {fundraiserGoalBadge(project, groupGoal)}
                             </span>
                           </div>
                         </div>
@@ -2656,7 +2904,7 @@ function SplurgeTab({
           <div className="space-y-3 p-4">
           <input
             type="url"
-            placeholder="Paste a product link (Amazon, Target, etc.)"
+            placeholder="Shopping link"
             value={addLink}
             onChange={(e) => {
               setAddLink(e.target.value);
@@ -2668,18 +2916,25 @@ function SplurgeTab({
             onBlur={() => void previewProductImage()}
             className="w-full rounded-xl px-4 py-3 text-sm focus:outline-none" style={{ background: "var(--bg-surface-2)", border: "1px solid rgba(139,92,246,0.4)", color: "var(--text-primary)" }}
           />
+            <input
+              type="text"
+              placeholder="Reward name, e.g. headphones or a trip"
+              value={addLabel}
+              onChange={(e) => setAddLabel(e.target.value)}
+              className="w-full rounded-xl px-4 py-3 text-sm focus:outline-none" style={{ background: "var(--bg-surface-2)", border: "1px solid var(--border-default)", color: "var(--text-primary)" }}
+            />
           <input
             type="text"
-            placeholder="Reward name, e.g. headphones or a trip"
-            value={addLabel}
-            onChange={(e) => setAddLabel(e.target.value)}
+            placeholder="Category (optional), e.g. getaway, books, self-care"
+            value={addCategory}
+            onChange={(e) => setAddCategory(e.target.value)}
             className="w-full rounded-xl px-4 py-3 text-sm focus:outline-none" style={{ background: "var(--bg-surface-2)", border: "1px solid var(--border-default)", color: "var(--text-primary)" }}
           />
           <div className="relative">
             <span className="absolute left-4 top-1/2 -translate-y-1/2 text-sm text-[rgba(237,245,240,0.6)]">$</span>
             <input
               type="number"
-              placeholder="Target amount"
+              placeholder="Skipped amount needed"
               value={addAmount}
               onChange={(e) => setAddAmount(e.target.value)}
               className="w-full pl-8 rounded-xl px-4 py-3 text-sm focus:outline-none" style={{ background: "var(--bg-surface-2)", border: "1px solid var(--border-default)", color: "var(--text-primary)" }}
@@ -2740,6 +2995,36 @@ function SplurgeTab({
               Upload photo
               <input type="file" accept="image/*" className="hidden" onChange={(event) => handleRewardImage(event.target.files?.[0])} />
             </label>
+            <div className="-mx-1 mt-3 flex gap-2 overflow-x-auto px-1 pb-1">
+              {rewardInspoPics.map((pic) => {
+                const selected = addImageURL === pic.url;
+                return (
+                  <button
+                    key={pic.label}
+                    type="button"
+                    onClick={() => {
+                      setAddImageURL(pic.url);
+                      setAddImagePosition({ x: 50, y: 50 });
+                      setAddImageSource("manual");
+                      if (!addCategory.trim()) setAddCategory(pic.category);
+                    }}
+                    className="group w-20 shrink-0 overflow-hidden rounded-xl text-left"
+                    style={{
+                      border: selected ? "2px solid #C4B5FD" : "1px solid rgba(139,92,246,0.28)",
+                      background: "var(--bg-surface-2)",
+                    }}
+                  >
+                    <div className="relative aspect-[1.35] overflow-hidden">
+                      <img src={pic.url} alt="" className="h-full w-full object-cover transition-transform group-hover:scale-105" />
+                      <div className="absolute inset-0 bg-gradient-to-t from-[#071B14]/82 to-transparent" />
+                      <span className="absolute bottom-1.5 left-1.5 text-[9px] font-black uppercase tracking-wide text-white">
+                        {pic.label}
+                      </span>
+                    </div>
+                  </button>
+                );
+              })}
+            </div>
             {addImageError && <p className="mt-1.5 text-xs text-red-400">{addImageError}</p>}
           </div>
           <p className="text-xs" style={{ color: "var(--text-muted)" }}>The link opens at the retailer when you are ready. iSkipped does not process the purchase.</p>
@@ -2752,7 +3037,7 @@ function SplurgeTab({
               {saving ? "Saving..." : "Save to wishlist"}
             </button>
             <button
-              onClick={() => { setShowAddForm(false); setAddLabel(""); setAddAmount(""); setAddLink(""); setAddImageURL(""); setAddImagePosition({ x: 50, y: 50 }); setAddImageSource(null); setAddImageError(""); }}
+              onClick={() => { setShowAddForm(false); setAddLabel(""); setAddAmount(""); setAddCategory(""); setAddLink(""); setAddImageURL(""); setAddImagePosition({ x: 50, y: 50 }); setAddImageSource(null); setAddImageError(""); }}
               className="px-5 py-3 text-[rgba(237,245,240,0.6)] font-semibold rounded-xl text-sm hover:text-[#EDF5F0] transition-colors"
               style={{ border: "1px solid rgba(139,92,246,0.12)" }}
             >

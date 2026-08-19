@@ -6,10 +6,10 @@ import { useState } from "react";
 const billStyle = (compact: boolean, open: boolean): CSSProperties => ({
   position: "relative",
   display: compact ? "inline-flex" : "grid",
-  gridTemplateColumns: compact ? "18px minmax(0, 1fr)" : "18px minmax(0, 1fr) 18px",
+  gridTemplateColumns: compact ? undefined : "18px minmax(0, 1fr) 18px",
   gridTemplateRows: compact ? "auto" : "auto auto",
   alignItems: "center",
-  gap: compact ? 12 : undefined,
+  gap: compact ? 0 : undefined,
   columnGap: compact ? undefined : 7,
   width: compact ? "auto" : 132,
   minHeight: compact ? 18 : 54,
@@ -64,6 +64,12 @@ const popoverStyle: CSSProperties = {
   background: "#10241b",
   boxShadow: "0 18px 48px rgba(0,0,0,0.38)",
   textAlign: "left",
+};
+
+const compactPopoverStyle: CSSProperties = {
+  ...popoverStyle,
+  left: 0,
+  right: "auto",
 };
 
 export function SkipBucksBill({
@@ -141,23 +147,25 @@ export function SkipBucksBill({
             </>
           ) : "SB"}
         </span>
-        <span
-          className="skip-bucks-value"
-          style={{
-            position: "relative",
-            zIndex: 1,
-            minWidth: 0,
-            fontSize: compact ? 11 : 22,
-            fontWeight: 900,
-            lineHeight: 1,
-            textAlign: compact ? "left" : "center",
-            fontVariantNumeric: "tabular-nums",
-            whiteSpace: "nowrap",
-            letterSpacing: compact ? "0.02em" : 0,
-          }}
-        >
-          {compact ? "SB" : skipBucks.toLocaleString()}
-        </span>
+        {!compact && (
+          <span
+            className="skip-bucks-value"
+            style={{
+              position: "relative",
+              zIndex: 1,
+              minWidth: 0,
+              fontSize: 22,
+              fontWeight: 900,
+              lineHeight: 1,
+              textAlign: "center",
+              fontVariantNumeric: "tabular-nums",
+              whiteSpace: "nowrap",
+              letterSpacing: 0,
+            }}
+          >
+            {skipBucks.toLocaleString()}
+          </span>
+        )}
         {!compact && (
           <>
             <span
@@ -186,7 +194,7 @@ export function SkipBucksBill({
       {open && (
         <div
           className="skip-bucks-popover iskip-pop-in"
-          style={popoverStyle}
+          style={compact ? compactPopoverStyle : popoverStyle}
           role="dialog"
           aria-label="What are Skip Bucks?"
           onClick={(event) => event.stopPropagation()}
@@ -195,7 +203,8 @@ export function SkipBucksBill({
             aria-hidden="true"
             style={{
               position: "absolute",
-              right: 34,
+              right: compact ? undefined : 34,
+              left: compact ? 16 : undefined,
               top: -6,
               width: 12,
               height: 12,
@@ -225,7 +234,7 @@ export function SkipBucksBill({
           <p className="skip-bucks-popover-kicker" style={{ color: "var(--green-primary)", fontSize: 10, fontWeight: 900, letterSpacing: "0.14em", textTransform: "uppercase" }}>Skip Bucks</p>
           <p className="skip-bucks-popover-title" style={{ marginTop: 5, color: "var(--text-primary)", fontSize: 20, fontWeight: 900, lineHeight: 1.05 }}>{skipBucks.toLocaleString()} SB ready</p>
           <p className="skip-bucks-popover-copy" style={{ marginTop: 8, color: "var(--text-secondary)", fontSize: 12, fontWeight: 700, lineHeight: 1.45 }}>
-            Skip Bucks are the dollars you have saved by skipping expenses. Use them to fill a reward jar or send savings toward a fundraiser.
+            Skip Bucks are dollars available from your skipped expenses. They are your lifetime skipped savings minus purchases and donations you have logged.
           </p>
           {onManage && (
             <button

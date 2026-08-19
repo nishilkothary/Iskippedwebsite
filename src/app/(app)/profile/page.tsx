@@ -175,9 +175,8 @@ export default function ProfilePage() {
             </div>
           </div>
           <div className="md:text-right">
-            <p className="text-xs font-black uppercase tracking-[0.14em]" style={{ color: "var(--text-secondary)" }}>Skip Bank</p>
+            <p className="text-xs font-black uppercase tracking-[0.14em]" style={{ color: "var(--text-secondary)" }}>Skip Bucks</p>
             <p className="text-4xl font-black mt-1" style={{ color: "var(--green-primary)", letterSpacing: 0 }}>{formatCurrency(skipBalance.availableFromSkips)}</p>
-            <p className="text-sm mt-1" style={{ color: "var(--text-secondary)" }}>ready for goals or fundraisers</p>
           </div>
         </div>
       </div>

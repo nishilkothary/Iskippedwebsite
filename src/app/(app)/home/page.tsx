@@ -62,6 +62,29 @@ interface DonationReminderPrompt {
   donationURL?: string | null;
 }
 
+function rewardDefaultImage(label: string, explicitCategory?: string) {
+  const normalized = `${label} ${explicitCategory ?? ""}`.toLowerCase();
+  if (/(spa|self-care|self care|massage|recharge)/.test(normalized)) {
+    return "https://images.unsplash.com/photo-1544161515-4ab6ce6db874?auto=format&fit=crop&w=900&q=80";
+  }
+  if (/(concert|ticket|music|show|experience)/.test(normalized)) {
+    return "https://images.unsplash.com/photo-1501386761578-eac5c94b800a?auto=format&fit=crop&w=900&q=80";
+  }
+  if (/(flight|abroad|plane|travel|trip|weekend|vacation|getaway)/.test(normalized)) {
+    return "https://images.unsplash.com/photo-1436491865332-7a61a109cc05?auto=format&fit=crop&w=900&q=80";
+  }
+  if (/(book|course|class|learn)/.test(normalized)) {
+    return "https://images.unsplash.com/photo-1512820790803-83ca734da794?auto=format&fit=crop&w=900&q=80";
+  }
+  if (/(editor|laptop|camera|desk|tool|upgrade)/.test(normalized)) {
+    return "https://images.unsplash.com/photo-1499750310107-5fef28a66643?auto=format&fit=crop&w=900&q=80";
+  }
+  if (/(dinner|coffee|meal|date|restaurant|brunch|treat)/.test(normalized)) {
+    return "https://images.unsplash.com/photo-1414235077428-338989a2e8c0?auto=format&fit=crop&w=900&q=80";
+  }
+  return null;
+}
+
 function ScoreboardValue({
   value,
   format = "number",
@@ -1091,6 +1114,9 @@ export default function HomePage() {
   const activeGoal = activeSkipTarget?.type === "goal"
     ? spendingGoals.find((g) => g.id === activeSkipTarget.id) ?? fallbackGoal
     : null;
+  const activeGoalImageURL = activeGoal
+    ? activeGoal.imageURL ?? rewardDefaultImage(activeGoal.label, activeGoal.category)
+    : null;
   const activeProject = activeSkipTarget?.type === "fundraiser"
     ? projects.find((p) => p.id === activeSkipTarget.id) ?? fallbackProject
     : null;
@@ -1421,30 +1447,39 @@ export default function HomePage() {
         <div style={{ display: "grid", gridTemplateColumns: activeGoal || activeProject ? "minmax(0, 1fr)" : "minmax(0, 1fr) minmax(0, 1fr)", gap: 14 }}>
           {!activeProject && (
           <div style={{ ...cardStyle, padding: 18, display: "flex", flexDirection: "column", minHeight: activeGoal ? 0 : 330, position: "relative" }}>
-            <div style={{ position: activeGoal ? "absolute" : "static", top: activeGoal ? 18 : undefined, left: activeGoal ? 18 : undefined, marginBottom: 0 }}>
-              <p style={{ fontSize: 11, fontWeight: 900, letterSpacing: 1.1, textTransform: "uppercase", color: "#A78BFA" }}>{firstName}'s Reward Jar</p>
-              {activeGoal && (
-                <>
-                  <p style={{ fontSize: 15, fontWeight: 900, color: "var(--text-primary)", lineHeight: 1.2, marginTop: 6 }}>
-                    {activeGoal.label}
-                  </p>
-                  <p style={{ fontSize: 13, color: "var(--text-secondary)", lineHeight: 1.3, marginTop: 4 }}>
-                    Cost: {formatCurrencyRounded(activeGoal.targetAmount)}
-                  </p>
-                </>
-              )}
-              {!activeGoal && (
+            {activeGoal ? (
+              <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 12, marginBottom: 6 }}>
+                <div style={{ minWidth: 0, display: "grid", gridTemplateColumns: activeGoalImageURL ? "72px minmax(0, 1fr)" : "minmax(0, 1fr)", gap: 12, alignItems: "center" }}>
+                  {activeGoalImageURL && (
+                    <img
+                      src={activeGoalImageURL}
+                      alt={activeGoal.label}
+                      style={{ width: 72, height: 72, borderRadius: 16, objectFit: "cover", objectPosition: activeGoal.imagePosition ?? "center", border: "1px solid rgba(139,92,246,0.35)" }}
+                    />
+                  )}
+                  <div style={{ minWidth: 0 }}>
+                    <p style={{ fontSize: 11, fontWeight: 900, letterSpacing: 1.1, textTransform: "uppercase", color: "#A78BFA" }}>{firstName}'s Reward Jar</p>
+                    <p style={{ fontSize: 22, fontWeight: 900, color: "var(--text-primary)", lineHeight: 1.1, marginTop: 4 }}>
+                      {activeGoal.label}
+                    </p>
+                    <p style={{ fontSize: 13, color: "var(--text-secondary)", lineHeight: 1.3, marginTop: 4 }}>
+                      {formatCurrencyRounded(activeGoal.targetAmount)} goal
+                    </p>
+                  </div>
+                </div>
+                <SkipBucksBill
+                  amount={skipBalance.availableFromSkips}
+                  compact
+                  onManage={() => setShowSpendModal(true)}
+                />
+              </div>
+            ) : (
+              <div style={{ marginBottom: 0 }}>
+                <p style={{ fontSize: 11, fontWeight: 900, letterSpacing: 1.1, textTransform: "uppercase", color: "#A78BFA" }}>{firstName}'s Reward Jar</p>
                 <p style={{ fontSize: 13, color: "var(--text-secondary)", lineHeight: 1.4, marginTop: 6 }}>
                   Pick something worth spending your skipped savings on.
                 </p>
-                )}
               </div>
-            {activeGoal?.imageURL && (
-              <img
-                src={activeGoal.imageURL}
-                alt={activeGoal.label}
-                style={{ position: "absolute", top: 18, right: 18, width: 72, height: 72, borderRadius: 16, objectFit: "cover", objectPosition: activeGoal.imagePosition ?? "center", border: "1px solid rgba(139,92,246,0.35)" }}
-              />
             )}
             {activeGoal && (
               <>
@@ -1460,6 +1495,8 @@ export default function HomePage() {
                   goalAmount={undefined}
                   centerValueOverride={`${Math.round(spendingFillPct)}%`}
                   centerLabelOverride="to goal"
+                  topLabel="Reward jar"
+                  topLabelColor="#C4B5FD"
                   hideBottomLabel
                 />
               </div>
@@ -1482,54 +1519,48 @@ export default function HomePage() {
 
           {!activeGoal && (
           <div style={{ ...cardStyle, padding: 18, display: "flex", flexDirection: "column", minHeight: 330, overflow: "visible" }}>
-              <div style={{ display: "grid", gridTemplateColumns: activeProject?.imageURL ? "minmax(0, 1fr) 72px" : "minmax(0, 1fr)", gap: 12, alignItems: "start", marginBottom: 14 }}>
-                <div style={{ minWidth: 0 }}>
-                <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
-                  <p style={{ fontSize: 11, fontWeight: 900, letterSpacing: 1.1, textTransform: "uppercase", color: "var(--green-primary)" }}>Fundraiser</p>
+              <div style={{ marginBottom: 6 }}>
+                <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 12 }}>
+                  <div style={{ minWidth: 0, display: "grid", gridTemplateColumns: activeProject?.imageURL ? "72px minmax(0, 1fr)" : "minmax(0, 1fr)", gap: 12, alignItems: "center" }}>
+                    {activeProject?.imageURL && (
+                      <img
+                        src={activeProject.imageURL}
+                        alt=""
+                        style={{ width: 72, height: 72, borderRadius: 16, objectFit: "cover", objectPosition: activeProject.imagePosition ?? "center", border: "1px solid rgba(237,245,240,0.12)" }}
+                      />
+                    )}
+                    <div style={{ minWidth: 0 }}>
+                      <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+                        <p style={{ fontSize: 11, fontWeight: 900, letterSpacing: 1.1, textTransform: "uppercase", color: "var(--green-primary)" }}>Fundraiser</p>
+                        {activeProject && (
+                          <span style={{ display: "inline-flex", alignItems: "center", gap: 5, borderRadius: 999, padding: "3px 8px", background: "rgba(46,204,113,0.12)", border: "1px solid rgba(46,204,113,0.28)", color: "#A7F3D0", fontSize: 10, fontWeight: 900, textTransform: "uppercase", letterSpacing: 0.8 }}>
+                            <span style={{ width: 6, height: 6, borderRadius: 999, background: "#2ECC71", boxShadow: "0 0 10px rgba(46,204,113,0.9)" }} />
+                            Live
+                          </span>
+                        )}
+                      </div>
+                      <p style={{ fontSize: 22, fontWeight: 900, lineHeight: 1.1, color: "var(--text-primary)", marginTop: 4 }}>
+                        {activeProject?.title ?? "Pick a fundraiser"}
+                      </p>
+                      {!activeProject && (
+                        <p style={{ fontSize: 13, color: "var(--text-secondary)", lineHeight: 1.4, marginTop: 6 }}>
+                          Find a cause where skipped savings can join a shared goal.
+                        </p>
+                      )}
+                    </div>
+                  </div>
                   {activeProject && (
-                    <span style={{ display: "inline-flex", alignItems: "center", gap: 5, borderRadius: 999, padding: "3px 8px", background: "rgba(46,204,113,0.12)", border: "1px solid rgba(46,204,113,0.28)", color: "#A7F3D0", fontSize: 10, fontWeight: 900, textTransform: "uppercase", letterSpacing: 0.8 }}>
-                      <span style={{ width: 6, height: 6, borderRadius: 999, background: "#2ECC71", boxShadow: "0 0 10px rgba(46,204,113,0.9)" }} />
-                      Live
-                    </span>
-                  )}
-                </div>
-                <p style={{ fontSize: 22, fontWeight: 900, lineHeight: 1.1, color: "var(--text-primary)", marginTop: 4 }}>
-                  {activeProject?.title ?? "Pick a fundraiser"}
-                </p>
-                {activeProject && (
-                  <div style={{ display: "flex", alignItems: "center", marginTop: 10 }}>
                     <SkipBucksBill
                       amount={skipBalance.availableFromSkips}
                       compact
                       onManage={() => setShowContributionModal(true)}
                     />
-                  </div>
-                )}
-                {!activeProject && (
-                  <p style={{ fontSize: 13, color: "var(--text-secondary)", lineHeight: 1.4, marginTop: 6 }}>
-                    Find a cause where skipped savings can join a shared goal.
-                  </p>
-                )}
-                {activeProject && (
-                  <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap", marginTop: 12 }}>
-                    <span style={{ display: "inline-flex", alignItems: "center", gap: 5, color: "var(--green-primary)", fontSize: 12, fontWeight: 900 }}>
-                      {fundraiserUnitCost ? formatCurrencyRounded(fundraiserUnitCost) : "?"}
-                      <span style={{ fontSize: 10, letterSpacing: 1, textTransform: "uppercase" }}>per {fundraiserUnitLabelSingular}</span>
-                    </span>
-                  </div>
-                )}
-              </div>
-              {activeProject?.imageURL && (
-                <img
-                  src={activeProject.imageURL}
-                  alt=""
-                  style={{ width: 72, height: 72, borderRadius: 16, objectFit: "cover", objectPosition: activeProject.imagePosition ?? "center", border: "1px solid rgba(237,245,240,0.12)" }}
-                />
-              )}
+                  )}
+                </div>
             </div>
             {activeProject ? (
               <>
-              <div style={{ display: "grid", gridTemplateColumns: "minmax(0, 1fr) minmax(0, 1fr)", gap: 12, alignItems: "end", marginBottom: 14 }}>
+              <div style={{ display: "grid", gridTemplateColumns: "minmax(0, 1fr) minmax(0, 1fr)", gap: 4, alignItems: "end", width: "min(100%, 430px)", margin: "0 auto 14px" }}>
               <div>
                   <Jar
                     fillPercent={hasPersonalGivingGoal ? Math.min(100, (givingBalance / personalGoal) * 100) : (givingBalance > 0 ? 18 : 0)}
@@ -1577,18 +1608,20 @@ export default function HomePage() {
                   </p>
                 </div>
               </div>
-              <button
-                onClick={() => {
-                  if (activeProject) {
-                    setShowContributionModal(true);
-                    return;
-                  }
-                  router.push("/challenges");
-                }}
-                style={{ width: "100%", borderRadius: 12, padding: "11px 12px", marginBottom: 14, background: activeProject ? "#2BBAA4" : "rgba(237,245,240,0.06)", color: activeProject ? "#06251D" : "var(--text-primary)", border: activeProject ? "1px solid #42D5BA" : "1px solid rgba(237,245,240,0.08)", fontSize: 13, fontWeight: 900 }}
-              >
-                {activeProject ? "Donate Your Savings" : "Browse fundraisers"}
-              </button>
+              <div style={{ display: "flex", justifyContent: "center", marginBottom: 14 }}>
+                <button
+                  onClick={() => {
+                    if (activeProject) {
+                      setShowContributionModal(true);
+                      return;
+                    }
+                    router.push("/challenges");
+                  }}
+                  style={{ borderRadius: 999, padding: "11px 28px", minWidth: 210, background: activeProject ? "#2BBAA4" : "rgba(237,245,240,0.06)", color: activeProject ? "#06251D" : "var(--text-primary)", border: activeProject ? "1px solid #42D5BA" : "1px solid rgba(237,245,240,0.08)", fontSize: 13, fontWeight: 900 }}
+                >
+                  {activeProject ? "Donate Your Savings" : "Browse fundraisers"}
+                </button>
+              </div>
               <div style={{ borderTop: "1px solid rgba(237,245,240,0.08)", paddingTop: 12, marginBottom: 14 }}>
                 <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, marginBottom: 8 }}>
                   <p style={{ fontSize: 10, fontWeight: 900, letterSpacing: 1.2, textTransform: "uppercase", color: "var(--text-muted)" }}>Live activity</p>
