@@ -1593,6 +1593,7 @@ function SplurgeTab({
   const [fundraiserGoalStr, setFundraiserGoalStr] = useState("");
   const [fundraiserBankStr, setFundraiserBankStr] = useState("");
   const [fundraiserSetupWorking, setFundraiserSetupWorking] = useState(false);
+  const [showFundraiserBankDetails, setShowFundraiserBankDetails] = useState(false);
   const fundraiserGoalAmountPreview = parseFloat(fundraiserGoalStr);
   const fundraiserGoalUnitPreview = fundraiserSetup?.unitCost && fundraiserGoalAmountPreview > 0
     ? formatAggregateImpactUnitsDecimal(
@@ -1629,6 +1630,13 @@ function SplurgeTab({
       setShowFundingDetails(false);
     }
   }, [fundingTarget]);
+
+  useEffect(() => {
+    if (!fundraiserSetup) {
+      setFundraiserBankStr("");
+      setShowFundraiserBankDetails(false);
+    }
+  }, [fundraiserSetup]);
 
   const activeGoal = activeGoalProp;
   const activeFundraiser = activeSkipTarget?.type === "fundraiser"
@@ -1734,6 +1742,7 @@ function SplurgeTab({
         setFundraiserSetup(project);
         setFundraiserGoalStr(String(causeGoalAmounts?.[project.id] ?? project.goalAmount ?? ""));
         setFundraiserBankStr("");
+        setShowFundraiserBankDetails(false);
         return;
       }
     }
@@ -2100,33 +2109,6 @@ function SplurgeTab({
                 )}
               </div>
 
-              <div>
-                <label className="mb-1.5 block text-xs font-black uppercase tracking-wide" style={{ color: "#A7F3D0" }}>
-                  Use Skip Bucks
-                </label>
-                <p className="mb-2 text-xs leading-relaxed" style={{ color: "var(--text-secondary)" }}>
-                  You have {formatCurrency(availableSkipBankBalance)} in Skip Bucks. Move some to this cause?
-                </p>
-                <div className="relative">
-                  <span className="absolute left-4 top-1/2 -translate-y-1/2 text-sm" style={{ color: "var(--text-muted)" }}>$</span>
-                  <input
-                    type="number"
-                    min="0"
-                    max={availableSkipBankBalance}
-                    value={fundraiserBankStr}
-                    onChange={(event) => setFundraiserBankStr(event.target.value)}
-                    placeholder="0.00"
-                    className="w-full pl-8 rounded-xl px-4 py-3 text-sm focus:outline-none"
-                    style={{ background: "var(--bg-surface-2)", border: "1px solid var(--border-default)", color: "var(--text-primary)" }}
-                  />
-                </div>
-                {fundraiserSetup?.unitCost && fundraiserBankUnitPreview && (
-                  <p className="mt-2 text-xs font-bold" style={{ color: "#A7F3D0" }}>
-                    That would start this jar at about {fundraiserBankUnitPreview}.
-                  </p>
-                )}
-              </div>
-
               <button
                 onClick={confirmFundraiserSetup}
                 disabled={fundraiserSetupWorking || !fundraiserGoalStr || parseFloat(fundraiserGoalStr) <= 0}
@@ -2135,6 +2117,40 @@ function SplurgeTab({
               >
                 {fundraiserSetupWorking ? "Setting up..." : "Set goal and skip"}
               </button>
+              <button
+                type="button"
+                onClick={() => setShowFundraiserBankDetails((value) => !value)}
+                className="w-full py-1 text-sm font-bold"
+                style={{ background: "transparent", border: "none", color: "var(--text-muted)" }}
+                aria-expanded={showFundraiserBankDetails}
+              >
+                {showFundraiserBankDetails ? "Hide Skip Bucks" : "Use existing Skip Bucks"}
+              </button>
+              {showFundraiserBankDetails && (
+                <div className="rounded-xl p-4" style={{ background: "rgba(237,245,240,0.045)", border: "1px solid rgba(237,245,240,0.08)" }}>
+                  <p className="mb-3 text-xs font-bold" style={{ color: "var(--text-secondary)" }}>
+                    {formatCurrency(availableSkipBankBalance)} available
+                  </p>
+                  <div className="relative">
+                    <span className="absolute left-4 top-1/2 -translate-y-1/2 text-sm" style={{ color: "var(--text-muted)" }}>$</span>
+                    <input
+                      type="number"
+                      min="0"
+                      max={availableSkipBankBalance}
+                      value={fundraiserBankStr}
+                      onChange={(event) => setFundraiserBankStr(event.target.value)}
+                      placeholder="0.00"
+                      className="w-full pl-8 rounded-xl px-4 py-3 text-sm focus:outline-none"
+                      style={{ background: "var(--bg-surface-2)", border: "1px solid var(--border-default)", color: "var(--text-primary)" }}
+                    />
+                  </div>
+                  {fundraiserSetup?.unitCost && fundraiserBankUnitPreview && (
+                    <p className="mt-2 text-xs font-bold" style={{ color: "#A7F3D0" }}>
+                      Starts at about {fundraiserBankUnitPreview}.
+                    </p>
+                  )}
+                </div>
+              )}
               <button
                 onClick={() => {
                   setFundraiserSetup(null);
