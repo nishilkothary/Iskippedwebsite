@@ -214,7 +214,7 @@ function rewardSkipEquivalentLine(balance: number, target: number) {
   if (target <= 0) return "Set a target to track progress";
   if (remaining <= 0) return "Ready to claim";
   const coffees = Math.max(1, Math.ceil(remaining / 5));
-  return `~${coffees.toLocaleString()} skipped coffees could cover this.`;
+  return `~${coffees.toLocaleString()} coffee skips`;
 }
 
 function RewardArtwork({ label, amount, link, imageURL, imagePosition, category: categoryLabel, featured = false }: { label: string; amount?: number; link?: string; imageURL?: string; imagePosition?: string; category?: string; featured?: boolean }) {
