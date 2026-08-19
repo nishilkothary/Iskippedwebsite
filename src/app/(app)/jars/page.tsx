@@ -2671,6 +2671,28 @@ function SplurgeTab({
                       Active
                     </div>
                   )}
+                  {deletingGoalId !== goal.id && (
+                    <div className="absolute right-3 top-12 z-20 flex gap-1">
+                      <button
+                        onClick={() => { startEditGoal(goal); setDeletingGoalId(null); }}
+                        className="flex h-7 w-7 items-center justify-center rounded-full text-sm leading-none shadow-lg transition-colors hover:bg-[#8B5CF6]"
+                        style={{ background: "rgba(23,37,84,0.74)", border: "1px solid rgba(139,92,246,0.46)", color: "#DDD6FE", backdropFilter: "blur(8px)" }}
+                        title="Edit reward"
+                        aria-label="Edit reward"
+                      >
+                        ✎
+                      </button>
+                      <button
+                        onClick={() => setDeletingGoalId(goal.id)}
+                        className="flex h-7 w-7 items-center justify-center rounded-full text-sm leading-none shadow-lg transition-colors hover:bg-red-500"
+                        style={{ background: "rgba(69,10,10,0.58)", border: "1px solid rgba(248,113,113,0.42)", color: "#FECACA", backdropFilter: "blur(8px)" }}
+                        title="Delete reward"
+                        aria-label="Delete reward"
+                      >
+                        ×
+                      </button>
+                    </div>
+                  )}
                   <RewardArtwork label={goal.label} amount={goal.targetAmount} link={goal.shoppingLink} imageURL={goal.imageURL} imagePosition={goal.imagePosition} category={goal.category} />
                   {deletingGoalId === goal.id ? (
                     <div className="p-3" onClick={(e) => e.stopPropagation()}>
@@ -2682,28 +2704,6 @@ function SplurgeTab({
                     </div>
                   ) : (
                     <div className="p-3">
-                      <div className="flex items-center justify-end gap-2">
-                        <div className="flex gap-1">
-                          <button
-                            onClick={() => { startEditGoal(goal); setDeletingGoalId(null); }}
-                            className="flex h-7 w-7 items-center justify-center rounded-full text-sm leading-none transition-colors hover:bg-[#8B5CF6]"
-                            style={{ background: "rgba(139,92,246,0.13)", border: "1px solid rgba(139,92,246,0.36)", color: "#C4B5FD" }}
-                            title="Edit reward"
-                            aria-label="Edit reward"
-                          >
-                            ✎
-                          </button>
-                          <button
-                            onClick={() => setDeletingGoalId(goal.id)}
-                            className="flex h-7 w-7 items-center justify-center rounded-full text-sm leading-none transition-colors hover:bg-red-500"
-                            style={{ background: "rgba(239,68,68,0.08)", border: "1px solid rgba(248,113,113,0.32)", color: "#FCA5A5" }}
-                            title="Delete reward"
-                            aria-label="Delete reward"
-                          >
-                            ×
-                          </button>
-                        </div>
-                      </div>
                       <RewardProgress balance={balance} target={goal.targetAmount} availableSkipBankBalance={availableSkipBankBalance} active={isActiveGoal} />
                       {isActiveGoal ? (
                         <div className="mt-3 rounded-lg py-2 text-center text-[10px] font-black uppercase tracking-wide" style={{ background: "rgba(139,92,246,0.23)", color: "#DDD6FE" }}>
