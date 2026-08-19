@@ -624,7 +624,6 @@ function FundraiserContributionModal({
   const parsedAmount = Number.parseFloat(amount);
   const cleanAmount = Number.isFinite(parsedAmount) ? parsedAmount : 0;
   const canContinue = cleanAmount > 0 && cleanAmount <= availableFromSkips;
-  const quickAmounts = [5, 10, 25, 50].filter((value) => value <= availableFromSkips);
   const impactText = unitCost && unitCost > 0 && cleanAmount > 0
     ? formatAggregateImpactUnitsDecimal(
         cleanAmount,
@@ -724,21 +723,6 @@ function FundraiserContributionModal({
               style={{ flex: 1, minWidth: 0, background: "transparent", border: "none", borderBottom: "2px solid var(--green-primary)", color: "var(--text-primary)", fontSize: 28, fontWeight: 900, outline: "none" }}
             />
           </div>
-          {quickAmounts.length > 0 && (
-            <div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginTop: 14 }}>
-              {quickAmounts.map((value) => (
-                <button
-                  key={value}
-                  type="button"
-                  disabled={step === "ready"}
-                  onClick={() => setAmount(value.toString())}
-                  style={{ border: "1px solid rgba(46,204,113,0.28)", background: cleanAmount === value ? "var(--green-primary)" : "rgba(46,204,113,0.08)", color: cleanAmount === value ? "#0B1A14" : "var(--green-primary)", borderRadius: 999, padding: "7px 12px", fontSize: 12, fontWeight: 900 }}
-                >
-                  {formatCurrencyRounded(value)}
-                </button>
-              ))}
-            </div>
-          )}
           {impactText && (
             <p className="text-xs font-bold mt-3" style={{ color: "var(--green-primary)" }}>
               About {impactText}
