@@ -2101,11 +2101,11 @@ function SplurgeTab({
               </div>
 
               <div>
-                <label className="mb-1.5 block text-xs font-black uppercase tracking-wide" style={{ color: "var(--text-muted)" }}>
-                  Use Skip Bank money
+                <label className="mb-1.5 block text-xs font-black uppercase tracking-wide" style={{ color: "#A7F3D0" }}>
+                  Use Skip Bucks
                 </label>
                 <p className="mb-2 text-xs leading-relaxed" style={{ color: "var(--text-secondary)" }}>
-                  You have already skipped {formatCurrency(availableSkipBankBalance)} of expenses that you haven&apos;t used yet. Do you want to move some of it to this cause?
+                  You have {formatCurrency(availableSkipBankBalance)} in Skip Bucks. Move some to this cause?
                 </p>
                 <div className="relative">
                   <span className="absolute left-4 top-1/2 -translate-y-1/2 text-sm" style={{ color: "var(--text-muted)" }}>$</span>
