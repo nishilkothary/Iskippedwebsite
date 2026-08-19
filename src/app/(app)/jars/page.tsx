@@ -86,10 +86,40 @@ function goalCoverage(balance: number, target: number) {
   return { percent, remaining: Math.max(0, target - balance) };
 }
 
+function rewardCategory(label: string) {
+  const normalized = label.toLowerCase();
+  if (/(trip|flight|hotel|travel|weekend|vacation|getaway)/.test(normalized)) return { tag: "Getaway", accent: "#38BDF8" };
+  if (/(book|course|class|learn|editor|laptop|camera|desk|tool)/.test(normalized)) return { tag: "Personal reward", accent: "#A78BFA" };
+  if (/(dinner|coffee|meal|date|restaurant|brunch)/.test(normalized)) return { tag: "Treat yourself", accent: "#F59E0B" };
+  if (/(shoe|jacket|watch|bag|clothes|style)/.test(normalized)) return { tag: "Upgrade", accent: "#F472B6" };
+  return { tag: "Personal reward", accent: "#8B5CF6" };
+}
+
+function rewardMomentumLine(balance: number, target: number, availableSkipBankBalance: number) {
+  const remaining = Math.max(0, target - balance);
+  if (target <= 0) return "Set a target to track progress";
+  if (remaining <= 0) return "Ready to claim";
+  if (availableSkipBankBalance >= remaining) return `${formatCurrency(remaining)} from Skip Bucks finishes it`;
+  if (availableSkipBankBalance > 0) {
+    const boostedPercent = Math.min(100, Math.round(((balance + availableSkipBankBalance) / target) * 100));
+    return `${formatCurrency(availableSkipBankBalance)} SB could push this to ${boostedPercent}%`;
+  }
+  return `${formatCurrency(remaining)} left to unlock`;
+}
+
+function rewardSkipEquivalentLine(balance: number, target: number) {
+  const remaining = Math.max(0, target - balance);
+  if (target <= 0) return "Set a target to track progress";
+  if (remaining <= 0) return "Ready to claim";
+  const coffees = Math.max(1, Math.ceil(remaining / 5));
+  return `~${coffees.toLocaleString()} skipped coffees could cover this.`;
+}
+
 function RewardArtwork({ label, amount, link, imageURL, imagePosition, featured = false }: { label: string; amount?: number; link?: string; imageURL?: string; imagePosition?: string; featured?: boolean }) {
   const art = rewardArtFor(label);
   const retailer = retailerName(link);
   const previewImageURL = imageURL ?? amazonProductImage(link);
+  const category = rewardCategory(label);
   return (
     <div className={`relative overflow-hidden ${featured ? "min-h-44 sm:min-h-full" : "aspect-[1.35]"}`} style={{ background: art.background }}>
       {previewImageURL && (
@@ -106,15 +136,16 @@ function RewardArtwork({ label, amount, link, imageURL, imagePosition, featured 
       )}
       {!previewImageURL && (
         <>
-          <div className="absolute -right-8 -top-10 h-32 w-32 rounded-full border border-white/20 bg-white/10" />
+          <div className="absolute inset-0 opacity-60" style={{ backgroundImage: "linear-gradient(120deg, rgba(255,255,255,0.12) 1px, transparent 1px)", backgroundSize: "18px 18px" }} />
+          <div className="absolute -right-8 -top-10 h-32 w-32 rounded-full border border-white/25 bg-white/10" />
           <div className="absolute -bottom-12 -left-8 h-28 w-28 rounded-full border border-black/10 bg-black/10" />
         </>
       )}
       <div className="relative flex h-full flex-col justify-between p-4" style={{ color: art.accent }}>
         <div className="flex items-start justify-between gap-3">
-          <span className="text-[10px] font-black uppercase tracking-[0.16em] opacity-80">{retailer ?? "Wish list"}</span>
+          <span className="text-[10px] font-black uppercase tracking-[0.16em] opacity-90">{retailer ?? category.tag}</span>
           {amount !== undefined && (
-            <span className="shrink-0 rounded-full bg-black/25 px-2 py-1 text-xs font-black text-white shadow-sm">
+            <span className="shrink-0 rounded-full px-2 py-1 text-xs font-black text-white shadow-sm" style={{ background: "rgba(0,0,0,0.28)", boxShadow: `0 8px 18px ${category.accent}30` }}>
               {formatCurrency(amount)}
             </span>
           )}
@@ -123,6 +154,36 @@ function RewardArtwork({ label, amount, link, imageURL, imagePosition, featured 
           <p className={`font-black leading-tight text-white ${featured ? "text-2xl" : "text-lg"}`}>{label}</p>
         </div>
       </div>
+    </div>
+  );
+}
+
+function RewardProgress({
+  balance,
+  target,
+  availableSkipBankBalance,
+  active,
+}: {
+  balance: number;
+  target: number;
+  availableSkipBankBalance: number;
+  active?: boolean;
+}) {
+  const { percent, remaining } = goalCoverage(balance, target);
+  const boostedPercent = target > 0 ? Math.min(100, Math.round(((balance + availableSkipBankBalance) / target) * 100)) : 0;
+  return (
+    <div className="mt-3">
+      <div className="flex items-center justify-between gap-2 text-[10px] font-black uppercase tracking-wide" style={{ color: active ? "#DDD6FE" : "#A78BFA" }}>
+        <span>{percent}% covered</span>
+        <span>{remaining > 0 ? `${formatCurrency(remaining)} left` : "Ready"}</span>
+      </div>
+      <div className="relative mt-1.5 h-2 overflow-hidden rounded-full" style={{ background: "rgba(139,92,246,0.15)" }}>
+        <div className="absolute inset-y-0 left-0 rounded-full" style={{ width: `${boostedPercent}%`, background: "rgba(167,139,250,0.26)" }} />
+        <div className="absolute inset-y-0 left-0 rounded-full" style={{ width: `${percent}%`, background: active ? "#8B5CF6" : "#A78BFA" }} />
+      </div>
+      <p className="mt-2 min-h-8 text-[11px] font-bold leading-snug" style={{ color: "var(--text-secondary)" }}>
+        {active ? rewardMomentumLine(balance, target, availableSkipBankBalance) : rewardSkipEquivalentLine(balance, target)}
+      </p>
     </div>
   );
 }
@@ -2279,17 +2340,35 @@ function SplurgeTab({
       {/* Goals list */}
       {shopView === "rewards" && !showAddForm && !editingGoalId && (
         <div className="mt-6">
+          <div className="mb-4 rounded-2xl p-5" style={{ background: "linear-gradient(145deg, rgba(139,92,246,0.18), rgba(16,36,27,0.98) 54%, rgba(245,158,11,0.09))", border: "1px solid rgba(139,92,246,0.32)", overflow: "visible" }}>
+            <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+              <div className="min-w-0">
+                <p className="text-xs font-black uppercase tracking-[0.16em]" style={{ color: "#C4B5FD" }}>Reward vault</p>
+                <p className="mt-1 text-3xl font-extrabold leading-none" style={{ color: "var(--text-primary)" }}>
+                  {goals.length} saved idea{goals.length === 1 ? "" : "s"}
+                </p>
+                <p className="mt-2 text-xs font-bold leading-relaxed" style={{ color: "var(--text-secondary)" }}>
+                  {availableSkipBankBalance > 0
+                    ? `${formatCurrency(availableSkipBankBalance)} in Skip Bucks is ready when you pick a reward.`
+                    : "Pick a reward whenever you want future skips to fill it."}
+                </p>
+              </div>
+              <div className="flex shrink-0 flex-col items-start gap-3 sm:items-end">
+                <button
+                  onClick={() => setShowAddForm(true)}
+                  className="shrink-0 rounded-full px-3 py-2 text-xs font-black"
+                  style={{ background: "white", color: "#0B1A14", border: "none" }}
+                >
+                  + Add to my list
+                </button>
+              </div>
+            </div>
+          </div>
+
           <div className="mb-4 flex items-end justify-between gap-3">
             <div>
               <p className="text-xs font-black uppercase tracking-[0.16em]" style={{ color: "#8B5CF6" }}>Your reward wishlist</p>
             </div>
-            <button
-              onClick={() => setShowAddForm(true)}
-              className="shrink-0 rounded-full px-3 py-2 text-xs font-black"
-              style={{ background: "white", color: "#0B1A14", border: "none" }}
-            >
-              + Add to my list
-            </button>
           </div>
 
           <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
@@ -2298,6 +2377,7 @@ function SplurgeTab({
                 (g) => g.label.toLowerCase() === preset.label.toLowerCase() && g.targetAmount === preset.amount
               );
               const isActive = activeSkipTarget?.type === "goal" && matchingGoal?.id === activeSkipTarget.id;
+              const balance = matchingGoal ? (goalJarBalances?.[matchingGoal.id] ?? 0) : 0;
               return (
                 <button
                   key={`preset-${preset.label}`}
@@ -2305,32 +2385,43 @@ function SplurgeTab({
                   disabled={saving}
                   className="overflow-hidden rounded-2xl text-left transition-all hover:scale-[1.02] active:scale-[0.98] disabled:opacity-60"
                   style={{
-                    background: isActive ? "rgba(139,92,246,0.16)" : "var(--bg-surface-1)",
+                    background: isActive ? "rgba(139,92,246,0.18)" : "linear-gradient(180deg, var(--bg-surface-1), rgba(16,36,27,0.86))",
                     border: isActive ? "2px solid #8B5CF6" : "1px solid rgba(139,92,246,0.3)",
+                    boxShadow: isActive ? "0 18px 38px rgba(139,92,246,0.14)" : "0 12px 26px rgba(0,0,0,0.12)",
                   }}
                 >
-                          <RewardArtwork label={preset.label} amount={preset.amount} />
+                  <RewardArtwork label={preset.label} amount={preset.amount} />
                   <div className="p-3">
-                  <div className="flex items-center justify-between gap-2">
-                    <div className="text-[10px] font-bold" style={{ color: "#8B5CF6" }}>{goalCoverage(matchingGoal ? (goalJarBalances?.[matchingGoal.id] ?? 0) : 0, preset.amount).percent}% covered</div>
-                  </div>
-                  <div className="mt-1 text-xs" style={{ color: "var(--text-muted)" }}>{matchingGoal ? "Already saved" : preset.note}</div>
-                  <div className="mt-3 rounded-lg py-2 text-center text-[10px] font-black uppercase tracking-wide" style={{ background: "rgba(139,92,246,0.17)", color: "#C4B5FD" }}>
-                    Add to my list
-                  </div>
+                    <div className="flex items-center justify-between gap-2">
+                      <div className="text-[10px] font-black uppercase tracking-wide" style={{ color: "#C4B5FD" }}>{preset.note}</div>
+                    </div>
+                    <RewardProgress balance={balance} target={preset.amount} availableSkipBankBalance={availableSkipBankBalance} active={isActive} />
+                    <div className="mt-3 rounded-lg py-2 text-center text-[10px] font-black uppercase tracking-wide" style={{ background: "rgba(139,92,246,0.2)", color: "#DDD6FE" }}>
+                      Add to vault
+                    </div>
                   </div>
                 </button>
               );
             })}
             {goals.map((goal) => {
               const isActiveGoal = activeSkipTarget?.type === "goal" && goal.id === activeSkipTarget.id;
+              const balance = goalJarBalances?.[goal.id] ?? 0;
               return (
                 <div
                   key={goal.id}
                   className="relative overflow-hidden rounded-2xl text-left transition-all hover:scale-[1.02] active:scale-[0.98]"
-                  style={{ background: "var(--bg-surface-1)", border: deletingGoalId === goal.id ? "1px solid rgba(239,68,68,0.4)" : isActiveGoal ? "2px solid #8B5CF6" : "1px solid rgba(139,92,246,0.3)" }}
+                  style={{
+                    background: isActiveGoal ? "linear-gradient(180deg, rgba(139,92,246,0.18), var(--bg-surface-1))" : "linear-gradient(180deg, var(--bg-surface-1), rgba(16,36,27,0.86))",
+                    border: deletingGoalId === goal.id ? "1px solid rgba(239,68,68,0.4)" : isActiveGoal ? "2px solid #8B5CF6" : "1px solid rgba(139,92,246,0.3)",
+                    boxShadow: isActiveGoal ? "0 18px 38px rgba(139,92,246,0.14)" : "0 12px 26px rgba(0,0,0,0.12)",
+                  }}
                 >
-                            <RewardArtwork label={goal.label} amount={goal.targetAmount} link={goal.shoppingLink} imageURL={goal.imageURL} imagePosition={goal.imagePosition} />
+                  {isActiveGoal && (
+                    <div className="absolute left-3 top-3 z-10 rounded-full px-2 py-1 text-[9px] font-black uppercase tracking-wide" style={{ background: "#8B5CF6", color: "white", boxShadow: "0 8px 18px rgba(139,92,246,0.3)" }}>
+                      Active
+                    </div>
+                  )}
+                  <RewardArtwork label={goal.label} amount={goal.targetAmount} link={goal.shoppingLink} imageURL={goal.imageURL} imagePosition={goal.imagePosition} />
                   {deletingGoalId === goal.id ? (
                     <div className="p-3" onClick={(e) => e.stopPropagation()}>
                       <p className="mb-2 text-xs text-red-400">Delete &quot;{goal.label}&quot;?</p>
@@ -2342,7 +2433,9 @@ function SplurgeTab({
                   ) : (
                     <div className="p-3">
                       <div className="flex items-center justify-between gap-2">
-                        <div className="text-[10px] font-bold" style={{ color: "#8B5CF6" }}>{goalCoverage(goalJarBalances?.[goal.id] ?? 0, goal.targetAmount).percent}% covered</div>
+                        <div className="text-[10px] font-black uppercase tracking-wide" style={{ color: "#C4B5FD" }}>
+                          {isActiveGoal ? "Active reward" : "Saved reward"}
+                        </div>
                         <div className="flex gap-1">
                           <button
                             onClick={() => { startEditGoal(goal); setDeletingGoalId(null); }}
@@ -2364,13 +2457,9 @@ function SplurgeTab({
                           </button>
                         </div>
                       </div>
-                              {retailerName(goal.shoppingLink) && (
-                                <div className="mt-1 text-[10px] font-bold" style={{ color: "var(--text-secondary)" }}>
-                                  {retailerName(goal.shoppingLink)}
-                                </div>
-                              )}
+                      <RewardProgress balance={balance} target={goal.targetAmount} availableSkipBankBalance={availableSkipBankBalance} active={isActiveGoal} />
                       {isActiveGoal ? (
-                        <div className="mt-3 rounded-lg py-2 text-center text-[10px] font-black uppercase tracking-wide" style={{ background: "rgba(139,92,246,0.17)", color: "#C4B5FD" }}>
+                        <div className="mt-3 rounded-lg py-2 text-center text-[10px] font-black uppercase tracking-wide" style={{ background: "rgba(139,92,246,0.23)", color: "#DDD6FE" }}>
                           Skipping for this
                         </div>
                       ) : (
@@ -2379,7 +2468,7 @@ function SplurgeTab({
                           className="mt-3 w-full rounded-lg py-2 text-[10px] font-black uppercase tracking-wide transition-colors hover:bg-[rgba(139,92,246,0.26)]"
                           style={{ background: "rgba(139,92,246,0.17)", color: "#C4B5FD" }}
                         >
-                          Skip for this
+                          Start skipping for this
                         </button>
                       )}
                     </div>
@@ -2394,7 +2483,7 @@ function SplurgeTab({
       {shopView === "fundraisers" && (
         <div className="mt-6">
           {activeFundraiser && (
-            <div className="mb-4 rounded-2xl p-5" style={{ background: "var(--bg-surface-1)", border: "1px solid rgba(46,204,113,0.35)" }}>
+            <div className="mb-4 rounded-2xl p-5" style={{ background: "var(--bg-surface-1)", border: "1px solid rgba(46,204,113,0.35)", overflow: "visible" }}>
               <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
                 <div>
                   <p className="text-xs font-black uppercase tracking-[0.14em]" style={{ color: "#A7F3D0" }}>My Fundraiser Jar</p>
@@ -2403,7 +2492,7 @@ function SplurgeTab({
                     {activeFundraiser.groupName ?? activeFundraiser.title}
                   </p>
                 </div>
-                <div className="flex flex-col items-stretch gap-2 sm:items-end">
+                <div className="flex flex-col items-stretch gap-3 sm:items-end">
                   <div className="flex gap-2">
                     {activeFundraiser.donationURL && (
                       <a

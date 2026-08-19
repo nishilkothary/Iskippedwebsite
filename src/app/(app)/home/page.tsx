@@ -19,6 +19,7 @@ import { FeedItem, GlobalStats, Project, Skip, SpendingGoal } from "@/lib/types/
 import { appendRefParam, getChallengeSharePath } from "@/lib/utils/share";
 import { getDirectChallengeShareText } from "@/lib/utils/challengeShareCopy";
 import { ShareButton } from "@/components/share/ShareButton";
+import { SkipBucksBill } from "@/components/SkipBucksBill";
 import { formatAggregateImpactUnitsDecimal, oneUnitPhrase } from "@/lib/utils/impact";
 import { getSkipBalanceSummary } from "@/lib/utils/skipBalances";
 import { useModalA11y } from "@/hooks/useModalA11y";
@@ -1407,10 +1408,6 @@ export default function HomePage() {
             <p>Lifetime savings</p>
             <strong><ScoreboardValue value={skipBalance.lifetimeSaved} format="currency" paused={showSkipPicker} /></strong>
           </div>
-          <div className="iskip-scoreboard-stat">
-            <p>Skip Bank</p>
-            <strong><ScoreboardValue value={skipBalance.availableFromSkips} format="currency" paused={showSkipPicker} /></strong>
-          </div>
         </div>
       </div>
 
@@ -1484,7 +1481,7 @@ export default function HomePage() {
           )}
 
           {!activeGoal && (
-          <div style={{ ...cardStyle, padding: 18, display: "flex", flexDirection: "column", minHeight: 330 }}>
+          <div style={{ ...cardStyle, padding: 18, display: "flex", flexDirection: "column", minHeight: 330, overflow: "visible" }}>
               <div style={{ display: "grid", gridTemplateColumns: activeProject?.imageURL ? "minmax(0, 1fr) 72px" : "minmax(0, 1fr)", gap: 12, alignItems: "start", marginBottom: 14 }}>
                 <div style={{ minWidth: 0 }}>
                 <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
@@ -1499,6 +1496,15 @@ export default function HomePage() {
                 <p style={{ fontSize: 22, fontWeight: 900, lineHeight: 1.1, color: "var(--text-primary)", marginTop: 4 }}>
                   {activeProject?.title ?? "Pick a fundraiser"}
                 </p>
+                {activeProject && (
+                  <div style={{ display: "flex", alignItems: "center", marginTop: 10 }}>
+                    <SkipBucksBill
+                      amount={skipBalance.availableFromSkips}
+                      compact
+                      onManage={() => setShowContributionModal(true)}
+                    />
+                  </div>
+                )}
                 {!activeProject && (
                   <p style={{ fontSize: 13, color: "var(--text-secondary)", lineHeight: 1.4, marginTop: 6 }}>
                     Find a cause where skipped savings can join a shared goal.
