@@ -1510,7 +1510,7 @@ export default function HomePage() {
                 }
                 router.push("/jars?tab=live");
               }}
-              style={{ width: "100%", borderRadius: 12, padding: "11px 12px", background: activeGoal ? "rgba(139,92,246,0.16)" : "rgba(237,245,240,0.06)", color: activeGoal ? "#C4B5FD" : "var(--text-primary)", border: activeGoal ? "1px solid rgba(139,92,246,0.42)" : "1px solid rgba(237,245,240,0.08)", fontSize: 13, fontWeight: 900, marginTop: activeGoal ? 0 : "auto" }}
+              style={{ width: activeGoal ? "auto" : "100%", alignSelf: activeGoal ? "center" : "stretch", minWidth: activeGoal ? 210 : undefined, borderRadius: activeGoal ? 999 : 12, padding: activeGoal ? "11px 28px" : "11px 12px", background: activeGoal ? "rgba(139,92,246,0.16)" : "rgba(237,245,240,0.06)", color: activeGoal ? "#C4B5FD" : "var(--text-primary)", border: activeGoal ? "1px solid rgba(139,92,246,0.42)" : "1px solid rgba(237,245,240,0.08)", fontSize: 13, fontWeight: 900, marginTop: activeGoal ? 0 : "auto" }}
             >
               {activeGoal ? "I'm Ready to Buy This" : "Choose a goal"}
             </button>
