@@ -2148,7 +2148,7 @@ function SplurgeTab({
                   </div>
                   {fundraiserSetup?.unitCost && fundraiserBankUnitPreview && (
                     <p className="mt-2 text-xs font-bold" style={{ color: "#A7F3D0" }}>
-                      Starts at about {fundraiserBankUnitPreview}.
+                      Covers about {fundraiserBankUnitPreview}.
                     </p>
                   )}
                 </div>
