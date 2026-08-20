@@ -10,12 +10,21 @@ import { useUIStore } from "@/store/uiStore";
 import { formatCurrency } from "@/lib/utils/currency";
 import { formatRelativeTime, getChallengeCountdown, getConsecutiveWeeklyStreak, isSameWeek, parkedJarCount } from "@/lib/utils/dates";
 import { SkipSetupPrompt } from "@/components/setup/SkipSetupPrompt";
-import { normalizeJarSplit, normalizeSpendingGoals, recordPurchase } from "@/lib/services/firebase/users";
+import {
+  allocateSkipBankToJar,
+  normalizeJarSplit,
+  normalizeSpendingGoals,
+  pinProjectToHome,
+  recordPurchase,
+  setActiveSkipTarget,
+  setUserCauseGoal,
+  updateSpendingGoals,
+} from "@/lib/services/firebase/users";
 import { levelForXp } from "@/lib/utils/xp";
-import { isChallengeProject, subscribeToProject } from "@/lib/services/firebase/projects";
+import { isChallengeProject, isProjectEnded, PARTNER_CHALLENGE_IDS, subscribeToProject } from "@/lib/services/firebase/projects";
 import { subscribeToChallengeFeed, subscribeToCommunityFeed, subscribeToGlobalStats } from "@/lib/services/firebase/social";
 import { EditSkipModal } from "@/components/skip/EditSkipModal";
-import { FeedItem, GlobalStats, Project, Skip, SpendingGoal } from "@/lib/types/models";
+import { FeedItem, GlobalStats, Project, Skip, SkipAllocationTarget, SpendingGoal } from "@/lib/types/models";
 import { appendRefParam, getChallengeSharePath } from "@/lib/utils/share";
 import { getDirectChallengeShareText } from "@/lib/utils/challengeShareCopy";
 import { ShareButton } from "@/components/share/ShareButton";
@@ -83,6 +92,24 @@ function rewardDefaultImage(label: string, explicitCategory?: string) {
     return "https://images.unsplash.com/photo-1414235077428-338989a2e8c0?auto=format&fit=crop&w=900&q=80";
   }
   return null;
+}
+
+function rewardSkipEquivalentLine(balance: number, target: number) {
+  const remaining = Math.max(0, target - balance);
+  if (target <= 0) return "Set a target to track progress";
+  if (remaining <= 0) return "Ready to claim";
+  const coffees = Math.max(1, Math.ceil(remaining / 5));
+  return `~${coffees.toLocaleString()} coffee skips`;
+}
+
+function fundraiserGroupGoalLine(project: Project) {
+  if (!project.goalAmount || project.goalAmount <= 0) return null;
+  if (project.unitCost && project.unitCost > 0 && project.unitName) {
+    const units = Math.max(1, Math.round(project.goalAmount / project.unitCost));
+    const label = project.unitDisplay ?? `${project.unitName.toLowerCase()}${units === 1 ? "" : "s"}`;
+    return `Group goal: ${formatCurrencyRounded(project.goalAmount)} (${units.toLocaleString()} ${label})`;
+  }
+  return `Group goal: ${formatCurrencyRounded(project.goalAmount)}`;
 }
 
 function ScoreboardValue({
@@ -1006,7 +1033,26 @@ export default function HomePage() {
   const [showContributionModal, setShowContributionModal] = useState(false);
   const [contributionMode, setContributionMode] = useState<"contribute" | "log">("contribute");
   const [showSpendModal, setShowSpendModal] = useState(false);
+  const [jarCarouselIndex, setJarCarouselIndex] = useState(0);
+  const [dismissedJarCarousel, setDismissedJarCarousel] = useState(false);
+  const [homeFundingTarget, setHomeFundingTarget] = useState<SkipAllocationTarget | null>(null);
+  const [homeFundingAmountStr, setHomeFundingAmountStr] = useState("");
+  const [homeFundingWorking, setHomeFundingWorking] = useState(false);
+  const [homeFundingDetailsOpen, setHomeFundingDetailsOpen] = useState(false);
+  const [homeFundraiserSetup, setHomeFundraiserSetup] = useState<Project | null>(null);
+  const [homeFundraiserGoalStr, setHomeFundraiserGoalStr] = useState("");
+  const [homeFundraiserBankStr, setHomeFundraiserBankStr] = useState("");
+  const [homeFundraiserWorking, setHomeFundraiserWorking] = useState(false);
+  const [homeFundraiserBankDetailsOpen, setHomeFundraiserBankDetailsOpen] = useState(false);
   const handledContributionQuery = useRef<string | null>(null);
+
+  useEffect(() => {
+    try {
+      setDismissedJarCarousel(window.localStorage.getItem("iskipped.dismissedNoJarCarousel") === "true");
+    } catch {
+      setDismissedJarCarousel(false);
+    }
+  }, []);
 
   useEffect(() => {
     const requestedMode = searchParams.get("contribute");
@@ -1081,6 +1127,7 @@ export default function HomePage() {
   }, [profile?.activeProjectId, projects]);
 
   if (!profile) return null;
+  const profileData = profile;
 
   const split = normalizeJarSplit(profile.jarSplit as any);
   // Use per-skip allocated totals if available, fall back to profile-split calculation
@@ -1090,30 +1137,29 @@ export default function HomePage() {
   const globalSpendingBalance = Math.max(0, liveTotal - (profile.totalSpent ?? 0));
 
   const { goals: spendingGoals, activeId: activeSpendingGoalId } = normalizeSpendingGoals(profile);
-  const fallbackProject = projects.find((p) => p.id === profile.activeProjectId) ?? null;
-  const fallbackGoal = spendingGoals.find((g) => g.id === activeSpendingGoalId) ?? null;
-  const activeSkipTarget = profile.activeSkipTarget
-    ?? (activeSpendingGoalId ? { type: "goal" as const, id: activeSpendingGoalId } : null)
-    ?? (profile.activeProjectId ? { type: "fundraiser" as const, id: profile.activeProjectId } : null);
+  const activeSkipTarget = profile.activeSkipTarget === undefined
+    ? (activeSpendingGoalId ? { type: "goal" as const, id: activeSpendingGoalId } : null)
+      ?? (profile.activeProjectId ? { type: "fundraiser" as const, id: profile.activeProjectId } : null)
+    : profile.activeSkipTarget;
   const activeGoal = activeSkipTarget?.type === "goal"
-    ? spendingGoals.find((g) => g.id === activeSkipTarget.id) ?? fallbackGoal
+    ? spendingGoals.find((g) => g.id === activeSkipTarget.id) ?? null
     : null;
   const activeGoalImageURL = activeGoal
     ? activeGoal.imageURL || rewardDefaultImage(activeGoal.label, activeGoal.category)
     : null;
   const activeProject = activeSkipTarget?.type === "fundraiser"
-    ? projects.find((p) => p.id === activeSkipTarget.id) ?? fallbackProject
+    ? projects.find((p) => p.id === activeSkipTarget.id) ?? null
     : null;
   const skipBalance = getSkipBalanceSummary(profile);
 
-  const givingBalance = activeProject ? (profile.causeJarBalances?.[activeProject.id] ?? 0) : globalGivingBalance;
+  const givingBalance = activeProject ? Math.max(0, profile.causeJarBalances?.[activeProject.id] ?? 0) : globalGivingBalance;
   const spendingBalance = activeGoal ? (profile.goalJarBalances?.[activeGoal.id] ?? 0) : globalSpendingBalance;
 
 
   const isActiveChallenge = activeProject ? (isChallengeProject(activeProject) || !activeProject.isCustom) : false;
   // Per-challenge balance: what the user has pledged specifically to their active challenge
   const userChallengeBalance = isActiveChallenge && activeProject
-    ? (profile.causeJarBalances?.[activeProject.id] ?? 0)
+    ? Math.max(0, profile.causeJarBalances?.[activeProject.id] ?? 0)
     : 0;
   const challengeContribution = userChallengeBalance;
   // Group total: use project's totalRaised, floored by the user's own challenge balance
@@ -1320,6 +1366,61 @@ export default function HomePage() {
     .map(([id, bal]) => ({ id, balance: bal as number, project: projects.find((p) => p.id === id) ?? null }));
 
   const firstName = profile.displayName.split(" ")[0];
+  const starterJarRewards = [
+    { id: "weekend-trip", label: "Weekend Trip", amount: 300, category: "Getaway" },
+    { id: "concert-tickets", label: "Concert Tickets", amount: 180, category: "Experience" },
+    { id: "flight-abroad", label: "Flight Abroad", amount: 900, category: "Travel" },
+  ];
+  const jarCarouselFundraisers = projects
+    .filter((project) =>
+      !isProjectEnded(project)
+      && (isChallengeProject(project) || PARTNER_CHALLENGE_IDS.includes(project.id))
+    )
+    .slice(0, 4);
+  const savedJarRewards = spendingGoals.map((goal) => ({
+    id: goal.id,
+    label: goal.label,
+    amount: goal.targetAmount,
+    category: goal.category ?? "Reward",
+    imageURL: goal.imageURL || rewardDefaultImage(goal.label, goal.category),
+    imagePosition: goal.imagePosition ?? "center",
+    isSaved: true,
+  }));
+  const savedJarRewardNames = new Set(savedJarRewards.map((reward) => reward.label.trim().toLowerCase()));
+  const starterJarRewardSuggestions = starterJarRewards
+    .filter((reward) => !savedJarRewardNames.has(reward.label.toLowerCase()))
+    .map((reward) => ({
+      ...reward,
+      imageURL: rewardDefaultImage(reward.label, reward.category),
+      imagePosition: "center",
+      isSaved: false,
+    }));
+  const jarCarouselRewards = [...savedJarRewards, ...starterJarRewardSuggestions];
+  type JarCarouselItem =
+    | { kind: "reward"; reward: (typeof jarCarouselRewards)[number] }
+    | { kind: "cause"; project: Project }
+    | { kind: "createReward" };
+  const jarCarouselItems: JarCarouselItem[] = Array.from({ length: Math.max(jarCarouselRewards.length, jarCarouselFundraisers.length) }).flatMap((_, index) => {
+    const items: JarCarouselItem[] = [];
+    const reward = jarCarouselRewards[index];
+    const project = jarCarouselFundraisers[index];
+    if (reward) items.push({ kind: "reward" as const, reward });
+    if (project) items.push({ kind: "cause" as const, project });
+    return items;
+  });
+  jarCarouselItems.push({ kind: "createReward" });
+  const activeJarCarouselIndex = jarCarouselItems.length > 0
+    ? jarCarouselIndex % jarCarouselItems.length
+    : 0;
+  const activeJarCarouselItem = jarCarouselItems[activeJarCarouselIndex] ?? null;
+
+  useEffect(() => {
+    if (activeGoal || activeProject || dismissedJarCarousel || jarCarouselItems.length < 2) return;
+    const id = window.setInterval(() => {
+      setJarCarouselIndex((current) => (current + 1) % jarCarouselItems.length);
+    }, 6500);
+    return () => window.clearInterval(id);
+  }, [activeGoal, activeProject, dismissedJarCarousel, jarCarouselItems.length]);
 
   const cardStyle: React.CSSProperties = {
     background: "var(--bg-surface-1)",
@@ -1330,6 +1431,337 @@ export default function HomePage() {
   const showLegacyHomeSocial: boolean = false;
 
   const rowDivider = "1px solid var(--border-default)";
+
+  const availableHomeSkipBankBalance = skipBalance.unassignedSkipBank;
+  const homeFundraiserGoalAmountPreview = parseFloat(homeFundraiserGoalStr) || 0;
+  const homeFundraiserBankAmountPreview = parseFloat(homeFundraiserBankStr) || 0;
+  const homeFundraiserGoalUnitPreview = homeFundraiserSetup?.unitCost && homeFundraiserGoalAmountPreview > 0
+    ? formatAggregateImpactUnitsDecimal(
+        homeFundraiserGoalAmountPreview,
+        homeFundraiserSetup.unitCost,
+        homeFundraiserSetup.unitName ?? homeFundraiserSetup.unitDisplay ?? "unit",
+        homeFundraiserSetup.unitDisplay,
+        homeFundraiserSetup.unitIsGoal,
+      )
+    : null;
+  const homeFundraiserBankUnitPreview = homeFundraiserSetup?.unitCost && homeFundraiserBankAmountPreview > 0
+    ? formatAggregateImpactUnitsDecimal(
+        Math.min(homeFundraiserBankAmountPreview, availableHomeSkipBankBalance),
+        homeFundraiserSetup.unitCost,
+        homeFundraiserSetup.unitName ?? homeFundraiserSetup.unitDisplay ?? "unit",
+        homeFundraiserSetup.unitDisplay,
+        homeFundraiserSetup.unitIsGoal,
+      )
+    : null;
+
+  function homeFundingPromptLabel(target: SkipAllocationTarget | null) {
+    if (target?.type === "goal") {
+      return spendingGoals.find((goal) => goal.id === target.id)?.label ?? "this reward";
+    }
+    if (target?.type === "fundraiser") {
+      return projects.find((project) => project.id === target.id)?.groupName
+        ?? projects.find((project) => project.id === target.id)?.title
+        ?? "this fundraiser";
+    }
+    return "this jar";
+  }
+
+  function homeFundingPreview(target: SkipAllocationTarget | null, amountStr: string) {
+    const amount = parseFloat(amountStr);
+    if (!target || !amount || amount <= 0) return null;
+    const appliedAmount = Math.min(amount, availableHomeSkipBankBalance);
+    if (target.type === "goal") {
+      const goal = spendingGoals.find((candidate) => candidate.id === target.id);
+      if (!goal?.targetAmount) return null;
+      const currentBalance = Math.max(0, profileData.goalJarBalances?.[goal.id] ?? 0);
+      const percent = Math.min(100, Math.round(((currentBalance + appliedAmount) / goal.targetAmount) * 100));
+      return `This would fund ${percent}% of ${goal.label}.`;
+    }
+    const project = projects.find((candidate) => candidate.id === target.id);
+    if (project?.unitCost && project.unitCost > 0) {
+      return `That is about ${formatAggregateImpactUnitsDecimal(
+        appliedAmount,
+        project.unitCost,
+        project.unitName ?? project.unitDisplay ?? "unit",
+        project.unitDisplay,
+        project.unitIsGoal,
+      )}.`;
+    }
+    return null;
+  }
+
+  async function handleHomeCarouselSkipFor(item: JarCarouselItem) {
+    if (!user) return;
+
+    if (item.kind === "createReward") {
+      router.push("/jars?tab=live&add=reward");
+      return;
+    }
+
+    if (item.kind === "cause") {
+      setHomeFundraiserSetup(item.project);
+      setHomeFundraiserGoalStr(String(profileData.causeGoalAmounts?.[item.project.id] ?? item.project.goalAmount ?? ""));
+      setHomeFundraiserBankStr("");
+      setHomeFundraiserBankDetailsOpen(false);
+      return;
+    }
+
+    if (!item.reward.isSaved) {
+      const params = new URLSearchParams({
+        tab: "live",
+        add: "reward",
+        skip: "1",
+        label: item.reward.label,
+        amount: String(item.reward.amount),
+        category: item.reward.category,
+      });
+      router.push(`/jars?${params.toString()}`);
+      return;
+    }
+
+    let targetGoalId = item.reward.id;
+    const existingGoal = spendingGoals.find(
+      (goal) => goal.id === item.reward.id || goal.label.trim().toLowerCase() === item.reward.label.trim().toLowerCase()
+    );
+    let nextGoals = spendingGoals;
+
+    if (existingGoal) {
+      targetGoalId = existingGoal.id;
+    } else {
+      const newGoal: SpendingGoal = {
+        id: Date.now().toString(),
+        label: item.reward.label,
+        targetAmount: item.reward.amount,
+        type: "splurge",
+        category: item.reward.category,
+        ...(item.reward.imageURL ? { imageURL: item.reward.imageURL } : {}),
+        ...(item.reward.imagePosition ? { imagePosition: item.reward.imagePosition } : {}),
+      };
+      targetGoalId = newGoal.id;
+      nextGoals = [...spendingGoals, newGoal];
+      await updateSpendingGoals(user.uid, nextGoals, targetGoalId);
+      updateProfile({ spendingGoals: nextGoals, activeSpendingGoalId: targetGoalId, spendingGoal: null });
+    }
+
+    const target: SkipAllocationTarget = { type: "goal", id: targetGoalId };
+    await setActiveSkipTarget(user.uid, target);
+    if (nextGoals === spendingGoals) {
+      await updateSpendingGoals(user.uid, nextGoals, targetGoalId);
+    }
+    updateProfile({ activeSkipTarget: target, activeSpendingGoalId: targetGoalId, spendingGoals: nextGoals, spendingGoal: null });
+
+    if (availableHomeSkipBankBalance > 0) {
+      setHomeFundingTarget(target);
+      setHomeFundingAmountStr("");
+      setHomeFundingDetailsOpen(false);
+      return;
+    }
+    toast.success("Future skips will go to this jar.");
+  }
+
+  async function confirmHomeFundraiserSetup() {
+    if (!user || !homeFundraiserSetup) return;
+    const target: SkipAllocationTarget = { type: "fundraiser", id: homeFundraiserSetup.id };
+    const goalAmount = parseFloat(homeFundraiserGoalStr);
+    const bankAmount = parseFloat(homeFundraiserBankStr);
+    if (!goalAmount || goalAmount <= 0) return;
+
+    setHomeFundraiserWorking(true);
+    try {
+      await setUserCauseGoal(user.uid, homeFundraiserSetup.id, goalAmount);
+      await pinProjectToHome(user.uid, homeFundraiserSetup.id);
+      let appliedAmount = 0;
+      if (bankAmount > 0 && availableHomeSkipBankBalance > 0) {
+        appliedAmount = await allocateSkipBankToJar(user.uid, target, Math.min(bankAmount, availableHomeSkipBankBalance), "set");
+      }
+      updateProfile({
+        activeProjectId: homeFundraiserSetup.id,
+        activeSkipTarget: target,
+        joinedProjectIds: Array.from(new Set([...(profileData.joinedProjectIds ?? []), homeFundraiserSetup.id])),
+        causeGoalAmounts: { ...(profileData.causeGoalAmounts ?? {}), [homeFundraiserSetup.id]: goalAmount },
+        ...(appliedAmount > 0
+          ? {
+              causeJarBalances: {
+                ...(profileData.causeJarBalances ?? {}),
+                [homeFundraiserSetup.id]: appliedAmount,
+              },
+            }
+          : {}),
+      });
+      setHomeFundraiserSetup(null);
+      setHomeFundraiserGoalStr("");
+      setHomeFundraiserBankStr("");
+      toast.success("Future skips will go to this fundraiser.");
+    } catch (err) {
+      console.error("home fundraiser setup failed", err);
+      toast.error("Couldn't set that jar yet. Check your connection and try again.");
+    } finally {
+      setHomeFundraiserWorking(false);
+    }
+  }
+
+  async function confirmHomeSkipBankFunding() {
+    if (!user || !homeFundingTarget) return;
+    const amount = parseFloat(homeFundingAmountStr);
+    if (!amount || amount <= 0) return;
+
+    setHomeFundingWorking(true);
+    try {
+      const appliedAmount = await allocateSkipBankToJar(user.uid, homeFundingTarget, Math.min(amount, availableHomeSkipBankBalance), "set");
+      if (appliedAmount > 0) {
+        if (homeFundingTarget.type === "goal") {
+          updateProfile({
+            activeSkipTarget: homeFundingTarget,
+            goalJarBalances: {
+              ...(profileData.goalJarBalances ?? {}),
+              [homeFundingTarget.id]: appliedAmount,
+            },
+          });
+        } else {
+          updateProfile({
+            activeSkipTarget: homeFundingTarget,
+            causeJarBalances: {
+              ...(profileData.causeJarBalances ?? {}),
+              [homeFundingTarget.id]: appliedAmount,
+            },
+          });
+        }
+        toast.success(`${formatCurrency(appliedAmount)} moved into the jar.`);
+      }
+      setHomeFundingTarget(null);
+      setHomeFundingAmountStr("");
+    } catch (err) {
+      console.error("home skip bank funding failed", err);
+      toast.error("Couldn't move those Skip Bucks yet. Check your connection and try again.");
+    } finally {
+      setHomeFundingWorking(false);
+    }
+  }
+
+  function renderJarCarouselCard(item: JarCarouselItem) {
+    if (item.kind === "createReward") {
+      return (
+        <button
+          key="jar-carousel-create-reward"
+          type="button"
+          onClick={() => router.push("/jars?tab=live&add=reward")}
+          style={{ minHeight: 238, borderRadius: 18, padding: 0, textAlign: "left", background: "linear-gradient(180deg, rgba(139,92,246,0.18), rgba(13,19,23,0.92))", border: "1px solid rgba(139,92,246,0.34)", color: "var(--text-primary)", overflow: "hidden", display: "grid", gridTemplateColumns: "minmax(150px, 0.86fr) minmax(0, 1fr)" }}
+        >
+          <div style={{ position: "relative", minHeight: 238, overflow: "hidden", background: "linear-gradient(135deg, rgba(76,29,149,0.85), rgba(46,204,113,0.22))", display: "flex", alignItems: "center", justifyContent: "center" }}>
+            <div style={{ width: 82, height: 82, borderRadius: 24, background: "rgba(237,245,240,0.1)", border: "1px solid rgba(237,245,240,0.2)", display: "flex", alignItems: "center", justifyContent: "center", color: "#DDD6FE", fontSize: 48, fontWeight: 900, lineHeight: 1 }}>
+              +
+            </div>
+            <span style={{ position: "absolute", left: 12, bottom: 12, borderRadius: 999, padding: "5px 10px", background: "rgba(139,92,246,0.92)", color: "white", fontSize: 10, fontWeight: 950, textTransform: "uppercase", letterSpacing: 0.7 }}>
+              Custom reward
+            </span>
+          </div>
+          <div style={{ padding: 18, display: "flex", flexDirection: "column", justifyContent: "space-between", gap: 18 }}>
+            <div>
+              <p style={{ fontSize: 24, fontWeight: 950, lineHeight: 1.05 }}>
+                Create My Own Reward
+              </p>
+              <p style={{ fontSize: 13, color: "var(--text-secondary)", lineHeight: 1.35, marginTop: 7 }}>
+                Add a goal, link, and inspo pic.
+              </p>
+            </div>
+            <span style={{ fontSize: 12, fontWeight: 950, color: "#C4B5FD", textTransform: "uppercase", letterSpacing: 0.8 }}>Build my jar</span>
+          </div>
+        </button>
+      );
+    }
+
+    if (item.kind === "reward") {
+      const rewardBalance = item.reward.isSaved ? (profileData.goalJarBalances?.[item.reward.id] ?? 0) : 0;
+      return (
+        <button
+          key={`jar-carousel-reward-${item.reward.id}`}
+          type="button"
+          onClick={() => void handleHomeCarouselSkipFor(item)}
+          style={{ minHeight: 238, borderRadius: 18, padding: 0, textAlign: "left", background: "linear-gradient(180deg, rgba(139,92,246,0.16), rgba(13,19,23,0.92))", border: "1px solid rgba(139,92,246,0.34)", color: "var(--text-primary)", overflow: "hidden", display: "grid", gridTemplateColumns: "minmax(150px, 0.86fr) minmax(0, 1fr)" }}
+        >
+          <div style={{ position: "relative", minHeight: 238, overflow: "hidden", background: "rgba(139,92,246,0.14)" }}>
+            <img
+              src={item.reward.imageURL ?? "https://images.unsplash.com/photo-1436491865332-7a61a109cc05?auto=format&fit=crop&w=900&q=80"}
+              alt=""
+              style={{ width: "100%", height: "100%", objectFit: "cover", objectPosition: item.reward.imagePosition }}
+            />
+            <div style={{ position: "absolute", inset: 0, background: "linear-gradient(180deg, transparent 30%, rgba(7,13,16,0.76))" }} />
+            <span style={{ position: "absolute", left: 12, bottom: 12, borderRadius: 999, padding: "5px 10px", background: "rgba(139,92,246,0.92)", color: "white", fontSize: 10, fontWeight: 950, textTransform: "uppercase", letterSpacing: 0.7 }}>
+              {item.reward.isSaved ? "Your reward" : "Reward idea"}
+            </span>
+          </div>
+          <div style={{ padding: 18, display: "flex", flexDirection: "column", justifyContent: "space-between", gap: 18 }}>
+            <div>
+              <p style={{ fontSize: 24, fontWeight: 950, lineHeight: 1.05 }}>
+                {item.reward.label}
+              </p>
+              <p style={{ fontSize: 13, color: "var(--text-secondary)", lineHeight: 1.35, marginTop: 7 }}>
+                {formatCurrencyRounded(item.reward.amount)} jar
+              </p>
+              <p style={{ fontSize: 12, color: "#C4B5FD", lineHeight: 1.35, marginTop: 5, fontWeight: 850 }}>
+                {rewardSkipEquivalentLine(rewardBalance, item.reward.amount)}
+              </p>
+            </div>
+            <span style={{ fontSize: 12, fontWeight: 950, color: "#C4B5FD", textTransform: "uppercase", letterSpacing: 0.8 }}>Skip for this</span>
+          </div>
+        </button>
+      );
+    }
+
+    return (
+      <div
+        key={`jar-carousel-cause-${item.project.id}`}
+        style={{ minHeight: 238, borderRadius: 18, padding: 0, textAlign: "left", background: "linear-gradient(180deg, rgba(46,204,113,0.15), rgba(13,19,23,0.92))", border: "1px solid rgba(46,204,113,0.3)", color: "var(--text-primary)", overflow: "hidden", display: "grid", gridTemplateColumns: "minmax(150px, 0.86fr) minmax(0, 1fr)" }}
+      >
+        <button
+          type="button"
+          aria-label={`View details for ${item.project.groupName ?? item.project.title}`}
+          onClick={() => router.push(`/challenges/${item.project.id}`)}
+          style={{ position: "relative", minHeight: 238, overflow: "hidden", background: "rgba(46,204,113,0.12)", border: "none", padding: 0, textAlign: "left", cursor: "pointer" }}
+        >
+          {item.project.imageURL ? (
+            <img
+              src={item.project.imageURL}
+              alt=""
+              style={{ width: "100%", height: "100%", objectFit: "cover", objectPosition: item.project.imagePosition ?? "center" }}
+            />
+          ) : (
+            <div style={{ width: "100%", height: "100%", background: "linear-gradient(135deg, #064E3B, #2ECC71)" }} />
+          )}
+          <div style={{ position: "absolute", inset: 0, background: "linear-gradient(180deg, transparent 30%, rgba(7,13,16,0.78))" }} />
+          <span style={{ position: "absolute", left: 12, bottom: 12, borderRadius: 999, padding: "5px 10px", background: "rgba(46,204,113,0.92)", color: "#071B14", fontSize: 10, fontWeight: 950, textTransform: "uppercase", letterSpacing: 0.7 }}>
+            Group Fundraiser
+          </span>
+        </button>
+        <div style={{ padding: 18, display: "flex", flexDirection: "column", justifyContent: "space-between", gap: 18 }}>
+          <button
+            type="button"
+            onClick={() => router.push(`/challenges/${item.project.id}`)}
+            style={{ border: "none", background: "transparent", color: "inherit", padding: 0, textAlign: "left", cursor: "pointer" }}
+          >
+            <p style={{ fontSize: 24, fontWeight: 950, lineHeight: 1.05, display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", overflow: "hidden" }}>
+              {item.project.groupName ?? item.project.title}
+            </p>
+            <p style={{ fontSize: 13, color: "var(--text-secondary)", lineHeight: 1.35, marginTop: 7 }}>
+              {item.project.unitCost && item.project.unitName ? `${formatCurrency(item.project.unitCost)} per ${item.project.unitName}` : "Shared giving jar"}
+            </p>
+            {(item.project.goalAmount ?? 0) > 0 && (
+              <p style={{ fontSize: 12, color: "#A7F3D0", lineHeight: 1.35, marginTop: 5, fontWeight: 850 }}>
+                Goal: {formatCurrencyRounded(item.project.goalAmount)}
+              </p>
+            )}
+          </button>
+          <button
+            type="button"
+            onClick={() => void handleHomeCarouselSkipFor(item)}
+            style={{ justifySelf: "start", border: "none", background: "transparent", padding: 0, textAlign: "left", cursor: "pointer", fontSize: 12, fontWeight: 950, color: "#A7F3D0", textTransform: "uppercase", letterSpacing: 0.8 }}
+          >
+            Skip for cause
+          </button>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="p-4 md:p-8 max-w-3xl mx-auto pb-24 md:pb-8">
@@ -1423,11 +1855,87 @@ export default function HomePage() {
 
       {/* What it could become */}
       <div style={{ marginTop: 32, marginBottom: 28 }}>
-        {!activeGoal && !activeProject && (
-          <div style={{ margin: "0 2px 16px", textAlign: "center" }}>
-            <p style={{ fontSize: 17, fontWeight: 900, color: "var(--text-primary)", lineHeight: 1.1 }}>Put your skips to work</p>
+        {!activeGoal && !activeProject && !dismissedJarCarousel && activeJarCarouselItem && (
+          <div style={{ ...cardStyle, padding: 18, overflow: "hidden", background: "linear-gradient(180deg, rgba(237,245,240,0.055), var(--bg-surface-1))", border: "1px solid rgba(237,245,240,0.11)", position: "relative" }}>
+            <button
+              type="button"
+              aria-label="Hide jar suggestions"
+              onClick={() => {
+                setDismissedJarCarousel(true);
+                try {
+                  window.localStorage.setItem("iskipped.dismissedNoJarCarousel", "true");
+                } catch {}
+              }}
+              style={{ position: "absolute", top: 14, right: 14, width: 24, height: 24, borderRadius: 999, background: "rgba(237,245,240,0.055)", border: "1px solid rgba(237,245,240,0.1)", color: "var(--text-muted)", fontSize: 13, fontWeight: 900, lineHeight: 1 }}
+            >
+              x
+            </button>
+            <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 14, marginBottom: 14, paddingRight: 34 }}>
+              <div style={{ minWidth: 0 }}>
+                <p style={{ fontSize: 23, fontWeight: 950, color: "var(--text-primary)", lineHeight: 1.05 }}>
+                  Your Next Skip Needs a Jar
+                </p>
+                <p style={{ marginTop: 7, fontSize: 13, color: "var(--text-secondary)", lineHeight: 1.45 }}>
+                  Turn your savings into something more meaningful
+                </p>
+              </div>
+              <SkipBucksBill
+                amount={skipBalance.availableFromSkips}
+                compact
+                paused={showSkipPicker}
+                onManage={() => router.push("/jars")}
+              />
+            </div>
+
+            <div style={{ display: "grid", gridTemplateColumns: "40px minmax(0, 1fr) 40px", alignItems: "center", gap: 10, marginTop: 22 }}>
+              <button
+                type="button"
+                aria-label="Previous jar suggestion"
+                onClick={() => setJarCarouselIndex((current) => (current - 1 + jarCarouselItems.length) % jarCarouselItems.length)}
+                style={{ width: 40, height: 40, borderRadius: 999, background: "rgba(237,245,240,0.06)", border: "1px solid rgba(237,245,240,0.11)", color: "var(--text-primary)", fontSize: 22, fontWeight: 900 }}
+              >
+                ‹
+              </button>
+
+              {renderJarCarouselCard(activeJarCarouselItem)}
+
+              <button
+                type="button"
+                aria-label="Next jar suggestion"
+                onClick={() => setJarCarouselIndex((current) => (current + 1) % jarCarouselItems.length)}
+                style={{ width: 40, height: 40, borderRadius: 999, background: "rgba(237,245,240,0.06)", border: "1px solid rgba(237,245,240,0.11)", color: "var(--text-primary)", fontSize: 22, fontWeight: 900 }}
+              >
+                ›
+              </button>
+            </div>
+
+            <div style={{ display: "grid", gridTemplateColumns: "1fr auto 1fr", alignItems: "center", gap: 10, marginTop: 14 }}>
+              <div />
+              <div style={{ display: "flex", justifyContent: "center", gap: 7 }}>
+                {jarCarouselItems.map((_, dot) => {
+                  const itemIndex = dot;
+                  return (
+                    <button
+                      key={`jar-carousel-dot-${dot}`}
+                      type="button"
+                      aria-label={`Show jar suggestion ${dot + 1}`}
+                      onClick={() => setJarCarouselIndex(itemIndex)}
+                      style={{ width: dot === activeJarCarouselIndex ? 22 : 7, height: 7, borderRadius: 999, background: dot === activeJarCarouselIndex ? "var(--gold-cta)" : "rgba(237,245,240,0.25)", border: "none", transition: "width 180ms ease" }}
+                    />
+                  );
+                })}
+              </div>
+              <button
+                type="button"
+                onClick={() => router.push(activeJarCarouselItem.kind === "cause" ? "/jars?tab=cause" : "/jars?tab=live")}
+                style={{ justifySelf: "end", border: "none", background: "transparent", color: "var(--green-primary)", fontSize: 12, fontWeight: 950, padding: 0, cursor: "pointer" }}
+              >
+                See more →
+              </button>
+            </div>
           </div>
         )}
+        {(activeGoal || activeProject) && (
         <div style={{ display: "grid", gridTemplateColumns: activeGoal || activeProject ? "minmax(0, 1fr)" : "minmax(0, 1fr) minmax(0, 1fr)", gap: 14 }}>
           {!activeProject && (
           <div style={{ ...cardStyle, padding: 18, display: "flex", flexDirection: "column", minHeight: activeGoal ? 0 : 330, position: "relative" }}>
@@ -1516,7 +2024,7 @@ export default function HomePage() {
                     )}
                     <div style={{ minWidth: 0 }}>
                       <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
-                        <p style={{ fontSize: 11, fontWeight: 900, letterSpacing: 1.1, textTransform: "uppercase", color: "var(--green-primary)" }}>Fundraiser</p>
+                        <p style={{ fontSize: 11, fontWeight: 900, letterSpacing: 1.1, textTransform: "uppercase", color: "var(--green-primary)" }}>Group Fundraiser</p>
                         {activeProject && (
                           <span style={{ display: "inline-flex", alignItems: "center", gap: 5, borderRadius: 999, padding: "3px 8px", background: "rgba(46,204,113,0.12)", border: "1px solid rgba(46,204,113,0.28)", color: "#A7F3D0", fontSize: 10, fontWeight: 900, textTransform: "uppercase", letterSpacing: 0.8 }}>
                             <span style={{ width: 6, height: 6, borderRadius: 999, background: "#2ECC71", boxShadow: "0 0 10px rgba(46,204,113,0.9)" }} />
@@ -1656,6 +2164,7 @@ export default function HomePage() {
           </div>
           )}
         </div>
+        )}
       </div>
 
       {showLegacyHomeSocial && activeProject && isActiveChallenge && activeProject.status !== "ended" && (
@@ -2298,6 +2807,169 @@ export default function HomePage() {
         }}
         onAlreadyDonated={() => router.push("/jars?tab=cause&donate=1")}
       />
+
+      {homeFundraiserSetup && (
+        <div className="fixed inset-0 bg-black/60 z-50 flex items-end sm:items-center justify-center p-4" onClick={() => setHomeFundraiserSetup(null)}>
+          <div className="rounded-2xl w-full max-w-sm shadow-2xl" style={{ background: "var(--bg-surface-1)", border: "1px solid var(--border-default)" }} onClick={(event) => event.stopPropagation()}>
+            <div className="relative px-5 pt-5 pb-4 pr-12" style={{ borderBottom: "1px solid var(--border-default)" }}>
+              <p className="text-lg font-black leading-tight" style={{ color: "var(--text-primary)" }}>
+                Skip for {homeFundraiserSetup.groupName ?? homeFundraiserSetup.title}?
+              </p>
+              {fundraiserGroupGoalLine(homeFundraiserSetup) && (
+                <p className="mt-1 text-xs font-bold" style={{ color: "var(--text-muted)" }}>
+                  {fundraiserGroupGoalLine(homeFundraiserSetup)}
+                </p>
+              )}
+              <button
+                type="button"
+                onClick={() => setHomeFundraiserSetup(null)}
+                className="absolute right-4 top-4 text-xl font-black leading-none"
+                style={{ color: "var(--text-muted)" }}
+                aria-label="Close fundraiser setup"
+              >
+                x
+              </button>
+            </div>
+            <div className="space-y-4 p-5">
+              <div>
+                <label className="mb-1.5 block text-xs font-black uppercase tracking-wide" style={{ color: "#A7F3D0" }}>
+                  Personal skipping goal
+                </label>
+                <div className="relative">
+                  <span className="absolute left-4 top-1/2 -translate-y-1/2 text-sm" style={{ color: "var(--text-muted)" }}>$</span>
+                  <input
+                    type="number"
+                    min="1"
+                    value={homeFundraiserGoalStr}
+                    onChange={(event) => setHomeFundraiserGoalStr(event.target.value)}
+                    placeholder="100"
+                    className="w-full pl-8 rounded-xl px-4 py-3 text-sm focus:outline-none"
+                    style={{ background: "var(--bg-surface-2)", border: "1px solid var(--border-default)", color: "var(--text-primary)" }}
+                    autoFocus
+                  />
+                </div>
+                {homeFundraiserSetup.unitCost && homeFundraiserGoalUnitPreview && (
+                  <p className="mt-2 text-xs font-bold" style={{ color: "#A7F3D0" }}>
+                    About {homeFundraiserGoalUnitPreview}.
+                  </p>
+                )}
+              </div>
+
+              <button
+                type="button"
+                onClick={() => setHomeFundraiserBankDetailsOpen((value) => !value)}
+                className="flex w-full items-center justify-between py-1 text-sm font-bold"
+                style={{ background: "transparent", border: "none", color: "var(--text-muted)" }}
+                aria-expanded={homeFundraiserBankDetailsOpen}
+              >
+                <span>{homeFundraiserBankDetailsOpen ? "Hide Skip Bucks" : "Use existing Skip Bucks"}</span>
+                <span aria-hidden="true">{homeFundraiserBankDetailsOpen ? "▲" : "▼"}</span>
+              </button>
+              {homeFundraiserBankDetailsOpen && (
+                <div className="rounded-xl p-4" style={{ background: "rgba(237,245,240,0.045)", border: "1px solid rgba(237,245,240,0.08)" }}>
+                  <p className="mb-3 text-xs font-bold leading-snug" style={{ color: "var(--text-muted)" }}>
+                    You have {formatCurrency(availableHomeSkipBankBalance)}{" "}in Skip Bucks you have already saved, but haven&apos;t used. Do you want to move some into this jar?
+                  </p>
+                  <div className="relative">
+                    <span className="absolute left-4 top-1/2 -translate-y-1/2 text-sm" style={{ color: "var(--text-muted)" }}>$</span>
+                    <input
+                      type="number"
+                      min="0"
+                      max={availableHomeSkipBankBalance}
+                      value={homeFundraiserBankStr}
+                      onChange={(event) => setHomeFundraiserBankStr(event.target.value)}
+                      placeholder="0.00"
+                      className="w-full pl-8 rounded-xl px-4 py-3 text-sm focus:outline-none"
+                      style={{ background: "var(--bg-surface-2)", border: "1px solid var(--border-default)", color: "var(--text-primary)" }}
+                    />
+                  </div>
+                  {homeFundraiserSetup.unitCost && homeFundraiserBankUnitPreview && (
+                    <p className="mt-2 text-xs font-bold" style={{ color: "#A7F3D0" }}>
+                      Covers about {homeFundraiserBankUnitPreview}.
+                    </p>
+                  )}
+                </div>
+              )}
+              <button
+                onClick={() => void confirmHomeFundraiserSetup()}
+                disabled={homeFundraiserWorking || !homeFundraiserGoalStr || parseFloat(homeFundraiserGoalStr) <= 0}
+                className="w-full rounded-xl py-3 text-sm font-black disabled:opacity-50"
+                style={{ background: "#2ECC71", color: "#071B14" }}
+              >
+                {homeFundraiserWorking ? "Setting up..." : "Set goal and skip"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {homeFundingTarget && (
+        <div className="fixed inset-0 bg-black/60 z-50 flex items-end sm:items-center justify-center p-4" onClick={() => setHomeFundingTarget(null)}>
+          <div className="rounded-2xl w-full max-w-sm shadow-2xl" style={{ background: "var(--bg-surface-1)", border: "1px solid var(--border-default)" }} onClick={(event) => event.stopPropagation()}>
+            <div className="px-5 pt-5 pb-4 relative" style={{ borderBottom: "1px solid var(--border-default)" }}>
+              <button onClick={() => setHomeFundingTarget(null)} aria-label="Close" className="absolute top-4 right-4 text-xl leading-none" style={{ color: "var(--text-muted)" }}>x</button>
+              <p className="text-lg font-black leading-tight pr-6" style={{ color: "var(--text-primary)" }}>
+                Start skipping for {homeFundingPromptLabel(homeFundingTarget)}?
+              </p>
+            </div>
+            <div className="space-y-3 p-5">
+              <button
+                onClick={() => {
+                  setHomeFundingTarget(null);
+                  toast.success("Future skips will go to this jar.");
+                }}
+                className="w-full rounded-xl py-3 text-sm font-black"
+                style={{ background: "#8B5CF6", color: "white" }}
+              >
+                Start skipping for this
+              </button>
+              <button
+                type="button"
+                onClick={() => setHomeFundingDetailsOpen((value) => !value)}
+                className="w-full py-1 text-sm font-bold"
+                style={{ background: "transparent", border: "none", color: "var(--text-muted)" }}
+                aria-expanded={homeFundingDetailsOpen}
+              >
+                {homeFundingDetailsOpen ? "Hide Skip Bucks" : "Use existing Skip Bucks"}
+              </button>
+              {homeFundingDetailsOpen && (
+                <div className="rounded-xl p-4" style={{ background: "rgba(237,245,240,0.045)", border: "1px solid rgba(237,245,240,0.08)" }}>
+                  <p className="mb-3 text-xs font-bold" style={{ color: "var(--text-secondary)" }}>
+                    {formatCurrency(availableHomeSkipBankBalance)} available
+                  </p>
+                  <div className="relative">
+                    <span className="absolute left-4 top-1/2 -translate-y-1/2 text-sm" style={{ color: "var(--text-muted)" }}>$</span>
+                    <input
+                      type="number"
+                      min="0"
+                      max={availableHomeSkipBankBalance}
+                      value={homeFundingAmountStr}
+                      onChange={(event) => setHomeFundingAmountStr(event.target.value)}
+                      placeholder="0.00"
+                      className="w-full pl-8 rounded-xl px-4 py-3 text-sm focus:outline-none"
+                      style={{ background: "var(--bg-surface-2)", border: "1px solid var(--border-default)", color: "var(--text-primary)" }}
+                      autoFocus
+                    />
+                  </div>
+                  {homeFundingPreview(homeFundingTarget, homeFundingAmountStr) && (
+                    <p className="text-xs font-bold leading-relaxed mt-3" style={{ color: "#C4B5FD" }}>
+                      {homeFundingPreview(homeFundingTarget, homeFundingAmountStr)}
+                    </p>
+                  )}
+                  <button
+                    onClick={() => void confirmHomeSkipBankFunding()}
+                    disabled={homeFundingWorking || !homeFundingAmountStr || parseFloat(homeFundingAmountStr) <= 0}
+                    className="mt-3 w-full rounded-xl py-3 text-sm font-black disabled:opacity-50"
+                    style={{ background: "rgba(139,92,246,0.2)", color: "#DDD6FE" }}
+                  >
+                    {homeFundingWorking ? "Applying..." : "Apply Skip Bucks"}
+                  </button>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
 
       {editingSkip && (
         <EditSkipModal

@@ -1,12 +1,12 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { useParams, useRouter } from "next/navigation";
+import { useParams, useRouter, useSearchParams } from "next/navigation";
 import { useAuthStore } from "@/store/authStore";
 import { useUIStore } from "@/store/uiStore";
 import { useProjects } from "@/hooks/useProjects";
 import { Project } from "@/lib/types/models";
-import { pinProjectToHome, normalizeJarSplit, setChallengeEmailConsent } from "@/lib/services/firebase/users";
+import { pinProjectToHome, normalizeJarSplit, setChallengeEmailConsent, setUserCauseGoal } from "@/lib/services/firebase/users";
 import { isChallengeProject, getProject } from "@/lib/services/firebase/projects";
 import { formatCurrency } from "@/lib/utils/currency";
 import { getChallengeCountdown } from "@/lib/utils/dates";
@@ -32,6 +32,8 @@ type ChallengeView = {
   joinedLabel: string;
   skipChallengeLine: string | null;
 };
+
+type InviteStep = "intro" | "goal" | "first-skip";
 
 
 function challengeTitle(project: Project): string {
@@ -64,8 +66,31 @@ function getDisplayGoalAmount(project: Project): number {
   return 0;
 }
 
+function getSuggestedPersonalGoal(project: Project): number {
+  const groupGoal = getDisplayGoalAmount(project);
+  const unitCost = project.unitCost ?? 0;
+  let suggestion = groupGoal > 0 ? groupGoal : 50;
+  if (unitCost >= 100) suggestion = unitCost;
+  else if (unitCost >= 10) suggestion = unitCost * 5;
+  else if (unitCost > 0) suggestion = Math.max(25, Math.round((unitCost * 100) / 5) * 5);
+  if (groupGoal > 0) suggestion = Math.min(suggestion, groupGoal);
+  return Math.max(5, Math.round(suggestion));
+}
+
 function getUnitLabel(project: Project): string {
   return project.unitDisplay ?? project.unitName ?? "units";
+}
+
+function formatGroupGoal(project: Project): string {
+  const amount = getDisplayGoalAmount(project);
+  if (amount <= 0) return "Open group goal";
+  if (project.unitCost && project.unitCost > 0 && project.unitName) {
+    const units = amount / project.unitCost;
+    const rounded = Number.isInteger(units) ? units.toLocaleString() : units.toFixed(1);
+    const unitLabel = project.unitDisplay ?? project.unitName;
+    return `Group goal: ${formatCurrency(amount)} (${rounded} ${unitLabel})`;
+  }
+  return `Group goal: ${formatCurrency(amount)}`;
 }
 
 function getSkipChallengeLine(project: Project): string | null {
@@ -76,6 +101,19 @@ function getSkipChallengeLine(project: Project): string | null {
   if (levels.length === 1) return `Complete ${levels[0]} skip`;
   const last = levels[levels.length - 1];
   return `Complete ${levels.slice(0, -1).join(", ")}, and ${last} skips`;
+}
+
+function causeHelpDescription(description: string | undefined): string {
+  const trimmed = description?.trim();
+  if (!trimmed) return "Skip anything. Your small choices help this move.";
+  const normalized = trimmed
+    .replace(/^your\s+(?:skips|savings|skipped savings)\s+(?:can\s+)?(?:help\s+)?fund\s+/i, "")
+    .replace(/^your\s+(?:skips|savings|skipped savings)\s+(?:can\s+)?(?:help\s+)?provide\s+/i, "")
+    .replace(/^your\s+(?:skips|savings|skipped savings)\s+(?:can\s+)?(?:help\s+)?/i, "")
+    .replace(/^help\s+(?:fund|provide|equip)\s+/i, "")
+    .trim();
+  const sentence = normalized.charAt(0).toLowerCase() + normalized.slice(1);
+  return `Your skips can help fund ${sentence}`;
 }
 
 function visibilityLabel(project: Project): ChallengeView["visibilityLabel"] {
@@ -147,7 +185,7 @@ function ProgressBar({ challenge, pledgedAmount = challenge.raised }: { challeng
   return (
     <div>
       <div className="flex justify-between gap-3 text-sm font-black mb-2">
-        <span style={{ color: "var(--green-primary)" }}>Raised {formatCurrency(pledgedAmount)}</span>
+        <span style={{ color: "var(--green-primary)" }}>Skipped {formatCurrency(pledgedAmount)}</span>
         <span style={{ color: "var(--text-muted)" }}>{progressPct}%</span>
       </div>
       <div className="h-3 rounded-full overflow-hidden" style={{ background: "var(--bg-surface-3)" }}>
@@ -215,6 +253,7 @@ function SkipChallenge({ project }: { project: Project }) {
 
 export default function ChallengeDetailPage() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const params = useParams();
   const challengeId = typeof params?.id === "string" ? params.id : Array.isArray(params?.id) ? params.id[0] : "";
   const { user, profile, updateProfile } = useAuthStore();
@@ -224,6 +263,9 @@ export default function ChallengeDetailPage() {
   const [showEmailConsent, setShowEmailConsent] = useState(false);
   const [shareEmailOnJoin, setShareEmailOnJoin] = useState(true);
   const [showShare, setShowShare] = useState(false);
+  const [inviteStep, setInviteStep] = useState<InviteStep | null>(null);
+  const [inviteFlowSeenFor, setInviteFlowSeenFor] = useState("");
+  const [personalGoalInput, setPersonalGoalInput] = useState("");
   const canNativeShare = typeof navigator !== "undefined" && typeof navigator.share === "function";
 
   // The projects list comes from a whole-collection snapshot that fires from
@@ -257,6 +299,15 @@ export default function ChallengeDetailPage() {
     return project && (isChallengeProject(project) || !project.isCustom) ? challengeFromProject(project) : null;
   }, [listedProject, fallbackProject]);
 
+  useEffect(() => {
+    if (!user || !challenge || searchParams.get("invite") !== "1" || inviteFlowSeenFor === challenge.project.id) return;
+    setInviteFlowSeenFor(challenge.project.id);
+    const savedGoal = profile?.causeGoalAmounts?.[challenge.project.id];
+    const suggestedGoal = savedGoal && savedGoal > 0 ? savedGoal : getSuggestedPersonalGoal(challenge.project);
+    setPersonalGoalInput(String(Math.round(suggestedGoal)));
+    setInviteStep("intro");
+  }, [user, challenge, searchParams, inviteFlowSeenFor, profile?.causeGoalAmounts]);
+
   if (!challenge) {
     if (projectsLoading || !fallbackChecked) {
       return (
@@ -282,7 +333,7 @@ export default function ChallengeDetailPage() {
   const countdown = getChallengeCountdown(challenge.project);
   const split = normalizeJarSplit(profile?.jarSplit as any);
   const giveTotal = profile ? (profile.totalGiveAllocated ?? profile.totalSaved * (split.give / 100)) : 0;
-  const profileChallengeBalance = profile?.causeJarBalances?.[challenge.project.id] ?? 0;
+  const profileChallengeBalance = Math.max(0, profile?.causeJarBalances?.[challenge.project.id] ?? 0);
   const pledgedAmount = Math.max(challenge.project.totalRaised || 0, profileChallengeBalance);
   const challengeUrl = appendRefParam(
     typeof window !== "undefined" ? `${window.location.origin}${getChallengeSharePath(challenge.project)}` : getChallengeSharePath(challenge.project),
@@ -299,6 +350,14 @@ export default function ChallengeDetailPage() {
       } catch { /* dismissed */ }
     }
     setShowShare(true);
+  }
+
+  function handleClose() {
+    if (window.history.length > 1) {
+      router.back();
+      return;
+    }
+    router.push("/jars?tab=cause");
   }
 
   async function handleJoin() {
@@ -347,6 +406,40 @@ export default function ChallengeDetailPage() {
     }
   }
 
+  async function completeInviteGoal() {
+    if (!user || !challenge || joining) return;
+    const amount = Number(personalGoalInput);
+    if (!Number.isFinite(amount) || amount <= 0) return;
+    setJoining(true);
+    try {
+      await Promise.all([
+        pinProjectToHome(user.uid, challenge.project.id),
+        setUserCauseGoal(user.uid, challenge.project.id, amount),
+        profile?.challengeEmailConsents?.[challenge.project.id] === undefined
+          ? setChallengeEmailConsent(user.uid, challenge.project.id, false)
+          : Promise.resolve(),
+      ]);
+      updateProfile({
+        activeProjectId: challenge.project.id,
+        activeSkipTarget: { type: "fundraiser", id: challenge.project.id },
+        joinedProjectIds: Array.from(new Set([...(profile?.joinedProjectIds ?? []), challenge.project.id])),
+        causeGoalAmounts: { ...(profile?.causeGoalAmounts ?? {}), [challenge.project.id]: amount },
+        challengeEmailConsents: profile?.challengeEmailConsents?.[challenge.project.id] === undefined
+          ? { ...(profile?.challengeEmailConsents ?? {}), [challenge.project.id]: false }
+          : profile?.challengeEmailConsents,
+      });
+      setInviteStep("first-skip");
+    } finally {
+      setJoining(false);
+    }
+  }
+
+  function finishInvite(openSkipPicker: boolean) {
+    setInviteStep(null);
+    if (openSkipPicker) setShowSkipPicker(true);
+    router.push("/home");
+  }
+
   return (
     <div className="p-4 md:p-8 max-w-4xl mx-auto pb-28 md:pb-8">
       <div className="flex items-center justify-between mb-4">
@@ -363,7 +456,16 @@ export default function ChallengeDetailPage() {
         </button>
       </div>
 
-      <article className="rounded-2xl overflow-hidden" style={{ background: "var(--bg-surface-1)", border: "1px solid rgba(46,204,113,0.28)" }}>
+      <article className="relative rounded-2xl overflow-hidden" style={{ background: "var(--bg-surface-1)", border: "1px solid rgba(46,204,113,0.28)" }}>
+        <button
+          type="button"
+          onClick={handleClose}
+          aria-label="Close challenge details"
+          className="absolute right-3 top-3 z-20 flex h-8 w-8 items-center justify-center rounded-full text-sm font-black"
+          style={{ background: "rgba(7,27,20,0.72)", border: "1px solid rgba(237,245,240,0.22)", color: "var(--text-primary)", backdropFilter: "blur(8px)" }}
+        >
+          x
+        </button>
         {challenge.imageURL && <ChallengeImage challenge={challenge} className="h-64 md:h-96" />}
         <div className="p-5">
           <div className="flex flex-wrap gap-2 mb-3">
@@ -400,7 +502,7 @@ export default function ChallengeDetailPage() {
 
           <section className="mt-5 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
             <DetailTile label="Country / region" value={challenge.project.location || "Not specified"} accent="#A7F3D0" />
-            <DetailTile label="Donation goal" value={challenge.goal > 0 ? formatCurrency(challenge.goal) : "Open goal"} />
+            <DetailTile label="Unit goal" value={challenge.goal > 0 ? formatCurrency(challenge.goal) : "Open goal"} />
             <DetailTile
               label="Unit cost"
               value={challenge.project.unitCost
@@ -414,40 +516,15 @@ export default function ChallengeDetailPage() {
           <section className="mt-4">
             <p className="text-xs uppercase tracking-wide font-bold mb-2" style={{ color: "var(--text-muted)" }}>About this cause</p>
             <p className="text-base leading-relaxed whitespace-pre-line" style={{ color: "var(--text-secondary)" }}>
-              {challenge.project.description || "Skip anything. Your small choices help this move."}
+              {causeHelpDescription(challenge.project.description)}
             </p>
           </section>
 
           <div className="mt-5">
             {challenge.goal > 0 ? (
-              (() => {
-                const unitCost = challenge.project.unitCost ?? 0;
-                const hasUnits = unitCost > 0;
-                const statsReady = profile !== null;
-                const unitLabel = getUnitLabel(challenge.project);
-                const goalUnits = hasUnits ? Math.round(challenge.goal / unitCost) : 0;
-                const donatedUnits = hasUnits && statsReady ? Math.floor(pledgedAmount / unitCost) : 0;
-                return (
-                  <div className="grid grid-cols-2 gap-3 rounded-xl p-4" style={{ background: "var(--bg-surface-2)", border: "1px solid var(--border-default)" }}>
-                    <div className="text-center">
-                      <p className="text-xl font-black" style={{ color: "var(--green-primary)" }}>
-                        {hasUnits ? goalUnits.toLocaleString() : formatCurrency(challenge.goal)}
-                      </p>
-                      <p className="text-xs mt-0.5" style={{ color: "var(--text-muted)" }}>
-                        {hasUnits ? `${unitLabel} goal` : "goal"}
-                      </p>
-                    </div>
-                    <div className="text-center">
-                      <p className="text-xl font-black" style={{ color: "var(--gold-cta)" }}>
-                        {hasUnits ? (statsReady ? donatedUnits.toLocaleString() : "-") : (statsReady ? formatCurrency(pledgedAmount) : "-")}
-                      </p>
-                      <p className="text-xs mt-0.5" style={{ color: "var(--text-muted)" }}>
-                        {hasUnits ? `${unitLabel} donated` : "donated"}
-                      </p>
-                    </div>
-                  </div>
-                );
-              })()
+              <section className="rounded-xl px-4 py-4" style={{ background: "var(--bg-surface-2)", border: "1px solid var(--border-default)" }}>
+                <ProgressBar challenge={challenge} pledgedAmount={profile !== null ? pledgedAmount : 0} />
+              </section>
             ) : (
               /* Partner / open-ended challenge — show aggregate stats instead of a progress bar */
               (() => {
@@ -484,48 +561,19 @@ export default function ChallengeDetailPage() {
             )}
           </div>
 
-          {challenge.impactLine && (
-            <section className="rounded-xl px-4 py-3 mt-5" style={{ background: "var(--bg-surface-2)", border: "1px solid var(--border-default)" }}>
-              <p className="text-sm font-black" style={{ color: "var(--green-primary)" }}>{challenge.impactLine}</p>
-            </section>
-          )}
-
           <SkipChallenge project={challenge.project} />
 
-          {/* Where donations go */}
-          <div className="mt-5 rounded-xl px-4 py-4" style={{ background: "var(--bg-surface-2)", border: "1px solid var(--border-default)" }}>
-            <p className="text-xs uppercase tracking-wide font-bold mb-2" style={{ color: "var(--text-muted)" }}>Where your donation goes</p>
-            <p className="text-sm font-black" style={{ color: "var(--text-primary)" }}>
-              {challenge.project.sponsor || challenge.title}
-            </p>
-            {challenge.project.donationURL ? (
-              <a
-                href={challenge.project.donationURL}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="text-xs mt-0.5 block hover:underline"
-                style={{ color: "var(--green-primary)" }}
-              >
-                {donationHost(challenge.project.donationURL)}
-              </a>
-            ) : (
-              <p className="text-xs mt-1" style={{ color: "var(--text-muted)" }}>No donation link has been added yet.</p>
-            )}
-            {challenge.project.learnMoreURL && (
-              <a
-                href={challenge.project.learnMoreURL}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="text-xs mt-1 block hover:underline"
-                style={{ color: "var(--text-muted)" }}
-              >
-                Learn more →
-              </a>
-            )}
-            <p className="text-xs mt-3 leading-relaxed" style={{ color: "var(--text-muted)" }}>
-              iSkipped doesn&apos;t process payments. When you tap Donate, you go directly to {challenge.project.sponsor || "the organizer"} to complete your gift.
-            </p>
-          </div>
+          {challenge.project.learnMoreURL && (
+            <a
+              href={challenge.project.learnMoreURL}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="mt-5 flex items-center justify-center rounded-xl px-4 py-3 text-sm font-black"
+              style={{ background: "var(--bg-surface-2)", border: "1px solid var(--border-default)", color: "var(--green-primary)", textDecoration: "none" }}
+            >
+              Learn more →
+            </a>
+          )}
 
           <div className="flex gap-2 mt-4">
             {!countdown.isExpired && (
@@ -616,6 +664,159 @@ export default function ChallengeDetailPage() {
         </div>
       )}
 
+      {inviteStep && (
+        <InviteFlowModal
+          step={inviteStep}
+          challenge={challenge}
+          goalValue={personalGoalInput}
+          joining={joining}
+          onClose={() => setInviteStep(null)}
+          onStart={() => setInviteStep("goal")}
+          onGoalChange={setPersonalGoalInput}
+          onSubmitGoal={completeInviteGoal}
+          onLogSkip={() => finishInvite(true)}
+          onLater={() => finishInvite(false)}
+        />
+      )}
+
+    </div>
+  );
+}
+
+function InviteFlowModal({
+  step,
+  challenge,
+  goalValue,
+  joining,
+  onClose,
+  onStart,
+  onGoalChange,
+  onSubmitGoal,
+  onLogSkip,
+  onLater,
+}: {
+  step: InviteStep;
+  challenge: ChallengeView;
+  goalValue: string;
+  joining: boolean;
+  onClose: () => void;
+  onStart: () => void;
+  onGoalChange: (value: string) => void;
+  onSubmitGoal: () => void;
+  onLogSkip: () => void;
+  onLater: () => void;
+}) {
+  const amount = Number(goalValue);
+  const validGoal = Number.isFinite(amount) && amount > 0;
+  const unitCount = challenge.project.unitCost && validGoal ? amount / challenge.project.unitCost : null;
+  const unitLabel = challenge.project.unitDisplay ?? challenge.project.unitName ?? "units";
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4" style={{ background: "rgba(0,0,0,0.68)" }}>
+      <div className="w-full max-w-md overflow-hidden rounded-2xl shadow-2xl" style={{ background: "var(--bg-surface-1)", border: "1px solid var(--border-emphasis)" }}>
+        <div className="relative px-5 py-4" style={{ borderBottom: "1px solid var(--border-default)" }}>
+          <p className="text-xs uppercase tracking-[0.14em] font-black mb-1" style={{ color: "var(--green-primary)" }}>
+            Fundraiser invite
+          </p>
+          <p className="text-xl font-black leading-tight pr-8" style={{ color: "var(--text-primary)" }}>
+            {step === "intro" ? `You were invited to skip for ${challenge.title}` : step === "goal" ? `Set your goal for ${challenge.title}` : "Have you skipped anything recently?"}
+          </p>
+          <button
+            type="button"
+            onClick={onClose}
+            aria-label="Close invite"
+            className="absolute right-4 top-4 text-lg font-black"
+            style={{ color: "var(--text-muted)" }}
+          >
+            x
+          </button>
+        </div>
+
+        <div className="space-y-4 p-5">
+          {step === "intro" && (
+            <>
+              <p className="text-sm leading-relaxed" style={{ color: "var(--text-secondary)" }}>
+                Instead of asking you to donate upfront, this fundraiser asks you to skip everyday expenses and save those dollars for {challenge.title}.
+              </p>
+              <div className="rounded-xl p-4" style={{ background: "var(--bg-surface-2)", border: "1px solid var(--border-default)" }}>
+                <p className="text-xs uppercase tracking-wide font-black mb-1" style={{ color: "var(--text-muted)" }}>Group goal</p>
+                <p className="text-sm font-black" style={{ color: "var(--green-primary)" }}>{formatGroupGoal(challenge.project)}</p>
+              </div>
+              <button
+                type="button"
+                onClick={onStart}
+                className="w-full rounded-full py-3 text-sm font-black"
+                style={{ background: "linear-gradient(135deg, var(--green-primary), var(--green-grad-end))", color: "var(--bg-base)" }}
+              >
+                Yes, join this fundraiser
+              </button>
+            </>
+          )}
+
+          {step === "goal" && (
+            <>
+              <p className="text-sm leading-relaxed" style={{ color: "var(--text-secondary)" }}>
+                Choose a personal savings goal. This becomes your jar target for this cause.
+              </p>
+              <p className="text-xs font-bold" style={{ color: "var(--text-muted)" }}>
+                {formatGroupGoal(challenge.project)}
+              </p>
+              <label className="block">
+                <span className="text-xs uppercase tracking-wide font-black" style={{ color: "var(--green-primary)" }}>Personal savings goal</span>
+                <div className="mt-2 flex items-center rounded-xl px-3 py-2" style={{ background: "var(--bg-surface-2)", border: "1px solid var(--border-default)" }}>
+                  <span className="text-sm font-black mr-2" style={{ color: "var(--text-muted)" }}>$</span>
+                  <input
+                    type="number"
+                    min="1"
+                    value={goalValue}
+                    onChange={(event) => onGoalChange(event.target.value)}
+                    className="w-full bg-transparent outline-none text-base font-black"
+                    style={{ color: "var(--text-primary)" }}
+                  />
+                </div>
+              </label>
+              {unitCount !== null && (
+                <p className="text-xs font-bold" style={{ color: "var(--green-primary)" }}>
+                  About {unitCount < 10 ? unitCount.toFixed(1) : Math.round(unitCount).toLocaleString()} {unitLabel}.
+                </p>
+              )}
+              <button
+                type="button"
+                onClick={onSubmitGoal}
+                disabled={!validGoal || joining}
+                className="w-full rounded-full py-3 text-sm font-black disabled:opacity-60"
+                style={{ background: "linear-gradient(135deg, var(--green-primary), var(--green-grad-end))", color: "var(--bg-base)" }}
+              >
+                {joining ? "Setting goal..." : "Set goal"}
+              </button>
+            </>
+          )}
+
+          {step === "first-skip" && (
+            <>
+              <p className="text-sm leading-relaxed" style={{ color: "var(--text-secondary)" }}>
+                If there is an expense you already skipped, log it now and save that amount toward this cause.
+              </p>
+              <button
+                type="button"
+                onClick={onLogSkip}
+                className="w-full rounded-full py-3 text-sm font-black"
+                style={{ background: "linear-gradient(135deg, var(--green-primary), var(--green-grad-end))", color: "var(--bg-base)" }}
+              >
+                Log a skipped expense
+              </button>
+              <button
+                type="button"
+                onClick={onLater}
+                className="w-full py-2 text-sm font-black"
+                style={{ color: "var(--text-muted)" }}
+              >
+                I&apos;ll do this later
+              </button>
+            </>
+          )}
+        </div>
+      </div>
     </div>
   );
 }

@@ -195,9 +195,9 @@ export default function JoinChallengePage() {
   const [loading, setLoading] = useState(true);
   const [notFound, setNotFound] = useState(false);
 
-  // Redirect signed-in users to the real authenticated challenge page
+  // Redirect signed-in users to the real authenticated invite flow.
   useEffect(() => {
-    if (!authLoading && user && resolvedChallengeId) router.replace(`/challenges/${resolvedChallengeId}`);
+    if (!authLoading && user && resolvedChallengeId) router.replace(`/challenges/${resolvedChallengeId}?invite=1`);
   }, [user, authLoading, resolvedChallengeId, router]);
 
   useEffect(() => {
@@ -238,8 +238,9 @@ export default function JoinChallengePage() {
 
   const challenge = useMemo(() => projectData ? challengeFromProject(projectData) : null, [projectData]);
 
-  const signUpHref = `/sign-in?mode=signup&redirect=/challenges/${resolvedChallengeId || challengeId}`;
-  const signInHref = `/sign-in?mode=signin&redirect=/challenges/${resolvedChallengeId || challengeId}`;
+  const inviteDestination = `/challenges/${resolvedChallengeId || challengeId}?invite=1`;
+  const signUpHref = `/sign-in?mode=signup&redirect=${encodeURIComponent(inviteDestination)}`;
+  const signInHref = `/sign-in?mode=signin&redirect=${encodeURIComponent(inviteDestination)}`;
 
   if (loading || authLoading) {
     return (
@@ -324,7 +325,15 @@ export default function JoinChallengePage() {
               </div>
             )}
 
-            <h1 className="text-3xl font-black leading-tight" style={{ color: "var(--text-primary)" }}>{challenge.title}</h1>
+            <p className="text-xs uppercase tracking-[0.14em] font-black mb-2" style={{ color: "var(--green-primary)" }}>
+              You&apos;ve been invited
+            </p>
+            <h1 className="text-3xl font-black leading-tight" style={{ color: "var(--text-primary)" }}>
+              Skip expenses for {challenge.title}
+            </h1>
+            <p className="text-sm mt-2 leading-relaxed" style={{ color: "var(--text-secondary)" }}>
+              Instead of asking you to donate upfront, this fundraiser asks you to skip everyday expenses and save those dollars for {challenge.title}.
+            </p>
             <p className="text-sm mt-1" style={{ color: "var(--text-muted)" }}>{challenge.organizerLine}</p>
 
             <section className="mt-4">
@@ -409,7 +418,7 @@ export default function JoinChallengePage() {
                     boxShadow: "0 4px 18px var(--gold-glow)",
                   }}
                 >
-                  Join Challenge
+                  Join this fundraiser
                 </Link>
               )}
               {challenge.project.donationURL && (
