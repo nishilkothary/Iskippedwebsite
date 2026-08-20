@@ -2,9 +2,11 @@
 import { useState } from "react";
 import { Skip } from "@/lib/types/models";
 import { useSkips } from "@/hooks/useSkips";
+import { useProjects } from "@/hooks/useProjects";
 import { useModalA11y } from "@/hooks/useModalA11y";
 import { useAuthStore } from "@/store/authStore";
 import { SKIP_CATEGORIES } from "@/lib/constants/skipCategories";
+import { normalizeSpendingGoals } from "@/lib/services/firebase/users";
 interface Props {
   skip: Skip;
   onClose: () => void;
@@ -12,6 +14,7 @@ interface Props {
 
 export function EditSkipModal({ skip, onClose }: Props) {
   const { edit, deleteSkip } = useSkips();
+  const { projects } = useProjects();
   const { profile } = useAuthStore();
 
   const initialCat =
@@ -30,6 +33,18 @@ export function EditSkipModal({ skip, onClose }: Props) {
   const dialogRef = useModalA11y(onClose);
 
   const num = parseFloat(amount) || 0;
+  const { goals } = normalizeSpendingGoals(profile ?? {} as any);
+  const savedTarget = skip.allocationTarget
+    ?? (skip.projectId ? { type: "fundraiser" as const, id: skip.projectId } : null);
+  const savedTargetLabel = savedTarget?.type === "goal"
+    ? goals.find((goal) => goal.id === savedTarget.id)?.label ?? "Reward jar"
+    : savedTarget?.type === "fundraiser"
+      ? skip.projectTitle
+        ?? projects.find((project) => project.id === savedTarget.id)?.groupName
+        ?? projects.find((project) => project.id === savedTarget.id)?.title
+        ?? "Fundraiser jar"
+      : null;
+  const savedTargetTypeLabel = savedTarget?.type === "goal" ? "Reward jar" : "Fundraiser jar";
 
   function handleCatSelect(cat: typeof initialCat) {
     setSelectedCat(cat);
@@ -118,6 +133,23 @@ export function EditSkipModal({ skip, onClose }: Props) {
               />
             </div>
           </div>
+
+          {savedTarget && savedTargetLabel && (
+            <div
+              className="rounded-xl px-4 py-3"
+              style={{ background: "rgba(237,245,240,0.04)", border: "1px solid var(--border-default)" }}
+            >
+              <p className="text-[10px] font-black uppercase tracking-[0.14em]" style={{ color: "var(--text-muted)" }}>
+                Originally skipped for
+              </p>
+              <p className="mt-1 text-sm font-semibold" style={{ color: "var(--text-primary)" }}>
+                {savedTargetLabel}
+              </p>
+              <p className="mt-0.5 text-xs" style={{ color: "var(--text-muted)" }}>
+                {savedTargetTypeLabel}
+              </p>
+            </div>
+          )}
 
           {/* Category */}
           <div>
