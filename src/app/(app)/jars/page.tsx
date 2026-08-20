@@ -2130,8 +2130,11 @@ function SplurgeTab({
               </button>
               {showFundraiserBankDetails && (
                 <div className="rounded-xl p-4" style={{ background: "rgba(237,245,240,0.045)", border: "1px solid rgba(237,245,240,0.08)" }}>
-                  <p className="mb-3 text-xs font-bold" style={{ color: "var(--text-secondary)" }}>
+                  <p className="mb-2 text-xs font-bold" style={{ color: "var(--text-secondary)" }}>
                     {formatCurrency(availableSkipBankBalance)} available
+                  </p>
+                  <p className="mb-3 text-xs font-bold leading-snug" style={{ color: "var(--text-muted)" }}>
+                    Optional: move saved Skip Bucks into this jar now, or leave it at $0 and fill it with future skips.
                   </p>
                   <div className="relative">
                     <span className="absolute left-4 top-1/2 -translate-y-1/2 text-sm" style={{ color: "var(--text-muted)" }}>$</span>
