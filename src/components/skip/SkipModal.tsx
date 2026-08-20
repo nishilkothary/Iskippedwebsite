@@ -717,7 +717,7 @@ export function SkipModal({ onClose }: Props) {
               </div>
             )}
             <div className="mt-4 mb-5 rounded-xl px-4 py-4 text-left" style={{ background: "var(--bg-surface-2)", border: "1px solid var(--border-default)" }}>
-              <p id="skip-success-title" className="text-lg font-black leading-snug" style={{ color: variableReward.accent }}>
+              <p id="skip-success-title" className="text-[1.05rem] font-semibold leading-relaxed" style={{ color: "var(--text-primary)" }}>
                 {variableReward.message}
               </p>
             </div>
