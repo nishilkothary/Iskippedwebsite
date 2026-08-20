@@ -778,7 +778,14 @@ export function SkipModal({ onClose }: Props) {
               } as CSSProperties}
             />
           ))}
-          <button onClick={dismissSuccess} aria-label="Close" className="absolute top-4 right-4 text-2xl leading-none z-10" style={{ color: "var(--text-muted)" }}>x</button>
+          <button
+            onClick={dismissSuccess}
+            aria-label="Close"
+            className="absolute top-3 right-3 z-30 flex h-10 w-10 items-center justify-center text-2xl leading-none"
+            style={{ color: "var(--text-muted)" }}
+          >
+            ×
+          </button>
           <div className="relative z-10 px-6 pb-6 pt-6">
             <StreakCheckHero streak={successStreak} />
             {successHighlight === "largest" && (
