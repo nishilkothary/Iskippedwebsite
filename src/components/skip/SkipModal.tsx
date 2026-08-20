@@ -28,6 +28,18 @@ type SuccessMoment =
   | "lifetime"
   | "future";
 
+type SuccessButtonAction = "share" | "pick-jar" | "donate";
+type VariableReward = {
+  id: string;
+  message: string;
+  ctaPrompt: string;
+  buttonLabel: string;
+  buttonAction: SuccessButtonAction;
+  shareMessage: string;
+  accent: string;
+  effect?: "confetti" | "fireworks";
+};
+
 export function SkipModal({ onClose }: Props) {
   const router = useRouter();
   const { log, isLogging, recentSkips } = useSkips();
@@ -66,6 +78,7 @@ export function SkipModal({ onClose }: Props) {
   const [successSkipCount, setSuccessSkipCount] = useState(0);
   const [showSetupPrompt, setShowSetupPrompt] = useState(false);
   const dialogRef = useModalA11y(onClose);
+  const selectedVariableRewardRef = useRef<{ skipCount: number; reward: VariableReward } | null>(null);
   const activeProjectForSkip = projects.find((p) => p.id === projectId) ?? null;
   const isFundraiserSkip = profile?.activeSkipTarget?.type === "fundraiser" && !!activeProjectForSkip;
   // If the active project has expired, don't credit this skip to its jar
@@ -333,17 +346,6 @@ export function SkipModal({ onClose }: Props) {
       }
     }
 
-    type SuccessButtonAction = "share" | "pick-jar" | "donate";
-    type VariableReward = {
-      message: string;
-      ctaPrompt: string;
-      buttonLabel: string;
-      buttonAction: SuccessButtonAction;
-      shareMessage: string;
-      accent: string;
-      effect?: "confetti" | "fireworks";
-    };
-
     const startOfWeek = new Date();
     startOfWeek.setHours(0, 0, 0, 0);
     startOfWeek.setDate(startOfWeek.getDate() - startOfWeek.getDay());
@@ -397,10 +399,31 @@ export function SkipModal({ onClose }: Props) {
       ? `I skipped ${itemLabel} and put the savings toward ${causeName}. Want to skip for the same cause?`
       : `I skipped ${itemLabel} and saved ${formatCurrency(amount)}. Want to see what you can save? Join me on iSkipped!`;
 
+    function chooseVariableReward(candidates: VariableReward[], fallback: VariableReward): VariableReward {
+      const pool = candidates.length > 0 ? candidates : [fallback];
+      if (selectedVariableRewardRef.current?.skipCount === postLogSkipCount) {
+        return selectedVariableRewardRef.current.reward;
+      }
+      const lastId = typeof window !== "undefined"
+        ? window.localStorage.getItem("iskip:last-variable-reward-id")
+        : null;
+      const eligiblePool = pool.length > 1 && lastId
+        ? pool.filter((candidate) => candidate.id !== lastId)
+        : pool;
+      const selectedPool = eligiblePool.length > 0 ? eligiblePool : pool;
+      const reward = selectedPool[Math.floor(Math.random() * selectedPool.length)] ?? fallback;
+      selectedVariableRewardRef.current = { skipCount: postLogSkipCount, reward };
+      if (typeof window !== "undefined") {
+        window.localStorage.setItem("iskip:last-variable-reward-id", reward.id);
+      }
+      return reward;
+    }
+
     function buildVariableReward(): VariableReward {
       if (momentType === "fundraiser" && successActiveProject) {
         if (fundraiserPersonalGoal > 0 && fundraiserPersonalCoverage >= 100) {
           return {
+            id: "cause-personal-goal-hit",
             message: `You hit your savings goal. Your skips can now help fund ${unitPhrase}.`,
             ctaPrompt: "Turn your skips into real-world impact",
             buttonLabel: "Donate",
@@ -412,6 +435,7 @@ export function SkipModal({ onClose }: Props) {
         }
         if (fundraiserGroupGoal > 0 && fundraiserGroupCoverage >= 100) {
           return {
+            id: "cause-group-goal-hit",
             message: "The group hit the goal. Your skips helped make it happen.",
             ctaPrompt: "Turn your skips into real-world impact",
             buttonLabel: "Donate",
@@ -423,6 +447,7 @@ export function SkipModal({ onClose }: Props) {
         }
         if (isFirstSkip) {
           return {
+            id: "all-first-skip",
             message: `There it is. Your first skip saved ${formatCurrency(amount)} by passing on ${itemLabel}.`,
             ctaPrompt: "Share your first win",
             buttonLabel: "Share",
@@ -434,6 +459,7 @@ export function SkipModal({ onClose }: Props) {
         }
         if (isSkipMilestone) {
           return {
+            id: "all-skip-milestone",
             message: `That's your ${ordinal(postLogSkipCount)} skip. You're turning ordinary expenses into something more meaningful.`,
             ctaPrompt: "Share your milestone",
             buttonLabel: "Share",
@@ -443,8 +469,10 @@ export function SkipModal({ onClose }: Props) {
             effect: "fireworks",
           };
         }
+        const candidates: VariableReward[] = [];
         if (isLargeSkip) {
-          return {
+          candidates.push({
+            id: "cause-large-skip",
             message: successProjectUnitCost
               ? `One skip saved enough to fund about ${unitPhrase}. That's a huge win.`
               : `One skip saved you ${formatCurrency(amount)}. That's a huge win.`,
@@ -456,40 +484,44 @@ export function SkipModal({ onClose }: Props) {
               : causeShareCopy,
             accent: "#F59E0B",
             effect: "fireworks",
-          };
+          });
         }
         if (fundraiserGroupGoal > 0 && fundraiserGroupCoverage >= 85) {
-          return {
+          candidates.push({
+            id: "cause-group-finish-line",
             message: `The group is ${fundraiserGroupCoverage}% of the way there. A few more skips can finish this.`,
             ctaPrompt: "Rally others to help finish it",
             buttonLabel: "Invite Friends",
             buttonAction: "share",
             shareMessage: `Our group is almost at the goal for ${causeName}. Join us on iSkipped and help finish it.`,
             accent: "var(--green-primary)",
-          };
+          });
         }
         if (fundraiserPersonalGoal > 0 && fundraiserPersonalCoverage >= 85) {
-          return {
+          candidates.push({
+            id: "cause-personal-finish-line",
             message: `You're ${fundraiserPersonalCoverage}% of the way to your goal. Let's cross the finish line.`,
             ctaPrompt: "Share your progress",
             buttonLabel: "Share",
             buttonAction: "share",
             shareMessage: `I've skipped over ${formatCurrency(successJarBalance)} of expenses and I'm almost at my goal for ${causeName}. Join me on iSkipped.`,
             accent: "var(--green-primary)",
-          };
+          });
         }
         if (weeklySkipCount >= 2) {
-          return {
+          candidates.push({
+            id: "cause-weekly-success",
             message: `You're on a roll. That's your ${ordinal(weeklySkipCount)} skip this week.`,
             ctaPrompt: "Invite others to skip for this cause",
             buttonLabel: "Invite Friends",
             buttonAction: "share",
             shareMessage: `I'm skipping expenses I no longer need to support ${causeName}. Want to join me?`,
             accent: "var(--green-primary)",
-          };
+          });
         }
         if (successProjectUnitCost) {
-          return {
+          candidates.push({
+            id: unitShare >= 1 ? "cause-small-unit-impact" : "cause-unit-impact",
             message: unitShare >= 1
               ? `That skip is enough to fund ${unitPhrase}.`
               : `That skip covers about ${unitPercent}% of ${oneUnitPhrase(unitLabel).toLowerCase()}. Small choice, real impact.`,
@@ -498,21 +530,23 @@ export function SkipModal({ onClose }: Props) {
             buttonAction: "share",
             shareMessage: causeShareCopy,
             accent: "var(--green-primary)",
-          };
+          });
         }
-        return {
+        return chooseVariableReward(candidates, {
+          id: "cause-progress",
           message: `You added ${formatCurrency(amount)} to your fundraiser jar for ${successActiveProject.title}.`,
           ctaPrompt: "Invite others to skip for this cause",
           buttonLabel: "Invite Friends",
           buttonAction: "share",
           shareMessage: `I'm skipping expenses I no longer need to support ${causeName}. Want to join me?`,
           accent: "var(--green-primary)",
-        };
+        });
       }
 
       if (hasGoalMoment && activeGoal) {
         if (rewardCoverage >= 100 && rewardCoverageBefore < 100) {
           return {
+            id: "reward-ready-to-claim",
             message: `You did it. ${activeGoal.label} is fully funded from your skips.`,
             ctaPrompt: "Share your success",
             buttonLabel: "Invite Friends",
@@ -524,6 +558,7 @@ export function SkipModal({ onClose }: Props) {
         }
         if (isFirstSkip) {
           return {
+            id: "all-first-skip",
             message: `There it is. Your first skip saved ${formatCurrency(amount)} by passing on ${itemLabel}.`,
             ctaPrompt: "Share your first win",
             buttonLabel: "Share",
@@ -535,6 +570,7 @@ export function SkipModal({ onClose }: Props) {
         }
         if (isSkipMilestone) {
           return {
+            id: "all-skip-milestone",
             message: `That's your ${ordinal(postLogSkipCount)} skip. You're turning ordinary expenses into something more meaningful.`,
             ctaPrompt: "Share your milestone",
             buttonLabel: "Share",
@@ -544,8 +580,10 @@ export function SkipModal({ onClose }: Props) {
             effect: "fireworks",
           };
         }
+        const candidates: VariableReward[] = [];
         if (isLargeSkip) {
-          return {
+          candidates.push({
+            id: "reward-large-skip",
             message: `One skip got you ${Math.max(1, rewardCoverage - rewardCoverageBefore)}% closer to ${activeGoal.label}. That's a huge win.`,
             ctaPrompt: "Share your big win",
             buttonLabel: "Share",
@@ -553,60 +591,66 @@ export function SkipModal({ onClose }: Props) {
             shareMessage: rewardShareCopy,
             accent: "#F59E0B",
             effect: "fireworks",
-          };
+          });
         }
         if (rewardCoverage >= 85) {
-          return {
+          candidates.push({
+            id: "reward-finish-line",
             message: `${activeGoal.label} is getting close. You're just a few skips away.`,
             ctaPrompt: "Share your progress",
             buttonLabel: "Share",
             buttonAction: "share",
             shareMessage: `I'm almost done saving for ${activeGoal.label} by skipping expenses I don't need. Join me on iSkipped.`,
             accent: "#A78BFA",
-          };
+          });
         }
         if (weeklySkipCount >= 2) {
-          return {
+          candidates.push({
+            id: "reward-weekly-success",
             message: `Powerful week. That's your ${ordinal(weeklySkipCount)} skip this week, and ${activeGoal.label} is getting closer.`,
             ctaPrompt: "Invite others to skip",
             buttonLabel: "Challenge Friends",
             buttonAction: "share",
             shareMessage: `I'm skipping expenses I no longer need and saving for ${activeGoal.label}. Want to join me?`,
             accent: "#A78BFA",
-          };
+          });
         }
         if (momentType === "future" && rewardRemaining > 0) {
-          return {
+          candidates.push({
+            id: "reward-stat",
             message: `At this pace, you could reach ${activeGoal.label} in about ${Math.max(1, Math.ceil(rewardRemaining / Math.max(amount, 1)))} weeks.`,
             ctaPrompt: "Invite others to skip",
             buttonLabel: "Challenge Friends",
             buttonAction: "share",
             shareMessage: `I'm skipping expenses I no longer need and saving for ${activeGoal.label}. Join me on iSkipped.`,
             accent: "#A78BFA",
-          };
+          });
         }
         if (momentType === "lifetime") {
-          return {
+          candidates.push({
+            id: "reward-remaining-amount",
             message: `Nice work. Just ${formatCurrency(rewardRemaining)} left until ${activeGoal.label} is fully saved.`,
             ctaPrompt: "Invite others to skip",
             buttonLabel: "Challenge Friends",
             buttonAction: "share",
             shareMessage: `I'm skipping expenses I no longer need and saving for ${activeGoal.label}. Want to join me?`,
             accent: "#A78BFA",
-          };
+          });
         }
-        return {
+        return chooseVariableReward(candidates, {
+          id: "reward-progress",
           message: `You added ${formatCurrency(amount)} toward ${activeGoal.label}. You're now ${rewardCoverage}% closer.`,
           ctaPrompt: "Invite others to skip",
           buttonLabel: "Challenge Friends",
           buttonAction: "share",
           shareMessage: rewardShareCopy,
           accent: "#A78BFA",
-        };
+        });
       }
 
       if (isFirstSkip) {
         return {
+          id: "all-first-skip",
           message: `There it is. Your first skip saved ${formatCurrency(amount)} by passing on ${itemLabel}.`,
           ctaPrompt: "Share your first win",
           buttonLabel: "Share",
@@ -618,6 +662,7 @@ export function SkipModal({ onClose }: Props) {
       }
       if (isSkipMilestone) {
         return {
+          id: "all-skip-milestone",
           message: `That's your ${ordinal(postLogSkipCount)} skip. You're turning ordinary expenses into something more meaningful.`,
           ctaPrompt: "Share your milestone",
           buttonLabel: "Share",
@@ -627,8 +672,10 @@ export function SkipModal({ onClose }: Props) {
           effect: "fireworks",
         };
       }
+      const candidates: VariableReward[] = [];
       if (isLargeSkip) {
-        return {
+        candidates.push({
+          id: "nothing-large-skip",
           message: `One skip saved you ${formatCurrency(amount)}. That's a huge win.`,
           ctaPrompt: "Share your big win",
           buttonLabel: "Share",
@@ -636,56 +683,61 @@ export function SkipModal({ onClose }: Props) {
           shareMessage: `I skipped ${itemLabel} and saved ${formatCurrency(amount)}. Want to see what you can save? Join me on iSkipped!`,
           accent: "#F59E0B",
           effect: "fireworks",
-        };
+        });
       }
       if (weeklySkipCount >= 2) {
-        return {
+        candidates.push({
+          id: "nothing-weekly-success",
           message: `You're on a roll. That's your ${ordinal(weeklySkipCount)} skip this week.`,
           ctaPrompt: "Invite others to skip",
           buttonLabel: "Challenge Friends",
           buttonAction: "share",
           shareMessage: "I've been skipping expenses I no longer need to see how much I can save. I challenge you to do the same. Join me on iSkipped!",
           accent: "var(--green-primary)",
-        };
+        });
       }
       if (momentType === "lifetime" && postLogSkipCount >= 5) {
-        return {
+        candidates.push({
+          id: "nothing-momentum",
           message: `Nice skip. Your lifetime savings are now ${formatCurrency(successLifetimeSaved)} from choosing to be intentional with your money.`,
           ctaPrompt: "Invite others to skip",
           buttonLabel: "Challenge Friends",
           buttonAction: "share",
           shareMessage: `I've been skipping expenses I no longer need and have saved over ${formatCurrency(successLifetimeSaved)}. I challenge you to do the same. Join me on iSkipped!`,
           accent: "#A78BFA",
-        };
+        });
       }
       if (momentType === "future") {
-        return {
+        candidates.push({
+          id: "nothing-stat",
           message: `If you skipped this every week, you'd save ${formatCurrency(amount * 52)} this year.`,
           ctaPrompt: "Invite others to skip",
           buttonLabel: "Challenge Friends",
           buttonAction: "share",
           shareMessage: "I've been skipping expenses I no longer need to see how much I can save. I challenge you to do the same. Join me on iSkipped!",
           accent: "#F59E0B",
-        };
+        });
       }
       if (momentType === "personal") {
-        return {
+        candidates.push({
+          id: "nothing-motivational",
           message: "Every skip makes your hard-earned money more intentional. Keep going.",
           ctaPrompt: "Invite others to skip",
           buttonLabel: "Invite",
           buttonAction: "share",
           shareMessage: "I've been skipping expenses I no longer need to see how much I can save. Want to join me?",
           accent: "#A78BFA",
-        };
+        });
       }
-      return {
+      return chooseVariableReward(candidates, {
+        id: "nothing-skip-bucks-gain",
         message: `You added ${formatCurrency(amount)} to your Skip Bucks. Save it for something meaningful.`,
         ctaPrompt: "Ready to give your skips a purpose?",
         buttonLabel: "Pick a Jar",
         buttonAction: "pick-jar",
         shareMessage: "",
         accent: "var(--green-primary)",
-      };
+      });
     }
 
     const variableReward = buildVariableReward();
