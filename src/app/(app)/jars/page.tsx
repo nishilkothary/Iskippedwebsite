@@ -3080,8 +3080,8 @@ function SplurgeTab({
       )}
 
       {/* Spending history */}
-      {shopView === "rewards" && <div>
-        <p className="text-xs font-semibold text-[rgba(237,245,240,0.85)] uppercase tracking-wide mb-2 mt-2">Purchases</p>
+      {shopView === "rewards" && <div className="pt-6">
+        <p className="text-xs font-semibold text-[rgba(237,245,240,0.85)] uppercase tracking-wide mb-2">Purchases</p>
         {spendingHistory.length === 0 ? (
           <div className="rounded-2xl px-4 py-3" style={{ background: "var(--bg-surface-1)", border: "1px dashed rgba(139,92,246,0.25)" }}>
             <p className="text-sm font-semibold" style={{ color: "var(--text-primary)" }}>No purchases yet</p>
