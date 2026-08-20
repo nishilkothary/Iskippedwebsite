@@ -197,18 +197,6 @@ const rewardInspoPics = [
   },
 ];
 
-function rewardMomentumLine(balance: number, target: number, availableSkipBankBalance: number) {
-  const remaining = Math.max(0, target - balance);
-  if (target <= 0) return "Set a target to track progress";
-  if (remaining <= 0) return "Ready to claim";
-  if (availableSkipBankBalance >= remaining) return `${formatCurrency(remaining)} from Skip Bucks finishes it`;
-  if (availableSkipBankBalance > 0) {
-    const boostedPercent = Math.min(100, Math.round(((balance + availableSkipBankBalance) / target) * 100));
-    return `${formatCurrency(availableSkipBankBalance)} SB could push this to ${boostedPercent}%`;
-  }
-  return `${formatCurrency(remaining)} left to unlock`;
-}
-
 function rewardSkipEquivalentLine(balance: number, target: number) {
   const remaining = Math.max(0, target - balance);
   if (target <= 0) return "Set a target to track progress";
@@ -291,9 +279,6 @@ function RewardProgress({
         <div className="absolute inset-y-0 left-0 rounded-full" style={{ width: `${boostedPercent}%`, background: "rgba(167,139,250,0.26)" }} />
         <div className="absolute inset-y-0 left-0 rounded-full" style={{ width: `${percent}%`, background: "#8B5CF6" }} />
       </div>
-      <p className="mt-2 min-h-8 text-[11px] font-bold leading-snug" style={{ color: "var(--text-secondary)" }}>
-        {rewardMomentumLine(balance, target, availableSkipBankBalance)}
-      </p>
     </div>
   );
 }
