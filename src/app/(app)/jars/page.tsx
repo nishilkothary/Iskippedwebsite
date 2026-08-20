@@ -2735,9 +2735,14 @@ function SplurgeTab({
                     <div className="p-3">
                       <RewardProgress balance={balance} target={goal.targetAmount} availableSkipBankBalance={availableSkipBankBalance} active={isActiveGoal} />
                       {isActiveGoal ? (
-                        <div className="mt-3 rounded-lg py-2 text-center text-[10px] font-black uppercase tracking-wide" style={{ background: "rgba(139,92,246,0.23)", color: "#DDD6FE" }}>
+                        <button
+                          type="button"
+                          onClick={() => handleSkipFor({ type: "goal", id: goal.id })}
+                          className="mt-3 w-full rounded-lg py-2 text-center text-[10px] font-black uppercase tracking-wide transition-colors hover:bg-[rgba(139,92,246,0.3)]"
+                          style={{ background: "rgba(139,92,246,0.23)", color: "#DDD6FE" }}
+                        >
                           Active jar
-                        </div>
+                        </button>
                       ) : (
                         <button
                           onClick={() => handleSkipFor({ type: "goal", id: goal.id })}
