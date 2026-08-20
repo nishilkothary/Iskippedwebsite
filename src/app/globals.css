@@ -90,6 +90,15 @@ body {
   45% { opacity: 1; transform: translateY(-1px); }
   100% { opacity: 1; transform: translateY(0); }
 }
+@keyframes iskip-success-badge-pop {
+  0% { opacity: 0; transform: translateY(10px) scale(0.72) rotate(-6deg); }
+  58% { opacity: 1; transform: translateY(-2px) scale(1.08) rotate(3deg); }
+  100% { opacity: 1; transform: translateY(0) scale(1) rotate(0); }
+}
+@keyframes iskip-success-fill {
+  0% { width: var(--fill-from, 0%); }
+  100% { width: var(--fill-to, 100%); }
+}
 
 .iskip-scoreboard {
   position: relative;
@@ -181,6 +190,9 @@ body {
 .iskip-pop-in       { animation: iskip-pop-in 0.42s cubic-bezier(0.2, 0.8, 0.3, 1.1) both; }
 .iskip-chip         { animation: iskip-slide-up-fade 0.5s ease-out both; }
 .iskip-pulse        { animation: iskip-pulse-soft 2.4s ease-in-out infinite; }
+.iskip-success-badge { animation: iskip-success-badge-pop 0.58s cubic-bezier(0.2, 0.8, 0.3, 1.2) both; }
+.iskip-success-fill { animation: iskip-success-fill 0.85s ease-out both; --fill-to: 100%; }
+.iskip-success-meter { box-shadow: inset 0 1px 0 rgba(237,245,240,0.05), 0 14px 34px rgba(0,0,0,0.15); }
 .iskip-burst-piece  {
   position: absolute;
   top: 50%; left: 50%;

@@ -14,6 +14,7 @@ import { appendRefParam, getChallengeSharePath } from "@/lib/utils/share";
 import { getChallengeCausePhrase, getPostSkipShareText } from "@/lib/utils/challengeShareCopy";
 import { ShareButton } from "@/components/share/ShareButton";
 import { SkipSetupPrompt } from "@/components/setup/SkipSetupPrompt";
+import type { Project } from "@/lib/types/models";
 
 interface Props {
   onClose: () => void;
@@ -41,6 +42,17 @@ type VariableReward = {
   effect?: "confetti" | "fireworks";
 };
 
+function formatSuccessImpactUnits(
+  amount: number,
+  unitCost: number,
+  unitName: string,
+  unitDisplay?: string | null,
+  unitIsGoal?: boolean,
+): string {
+  const displayOverride = unitName ? null : unitDisplay;
+  return formatAggregateImpactUnitsDecimal(amount, unitCost, unitName, displayOverride, unitIsGoal).toLowerCase();
+}
+
 export function SkipModal({ onClose }: Props) {
   const router = useRouter();
   const { log, isLogging, recentSkips } = useSkips();
@@ -64,6 +76,7 @@ export function SkipModal({ onClose }: Props) {
       : profile?.activeProjectId ?? null;
   const projectId = selectedFundraiserId;
   const [success, setSuccess] = useState(false);
+  const [successProject, setSuccessProject] = useState<Project | null>(null);
   const [successProjectUnitName, setSuccessProjectUnitName] = useState<string | null>(null);
   const [successProjectUnitDisplay, setSuccessProjectUnitDisplay] = useState<string | null>(null);
   const [successProjectUnitCost, setSuccessProjectUnitCost] = useState<number | null>(null);
@@ -150,6 +163,7 @@ export function SkipModal({ onClose }: Props) {
     });
     if (result) {
       setSuccessStreak(result.newStreak ?? profile?.streak ?? 0);
+      setSuccessProject(effectiveProjectId ? selectedProject ?? null : null);
       setSuccessProjectUnitName(selectedProject?.unitName ?? null);
       setSuccessProjectUnitDisplay(selectedProject?.unitDisplay ?? null);
       setSuccessProjectUnitCost(selectedProject?.unitCost ?? null);
@@ -206,7 +220,10 @@ export function SkipModal({ onClose }: Props) {
 
   if (success) {
     const skipGive = amount * (skipGivePct / 100);
-    const successActiveProject = projects.find((p) => p.id === profile?.activeProjectId) ?? null;
+    const successActiveProject = successProject
+      ?? projects.find((p) => p.id === selectedFundraiserId)
+      ?? projects.find((p) => p.id === profile?.activeProjectId)
+      ?? null;
     const postLogSkipCount = successSkipCount || (profile?.totalSkips ?? 0);
 
     function dismissSuccess() {
@@ -389,13 +406,13 @@ export function SkipModal({ onClose }: Props) {
     const unitShare = successProjectUnitCost ? amount / successProjectUnitCost : 0;
     const unitPercent = successProjectUnitCost ? Math.max(1, Math.round(unitShare * 100)) : 0;
     const unitPhrase = successProjectUnitCost
-      ? formatAggregateImpactUnitsDecimal(
+      ? formatSuccessImpactUnits(
           amount,
           successProjectUnitCost,
           unitLabel,
           successProjectUnitDisplay,
           successActiveProject?.unitIsGoal
-        ).toLowerCase()
+        )
       : "impact";
     const rewardShareCopy = activeGoal
       ? `I skipped ${itemLabel} and put ${formatCurrency(amount)} toward ${activeGoal.label}. Join me on iSkipped and start saving for your own goal.`
@@ -451,7 +468,7 @@ export function SkipModal({ onClose }: Props) {
         if (fundraiserPersonalGoal > 0 && fundraiserPersonalCoverage >= 100) {
           return {
             id: "cause-personal-goal-hit",
-            message: `You hit your savings goal. Your skips can now help fund ${unitPhrase}.`,
+            message: "You hit your savings goal. Time to turn those skips into real-world impact.",
             ctaPrompt: "Turn your skips into real-world impact",
             buttonLabel: "Donate",
             buttonAction: "donate",
@@ -463,7 +480,7 @@ export function SkipModal({ onClose }: Props) {
         if (fundraiserGroupGoal > 0 && fundraiserGroupCoverage >= 100) {
           return {
             id: "cause-group-goal-hit",
-            message: "The group hit the goal. Your skips helped make it happen.",
+            message: "The group hit the goal. Time to turn these saved skips into real-world impact.",
             ctaPrompt: "Turn your skips into real-world impact",
             buttonLabel: "Donate",
             buttonAction: "donate",
@@ -475,7 +492,7 @@ export function SkipModal({ onClose }: Props) {
         if (isFirstSkip) {
           return {
             id: "all-first-skip",
-            message: `There it is. Your first skip saved ${formatCurrency(amount)} by passing on ${itemLabel}.`,
+            message: `First one in. You passed on ${itemLabel} and gave this cause momentum.`,
             ctaPrompt: "Share your first win",
             buttonLabel: "Share",
             buttonAction: "share",
@@ -501,8 +518,8 @@ export function SkipModal({ onClose }: Props) {
           candidates.push({
             id: "cause-large-skip",
             message: successProjectUnitCost
-              ? `One skip saved enough to fund about ${unitPhrase}. That's a huge win.`
-              : `One skip saved you ${formatCurrency(amount)}. That's a huge win.`,
+              ? `That was a big skip. Your savings are now moving toward ${successActiveProject.title}.`
+              : `One skip saved ${formatCurrency(amount)} for ${successActiveProject.title}. That's a huge win.`,
             ctaPrompt: "Share your big win",
             buttonLabel: "Share",
             buttonAction: "share",
@@ -550,9 +567,7 @@ export function SkipModal({ onClose }: Props) {
         if (successProjectUnitCost) {
           candidates.push({
             id: unitShare >= 1 ? "cause-small-unit-impact" : "cause-unit-impact",
-            message: unitShare >= 1
-              ? `That skip is enough to fund ${unitPhrase}.`
-              : `That skip covers about ${unitPercent}% of ${oneUnitPhrase(unitLabel).toLowerCase()}. Small choice, real impact.`,
+            message: `Your skipped expense now has a job: ${successActiveProject.title}.`,
             ctaPrompt: "Share your impact",
             buttonLabel: "Share",
             buttonAction: "share",
@@ -562,7 +577,9 @@ export function SkipModal({ onClose }: Props) {
         }
         return chooseVariableReward(candidates, {
           id: "cause-progress",
-          message: `You added ${formatCurrency(amount)} to your fundraiser jar for ${successActiveProject.title}.`,
+          message: successProjectUnitCost
+            ? `Your skipped expense now has a job: ${successActiveProject.title}.`
+            : `Your skip is now saved for ${successActiveProject.title}.`,
           ctaPrompt: "Invite others to skip for this cause",
           buttonLabel: "Invite Friends",
           buttonAction: "share",
@@ -587,7 +604,7 @@ export function SkipModal({ onClose }: Props) {
         if (isFirstSkip) {
           return {
             id: "all-first-skip",
-            message: `There it is. Your first skip saved ${formatCurrency(amount)} by passing on ${itemLabel}.`,
+            message: `First one in. You passed on ${itemLabel} and gave your goal a start.`,
             ctaPrompt: "Share your first win",
             buttonLabel: "Share",
             buttonAction: "share",
@@ -612,7 +629,7 @@ export function SkipModal({ onClose }: Props) {
         if (isLargeSkip) {
           candidates.push({
             id: "reward-large-skip",
-            message: `One skip got you ${Math.max(1, rewardCoverage - rewardCoverageBefore)}% closer to ${activeGoal.label}. That's a huge win.`,
+            message: `That was a big skip. ${activeGoal.label} feels a lot closer.`,
             ctaPrompt: "Share your big win",
             buttonLabel: "Share",
             buttonAction: "share",
@@ -636,7 +653,7 @@ export function SkipModal({ onClose }: Props) {
           candidates.push({
             id: "reward-weekly-success",
             rotationKey: "weekly-success",
-            message: `Powerful week. That's your ${ordinal(weeklySkipCount)} skip this week, and ${activeGoal.label} is getting closer.`,
+            message: `Powerful week. That's your ${ordinal(weeklySkipCount)} skip this week for ${activeGoal.label}.`,
             ctaPrompt: "Invite others to skip",
             buttonLabel: "Challenge Friends",
             buttonAction: "share",
@@ -668,7 +685,7 @@ export function SkipModal({ onClose }: Props) {
         }
         return chooseVariableReward(candidates, {
           id: "reward-progress",
-          message: `You added ${formatCurrency(amount)} toward ${activeGoal.label}. You're now ${rewardCoverage}% closer.`,
+          message: `Your skipped expense is now working toward ${activeGoal.label}.`,
           ctaPrompt: "Invite others to skip",
           buttonLabel: "Challenge Friends",
           buttonAction: "share",
@@ -680,7 +697,7 @@ export function SkipModal({ onClose }: Props) {
       if (isFirstSkip) {
         return {
           id: "all-first-skip",
-          message: `There it is. Your first skip saved ${formatCurrency(amount)} by passing on ${itemLabel}.`,
+          message: `First one in. You passed on ${itemLabel} and started building your Skip Bucks.`,
           ctaPrompt: "Share your first win",
           buttonLabel: "Share",
           buttonAction: "share",
@@ -705,7 +722,7 @@ export function SkipModal({ onClose }: Props) {
       if (isLargeSkip) {
         candidates.push({
           id: "nothing-large-skip",
-          message: `One skip saved you ${formatCurrency(amount)}. That's a huge win.`,
+          message: "That was a big skip. Your future self gets the win.",
           ctaPrompt: "Share your big win",
           buttonLabel: "Share",
           buttonAction: "share",
@@ -749,19 +766,28 @@ export function SkipModal({ onClose }: Props) {
         });
       }
       if (momentType === "personal") {
-        candidates.push({
-          id: "nothing-motivational",
-          message: "Every skip makes your hard-earned money more intentional. Keep going.",
-          ctaPrompt: "Invite others to skip",
-          buttonLabel: "Invite",
-          buttonAction: "share",
-          shareMessage: "I've been skipping expenses I no longer need to see how much I can save. Want to join me?",
-          accent: "#A78BFA",
+        [
+          ["nothing-motivational", "Every skip makes your hard-earned money more intentional. Keep going."],
+          ["nothing-small-choice", "Small choice. Real money saved."],
+          ["nothing-that-counts", "That skip counts. Keep going."],
+          ["nothing-autopilot", "One less autopilot spend."],
+          ["nothing-intentional-choice", "You made the intentional choice."],
+        ].forEach(([id, message]) => {
+          candidates.push({
+            id,
+            rotationKey: "personal-motivational",
+            message,
+            ctaPrompt: "Invite others to skip",
+            buttonLabel: "Invite",
+            buttonAction: "share",
+            shareMessage: "I've been skipping expenses I no longer need to see how much I can save. Want to join me?",
+            accent: "#A78BFA",
+          });
         });
       }
       return chooseVariableReward(candidates, {
         id: "nothing-skip-bucks-gain",
-        message: `You added ${formatCurrency(amount)} to your Skip Bucks. Save it for something meaningful.`,
+        message: "Your Skip Bucks are ready when you find the right reason.",
         ctaPrompt: "Ready to give your skips a purpose?",
         buttonLabel: "Pick a Jar",
         buttonAction: "pick-jar",
@@ -771,6 +797,88 @@ export function SkipModal({ onClose }: Props) {
     }
 
     const variableReward = buildVariableReward();
+    function titleCaseSkipItem(value: string) {
+      return value
+        .trim()
+        .replace(/\s+/g, " ")
+        .split(" ")
+        .map((word) => word ? `${word[0].toUpperCase()}${word.slice(1)}` : "")
+        .join(" ");
+    }
+
+    function actionHeadline() {
+      if (selectedCat.id === "custom") {
+        const customSkip = titleCaseSkipItem(whatSkipped || customLabel);
+        return customSkip ? `${customSkip} Skipped` : "Nice Skip";
+      }
+
+      switch (selectedCat.id) {
+        case "coffee":
+          return "Coffee Dodged";
+        case "food":
+          return "Takeout Skipped";
+        case "drinks":
+          return "Round Resisted";
+        case "streaming":
+          return "Stream Passed";
+        case "shopping":
+          return "Cart Resisted";
+        case "uber":
+          return "Ride Skipped";
+        case "entertainment":
+          return "Night Out Banked";
+        default:
+          return `${selectedCat.label} Skipped`;
+      }
+    }
+    const successAccent = variableReward.accent || (successActiveProject ? "var(--green-primary)" : "#A78BFA");
+    const destinationName = successActiveProject?.title ?? activeGoal?.label ?? "Skip Bucks";
+    const jarBalanceBefore = Math.max(0, successJarBalance - amount);
+    const progressTarget = successActiveProject
+      ? fundraiserPersonalGoal
+      : activeGoal?.targetAmount ?? 0;
+    const beforeCoverage = progressTarget > 0 ? Math.min(100, Math.round((jarBalanceBefore / progressTarget) * 100)) : 0;
+    const afterCoverage = progressTarget > 0 ? Math.min(100, Math.round((successJarBalance / progressTarget) * 100)) : 0;
+    const meterBeforeAmount = progressTarget > 0 ? jarBalanceBefore : Math.max(0, successSkipBank - amount);
+    const meterAfterAmount = progressTarget > 0 ? successJarBalance : successSkipBank;
+    const hasImpactProgress = Boolean(successActiveProject && successProjectUnitCost);
+    const impactProgressLabel = hasImpactProgress
+      ? formatSuccessImpactUnits(
+          successJarBalance,
+          successProjectUnitCost!,
+          unitLabel,
+          successProjectUnitDisplay,
+          successActiveProject?.unitIsGoal
+        )
+      : "";
+    const impactAddedLabel = hasImpactProgress
+      ? `+${formatSuccessImpactUnits(
+          amount,
+          successProjectUnitCost!,
+          unitLabel,
+          successProjectUnitDisplay,
+          successActiveProject?.unitIsGoal
+        )}`
+      : "";
+    const impactAddedValue = hasImpactProgress
+      ? formatSuccessImpactUnits(
+          amount,
+          successProjectUnitCost!,
+          unitLabel,
+          successProjectUnitDisplay,
+          successActiveProject?.unitIsGoal
+        )
+      : "";
+    const progressLabel = progressTarget > 0
+      ? hasImpactProgress
+        ? impactProgressLabel
+        : `${beforeCoverage}% -> ${afterCoverage}%`
+      : formatCurrency(successSkipBank);
+    const impactProof = successActiveProject && successProjectUnitCost
+      ? `About ${unitPhrase}`
+      : activeGoal && progressTarget > 0
+        ? `${formatCurrency(Math.max(0, progressTarget - successJarBalance))} left`
+        : "available now";
     const celebrationPieces = variableReward.effect
       ? [
           { x: "-138px", y: "-118px", color: "#2ECC71", delay: "0ms" },
@@ -790,7 +898,11 @@ export function SkipModal({ onClose }: Props) {
           aria-labelledby="skip-success-title"
           tabIndex={-1}
           className="iskip-pop-in rounded-2xl overflow-hidden text-center max-w-sm w-full shadow-2xl relative"
-          style={{ background: "var(--bg-surface-1)", border: "1px solid var(--border-default)", outline: "none" }}
+          style={{
+            background: "radial-gradient(circle at 50% -18%, rgba(46,204,113,0.22), transparent 34%), var(--bg-surface-1)",
+            border: "1px solid var(--border-default)",
+            outline: "none",
+          }}
           onClick={(e) => e.stopPropagation()}
         >
           {celebrationPieces.map((piece, index) => (
@@ -816,8 +928,59 @@ export function SkipModal({ onClose }: Props) {
           >
             ×
           </button>
-          <div className="relative z-10 px-6 pb-6 pt-6">
-            <StreakCheckHero streak={successStreak} />
+          <div className="relative z-10 px-5 pb-5 pt-5">
+            <div className="mx-auto flex h-20 w-20 items-center justify-center rounded-full text-4xl shadow-lg iskip-success-badge" style={{ background: successAccent, color: "#06130E" }}>
+              {selectedCat.emoji}
+            </div>
+            <h2 id="skip-success-title" className="mt-4 text-3xl font-black leading-none" style={{ color: "var(--text-primary)", letterSpacing: 0 }}>
+              {actionHeadline()}
+            </h2>
+
+            <div className="mt-5 rounded-2xl p-4 text-left iskip-success-meter" style={{ border: `1px solid color-mix(in srgb, ${successAccent} 52%, transparent)`, background: "rgba(237,255,245,0.055)" }}>
+              {hasImpactProgress ? (
+                <div>
+                  <p className="text-[10px] font-black uppercase tracking-[0.16em]" style={{ color: "var(--text-muted)" }}>
+                    This skip can help fund
+                  </p>
+                  <p className="mt-1 text-[1.35rem] font-black leading-tight" style={{ color: successAccent }}>
+                    {impactAddedValue}
+                  </p>
+                  <p className="mt-2 text-xs font-bold leading-snug" style={{ color: "var(--text-muted)" }}>
+                    {progressLabel} saved in this jar.
+                  </p>
+                </div>
+              ) : (
+                <div className="flex items-center justify-between gap-3">
+                  <div>
+                    <p className="text-[10px] font-black uppercase tracking-[0.16em]" style={{ color: "var(--text-muted)" }}>
+                      {progressTarget > 0 ? "Jar progress" : "Skip Bank"}
+                    </p>
+                    <p className="mt-1 text-xl font-black" style={{ color: "var(--text-primary)" }}>
+                      {progressLabel}
+                    </p>
+                  </div>
+                  <div className="text-right">
+                    <p className="text-[10px] font-black uppercase tracking-[0.16em]" style={{ color: "var(--text-muted)" }}>
+                      Added
+                    </p>
+                    <p className="mt-1 text-2xl font-black" style={{ color: successAccent }}>
+                      +{formatCurrency(amount)}
+                    </p>
+                  </div>
+                </div>
+              )}
+              <div className="mt-3 h-3 overflow-hidden rounded-full" style={{ background: "rgba(237,245,240,0.1)" }}>
+                <div
+                  className="h-full rounded-full iskip-success-fill"
+                  style={{
+                    "--fill-from": `${progressTarget > 0 ? beforeCoverage : 0}%`,
+                    "--fill-to": `${progressTarget > 0 ? afterCoverage : 100}%`,
+                    background: successAccent,
+                  } as CSSProperties}
+                />
+              </div>
+            </div>
+
             {successHighlight === "largest" && (
               <div className="mt-3 rounded-xl px-3 py-2 text-left" style={{ background: "var(--bg-surface-2)" }}>
                 <p className="text-[10px] font-black uppercase tracking-[0.12em]" style={{ color: "var(--text-muted)" }}>Largest skip</p>
@@ -830,13 +993,17 @@ export function SkipModal({ onClose }: Props) {
                 <p className="mt-0.5 text-sm font-black" style={{ color: "var(--text-primary)" }}>#{postLogSkipCount}</p>
               </div>
             )}
-            <div className="mt-5 mb-5 px-3 text-center">
-              <p id="skip-success-title" className="text-[1.08rem] font-semibold leading-relaxed" style={{ color: "var(--text-primary)" }}>
+            <div className="mt-4 rounded-2xl px-4 py-3 text-left" style={{ background: "var(--bg-surface-2)" }}>
+              <p className="text-[10px] font-black uppercase tracking-[0.16em]" style={{ color: "var(--text-muted)" }}>
+                Today's win
+              </p>
+              <p className="mt-1 text-[1rem] font-bold leading-relaxed" style={{ color: "var(--text-primary)" }}>
                 {variableReward.message}
               </p>
             </div>
+            <StreakCheckHero streak={successStreak} />
 
-            <p className="mb-2 text-xs font-bold" style={{ color: "var(--text-muted)" }}>
+            <p className="mb-2 mt-5 text-xs font-bold" style={{ color: "var(--text-muted)" }}>
               {variableReward.ctaPrompt}
             </p>
             {variableReward.buttonAction === "share" ? (

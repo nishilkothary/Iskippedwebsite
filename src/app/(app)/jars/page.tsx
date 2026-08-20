@@ -1612,6 +1612,7 @@ function SplurgeTab({
   const [fundingWorking, setFundingWorking] = useState(false);
   const [showFundingDetails, setShowFundingDetails] = useState(false);
   const [switchPrompt, setSwitchPrompt] = useState<{ previous: SkipAllocationTarget; next: SkipAllocationTarget; balance: number } | null>(null);
+  const [deactivatePrompt, setDeactivatePrompt] = useState<{ target: SkipAllocationTarget; balance: number } | null>(null);
   const [fundraiserSetup, setFundraiserSetup] = useState<Project | null>(null);
   const [donatingProject, setDonatingProject] = useState<Project | null>(null);
   const [fundraiserGoalStr, setFundraiserGoalStr] = useState("");
@@ -1761,8 +1762,7 @@ function SplurgeTab({
   async function handleSkipFor(target: SkipAllocationTarget) {
     const isCurrentTarget = activeSkipTarget?.type === target.type && activeSkipTarget.id === target.id;
     if (isCurrentTarget) {
-      await onSetSkipTarget(null);
-      toast.success("Future skips will go to Unassigned Skip Bucks.");
+      setDeactivatePrompt({ target, balance: targetBalance(target) });
       return;
     }
     if (
@@ -1774,6 +1774,15 @@ function SplurgeTab({
       return;
     }
     await proceedToTarget(target);
+  }
+
+  async function confirmDeactivateActiveJar() {
+    if (!deactivatePrompt) return;
+    setDeactivating(true);
+    await onSetSkipTarget(null);
+    setDeactivating(false);
+    setDeactivatePrompt(null);
+    toast.success("Future skips will go to Unassigned Skip Bucks.");
   }
 
   async function proceedToTarget(target: SkipAllocationTarget) {
@@ -2062,6 +2071,54 @@ function SplurgeTab({
                 style={{ background: "transparent", border: "none", color: "var(--text-muted)" }}
               >
                 Cancel
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {deactivatePrompt && (
+        <div className="fixed inset-0 bg-black/60 z-50 flex items-end sm:items-center justify-center p-4" onClick={() => setDeactivatePrompt(null)}>
+          <div className="rounded-2xl w-full max-w-sm shadow-2xl" style={{ background: "var(--bg-surface-1)", border: "1px solid var(--border-default)" }} onClick={(e) => e.stopPropagation()}>
+            <div className="relative px-5 pt-5 pb-4 pr-12" style={{ borderBottom: "1px solid var(--border-default)" }}>
+              <p className="text-lg font-black leading-tight" style={{ color: "var(--text-primary)" }}>
+                Stop using this as your active jar?
+              </p>
+              <button
+                type="button"
+                onClick={() => setDeactivatePrompt(null)}
+                aria-label="Close deactivate jar confirmation"
+                className="absolute right-4 top-4 text-xl font-black leading-none"
+                style={{ color: "var(--text-muted)" }}
+              >
+                x
+              </button>
+            </div>
+            <div className="space-y-3 p-5">
+              <p className="text-sm leading-relaxed" style={{ color: "var(--text-secondary)" }}>
+                Future skips will go to Unassigned Skip Bucks instead.
+              </p>
+              {deactivatePrompt.balance > 0 && (
+                <p className="text-sm leading-relaxed" style={{ color: "var(--text-secondary)" }}>
+                  The {formatCurrency(deactivatePrompt.balance)} saved for {targetLabel(deactivatePrompt.target)} will stay in that jar. You can manage it from Jar Activity.
+                </p>
+              )}
+              <button
+                type="button"
+                onClick={confirmDeactivateActiveJar}
+                disabled={deactivating}
+                className="w-full rounded-xl py-3 text-sm font-black disabled:opacity-50"
+                style={{ background: "#2ECC71", color: "#071B14" }}
+              >
+                {deactivating ? "Deactivating..." : "Deactivate jar"}
+              </button>
+              <button
+                type="button"
+                onClick={() => setDeactivatePrompt(null)}
+                className="w-full rounded-xl py-3 text-sm font-black"
+                style={{ background: "rgba(237,245,240,0.05)", border: "1px solid rgba(237,245,240,0.1)", color: "var(--text-secondary)" }}
+              >
+                Keep as active jar
               </button>
             </div>
           </div>
