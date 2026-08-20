@@ -31,6 +31,7 @@ type SuccessMoment =
 type SuccessButtonAction = "share" | "pick-jar" | "donate";
 type VariableReward = {
   id: string;
+  rotationKey?: string;
   message: string;
   ctaPrompt: string;
   buttonLabel: string;
@@ -400,21 +401,43 @@ export function SkipModal({ onClose }: Props) {
       : `I skipped ${itemLabel} and saved ${formatCurrency(amount)}. Want to see what you can save? Join me on iSkipped!`;
 
     function chooseVariableReward(candidates: VariableReward[], fallback: VariableReward): VariableReward {
-      const pool = candidates.length > 0 ? candidates : [fallback];
+      const pool = [fallback, ...candidates];
       if (selectedVariableRewardRef.current?.skipCount === postLogSkipCount) {
         return selectedVariableRewardRef.current.reward;
       }
-      const lastId = typeof window !== "undefined"
+      const legacyLastId = typeof window !== "undefined"
         ? window.localStorage.getItem("iskip:last-variable-reward-id")
         : null;
-      const eligiblePool = pool.length > 1 && lastId
-        ? pool.filter((candidate) => candidate.id !== lastId)
+      const legacyLastKey = legacyLastId?.includes("weekly-success") ? "weekly-success" : legacyLastId;
+      let recentKeys: string[] = [];
+      if (typeof window !== "undefined") {
+        try {
+          const parsedRecentKeys = JSON.parse(window.localStorage.getItem("iskip:recent-variable-reward-keys") || "[]");
+          recentKeys = Array.isArray(parsedRecentKeys) ? parsedRecentKeys.filter((key) => typeof key === "string") : [];
+        } catch {
+          recentKeys = [];
+        }
+      }
+      if (recentKeys.length === 0 && legacyLastKey) {
+        recentKeys = [legacyLastKey];
+      }
+      const nonRecentPool = pool.filter((candidate) => !recentKeys.includes(candidate.rotationKey ?? candidate.id));
+      const lastKey = recentKeys[0] ?? null;
+      const nonLastPool = lastKey
+        ? pool.filter((candidate) => (candidate.rotationKey ?? candidate.id) !== lastKey)
         : pool;
-      const selectedPool = eligiblePool.length > 0 ? eligiblePool : pool;
+      const selectedPool = nonRecentPool.length > 0
+        ? nonRecentPool
+        : nonLastPool.length > 0
+          ? nonLastPool
+          : pool;
       const reward = selectedPool[Math.floor(Math.random() * selectedPool.length)] ?? fallback;
       selectedVariableRewardRef.current = { skipCount: postLogSkipCount, reward };
       if (typeof window !== "undefined") {
+        const rewardKey = reward.rotationKey ?? reward.id;
+        const nextRecentKeys = [rewardKey, ...recentKeys.filter((key) => key !== rewardKey)].slice(0, 2);
         window.localStorage.setItem("iskip:last-variable-reward-id", reward.id);
+        window.localStorage.setItem("iskip:recent-variable-reward-keys", JSON.stringify(nextRecentKeys));
       }
       return reward;
     }
@@ -511,6 +534,7 @@ export function SkipModal({ onClose }: Props) {
         if (weeklySkipCount >= 2) {
           candidates.push({
             id: "cause-weekly-success",
+            rotationKey: "weekly-success",
             message: `You're on a roll. That's your ${ordinal(weeklySkipCount)} skip this week.`,
             ctaPrompt: "Invite others to skip for this cause",
             buttonLabel: "Invite Friends",
@@ -607,6 +631,7 @@ export function SkipModal({ onClose }: Props) {
         if (weeklySkipCount >= 2) {
           candidates.push({
             id: "reward-weekly-success",
+            rotationKey: "weekly-success",
             message: `Powerful week. That's your ${ordinal(weeklySkipCount)} skip this week, and ${activeGoal.label} is getting closer.`,
             ctaPrompt: "Invite others to skip",
             buttonLabel: "Challenge Friends",
@@ -688,6 +713,7 @@ export function SkipModal({ onClose }: Props) {
       if (weeklySkipCount >= 2) {
         candidates.push({
           id: "nothing-weekly-success",
+          rotationKey: "weekly-success",
           message: `You're on a roll. That's your ${ordinal(weeklySkipCount)} skip this week.`,
           ctaPrompt: "Invite others to skip",
           buttonLabel: "Challenge Friends",
