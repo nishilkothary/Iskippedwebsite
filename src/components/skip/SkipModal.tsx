@@ -11,7 +11,7 @@ import { normalizeJarSplit, normalizeSpendingGoals } from "@/lib/services/fireba
 import { formatAggregateImpactUnitsDecimal, formatUnits, oneUnitPhrase } from "@/lib/utils/impact";
 import { getChallengeCountdown } from "@/lib/utils/dates";
 import { appendRefParam, getChallengeSharePath } from "@/lib/utils/share";
-import { getPostSkipShareText } from "@/lib/utils/challengeShareCopy";
+import { getChallengeCausePhrase } from "@/lib/utils/challengeShareCopy";
 import { ShareButton } from "@/components/share/ShareButton";
 import { SkipSetupPrompt } from "@/components/setup/SkipSetupPrompt";
 
@@ -63,6 +63,7 @@ export function SkipModal({ onClose }: Props) {
   const [successLargestSkip, setSuccessLargestSkip] = useState(0);
   const [successMoment, setSuccessMoment] = useState<SuccessMoment>("personal");
   const [successStreak, setSuccessStreak] = useState(0);
+  const [successSkipCount, setSuccessSkipCount] = useState(0);
   const [showSetupPrompt, setShowSetupPrompt] = useState(false);
   const dialogRef = useModalA11y(onClose);
   const activeProjectForSkip = projects.find((p) => p.id === projectId) ?? null;
@@ -142,6 +143,7 @@ export function SkipModal({ onClose }: Props) {
       setSuccessSkipBank(projectedSkipBank);
       setSuccessLifetimeSaved((profile?.totalSaved ?? 0) + amount);
       const nextSkipCount = (profile?.totalSkips ?? 0) + 1;
+      setSuccessSkipCount(nextSkipCount);
       const goalTarget = activeGoal?.targetAmount ?? 0;
       const goalJustReached = goalTarget > 0
         && skipBankBefore < goalTarget
@@ -189,7 +191,7 @@ export function SkipModal({ onClose }: Props) {
   if (success) {
     const skipGive = amount * (skipGivePct / 100);
     const successActiveProject = projects.find((p) => p.id === profile?.activeProjectId) ?? null;
-    const postLogSkipCount = profile?.totalSkips ?? 0;
+    const postLogSkipCount = successSkipCount || (profile?.totalSkips ?? 0);
 
     function dismissSuccess() {
       if (postLogSkipCount === 1) {
@@ -207,7 +209,6 @@ export function SkipModal({ onClose }: Props) {
     const itemLabel = whatSkipped || customLabel || selectedCat.label.toLowerCase();
     const { goals: successGoals, activeId: successActiveGoalId } = normalizeSpendingGoals(profile ?? {} as any);
     const activeGoal = successGoals.find((goal) => goal.id === successActiveGoalId) ?? null;
-    const impactStat = `You skipped ${formatCurrency(amount)}.`;
     const recentLargestSkip = Math.max(
       0,
       ...recentSkips.filter((skip) => skip.projectId === (successActiveProject?.id ?? null)).map((skip) => skip.amount)
@@ -219,15 +220,9 @@ export function SkipModal({ onClose }: Props) {
         : postLogSkipCount % 10 === 0
           ? "skip-number"
           : null;
-    const challengeURL = successActiveProject
+    const shareURL = successActiveProject
       ? appendRefParam(`${typeof window !== "undefined" ? window.location.origin : "https://iskipped.com"}${getChallengeSharePath(successActiveProject)}`, profile?.uid)
       : "https://iskipped.com";
-    const shareIntentText = successActiveProject
-      ? getPostSkipShareText(successActiveProject, itemLabel, amount)
-      : `I skipped ${itemLabel} and saved ${formatCurrency(amount)}. Want to skip something this week too?`;
-    const inviteLabel = successActiveProject
-      ? "Invite someone to skip with you"
-      : "Invite someone to skip";
 
     // Show jar-full celebration when give jar hits/exceeds goal (first time, then every 3rd skip)
     const overflowCount = successOverflowCount ?? 0;
@@ -327,116 +322,373 @@ export function SkipModal({ onClose }: Props) {
       );
     }
 
+    function ordinal(value: number) {
+      const mod100 = value % 100;
+      if (mod100 >= 11 && mod100 <= 13) return `${value}th`;
+      switch (value % 10) {
+        case 1: return `${value}st`;
+        case 2: return `${value}nd`;
+        case 3: return `${value}rd`;
+        default: return `${value}th`;
+      }
+    }
+
+    type SuccessButtonAction = "share" | "pick-jar" | "donate";
+    type VariableReward = {
+      message: string;
+      ctaPrompt: string;
+      buttonLabel: string;
+      buttonAction: SuccessButtonAction;
+      shareMessage: string;
+      accent: string;
+      effect?: "confetti" | "fireworks";
+    };
+
+    const startOfWeek = new Date();
+    startOfWeek.setHours(0, 0, 0, 0);
+    startOfWeek.setDate(startOfWeek.getDate() - startOfWeek.getDay());
+    const startOfWeekIso = startOfWeek.toISOString().slice(0, 10);
+    const weeklySkipCount = 1 + recentSkips.filter((skip) => skip.date >= startOfWeekIso).length;
+    const isFirstSkip = postLogSkipCount === 1;
+    const milestoneNumbers = new Set([5, 10, 15, 25, 30, 40, 50]);
+    const isSkipMilestone = milestoneNumbers.has(postLogSkipCount) || (postLogSkipCount > 50 && postLogSkipCount % 10 === 0);
+    const isLargeSkip = amount > 50;
+
     const goalTarget = activeGoal?.targetAmount ?? 0;
-    const goalCoverage = goalTarget > 0 ? Math.min(100, Math.round((successSkipBank / goalTarget) * 100)) : 0;
+    const rewardCoverage = goalTarget > 0 ? Math.min(100, Math.round((successJarBalance / goalTarget) * 100)) : 0;
+    const rewardCoverageBefore = goalTarget > 0 ? Math.min(100, Math.round((Math.max(0, successJarBalance - amount) / goalTarget) * 100)) : 0;
+    const rewardRemaining = Math.max(0, goalTarget - successJarBalance);
     const hasGoalMoment = goalTarget > 0 && activeGoal != null;
     const hasFundraiserMoment = successActiveProject != null;
     const momentType = successActiveProject
       ? "fundraiser"
       : (successMoment === "goal-progress" || successMoment === "goal-ready") && !hasGoalMoment
       ? "personal"
-      : successMoment === "fundraiser" && !hasFundraiserMoment
+        : successMoment === "fundraiser" && !hasFundraiserMoment
         ? "personal"
         : successMoment;
-    const skipFundraiserImpactText = hasFundraiserMoment
-      ? (() => {
-          const groupImpact = successActiveProject?.unitCost
-            ? formatAggregateImpactUnitsDecimal(
-                successGroupTotal,
-                successActiveProject.unitCost,
-                successActiveProject.unitName ?? successActiveProject.unitDisplay ?? "unit",
-                successActiveProject.unitDisplay,
-                successActiveProject.unitIsGoal,
-              )
-            : formatCurrency(successGroupTotal);
-          const personalImpact = formatCurrency(amount);
-          if (!successProjectUnitCost || !successProjectUnitName && !successProjectUnitDisplay) {
-            return `Your jar +${personalImpact}. Group jar: ${groupImpact}.`;
-          }
-          const unitName = successProjectUnitName || successProjectUnitDisplay || "impact";
-          const share = amount / successProjectUnitCost!;
+    const causeName = successActiveProject ? getChallengeCausePhrase(successActiveProject) : "this cause";
+    const fundraiserPersonalGoal = successActiveProject
+      ? profile?.causeGoalAmounts?.[successActiveProject.id] ?? successActiveProject.goalAmount ?? 0
+      : 0;
+    const fundraiserPersonalCoverage = fundraiserPersonalGoal > 0
+      ? Math.min(100, Math.round((successJarBalance / fundraiserPersonalGoal) * 100))
+      : 0;
+    const fundraiserGroupGoal = successActiveProject?.goalAmount ?? 0;
+    const fundraiserGroupCoverage = fundraiserGroupGoal > 0
+      ? Math.min(100, Math.round((successGroupTotal / fundraiserGroupGoal) * 100))
+      : 0;
+    const unitLabel = successProjectUnitName || successProjectUnitDisplay || "unit";
+    const unitShare = successProjectUnitCost ? amount / successProjectUnitCost : 0;
+    const unitPercent = successProjectUnitCost ? Math.max(1, Math.round(unitShare * 100)) : 0;
+    const unitPhrase = successProjectUnitCost
+      ? formatAggregateImpactUnitsDecimal(
+          amount,
+          successProjectUnitCost,
+          unitLabel,
+          successProjectUnitDisplay,
+          successActiveProject?.unitIsGoal
+        ).toLowerCase()
+      : "impact";
+    const rewardShareCopy = activeGoal
+      ? `I skipped ${itemLabel} and put ${formatCurrency(amount)} toward ${activeGoal.label}. Join me on iSkipped and start saving for your own goal.`
+      : `I skipped ${itemLabel} and saved ${formatCurrency(amount)}. Want to see what you can save? Join me on iSkipped!`;
+    const causeShareCopy = successActiveProject
+      ? `I skipped ${itemLabel} and put the savings toward ${causeName}. Want to skip for the same cause?`
+      : `I skipped ${itemLabel} and saved ${formatCurrency(amount)}. Want to see what you can save? Join me on iSkipped!`;
 
-          if (share >= 1) {
-            const potential = formatAggregateImpactUnitsDecimal(
-              amount,
-              successProjectUnitCost!,
-              unitName,
-              successProjectUnitDisplay,
-              successActiveProject?.unitIsGoal
-            ).toLowerCase();
-            return `Your jar +${personalImpact}. Group jar: ${groupImpact}. This skip could fund about ${potential}.`;
-          }
-
-          const percentage = share * 100;
-          const formattedPercentage = percentage < 0.001
-            ? "<0.001%"
-            : percentage < 1
-              ? `${Number(percentage.toFixed(3))}%`
-              : percentage < 10
-                ? `${Number(percentage.toFixed(1))}%`
-                : `${Math.round(percentage)}%`;
-          return `Your jar +${personalImpact}. Group jar: ${groupImpact}. This skip covers ${formattedPercentage} of ${oneUnitPhrase(unitName).toLowerCase()}.`;
-        })()
-      : null;
-    const momentCopy = momentType === "goal-ready" && activeGoal
-      ? {
-          eyebrow: "YOUR REWARD IS READY",
-          title: `${activeGoal.label} is ready when you are.`,
-          detail: `${formatCurrency(Math.min(successSkipBank, goalTarget))} ready of ${formatCurrency(goalTarget)}.`,
-          accent: "#A78BFA",
-        }
-      : momentType === "goal-progress" && activeGoal
-        ? {
-            eyebrow: "YOUR REWARD IS GETTING CLOSER",
-            title: `${goalCoverage}% of ${activeGoal.label} is covered.`,
-            detail: `${formatCurrency(Math.min(successSkipBank, goalTarget))} ready of ${formatCurrency(goalTarget)}.`,
-            accent: "#A78BFA",
-          }
-      : momentType === "fundraiser" && skipFundraiserImpactText
-        ? {
-            eyebrow: null,
-            title: "This skip could make a difference.",
-            detail: skipFundraiserImpactText,
+    function buildVariableReward(): VariableReward {
+      if (momentType === "fundraiser" && successActiveProject) {
+        if (fundraiserPersonalGoal > 0 && fundraiserPersonalCoverage >= 100) {
+          return {
+            message: `You hit your savings goal. Your skips can now help fund ${unitPhrase}.`,
+            ctaPrompt: "Turn your skips into real-world impact",
+            buttonLabel: "Donate",
+            buttonAction: "donate",
+            shareMessage: "",
             accent: "var(--green-primary)",
-          }
-        : momentType === "milestone"
-          ? {
-              eyebrow: "MILESTONE UNLOCKED",
-              title: `${postLogSkipCount} times you chose not to spend.`,
-              detail: activeGoal
-                ? `${formatCurrency(successJarBalance)} in ${activeGoal.label}. ${formatCurrency(successSkipBank)} remains in your Skip Bank.`
-                : `${formatCurrency(successSkipBank)} is now waiting in your Skip Bank.`,
-              accent: "#F59E0B",
-            }
-          : momentType === "skip-bank"
-            ? {
-                eyebrow: "YOUR SKIP BANK GREW",
-                title: `${formatCurrency(successSkipBank)} is ready for whatever comes next.`,
-                detail: `Your latest ${formatCurrency(amount)} skip is safely in the bank.`,
-                accent: "var(--green-primary)",
-              }
-            : momentType === "lifetime"
-              ? {
-                  eyebrow: "LIFETIME SAVINGS",
-                  title: `You have skipped ${formatCurrency(successLifetimeSaved)} altogether.`,
-                  detail: `That is ${postLogSkipCount} choices in your favor.`,
-                  accent: "#A78BFA",
-                }
-              : momentType === "future"
-                ? {
-                    eyebrow: "A LITTLE MATH, A LOT OF POSSIBILITY",
-                    title: `One ${formatCurrency(amount)} skip a week = ${formatCurrency(amount * 52)} in a year.`,
-                    detail: "Today counts as the first one.",
-                    accent: "#F59E0B",
-                  }
-                : {
-              eyebrow: "A SMALL WIN THAT ADDS UP",
-              title: `That was skip #${postLogSkipCount}. Keep choosing your future self.`,
-                  detail: activeGoal
-                    ? `${formatCurrency(successJarBalance)} in ${activeGoal.label}. ${formatCurrency(successSkipBank)} remains in your Skip Bank.`
-                    : `${formatCurrency(successSkipBank)} is now waiting in your Skip Bank.`,
-              accent: "#A78BFA",
-                };
+            effect: "confetti",
+          };
+        }
+        if (fundraiserGroupGoal > 0 && fundraiserGroupCoverage >= 100) {
+          return {
+            message: "The group hit the goal. Your skips helped make it happen.",
+            ctaPrompt: "Turn your skips into real-world impact",
+            buttonLabel: "Donate",
+            buttonAction: "donate",
+            shareMessage: "",
+            accent: "var(--green-primary)",
+            effect: "confetti",
+          };
+        }
+        if (isFirstSkip) {
+          return {
+            message: `There it is. Your first skip saved ${formatCurrency(amount)} by passing on ${itemLabel}.`,
+            ctaPrompt: "Share your first win",
+            buttonLabel: "Share",
+            buttonAction: "share",
+            shareMessage: `I just skipped ${itemLabel} and saved ${formatCurrency(amount)}. Join me on iSkipped to see how much we can save.`,
+            accent: "var(--green-primary)",
+            effect: "confetti",
+          };
+        }
+        if (isSkipMilestone) {
+          return {
+            message: `That's your ${ordinal(postLogSkipCount)} skip. You're turning ordinary expenses into something more meaningful.`,
+            ctaPrompt: "Share your milestone",
+            buttonLabel: "Share",
+            buttonAction: "share",
+            shareMessage: `I just hit ${postLogSkipCount} skips on iSkipped. Small choices are adding up.`,
+            accent: "#F59E0B",
+            effect: "fireworks",
+          };
+        }
+        if (isLargeSkip) {
+          return {
+            message: successProjectUnitCost
+              ? `One skip saved enough to fund about ${unitPhrase}. That's a huge win.`
+              : `One skip saved you ${formatCurrency(amount)}. That's a huge win.`,
+            ctaPrompt: "Share your big win",
+            buttonLabel: "Share",
+            buttonAction: "share",
+            shareMessage: successProjectUnitCost
+              ? `I skipped ${itemLabel} and saved enough to fund ${unitPhrase} for ${causeName}. Want to skip for the same cause?`
+              : causeShareCopy,
+            accent: "#F59E0B",
+            effect: "fireworks",
+          };
+        }
+        if (fundraiserGroupGoal > 0 && fundraiserGroupCoverage >= 85) {
+          return {
+            message: `The group is ${fundraiserGroupCoverage}% of the way there. A few more skips can finish this.`,
+            ctaPrompt: "Rally others to help finish it",
+            buttonLabel: "Invite Friends",
+            buttonAction: "share",
+            shareMessage: `Our group is almost at the goal for ${causeName}. Join us on iSkipped and help finish it.`,
+            accent: "var(--green-primary)",
+          };
+        }
+        if (fundraiserPersonalGoal > 0 && fundraiserPersonalCoverage >= 85) {
+          return {
+            message: `You're ${fundraiserPersonalCoverage}% of the way to your goal. Let's cross the finish line.`,
+            ctaPrompt: "Share your progress",
+            buttonLabel: "Share",
+            buttonAction: "share",
+            shareMessage: `I've skipped over ${formatCurrency(successJarBalance)} of expenses and I'm almost at my goal for ${causeName}. Join me on iSkipped.`,
+            accent: "var(--green-primary)",
+          };
+        }
+        if (weeklySkipCount >= 2) {
+          return {
+            message: `You're on a roll. That's your ${ordinal(weeklySkipCount)} skip this week.`,
+            ctaPrompt: "Invite others to skip for this cause",
+            buttonLabel: "Invite Friends",
+            buttonAction: "share",
+            shareMessage: `I'm skipping expenses I no longer need to support ${causeName}. Want to join me?`,
+            accent: "var(--green-primary)",
+          };
+        }
+        if (successProjectUnitCost) {
+          return {
+            message: unitShare >= 1
+              ? `That skip is enough to fund ${unitPhrase}.`
+              : `That skip covers about ${unitPercent}% of ${oneUnitPhrase(unitLabel).toLowerCase()}. Small choice, real impact.`,
+            ctaPrompt: "Share your impact",
+            buttonLabel: "Share",
+            buttonAction: "share",
+            shareMessage: causeShareCopy,
+            accent: "var(--green-primary)",
+          };
+        }
+        return {
+          message: `You added ${formatCurrency(amount)} to your fundraiser jar for ${successActiveProject.title}.`,
+          ctaPrompt: "Invite others to skip for this cause",
+          buttonLabel: "Invite Friends",
+          buttonAction: "share",
+          shareMessage: `I'm skipping expenses I no longer need to support ${causeName}. Want to join me?`,
+          accent: "var(--green-primary)",
+        };
+      }
+
+      if (hasGoalMoment && activeGoal) {
+        if (rewardCoverage >= 100 && rewardCoverageBefore < 100) {
+          return {
+            message: `You did it. ${activeGoal.label} is fully funded from your skips.`,
+            ctaPrompt: "Share your success",
+            buttonLabel: "Invite Friends",
+            buttonAction: "share",
+            shareMessage: `I skipped expenses I didn't need and saved enough for ${activeGoal.label}. You can do the same for your own goals on iSkipped.`,
+            accent: "#A78BFA",
+            effect: "confetti",
+          };
+        }
+        if (isFirstSkip) {
+          return {
+            message: `There it is. Your first skip saved ${formatCurrency(amount)} by passing on ${itemLabel}.`,
+            ctaPrompt: "Share your first win",
+            buttonLabel: "Share",
+            buttonAction: "share",
+            shareMessage: `I just skipped ${itemLabel} and saved ${formatCurrency(amount)}. Join me on iSkipped to see how much we can save.`,
+            accent: "#A78BFA",
+            effect: "confetti",
+          };
+        }
+        if (isSkipMilestone) {
+          return {
+            message: `That's your ${ordinal(postLogSkipCount)} skip. You're turning ordinary expenses into something more meaningful.`,
+            ctaPrompt: "Share your milestone",
+            buttonLabel: "Share",
+            buttonAction: "share",
+            shareMessage: `I just hit ${postLogSkipCount} skips on iSkipped. Small choices are adding up.`,
+            accent: "#F59E0B",
+            effect: "fireworks",
+          };
+        }
+        if (isLargeSkip) {
+          return {
+            message: `One skip got you ${Math.max(1, rewardCoverage - rewardCoverageBefore)}% closer to ${activeGoal.label}. That's a huge win.`,
+            ctaPrompt: "Share your big win",
+            buttonLabel: "Share",
+            buttonAction: "share",
+            shareMessage: rewardShareCopy,
+            accent: "#F59E0B",
+            effect: "fireworks",
+          };
+        }
+        if (rewardCoverage >= 85) {
+          return {
+            message: `${activeGoal.label} is getting close. You're just a few skips away.`,
+            ctaPrompt: "Share your progress",
+            buttonLabel: "Share",
+            buttonAction: "share",
+            shareMessage: `I'm almost done saving for ${activeGoal.label} by skipping expenses I don't need. Join me on iSkipped.`,
+            accent: "#A78BFA",
+          };
+        }
+        if (weeklySkipCount >= 2) {
+          return {
+            message: `Powerful week. That's your ${ordinal(weeklySkipCount)} skip this week, and ${activeGoal.label} is getting closer.`,
+            ctaPrompt: "Invite others to skip",
+            buttonLabel: "Challenge Friends",
+            buttonAction: "share",
+            shareMessage: `I'm skipping expenses I no longer need and saving for ${activeGoal.label}. Want to join me?`,
+            accent: "#A78BFA",
+          };
+        }
+        if (momentType === "future" && rewardRemaining > 0) {
+          return {
+            message: `At this pace, you could reach ${activeGoal.label} in about ${Math.max(1, Math.ceil(rewardRemaining / Math.max(amount, 1)))} weeks.`,
+            ctaPrompt: "Invite others to skip",
+            buttonLabel: "Challenge Friends",
+            buttonAction: "share",
+            shareMessage: `I'm skipping expenses I no longer need and saving for ${activeGoal.label}. Join me on iSkipped.`,
+            accent: "#A78BFA",
+          };
+        }
+        if (momentType === "lifetime") {
+          return {
+            message: `Nice work. Just ${formatCurrency(rewardRemaining)} left until ${activeGoal.label} is fully saved.`,
+            ctaPrompt: "Invite others to skip",
+            buttonLabel: "Challenge Friends",
+            buttonAction: "share",
+            shareMessage: `I'm skipping expenses I no longer need and saving for ${activeGoal.label}. Want to join me?`,
+            accent: "#A78BFA",
+          };
+        }
+        return {
+          message: `You added ${formatCurrency(amount)} toward ${activeGoal.label}. You're now ${rewardCoverage}% closer.`,
+          ctaPrompt: "Invite others to skip",
+          buttonLabel: "Challenge Friends",
+          buttonAction: "share",
+          shareMessage: rewardShareCopy,
+          accent: "#A78BFA",
+        };
+      }
+
+      if (isFirstSkip) {
+        return {
+          message: `There it is. Your first skip saved ${formatCurrency(amount)} by passing on ${itemLabel}.`,
+          ctaPrompt: "Share your first win",
+          buttonLabel: "Share",
+          buttonAction: "share",
+          shareMessage: `I just skipped ${itemLabel} and saved ${formatCurrency(amount)}. Join me on iSkipped to see how much we can save.`,
+          accent: "var(--green-primary)",
+          effect: "confetti",
+        };
+      }
+      if (isSkipMilestone) {
+        return {
+          message: `That's your ${ordinal(postLogSkipCount)} skip. You're turning ordinary expenses into something more meaningful.`,
+          ctaPrompt: "Share your milestone",
+          buttonLabel: "Share",
+          buttonAction: "share",
+          shareMessage: `I just hit ${postLogSkipCount} skips on iSkipped. Small choices are adding up.`,
+          accent: "#F59E0B",
+          effect: "fireworks",
+        };
+      }
+      if (isLargeSkip) {
+        return {
+          message: `One skip saved you ${formatCurrency(amount)}. That's a huge win.`,
+          ctaPrompt: "Share your big win",
+          buttonLabel: "Share",
+          buttonAction: "share",
+          shareMessage: `I skipped ${itemLabel} and saved ${formatCurrency(amount)}. Want to see what you can save? Join me on iSkipped!`,
+          accent: "#F59E0B",
+          effect: "fireworks",
+        };
+      }
+      if (weeklySkipCount >= 2) {
+        return {
+          message: `You're on a roll. That's your ${ordinal(weeklySkipCount)} skip this week.`,
+          ctaPrompt: "Invite others to skip",
+          buttonLabel: "Challenge Friends",
+          buttonAction: "share",
+          shareMessage: "I've been skipping expenses I no longer need to see how much I can save. I challenge you to do the same. Join me on iSkipped!",
+          accent: "var(--green-primary)",
+        };
+      }
+      if (momentType === "lifetime" && postLogSkipCount >= 5) {
+        return {
+          message: `Nice skip. Your lifetime savings are now ${formatCurrency(successLifetimeSaved)} from choosing to be intentional with your money.`,
+          ctaPrompt: "Invite others to skip",
+          buttonLabel: "Challenge Friends",
+          buttonAction: "share",
+          shareMessage: `I've been skipping expenses I no longer need and have saved over ${formatCurrency(successLifetimeSaved)}. I challenge you to do the same. Join me on iSkipped!`,
+          accent: "#A78BFA",
+        };
+      }
+      if (momentType === "future") {
+        return {
+          message: `If you skipped this every week, you'd save ${formatCurrency(amount * 52)} this year.`,
+          ctaPrompt: "Invite others to skip",
+          buttonLabel: "Challenge Friends",
+          buttonAction: "share",
+          shareMessage: "I've been skipping expenses I no longer need to see how much I can save. I challenge you to do the same. Join me on iSkipped!",
+          accent: "#F59E0B",
+        };
+      }
+      if (momentType === "personal") {
+        return {
+          message: "Every skip makes your hard-earned money more intentional. Keep going.",
+          ctaPrompt: "Invite others to skip",
+          buttonLabel: "Invite",
+          buttonAction: "share",
+          shareMessage: "I've been skipping expenses I no longer need to see how much I can save. Want to join me?",
+          accent: "#A78BFA",
+        };
+      }
+      return {
+        message: `You added ${formatCurrency(amount)} to your Skip Bucks. Save it for something meaningful.`,
+        ctaPrompt: "Ready to give your skips a purpose?",
+        buttonLabel: "Pick a Jar",
+        buttonAction: "pick-jar",
+        shareMessage: "",
+        accent: "var(--green-primary)",
+      };
+    }
+
+    const variableReward = buildVariableReward();
     return (
       <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4" onClick={dismissSuccess}>
         <div
@@ -451,10 +703,7 @@ export function SkipModal({ onClose }: Props) {
         >
           <button onClick={dismissSuccess} aria-label="Close" className="absolute top-4 right-4 text-2xl leading-none z-10" style={{ color: "var(--text-muted)" }}>x</button>
           <div className="px-6 pb-6 pt-6">
-            <p id="skip-success-title" className="text-[1.55rem] font-black leading-tight mx-auto max-w-[290px]" style={{ color: "var(--green-primary)" }}>
-              {impactStat}
-            </p>
-            {successHighlight === "streak" && <StreakCheckHero streak={successStreak} />}
+            <StreakCheckHero streak={successStreak} />
             {successHighlight === "largest" && (
               <div className="mt-3 rounded-xl px-3 py-2 text-left" style={{ background: "var(--bg-surface-2)" }}>
                 <p className="text-[10px] font-black uppercase tracking-[0.12em]" style={{ color: "var(--text-muted)" }}>Largest skip</p>
@@ -468,35 +717,37 @@ export function SkipModal({ onClose }: Props) {
               </div>
             )}
             <div className="mt-4 mb-5 rounded-xl px-4 py-4 text-left" style={{ background: "var(--bg-surface-2)", border: "1px solid var(--border-default)" }}>
-              {momentCopy.eyebrow && (
-                <p className="text-[10px] font-black tracking-[0.14em]" style={{ color: momentCopy.accent }}>
-                  {momentCopy.eyebrow}
-                </p>
-              )}
-              <p className={`${momentCopy.eyebrow ? "mt-1 " : ""}text-base font-black leading-snug`} style={{ color: "var(--text-primary)" }}>
-                {momentCopy.title}
-              </p>
-              <p className="mt-1 text-xs font-semibold leading-relaxed" style={{ color: "var(--text-secondary)" }}>
-                {momentCopy.detail}
+              <p id="skip-success-title" className="text-lg font-black leading-snug" style={{ color: variableReward.accent }}>
+                {variableReward.message}
               </p>
             </div>
 
-            {momentType === "fundraiser" && successActiveProject && (
-              <div>
+            <p className="mb-2 text-xs font-bold" style={{ color: "var(--text-muted)" }}>
+              {variableReward.ctaPrompt}
+            </p>
+            {variableReward.buttonAction === "share" ? (
+              <div className="mx-auto max-w-[280px]">
                 <ShareButton
                   variant="block"
                   tone="primary"
-                  label={inviteLabel}
-                  url={challengeURL}
-                  text={shareIntentText}
-                  title={successActiveProject.title}
+                  label={variableReward.buttonLabel}
+                  url={shareURL}
+                  text={variableReward.shareMessage}
+                  title={successActiveProject?.title ?? "iSkipped"}
                 />
               </div>
+            ) : (
+              <button
+                onClick={() => {
+                  onClose();
+                  router.push(variableReward.buttonAction === "donate" ? "/jars?tab=cause" : "/jars");
+                }}
+                className="mx-auto block w-full max-w-[280px] rounded-xl py-3 text-sm font-black"
+                style={{ background: "#2ECC71", color: "#071B14" }}
+              >
+                {variableReward.buttonLabel}
+              </button>
             )}
-
-            <div className={`${momentType === "fundraiser" && successActiveProject ? "mt-3" : "mt-1"} flex items-center justify-center text-xs font-semibold`}>
-              <button onClick={dismissSuccess} className="px-3 py-2" style={{ color: "var(--text-muted)" }}>Done</button>
-            </div>
           </div>
         </div>
       </div>
