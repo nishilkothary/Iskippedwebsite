@@ -7,16 +7,14 @@ import { signInWithGoogle, signUpWithEmail, signInWithEmail, resetPassword } fro
 import { useAuthStore } from "@/store/authStore";
 
 const previewSkips = [
-  { emoji: "☕", label: "Morning Latte", amount: "+$5.50", sub: "8 life-saving meals in Palestine", delay: "0s" },
-  { emoji: "🥗", label: "Lunch out", amount: "+$13.00", sub: "10 days of education in Cambodia", delay: "0.15s" },
-  { emoji: "🛍️", label: "Impulse buy", amount: "+$32.00", sub: "23 days of clean water access", delay: "0.3s" },
+  { emoji: "☕", label: "Morning Latte", amount: "+$5.50", sub: "Added to your Skip Bucks", delay: "0s" },
+  { emoji: "🥗", label: "Lunch out", amount: "+$13.00", sub: "Saved toward Weekend Trip", delay: "0.15s" },
+  { emoji: "🛍️", label: "Impulse buy", amount: "+$32.00", sub: "Saved for Laptops for Students", delay: "0.3s" },
 ];
 
 const trustPills = [
-  "No bank account",
-  "No credit card",
-  "Donate directly to charities",
-  "You stay in control",
+  "No bank accounts or credit cards",
+  "Money stays in your control",
 ];
 
 function friendlyAuthError(e: any): string {
@@ -168,7 +166,7 @@ function SignInPage() {
 
   const authForm = (
     <div className="w-full max-w-sm mx-auto">
-      {/* Sign In / Sign Up tabs — hidden in forgot mode */}
+      {/* Sign In / Sign Up tabs - hidden in forgot mode */}
       {mode !== "forgot" && (
         <div className="flex bg-[#F3F4F6] rounded-xl p-1 mb-5">
           <button
@@ -203,7 +201,7 @@ function SignInPage() {
         <div className="space-y-3">
           {resetSent ? (
             <div className="p-4 bg-emerald-50 border border-emerald-200 rounded-xl text-sm text-emerald-700 text-center">
-              Check your inbox — we sent a reset link to <span className="font-semibold">{email}</span>.
+              Check your inbox. We sent a reset link to <span className="font-semibold">{email}</span>.
             </div>
           ) : (
             <>
@@ -323,12 +321,8 @@ function SignInPage() {
 
   return (
     <div className="min-h-screen flex">
-      {/* ── Left panel — desktop only ── */}
+      {/* Left panel - desktop only */}
       <div className="hidden lg:flex w-[52%] flex-col justify-between bg-gradient-to-br from-[#0f3d2a] via-[#1a5c42] to-[#2d8b6a] p-12 relative overflow-hidden">
-        {/* Decorative blobs */}
-        <div className="absolute -top-24 -right-24 w-72 h-72 rounded-full bg-emerald-400/10 blur-3xl" />
-        <div className="absolute -bottom-16 -left-16 w-56 h-56 rounded-full bg-emerald-300/10 blur-2xl" />
-
         {/* Brand */}
         <div>
           <p className="text-2xl font-black text-white tracking-tight">
@@ -339,10 +333,10 @@ function SignInPage() {
         {/* Hero copy */}
         <div>
           <h2 className="text-5xl font-black text-white leading-tight mb-4">
-            Skip, Save, <span className="text-emerald-300">Give.</span>
+            Money saved, <span className="text-emerald-300">with purpose.</span>
           </h2>
           <p className="text-emerald-100 text-lg leading-relaxed max-w-sm">
-            Turn everyday skips into savings for yourself and donations that change lives.
+            Turn everyday skipped spending into savings you can aim at a reward, a goal, or a fundraiser.
           </p>
           <div className="mt-5 grid grid-cols-2 gap-2 max-w-md">
             {trustPills.map((pill) => (
@@ -359,7 +353,7 @@ function SignInPage() {
         {/* Skip preview cards */}
         <div className="space-y-3 relative z-10">
           <p className="text-emerald-400 text-xs font-bold uppercase tracking-widest mb-4">
-            Recent community skips
+            Recent purposeful skips
           </p>
           {previewSkips.map((skip, i) => (
             <div
@@ -386,12 +380,12 @@ function SignInPage() {
           <span className="text-3xl flex-shrink-0" aria-hidden>🫙</span>
           <div>
             <p className="text-white font-bold text-sm">Every skip fills your jar</p>
-            <p className="text-emerald-200 text-xs mt-0.5">Join a community saving with purpose</p>
+            <p className="text-emerald-200 text-xs mt-0.5">Build a habit around money you chose not to spend</p>
           </div>
         </div>
       </div>
 
-      {/* ── Right panel — auth form ── */}
+      {/* Right panel - auth form */}
       <div className="flex-1 flex flex-col bg-white">
         {/* Mobile hero (hidden on desktop) */}
         <div className="lg:hidden bg-gradient-to-br from-[#1a5c42] to-[#2d8b6a] px-6 pt-10 pb-8">
@@ -401,10 +395,10 @@ function SignInPage() {
             </p>
           </div>
           <h1 className="text-2xl font-black text-white text-center leading-tight mb-2">
-            Skip, Save, <span className="text-emerald-300">Give.</span>
+            Money saved, <span className="text-emerald-300">with purpose.</span>
           </h1>
           <p className="text-emerald-100 text-sm text-center">
-            Turn everyday skips into savings for yourself and donations that change lives.
+            Turn skipped spending into savings for rewards, goals, and fundraisers.
           </p>
           <div className="mt-5 grid grid-cols-2 gap-2">
             {trustPills.map((pill) => (
@@ -443,11 +437,8 @@ function SignInPage() {
         <div className="flex-1 flex flex-col justify-center px-6 py-8 sm:px-10">
           {/* Desktop logo + heading */}
           <div className="hidden lg:block text-center mb-8">
-            <p className="text-3xl font-black tracking-tight mb-5">
-              <span className="text-[#111827]">i</span><span className="text-emerald-500">skipped</span>
-            </p>
             <h1 className="text-2xl font-bold text-[#111827]">
-              {mode === "forgot" ? "Reset your password" : "Welcome — let's get started"}
+              {mode === "forgot" ? "Reset your password" : "Welcome, let's get started"}
             </h1>
             <p className="text-sm text-[#6B7280] mt-2">
               {mode === "forgot" ? "We'll email you a link to get back in." : "Your first skip is waiting."}
@@ -460,7 +451,7 @@ function SignInPage() {
               {mode === "forgot" ? "Reset your password" : mode === "signup" ? "Create your account" : "Welcome back"}
             </h2>
             <p className="text-sm text-[#6B7280] mt-1">
-              {mode === "forgot" ? "We'll email you a link to get back in." : mode === "signup" ? "Start turning skips into impact." : "Sign back in to your jars."}
+              {mode === "forgot" ? "We'll email you a link to get back in." : mode === "signup" ? "Start saving with purpose." : "Sign back in to your jars."}
             </p>
           </div>
 
