@@ -2079,10 +2079,19 @@ function SplurgeTab({
       {fundraiserSetup && (
         <div className="fixed inset-0 bg-black/60 z-50 flex items-end sm:items-center justify-center p-4" onClick={() => setFundraiserSetup(null)}>
           <div className="rounded-2xl w-full max-w-sm shadow-2xl" style={{ background: "var(--bg-surface-1)", border: "1px solid var(--border-default)" }} onClick={(e) => e.stopPropagation()}>
-            <div className="px-5 pt-5 pb-4" style={{ borderBottom: "1px solid var(--border-default)" }}>
+            <div className="relative px-5 pt-5 pb-4 pr-12" style={{ borderBottom: "1px solid var(--border-default)" }}>
               <p className="text-lg font-black leading-tight" style={{ color: "var(--text-primary)" }}>
                 Skip for {fundraiserSetup.groupName ?? fundraiserSetup.title}?
               </p>
+              <button
+                type="button"
+                onClick={() => setFundraiserSetup(null)}
+                className="absolute right-4 top-4 text-xl font-black leading-none"
+                style={{ color: "var(--text-muted)" }}
+                aria-label="Close fundraiser setup"
+              >
+                x
+              </button>
             </div>
             <div className="space-y-4 p-5">
               <div>
@@ -2110,21 +2119,14 @@ function SplurgeTab({
               </div>
 
               <button
-                onClick={confirmFundraiserSetup}
-                disabled={fundraiserSetupWorking || !fundraiserGoalStr || parseFloat(fundraiserGoalStr) <= 0}
-                className="w-full rounded-xl py-3 text-sm font-black disabled:opacity-50"
-                style={{ background: "#2ECC71", color: "#071B14" }}
-              >
-                {fundraiserSetupWorking ? "Setting up..." : "Set goal and skip"}
-              </button>
-              <button
                 type="button"
                 onClick={() => setShowFundraiserBankDetails((value) => !value)}
-                className="w-full py-1 text-sm font-bold"
+                className="flex w-full items-center justify-between py-1 text-sm font-bold"
                 style={{ background: "transparent", border: "none", color: "var(--text-muted)" }}
                 aria-expanded={showFundraiserBankDetails}
               >
-                {showFundraiserBankDetails ? "Hide Skip Bucks" : "Use existing Skip Bucks"}
+                <span>{showFundraiserBankDetails ? "Hide Skip Bucks" : "Use existing Skip Bucks"}</span>
+                <span aria-hidden="true">{showFundraiserBankDetails ? "▲" : "▼"}</span>
               </button>
               {showFundraiserBankDetails && (
                 <div className="rounded-xl p-4" style={{ background: "rgba(237,245,240,0.045)", border: "1px solid rgba(237,245,240,0.08)" }}>
@@ -2152,15 +2154,12 @@ function SplurgeTab({
                 </div>
               )}
               <button
-                onClick={() => {
-                  setFundraiserSetup(null);
-                  setFundraiserGoalStr("");
-                  setFundraiserBankStr("");
-                }}
-                className="w-full rounded-xl py-3 text-sm font-bold"
-                style={{ border: "1px solid var(--border-default)", color: "var(--text-secondary)" }}
+                onClick={confirmFundraiserSetup}
+                disabled={fundraiserSetupWorking || !fundraiserGoalStr || parseFloat(fundraiserGoalStr) <= 0}
+                className="w-full rounded-xl py-3 text-sm font-black disabled:opacity-50"
+                style={{ background: "#2ECC71", color: "#071B14" }}
               >
-                Cancel
+                {fundraiserSetupWorking ? "Setting up..." : "Set goal and skip"}
               </button>
             </div>
           </div>
