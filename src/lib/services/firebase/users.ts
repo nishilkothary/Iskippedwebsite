@@ -273,8 +273,8 @@ export async function updateSpendingHistory(
   eventId: string,
   newAmountSaved: number,
   oldAmountSaved: number
-): Promise<void> {
-  await apiRequest(`/api/spending-history/${eventId}`, "PATCH", { newAmountSaved });
+): Promise<{ jarDecrease: number }> {
+  return apiRequest<{ jarDecrease: number }>(`/api/spending-history/${eventId}`, "PATCH", { newAmountSaved });
 }
 
 export async function deleteSpendingHistory(

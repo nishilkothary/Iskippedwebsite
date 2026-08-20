@@ -19,7 +19,9 @@ export async function POST(req: NextRequest) {
 
     const skipTotals = skips.reduce(
       (acc, skip) => {
-        const split = skip.jarSplit ?? defaultSplit;
+        const split = skip.allocationMode === "skip-pot"
+          ? { give: 0, live: 0 }
+          : skip.jarSplit ?? defaultSplit;
         return {
           totalSaved: acc.totalSaved + skip.amount,
           totalSkips: acc.totalSkips + 1,
@@ -40,6 +42,17 @@ export async function POST(req: NextRequest) {
 
     const causeJarBalances: Record<string, number> = {};
     skips.forEach((skip) => {
+      const allocationTarget = skip.allocationTarget
+        ?? (skip.allocationMode === "skip-pot" && skip.projectId
+          ? { type: "fundraiser" as const, id: skip.projectId }
+          : null);
+      if (skip.allocationMode === "skip-pot") {
+        if (allocationTarget?.type === "fundraiser") {
+          causeJarBalances[allocationTarget.id] = (causeJarBalances[allocationTarget.id] ?? 0) + skip.amount;
+        }
+        return;
+      }
+
       const split = skip.jarSplit ?? defaultSplit;
       if (skip.projectId) {
         causeJarBalances[skip.projectId] = (causeJarBalances[skip.projectId] ?? 0) + skip.amount * (split.give / 100);

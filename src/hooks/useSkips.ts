@@ -31,8 +31,13 @@ export function useSkips() {
   async function log(params: Omit<LogSkipParams, "uid" | "currentTotalSaved" | "currentTotalSkips" | "currentXp" | "currentStreak" | "currentLongestStreak" | "lastSkipDate" | "savedTowardActiveCause" | "defaultJarSplit" | "activeGoalId" | "causeJarBalance" | "causeJarOverflowCount">) {
     if (!user || !profile) return null;
     setLogging(true);
-    const causeJarBalance = profile.causeJarBalances?.[params.projectId ?? ""] ?? 0;
-    const causeJarOverflowCount = profile.causeJarOverflowCounts?.[params.projectId ?? ""] ?? 0;
+    const allocationTarget = params.allocationTarget
+      ?? profile.activeSkipTarget
+      ?? (params.projectId ? { type: "fundraiser" as const, id: params.projectId } : null)
+      ?? (profile.activeProjectId ? { type: "fundraiser" as const, id: profile.activeProjectId } : null);
+    const causeJarId = allocationTarget?.type === "fundraiser" ? allocationTarget.id : params.projectId ?? "";
+    const causeJarBalance = profile.causeJarBalances?.[causeJarId] ?? 0;
+    const causeJarOverflowCount = profile.causeJarOverflowCounts?.[causeJarId] ?? 0;
     try {
       const result = await logSkip({
         ...params,
@@ -50,10 +55,9 @@ export function useSkips() {
         activeGoalId: null,
         causeJarBalance,
         causeJarOverflowCount,
-        allocationTarget: params.allocationTarget ?? profile.activeSkipTarget ?? null,
+        allocationTarget,
       });
       if (result) {
-        const allocationTarget = params.allocationTarget ?? profile.activeSkipTarget ?? null;
         const targetedBalanceUpdates: {
           goalJarBalances?: Record<string, number>;
           causeJarBalances?: Record<string, number>;
@@ -61,13 +65,13 @@ export function useSkips() {
         if (allocationTarget?.type === "goal") {
           targetedBalanceUpdates.goalJarBalances = {
             ...(profile.goalJarBalances ?? {}),
-            [allocationTarget.id]: (profile.goalJarBalances?.[allocationTarget.id] ?? 0) + params.amount,
+            [allocationTarget.id]: Math.max(0, profile.goalJarBalances?.[allocationTarget.id] ?? 0) + params.amount,
           };
         }
         if (allocationTarget?.type === "fundraiser") {
           targetedBalanceUpdates.causeJarBalances = {
             ...(profile.causeJarBalances ?? {}),
-            [allocationTarget.id]: (profile.causeJarBalances?.[allocationTarget.id] ?? 0) + params.amount,
+            [allocationTarget.id]: Math.max(0, profile.causeJarBalances?.[allocationTarget.id] ?? 0) + params.amount,
           };
         }
         updateProfile({
@@ -156,10 +160,9 @@ export function useSkips() {
     await firebaseUpdateDonation(user.uid, donation.id, newAmount, donation.amount, donation.causeId, date);
     if (delta !== 0) {
       const currentBal = profile.causeJarBalances?.[donation.causeId] ?? 0;
-      const oldJarDecrease = donation.jarDecrease ?? donation.amount;
       const jarDelta = delta > 0
         ? -Math.min(delta, Math.max(0, currentBal))
-        : Math.min(-delta, Math.max(0, oldJarDecrease));
+        : -delta;
       updateProfile({
         totalDonated: profile.totalDonated + delta,
         causeJarBalances: {
@@ -172,12 +175,12 @@ export function useSkips() {
 
   async function deleteDonation(donation: DonationEvent): Promise<void> {
     if (!user || !profile) return;
-    const jarDecrease = await firebaseDeleteDonation(user.uid, donation.id, donation.amount, donation.causeId);
+    await firebaseDeleteDonation(user.uid, donation.id, donation.amount, donation.causeId);
     updateProfile({
       totalDonated: profile.totalDonated - donation.amount,
       causeJarBalances: {
         ...(profile.causeJarBalances ?? {}),
-        [donation.causeId]: (profile.causeJarBalances?.[donation.causeId] ?? 0) + (donation.jarDecrease ?? jarDecrease),
+        [donation.causeId]: (profile.causeJarBalances?.[donation.causeId] ?? 0) + donation.amount,
       },
     });
   }

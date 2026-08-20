@@ -41,7 +41,7 @@ export async function PATCH(req: NextRequest, ctx: RouteContext) {
         const oldJarDecrease = donation.jarDecrease ?? oldAmount;
         const jarDecreaseDelta = delta > 0
           ? Math.min(delta, Math.max(0, currentBal))
-          : -Math.min(-delta, Math.max(0, oldJarDecrease));
+          : delta;
         const jarDelta = -jarDecreaseDelta;
         tx.update(userRef, {
           totalDonated: FieldValue.increment(delta),
@@ -81,15 +81,14 @@ export async function DELETE(req: NextRequest, ctx: RouteContext) {
       const donation = donationSnap.data() as DonationEvent & { jarDecrease?: number };
       const amount = donation.amount;
       const causeId = donation.causeId;
-      const jarDecrease = donation.jarDecrease ?? amount;
 
       tx.delete(donationRef);
       tx.update(userRef, {
         totalDonated: FieldValue.increment(-amount),
-        [`causeJarBalances.${causeId}`]: FieldValue.increment(jarDecrease),
+        [`causeJarBalances.${causeId}`]: FieldValue.increment(amount),
       });
 
-      return jarDecrease;
+      return amount;
     });
 
     return NextResponse.json({ jarDecrease });

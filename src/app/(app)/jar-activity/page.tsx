@@ -13,6 +13,8 @@ import {
   releaseJarToSkipBank,
   setActiveProject,
   setActiveSkipTarget,
+  deleteDonation,
+  deleteSpendingHistory,
   subscribeToDonations,
   subscribeToSpendingHistory,
   updateDonation,
@@ -105,11 +107,13 @@ function JarActivityCard({
   working,
   onResume,
   onLogDonation,
+  onDonate,
 }: {
   item: JarActivityItem;
   working: boolean;
   onResume: (item: JarActivityItem) => void;
   onLogDonation: (project: Project) => void;
+  onDonate: (project: Project) => void;
 }) {
   const percent = progressPercent(item.balance, item.goalAmount);
   const accent = item.type === "fundraiser" ? "var(--green-primary)" : "#A78BFA";
@@ -131,9 +135,20 @@ function JarActivityCard({
           <h2 className="mt-1 text-xl font-black leading-tight" style={{ color: "var(--text-primary)" }}>{item.title}</h2>
           <p className="mt-1 text-sm" style={{ color: "var(--text-muted)" }}>{item.subtitle}</p>
         </div>
-        <div className="text-right">
+        <div className="flex shrink-0 flex-col items-end gap-2 text-right">
           <p className="text-2xl font-black" style={{ color: "var(--text-primary)" }}>{formatCurrency(item.balance)}</p>
           <p className="text-xs font-bold mt-1" style={{ color: "var(--text-muted)" }}>{goalLine(item)}</p>
+          {!item.active && (
+            <button
+              type="button"
+              onClick={() => onResume(item)}
+              disabled={working}
+              className="rounded-full px-3 py-1.5 text-xs font-black disabled:opacity-50"
+              style={{ background: "transparent", border: `1px solid ${accent}`, color: accent }}
+            >
+              Make active
+            </button>
+          )}
         </div>
       </div>
 
@@ -141,36 +156,16 @@ function JarActivityCard({
         <div className="h-full rounded-full" style={{ width: `${percent}%`, background: accent }} />
       </div>
 
-      {!item.active && (
-      <div className="mt-4 grid gap-2 sm:grid-cols-2">
-        <button
-          type="button"
-          onClick={() => onResume(item)}
-          disabled={working}
-          className="rounded-full px-4 py-2.5 text-sm font-black disabled:opacity-50"
-          style={{ background: "var(--green-primary)", color: "#071B14" }}
-        >
-          Resume this jar
-        </button>
-      </div>
-      )}
       {item.type === "fundraiser" && item.project && (
-        <div className="mt-2 grid gap-2 sm:grid-cols-2">
-          {item.project.donationURL ? (
-            <a
-              href={item.project.donationURL}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="rounded-full px-4 py-2.5 text-center text-sm font-black"
-              style={{ background: "var(--green-primary)", color: "#071B14", textDecoration: "none" }}
-            >
-              Donate
-            </a>
-          ) : (
-            <span className="rounded-full px-4 py-2.5 text-center text-sm font-black opacity-50" style={{ background: "var(--bg-surface-3)", color: "var(--text-muted)" }}>
-              Donate
-            </span>
-          )}
+        <div className="mt-4 grid gap-2 sm:grid-cols-2">
+          <button
+            type="button"
+            onClick={() => onDonate(item.project!)}
+            className="rounded-full px-4 py-2.5 text-center text-sm font-black"
+            style={{ background: "var(--green-primary)", color: "#071B14" }}
+          >
+            Donate
+          </button>
           <button
             type="button"
             onClick={() => onLogDonation(item.project!)}
@@ -182,6 +177,65 @@ function JarActivityCard({
         </div>
       )}
     </article>
+  );
+}
+
+function DonationNextStepModal({
+  project,
+  onClose,
+  onLogDonation,
+}: {
+  project: Project;
+  onClose: () => void;
+  onLogDonation: (project: Project) => void;
+}) {
+  const hasLink = Boolean(project.donationURL);
+  return (
+    <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/60 p-4 sm:items-center" onClick={onClose}>
+      <div
+        className="w-full max-w-md rounded-2xl shadow-2xl"
+        style={{ background: "var(--bg-surface-1)", border: "1px solid var(--border-default)" }}
+        onClick={(event) => event.stopPropagation()}
+      >
+        <div className="relative px-5 py-4" style={{ borderBottom: "1px solid var(--border-default)" }}>
+          <button type="button" onClick={onClose} aria-label="Close" className="absolute right-4 top-4 text-xl leading-none" style={{ color: "var(--text-muted)" }}>x</button>
+          <p className="text-[11px] font-black uppercase tracking-[0.14em]" style={{ color: "var(--green-primary)" }}>
+            {hasLink ? "Donation link opened" : "No donation link"}
+          </p>
+          <p className="mt-2 text-xl font-black leading-tight pr-6" style={{ color: "var(--text-primary)" }}>
+            {hasLink ? "Did you complete the donation?" : "Donate outside iSkipped"}
+          </p>
+        </div>
+        <div className="space-y-4 p-5">
+          <p className="text-sm leading-relaxed" style={{ color: "var(--text-secondary)" }}>
+            {hasLink
+              ? "When you come back, log the donation so your jar and fundraiser history stay accurate."
+              : "No donation link is attached to this fundraiser yet. Please donate directly through the organization, then log it here so your jar stays accurate."}
+          </p>
+          {hasLink && (
+            <button
+              type="button"
+              onClick={() => window.open(project.donationURL!, "_blank", "noopener,noreferrer")}
+              className="w-full rounded-xl py-3 text-sm font-black"
+              style={{ background: "rgba(237,245,240,0.06)", border: "1px solid rgba(237,245,240,0.1)", color: "var(--text-primary)" }}
+            >
+              Open donation link again
+            </button>
+          )}
+          <button
+            type="button"
+            onClick={() => onLogDonation(project)}
+            className="w-full rounded-xl py-3 text-sm font-black"
+            style={{ background: "var(--green-primary)", color: "#071B14" }}
+          >
+            Log donation
+          </button>
+          <button type="button" onClick={onClose} className="w-full py-1 text-sm font-black" style={{ color: "var(--text-muted)" }}>
+            Not yet
+          </button>
+        </div>
+      </div>
+    </div>
   );
 }
 
@@ -249,6 +303,7 @@ function EditableHistoryRow({
   onEdit,
   onEditValue,
   onCancel,
+  onDelete,
   onSave,
 }: {
   eyebrow: string;
@@ -263,11 +318,12 @@ function EditableHistoryRow({
   onEdit: () => void;
   onEditValue: (value: string) => void;
   onCancel: () => void;
+  onDelete: () => void;
   onSave: () => void;
 }) {
   return (
     <div className="rounded-xl p-4" style={{ background: "var(--bg-surface-1)", border: "1px solid var(--border-default)" }}>
-      <div className="flex items-start justify-between gap-3">
+      <div className="flex items-start justify-between gap-4">
         <div>
           <p className="text-[10px] font-black uppercase tracking-[0.12em]" style={{ color: accent }}>{eyebrow}</p>
           <p className="mt-1 text-base font-black" style={{ color: "var(--text-primary)" }}>{title}</p>
@@ -289,23 +345,37 @@ function EditableHistoryRow({
             </div>
           </div>
         ) : (
-          <p className="text-lg font-black" style={{ color: "var(--text-primary)" }}>{amountPrefix}{formatCurrency(amount)}</p>
+          <div className="flex shrink-0 flex-col items-end gap-2">
+            <p className="text-lg font-black" style={{ color: "var(--text-primary)" }}>{amountPrefix}{formatCurrency(amount)}</p>
+            <button
+              type="button"
+              onClick={onEdit}
+              className="rounded-full px-3 py-1 text-xs font-black"
+              style={{ background: "rgba(46,204,113,0.1)", border: "1px solid rgba(46,204,113,0.22)", color: "var(--green-primary)" }}
+            >
+              Edit
+            </button>
+            <button
+              type="button"
+              onClick={onDelete}
+              className="rounded-full px-3 py-1 text-xs font-black"
+              style={{ background: "rgba(239,68,68,0.08)", border: "1px solid rgba(239,68,68,0.18)", color: "#FCA5A5" }}
+            >
+              Delete
+            </button>
+          </div>
         )}
       </div>
-      <div className="mt-3 flex justify-end gap-3">
-        {editing ? (
+      {editing && (
+        <div className="mt-3 flex justify-end gap-3">
           <>
             <button type="button" onClick={onCancel} className="text-xs font-black" style={{ color: "var(--text-muted)" }}>Cancel</button>
             <button type="button" onClick={onSave} disabled={working} className="text-xs font-black disabled:opacity-50" style={{ color: "var(--green-primary)" }}>
               {working ? "Saving..." : "Save"}
             </button>
           </>
-        ) : (
-          <button type="button" onClick={onEdit} className="text-xs font-black" style={{ color: "var(--green-primary)" }}>
-            Edit
-          </button>
-        )}
-      </div>
+        </div>
+      )}
     </div>
   );
 }
@@ -344,7 +414,7 @@ function MoveBalanceModal({
           <p className="mt-2 text-sm leading-relaxed" style={{ color: "var(--text-secondary)" }}>
             {sourceIsSkipBucks
               ? `Move ${formatCurrency(source.balance)} from Unassigned Skip Bucks into ${destinationLabel}?`
-              : `You skipped for ${source.title}. Are you sure you want to move ${formatCurrency(source.balance)} into ${destinationLabel}?`}
+              : "Review this move before changing where your skips go."}
           </p>
         </div>
         <div className="space-y-4 p-5">
@@ -383,10 +453,10 @@ function MoveBalanceModal({
             <div className="rounded-xl p-3" style={{ background: "rgba(245,158,11,0.08)", border: "1px solid rgba(245,158,11,0.18)" }}>
               <p className="text-xs font-bold leading-relaxed" style={{ color: "var(--gold-cta)" }}>
                 {releasing
-                  ? `This clears ${source.title} and makes the money available to add to any jar.`
+                  ? `You skipped ${formatCurrency(source.balance)} for ${source.title}. Are you sure you want to move it back to Unassigned Skip Bucks?`
                   : sourceIsSkipBucks
-                    ? `${formatCurrency(source.balance)} will move out of Unassigned Skip Bucks and into ${selected?.title}. Future skips will go to ${selected?.title}.`
-                  : `This clears ${source.title}, adds the balance to ${selected?.title}, and makes ${selected?.title} the active jar for future skips.`}
+                    ? `Are you sure you want to move ${formatCurrency(source.balance)} from Unassigned Skip Bucks into ${selected?.title}? Future skips will go to ${selected?.title}.`
+                  : `You skipped ${formatCurrency(source.balance)} for ${source.title}. Are you sure you want to move it to ${selected?.title}? Future skips will go to ${selected?.title}.`}
               </p>
             </div>
           )}
@@ -420,6 +490,7 @@ export default function JarActivityPage() {
   const [moveSource, setMoveSource] = useState<MoveSource | null>(null);
   const [moveDestinationId, setMoveDestinationId] = useState("");
   const [donatingProject, setDonatingProject] = useState<Project | null>(null);
+  const [donationNextStepProject, setDonationNextStepProject] = useState<Project | null>(null);
 
   useEffect(() => {
     if (!user) return;
@@ -579,6 +650,18 @@ export default function JarActivityPage() {
     setMoveDestinationId(item.type === "skip-bucks" ? (destinations[0] ? jarKey(destinations[0]) : "") : (destinations[0] ? jarKey(destinations[0]) : SKIP_BUCKS_DESTINATION));
   }
 
+  function beginDonate(project: Project) {
+    if (project.donationURL) {
+      window.open(project.donationURL, "_blank", "noopener,noreferrer");
+    }
+    setDonationNextStepProject(project);
+  }
+
+  function beginDonationLog(project: Project) {
+    setDonationNextStepProject(null);
+    setDonatingProject(project);
+  }
+
   function beginSelectedMoveBalance() {
     if (!moveSources[0]) {
       toast.info("No balances to move yet. Once you have Unassigned Skip Bucks or money in a jar, you can move it here.");
@@ -708,10 +791,21 @@ export default function JarActivityPage() {
     if (!user) return;
     const nextAmount = Number(editingAmount);
     if (!Number.isFinite(nextAmount) || nextAmount <= 0) return;
+    const delta = nextAmount - event.amount;
+    const currentBal = Math.max(0, profileData.causeJarBalances?.[event.causeId] ?? 0);
+    const jarDecreaseDelta = delta > 0
+      ? Math.min(delta, currentBal)
+      : delta;
     setHistoryWorkingId(`donation-${event.id}`);
     try {
       await updateDonation(user.uid, event.id, nextAmount, event.amount, event.causeId, event.date);
-      updateProfile({ totalDonated: Math.max(0, (profileData.totalDonated ?? 0) + nextAmount - event.amount) });
+      updateProfile({
+        totalDonated: Math.max(0, (profileData.totalDonated ?? 0) + delta),
+        causeJarBalances: {
+          ...(profileData.causeJarBalances ?? {}),
+          [event.causeId]: Math.max(0, currentBal - jarDecreaseDelta),
+        },
+      });
       setEditingHistoryId(null);
       toast.success("Donation updated.");
     } catch {
@@ -725,14 +819,78 @@ export default function JarActivityPage() {
     if (!user) return;
     const nextAmount = Number(editingAmount);
     if (!Number.isFinite(nextAmount) || nextAmount <= 0) return;
+    const delta = nextAmount - event.amountSaved;
+    const currentBal = event.goalId ? Math.max(0, profileData.goalJarBalances?.[event.goalId] ?? 0) : 0;
+    const jarDecreaseDelta = delta > 0
+      ? Math.min(delta, currentBal)
+      : delta;
     setHistoryWorkingId(`purchase-${event.id}`);
     try {
       await updateSpendingHistory(user.uid, event.id, nextAmount, event.amountSaved);
-      updateProfile({ totalSpent: Math.max(0, (profileData.totalSpent ?? 0) + nextAmount - event.amountSaved) });
+      updateProfile({
+        totalSpent: Math.max(0, (profileData.totalSpent ?? 0) + delta),
+        ...(event.goalId
+          ? {
+              goalJarBalances: {
+                ...(profileData.goalJarBalances ?? {}),
+                [event.goalId]: Math.max(0, currentBal - jarDecreaseDelta),
+              },
+            }
+          : {}),
+      });
       setEditingHistoryId(null);
       toast.success("Purchase updated.");
     } catch {
       toast.error("Could not update purchase.");
+    } finally {
+      setHistoryWorkingId(null);
+    }
+  }
+
+  async function deleteDonationHistory(event: DonationEvent) {
+    if (!user) return;
+    const confirmed = window.confirm("Delete this donation record? The skipped amount it used will go back to this jar.");
+    if (!confirmed) return;
+    setHistoryWorkingId(`donation-${event.id}`);
+    try {
+      await deleteDonation(user.uid, event.id, event.amount, event.causeId);
+      const currentBal = Math.max(0, profileData.causeJarBalances?.[event.causeId] ?? 0);
+      updateProfile({
+        totalDonated: Math.max(0, (profileData.totalDonated ?? 0) - event.amount),
+        causeJarBalances: {
+          ...(profileData.causeJarBalances ?? {}),
+          [event.causeId]: currentBal + event.amount,
+        },
+      });
+      toast.success("Donation deleted.");
+    } catch {
+      toast.error("Could not delete donation.");
+    } finally {
+      setHistoryWorkingId(null);
+    }
+  }
+
+  async function deletePurchaseHistory(event: SpendingHistoryEvent) {
+    if (!user) return;
+    const confirmed = window.confirm("Delete this purchase record? The skipped amount it used will go back to this reward jar.");
+    if (!confirmed) return;
+    setHistoryWorkingId(`purchase-${event.id}`);
+    try {
+      await deleteSpendingHistory(user.uid, event.id, event.amountSaved, event.goalId);
+      updateProfile({
+        totalSpent: Math.max(0, (profileData.totalSpent ?? 0) - event.amountSaved),
+        ...(event.goalId
+          ? {
+              goalJarBalances: {
+                ...(profileData.goalJarBalances ?? {}),
+                [event.goalId]: Math.max(0, profileData.goalJarBalances?.[event.goalId] ?? 0) + event.amountSaved,
+              },
+            }
+          : {}),
+      });
+      toast.success("Purchase deleted.");
+    } catch {
+      toast.error("Could not delete purchase.");
     } finally {
       setHistoryWorkingId(null);
     }
@@ -797,6 +955,7 @@ export default function JarActivityPage() {
                 working={workingId === item.id}
                 onResume={handleResume}
                 onLogDonation={setDonatingProject}
+                onDonate={beginDonate}
               />
             ))}
           </div>
@@ -816,6 +975,7 @@ export default function JarActivityPage() {
               working={workingId === item.id}
               onResume={handleResume}
               onLogDonation={setDonatingProject}
+              onDonate={beginDonate}
             />
             ))}
           </div>
@@ -849,6 +1009,7 @@ export default function JarActivityPage() {
                 onEdit={() => beginEditHistory(spentEvent.kind, spentEvent.id, spentEvent.amount)}
                 onEditValue={setEditingAmount}
                 onCancel={() => setEditingHistoryId(null)}
+                onDelete={() => spentEvent.kind === "donation" ? void deleteDonationHistory(spentEvent.event) : void deletePurchaseHistory(spentEvent.event)}
                 onSave={() => spentEvent.kind === "donation" ? saveDonationEdit(spentEvent.event) : savePurchaseEdit(spentEvent.event)}
               />
             ))}
@@ -867,6 +1028,14 @@ export default function JarActivityPage() {
           onSelect={setMoveDestinationId}
           onClose={() => setMoveSource(null)}
           onConfirm={handleMoveBalance}
+        />
+      )}
+
+      {donationNextStepProject && (
+        <DonationNextStepModal
+          project={donationNextStepProject}
+          onClose={() => setDonationNextStepProject(null)}
+          onLogDonation={beginDonationLog}
         />
       )}
 

@@ -3,6 +3,9 @@ import { useState } from "react";
 import { useSkips } from "@/hooks/useSkips";
 import { useModalA11y } from "@/hooks/useModalA11y";
 import { today } from "@/lib/utils/dates";
+import { formatCurrency } from "@/lib/utils/currency";
+import { useAuthStore } from "@/store/authStore";
+import { getSkipBalanceSummary } from "@/lib/utils/skipBalances";
 
 interface Props {
   projectId: string;
@@ -14,15 +17,23 @@ interface Props {
 
 export function DonationLogModal({ projectId, projectTitle, onClose, initialAmount, onLogged }: Props) {
   const { donate } = useSkips();
+  const { profile } = useAuthStore();
   const [amount, setAmount] = useState(initialAmount && initialAmount > 0 ? String(initialAmount) : "");
   const [date, setDate] = useState(today());
   const [loading, setLoading] = useState(false);
   const [done, setDone] = useState(false);
   const dialogRef = useModalA11y(onClose);
+  const parsedAmount = parseFloat(amount);
+  const cleanAmount = Number.isFinite(parsedAmount) ? parsedAmount : 0;
+  const jarBalance = Math.max(0, profile?.causeJarBalances?.[projectId] ?? 0);
+  const unassignedSkipBucks = getSkipBalanceSummary(profile).unassignedSkipBank;
+  const totalAvailable = jarBalance + unassignedSkipBucks;
+  const amountOverAvailable = cleanAmount > totalAvailable;
+  const extraFromUnassigned = Math.max(0, cleanAmount - jarBalance);
 
   async function handleLog() {
-    const num = parseFloat(amount);
-    if (!num || num < 1) return;
+    const num = cleanAmount;
+    if (!num || num < 1 || amountOverAvailable) return;
     setLoading(true);
     try {
       const ok = await donate(num, projectId, projectTitle, date);
@@ -74,6 +85,7 @@ export function DonationLogModal({ projectId, projectTitle, onClose, initialAmou
                     <input
                       type="number"
                       min="1"
+                      max={totalAvailable || undefined}
                       value={amount}
                       onChange={(e) => setAmount(e.target.value)}
                       placeholder="0"
@@ -85,6 +97,19 @@ export function DonationLogModal({ projectId, projectTitle, onClose, initialAmou
                       }}
                     />
                   </div>
+                  <p className="mt-2 text-xs font-bold" style={{ color: "var(--text-muted)" }}>
+                    {formatCurrency(totalAvailable)} available from this jar and Unassigned Skip Bucks.
+                  </p>
+                  {amountOverAvailable && (
+                    <p className="mt-2 text-xs font-bold leading-relaxed" style={{ color: "#EF4444" }}>
+                      This is more than your available Skip Bucks. Lower the amount to {formatCurrency(totalAvailable)} or less.
+                    </p>
+                  )}
+                  {!amountOverAvailable && extraFromUnassigned > 0 && cleanAmount > 0 && (
+                    <p className="mt-2 text-xs font-bold leading-relaxed" style={{ color: "var(--green-primary)" }}>
+                      {formatCurrency(Math.min(cleanAmount, jarBalance))} will come from this jar and {formatCurrency(extraFromUnassigned)} from Unassigned Skip Bucks.
+                    </p>
+                  )}
                 </div>
                 <div>
                   <label className="text-xs uppercase tracking-wide mb-1 block" style={{ color: "var(--text-muted)" }}>Date</label>
@@ -103,7 +128,7 @@ export function DonationLogModal({ projectId, projectTitle, onClose, initialAmou
               </div>
               <button
                 onClick={handleLog}
-                disabled={loading || !amount || parseFloat(amount) < 1}
+                disabled={loading || !amount || cleanAmount < 1 || amountOverAvailable}
                 className="w-full font-bold py-3.5 rounded-xl transition-all disabled:opacity-60 disabled:cursor-not-allowed"
                 style={{
                   background: "linear-gradient(135deg, var(--coral-primary), var(--coral-dark))",

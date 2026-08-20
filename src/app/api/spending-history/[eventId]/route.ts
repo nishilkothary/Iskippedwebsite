@@ -2,7 +2,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { FieldValue } from "firebase-admin/firestore";
 import { getAdminDb } from "@/lib/services/firebaseAdmin";
 import { requireUid, ApiError, handleApiError } from "@/lib/services/apiAuth";
-import { SpendingHistoryEvent } from "@/lib/types/models";
+import { getSkipBalanceSummary } from "@/lib/utils/skipBalances";
+import { SpendingHistoryEvent, UserProfile } from "@/lib/types/models";
 
 type RouteContext = { params: Promise<{ eventId: string }> };
 
@@ -20,17 +21,40 @@ export async function PATCH(req: NextRequest, ctx: RouteContext) {
     const userRef = db.collection("users").doc(uid);
     const eventRef = userRef.collection("spendingHistory").doc(eventId);
 
-    await db.runTransaction(async (tx) => {
-      const eventSnap = await tx.get(eventRef);
+    const result = await db.runTransaction(async (tx) => {
+      const [eventSnap, userSnap] = await Promise.all([tx.get(eventRef), tx.get(userRef)]);
       if (!eventSnap.exists) throw new ApiError(404, "Event not found");
       const event = eventSnap.data() as SpendingHistoryEvent;
       const delta = newAmountSaved - event.amountSaved;
+      const profile = userSnap.data() as UserProfile | undefined;
+      const goalId = event.goalId;
+      const oldJarDecrease = event.jarDecrease ?? event.amountSaved;
+      let jarDecreaseDelta = 0;
 
-      tx.update(eventRef, { amountSaved: newAmountSaved });
-      if (delta !== 0) tx.update(userRef, { totalSpent: FieldValue.increment(delta) });
+      if (delta !== 0 && goalId) {
+        const currentBal = profile?.goalJarBalances?.[goalId] ?? 0;
+        const unassignedSkipBank = getSkipBalanceSummary(profile).unassignedSkipBank;
+        if (delta > Math.max(0, currentBal) + unassignedSkipBank) {
+          throw new ApiError(400, "Purchase exceeds available skipped savings");
+        }
+        jarDecreaseDelta = delta > 0
+          ? Math.min(delta, Math.max(0, currentBal))
+          : delta;
+      }
+
+      tx.update(eventRef, {
+        amountSaved: newAmountSaved,
+        jarDecrease: Math.max(0, oldJarDecrease + jarDecreaseDelta),
+      });
+      if (delta !== 0) {
+        const updates: Record<string, unknown> = { totalSpent: FieldValue.increment(delta) };
+        if (goalId && jarDecreaseDelta !== 0) updates[`goalJarBalances.${goalId}`] = FieldValue.increment(-jarDecreaseDelta);
+        tx.update(userRef, updates);
+      }
+      return { jarDecrease: Math.max(0, oldJarDecrease + jarDecreaseDelta) };
     });
 
-    return NextResponse.json({});
+    return NextResponse.json(result);
   } catch (e) {
     return handleApiError(e);
   }

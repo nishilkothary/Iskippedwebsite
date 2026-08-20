@@ -57,9 +57,12 @@ export function ExtensionSkipClient() {
   const sourceHost = useMemo(() => hostFromUrl(searchParams.get("sourceUrl")), [searchParams]);
 
   const activeProject = useMemo(() => {
-    if (!profile?.activeProjectId) return null;
-    return projects.find((project) => project.id === profile.activeProjectId) ?? null;
-  }, [profile?.activeProjectId, projects]);
+    const activeProjectId = profile?.activeSkipTarget?.type === "fundraiser"
+      ? profile.activeSkipTarget.id
+      : profile?.activeProjectId;
+    if (!activeProjectId) return null;
+    return projects.find((project) => project.id === activeProjectId) ?? null;
+  }, [profile?.activeProjectId, profile?.activeSkipTarget, projects]);
 
   useEffect(() => {
     if (submittedRef.current) return;
@@ -89,6 +92,7 @@ export function ExtensionSkipClient() {
       projectUnitCost: activeProject?.unitCost ?? null,
       projectUnitDisplay: activeProject?.unitDisplay ?? null,
       projectUnitIsGoal: activeProject?.unitIsGoal ?? null,
+      allocationTarget: activeProject ? { type: "fundraiser", id: activeProject.id } : null,
       whatSkipped: item,
       notes: sourceHost ? `Logged from the Chrome extension on ${sourceHost}.` : "Logged from the Chrome extension.",
       shareWithCommunity: false,

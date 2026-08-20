@@ -173,6 +173,7 @@ export interface SpendingHistoryEvent {
   label: string;
   targetAmount: number;
   amountSaved: number;
+  jarDecrease?: number;
   purchasedAt: Timestamp;
 }
 

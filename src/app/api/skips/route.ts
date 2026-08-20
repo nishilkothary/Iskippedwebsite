@@ -77,7 +77,12 @@ export async function POST(req: NextRequest) {
 
       const impactMessage = getImpactMessage(amount);
       const message = `skipped ${whatSkipped || categoryLabel}${causeSuffix}`;
-      const allocationTarget = requestedAllocationTarget ?? profile.activeSkipTarget ?? null;
+      const allocationTarget = requestedAllocationTarget
+        ?? profile.activeSkipTarget
+        ?? (projectId ? { type: "fundraiser" as const, id: projectId } : null)
+        ?? (profile.activeProjectId ? { type: "fundraiser" as const, id: profile.activeProjectId } : null);
+      const resolvedProjectId = projectId
+        ?? (allocationTarget?.type === "fundraiser" ? allocationTarget.id : null);
 
       tx.set(skipRef, {
         uid,
@@ -86,7 +91,7 @@ export async function POST(req: NextRequest) {
         categoryEmoji,
         amount,
         date: todayStr,
-        projectId,
+        projectId: resolvedProjectId,
         projectTitle,
         impactMessage,
         allocationMode: "skip-pot",
@@ -106,8 +111,12 @@ export async function POST(req: NextRequest) {
         lastSkipDate: todayStr,
         savedTowardActiveCause: allocationTarget?.type === "fundraiser" ? FieldValue.increment(amount) : (profile.savedTowardActiveCause ?? 0),
       };
-      if (allocationTarget?.type === "goal") userUpdates[`goalJarBalances.${allocationTarget.id}`] = FieldValue.increment(amount);
-      if (allocationTarget?.type === "fundraiser") userUpdates[`causeJarBalances.${allocationTarget.id}`] = FieldValue.increment(amount);
+      if (allocationTarget?.type === "goal") {
+        userUpdates[`goalJarBalances.${allocationTarget.id}`] = Math.max(0, profile.goalJarBalances?.[allocationTarget.id] ?? 0) + amount;
+      }
+      if (allocationTarget?.type === "fundraiser") {
+        userUpdates[`causeJarBalances.${allocationTarget.id}`] = Math.max(0, profile.causeJarBalances?.[allocationTarget.id] ?? 0) + amount;
+      }
       tx.update(userRef, userUpdates);
 
       tx.set(feedRef, {

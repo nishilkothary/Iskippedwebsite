@@ -62,7 +62,7 @@ export function SkipModal({ onClose }: Props) {
     : profile?.activeSkipTarget?.type === "goal"
       ? null
       : profile?.activeProjectId ?? null;
-  const [projectId] = useState<string | null>(selectedFundraiserId);
+  const projectId = selectedFundraiserId;
   const [success, setSuccess] = useState(false);
   const [successProjectUnitName, setSuccessProjectUnitName] = useState<string | null>(null);
   const [successProjectUnitDisplay, setSuccessProjectUnitDisplay] = useState<string | null>(null);
@@ -81,7 +81,9 @@ export function SkipModal({ onClose }: Props) {
   const dialogRef = useModalA11y(onClose);
   const selectedVariableRewardRef = useRef<{ skipCount: number; reward: VariableReward } | null>(null);
   const activeProjectForSkip = projects.find((p) => p.id === projectId) ?? null;
-  const isFundraiserSkip = profile?.activeSkipTarget?.type === "fundraiser" && !!activeProjectForSkip;
+  const skipAllocationTarget = profile?.activeSkipTarget
+    ?? (activeProjectForSkip ? { type: "fundraiser" as const, id: activeProjectForSkip.id } : null);
+  const isFundraiserSkip = skipAllocationTarget?.type === "fundraiser" && !!activeProjectForSkip;
   // If the active project has expired, don't credit this skip to its jar
   const effectiveProjectId = activeProjectForSkip && getChallengeCountdown(activeProjectForSkip).isExpired
     ? null
@@ -112,7 +114,7 @@ export function SkipModal({ onClose }: Props) {
     );
 
     // Pre-compute jar-full state synchronously using same formula as jars page
-    const activeTarget = profile?.activeSkipTarget ?? null;
+    const activeTarget = skipAllocationTarget;
     const personalGoal = activeTarget?.type === "goal"
       ? availableGoals.find((goal) => goal.id === activeTarget.id)?.targetAmount ?? 0
       : 0;
@@ -144,7 +146,7 @@ export function SkipModal({ onClose }: Props) {
       whatSkipped: whatSkipped || undefined,
       jarSplit: { give: 0, live: 0 },
       causeGoalAmount: personalGoal,
-      allocationTarget: profile?.activeSkipTarget ?? null,
+      allocationTarget: skipAllocationTarget,
     });
     if (result) {
       setSuccessStreak(result.newStreak ?? profile?.streak ?? 0);

@@ -61,7 +61,7 @@ interface JarProps {
 }
 
 interface DonationReminderPrompt {
-  kind: "challenge-ended" | "group-goal" | "personal-goal" | "thirty-day";
+  kind: "challenge-ended" | "group-goal" | "personal-goal";
   eyebrow: string;
   title: string;
   body: string;
@@ -70,6 +70,8 @@ interface DonationReminderPrompt {
   donatedAmount: number;
   donationURL?: string | null;
 }
+
+const DONATION_REMINDER_MIN_BALANCE = 5;
 
 function rewardDefaultImage(label: string, explicitCategory?: string) {
   const normalized = `${label} ${explicitCategory ?? ""}`.toLowerCase();
@@ -630,6 +632,7 @@ function getFeedActionLine(item: Pick<FeedItem, "displayName" | "message" | "ski
 function FundraiserContributionModal({
   project,
   availableFromSkips,
+  jarBalance,
   unitCost,
   unitLabel,
   mode = "contribute",
@@ -638,6 +641,7 @@ function FundraiserContributionModal({
 }: {
   project: Project;
   availableFromSkips: number;
+  jarBalance: number;
   unitCost: number | null;
   unitLabel: string;
   mode?: "contribute" | "log";
@@ -645,15 +649,23 @@ function FundraiserContributionModal({
   onComplete: (amount: number) => Promise<boolean>;
 }) {
   const dialogRef = useModalA11y(onClose);
-  const [amount, setAmount] = useState(() => Math.min(25, Math.max(0, availableFromSkips)).toString());
-  const [step, setStep] = useState<"amount" | "ready" | "confirm">("amount");
+  const safeJarBalance = Math.max(0, jarBalance);
+  const [amount, setAmount] = useState(() => {
+    const defaultAmount = Math.round(safeJarBalance * 100) / 100;
+    return defaultAmount > 0 ? defaultAmount.toString() : "0";
+  });
+  const [step, setStep] = useState<"amount" | "coverage" | "ready" | "confirm">("amount");
   const [saving, setSaving] = useState(false);
   const parsedAmount = Number.parseFloat(amount);
   const cleanAmount = Number.isFinite(parsedAmount) ? parsedAmount : 0;
-  const canContinue = cleanAmount > 0 && cleanAmount <= availableFromSkips;
-  const impactText = unitCost && unitCost > 0 && cleanAmount > 0
+  const canContinue = cleanAmount > 0;
+  const coveredAmount = Math.min(cleanAmount, Math.max(0, availableFromSkips));
+  const uncoveredAmount = Math.max(0, cleanAmount - Math.max(0, availableFromSkips));
+  const extraFromUnassigned = Math.max(0, cleanAmount - safeJarBalance);
+  const coveredFromUnassigned = Math.min(extraFromUnassigned, Math.max(0, availableFromSkips - safeJarBalance));
+  const impactText = unitCost && unitCost > 0 && coveredAmount > 0
     ? formatAggregateImpactUnitsDecimal(
-        cleanAmount,
+        coveredAmount,
         unitCost,
         project.unitName ?? unitLabel,
         unitLabel,
@@ -664,7 +676,24 @@ function FundraiserContributionModal({
   function handleAmountSubmit(event?: React.FormEvent) {
     event?.preventDefault();
     if (!canContinue) return;
-    setStep(mode === "log" ? "confirm" : "ready");
+    if (cleanAmount > safeJarBalance) {
+      setStep("coverage");
+      return;
+    }
+    if (mode === "log") {
+      setStep("confirm");
+      return;
+    }
+    handleExternalStep();
+  }
+
+  function handleCoverageConfirm() {
+    if (!canContinue) return;
+    if (mode === "log") {
+      setStep("confirm");
+      return;
+    }
+    handleExternalStep();
   }
 
   async function handleExternalStep() {
@@ -676,19 +705,26 @@ function FundraiserContributionModal({
   }
 
   async function handleCompleted() {
-    if (!canContinue) return;
+    if (!canContinue || coveredAmount <= 0) return;
     setSaving(true);
-    const ok = await onComplete(cleanAmount);
+    const ok = await onComplete(coveredAmount);
     setSaving(false);
     if (!ok) return;
     toast.success("Donation logged from your Skip Bank.");
     onClose();
   }
 
+  function handleCloseWithoutLogging() {
+    toast.info("No donation logged. Your jar balance remains the same.");
+    onClose();
+  }
+
+  const handleModalClose = step === "confirm" ? handleCloseWithoutLogging : onClose;
+
   return (
     <div
       className="fixed inset-0 bg-black/60 z-[70] flex items-center justify-center p-4"
-      onClick={onClose}
+      onClick={handleModalClose}
     >
       <div
         ref={dialogRef}
@@ -701,7 +737,7 @@ function FundraiserContributionModal({
         onClick={(event) => event.stopPropagation()}
       >
         <button
-          onClick={onClose}
+          onClick={handleModalClose}
           aria-label="Close contribution modal"
           className="absolute top-3 right-4 text-xl leading-none"
           style={{ color: "var(--text-muted)" }}
@@ -722,48 +758,49 @@ function FundraiserContributionModal({
         </p>
         <p className="text-sm leading-relaxed mt-3" style={{ color: "var(--text-secondary)" }}>
           {step === "confirm"
-            ? "When you come back, confirm the outside donation so your Skip Bank and fundraiser impact stay accurate."
+            ? project.donationURL
+              ? "When you come back, confirm the outside donation so your Skip Bank and fundraiser impact stay accurate."
+              : "No donation link is attached to this fundraiser yet. Please donate directly through the organization, then log it here once complete."
+            : step === "coverage"
+              ? uncoveredAmount > 0
+                ? `You are planning to donate ${formatCurrencyRounded(cleanAmount)}, which is more than you have saved for this cause. ${formatCurrencyRounded(coveredFromUnassigned)} will be covered by Unassigned Skip Bucks. The remaining ${formatCurrencyRounded(uncoveredAmount)} will not come from skipped savings.`
+                : `You are planning to donate ${formatCurrencyRounded(cleanAmount)}, which is more than you have saved for this cause. Your Unassigned Skip Bucks can cover the extra ${formatCurrencyRounded(coveredFromUnassigned)}.`
             : step === "ready"
-              ? `${formatCurrencyRounded(cleanAmount)} is ready from your Skip Bank${impactText ? `, about ${impactText}` : ""}.`
+              ? project.donationURL
+                ? `${formatCurrencyRounded(coveredAmount)} is ready from your Skip Bank${impactText ? `, about ${impactText}` : ""}.`
+                : `${formatCurrencyRounded(coveredAmount)} is ready from your Skip Bank. No donation link is attached to this fundraiser yet. Please donate directly through the organization, then log it here so your fundraiser jar stays accurate.`
               : mode === "log"
                 ? "How much did you donate outside iSkipped?"
-                : "How much do you want to contribute from your Skip Bank?"}
+                : "Enter the donation amount. It is prefilled with this jar's saved balance."}
         </p>
 
-        <form className="mt-5 rounded-xl p-4" style={{ background: "rgba(237,245,240,0.045)", border: "1px solid rgba(237,245,240,0.08)" }} onSubmit={handleAmountSubmit}>
-          <div style={{ display: "flex", justifyContent: "space-between", gap: 12, alignItems: "baseline", marginBottom: 12 }}>
-            <p className="text-xs font-black uppercase tracking-wide" style={{ color: "var(--text-muted)" }}>From Skip Bank</p>
-            <p className="text-xs font-bold" style={{ color: "var(--text-secondary)" }}>{formatCurrencyRounded(availableFromSkips)} available</p>
-          </div>
-          <label className="sr-only" htmlFor="fundraiser-contribution-amount">Contribution amount</label>
-          <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-            <span style={{ color: "var(--green-primary)", fontSize: 26, fontWeight: 900 }}>$</span>
-            <input
-              id="fundraiser-contribution-amount"
-              type="number"
-              min="1"
-              max={availableFromSkips}
-              step="0.01"
-              value={amount}
-              disabled={step === "ready"}
-              onChange={(event) => setAmount(event.target.value)}
-              style={{ flex: 1, minWidth: 0, background: "transparent", border: "none", borderBottom: "2px solid var(--green-primary)", color: "var(--text-primary)", fontSize: 28, fontWeight: 900, outline: "none" }}
-            />
-          </div>
-          {impactText && (
-            <p className="text-xs font-bold mt-3" style={{ color: "var(--green-primary)" }}>
-              About {impactText}
-            </p>
-          )}
-          {cleanAmount > availableFromSkips && (
-            <p className="text-xs font-bold mt-3" style={{ color: "#EF4444" }}>
-              That is more than you have available in your Skip Bank.
-            </p>
-          )}
-          {step === "amount" && (
+        {step === "amount" && (
+          <form className="mt-5 rounded-xl p-4" style={{ background: "rgba(237,245,240,0.045)", border: "1px solid rgba(237,245,240,0.08)" }} onSubmit={handleAmountSubmit}>
+            <div style={{ display: "flex", justifyContent: "space-between", gap: 12, alignItems: "baseline", marginBottom: 12 }}>
+              <p className="text-xs font-black uppercase tracking-wide" style={{ color: "var(--text-muted)" }}>Jar amount</p>
+              <p className="text-xs font-bold" style={{ color: "var(--text-secondary)" }}>{formatCurrencyRounded(safeJarBalance)} in jar</p>
+            </div>
+            <label className="sr-only" htmlFor="fundraiser-contribution-amount">Contribution amount</label>
+            <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+              <span style={{ color: "var(--green-primary)", fontSize: 26, fontWeight: 900 }}>$</span>
+              <input
+                id="fundraiser-contribution-amount"
+                type="number"
+                min="1"
+                step="0.01"
+                value={amount}
+                onChange={(event) => setAmount(event.target.value)}
+                style={{ flex: 1, minWidth: 0, background: "transparent", border: "none", borderBottom: "2px solid var(--green-primary)", color: "var(--text-primary)", fontSize: 28, fontWeight: 900, outline: "none" }}
+              />
+            </div>
+            {impactText && (
+              <p className="text-xs font-bold mt-3" style={{ color: "var(--green-primary)" }}>
+                About {impactText}
+              </p>
+            )}
             <button type="submit" className="sr-only">Continue</button>
-          )}
-        </form>
+          </form>
+        )}
 
         {step === "amount" ? (
           <button
@@ -775,6 +812,23 @@ function FundraiserContributionModal({
           >
             {mode === "log" ? "Confirm donation amount" : "Enter amount"}
           </button>
+        ) : step === "coverage" ? (
+          <div className="mt-5 grid gap-3">
+            <div className="rounded-xl p-3" style={{ background: uncoveredAmount > 0 ? "rgba(239,68,68,0.08)" : "rgba(46,204,113,0.08)", border: uncoveredAmount > 0 ? "1px solid rgba(239,68,68,0.2)" : "1px solid rgba(46,204,113,0.18)" }}>
+              <p className="text-xs font-bold leading-relaxed" style={{ color: uncoveredAmount > 0 ? "#FCA5A5" : "var(--green-primary)" }}>
+                {formatCurrencyRounded(Math.min(cleanAmount, safeJarBalance))} from this jar · {formatCurrencyRounded(coveredFromUnassigned)} from Unassigned Skip Bucks{uncoveredAmount > 0 ? ` · ${formatCurrencyRounded(uncoveredAmount)} not from skipped savings` : ""}
+              </p>
+            </div>
+            <button
+              type="button"
+              onClick={handleCoverageConfirm}
+              disabled={!canContinue}
+              className="w-full py-3 rounded-xl text-sm font-black disabled:opacity-50"
+              style={{ background: "var(--green-primary)", color: "#0B1A14" }}
+            >
+              {project.donationURL && mode !== "log" ? "Continue to donation page" : "Continue"}
+            </button>
+          </div>
         ) : step === "ready" ? (
           <>
             <div className="mt-5 rounded-xl p-3" style={{ background: "rgba(237,245,240,0.04)", border: "1px solid rgba(237,245,240,0.08)" }}>
@@ -789,7 +843,7 @@ function FundraiserContributionModal({
               className="mt-3 w-full py-3 rounded-xl text-sm font-black disabled:opacity-50"
               style={{ background: "var(--green-primary)", color: "#0B1A14" }}
             >
-              {project.donationURL ? "Take me to the donation page" : "I will donate outside iSkipped"}
+              {project.donationURL ? "Take me to the donation page" : "Continue to log donation"}
             </button>
           </>
         ) : (
@@ -807,11 +861,27 @@ function FundraiserContributionModal({
             <button
               type="button"
               onClick={handleCompleted}
-              disabled={!canContinue || saving}
+              disabled={!canContinue || coveredAmount <= 0 || saving}
               className="w-full py-3 rounded-xl text-sm font-black disabled:opacity-50"
               style={{ background: "var(--green-primary)", color: "#0B1A14" }}
             >
-              {saving ? "Logging..." : `I donated ${formatCurrencyRounded(cleanAmount)}`}
+              {saving ? "Logging..." : `Log ${formatCurrencyRounded(coveredAmount)} from skips`}
+            </button>
+            <button
+              type="button"
+              onClick={() => setStep("amount")}
+              className="w-full py-2 text-sm font-black"
+              style={{ color: "var(--green-primary)" }}
+            >
+              Change amount
+            </button>
+            <button
+              type="button"
+              onClick={handleCloseWithoutLogging}
+              className="w-full py-1 text-sm font-black"
+              style={{ color: "var(--text-muted)" }}
+            >
+              Cancel, don&apos;t log
             </button>
           </div>
         )}
@@ -828,28 +898,44 @@ function FundraiserContributionModal({
 function GoalSpendModal({
   goal,
   availableFromSkips,
+  jarBalance,
   onClose,
   onComplete,
 }: {
   goal: SpendingGoal;
   availableFromSkips: number;
+  jarBalance: number;
   onClose: () => void;
   onComplete: (amount: number) => Promise<boolean>;
 }) {
   const dialogRef = useModalA11y(onClose);
-  const [amount, setAmount] = useState(() => Math.min(goal.targetAmount, Math.max(0, availableFromSkips)).toString());
-  const [step, setStep] = useState<"amount" | "ready" | "confirm">("amount");
+  const safeJarBalance = Math.max(0, jarBalance);
+  const [amount, setAmount] = useState(() => {
+    const defaultAmount = Math.round(safeJarBalance * 100) / 100;
+    return defaultAmount > 0 ? defaultAmount.toString() : "0";
+  });
+  const [step, setStep] = useState<"amount" | "coverage" | "ready" | "confirm">("amount");
   const [saving, setSaving] = useState(false);
   const parsedAmount = Number.parseFloat(amount);
   const cleanAmount = Number.isFinite(parsedAmount) ? parsedAmount : 0;
-  const canContinue = cleanAmount > 0 && cleanAmount <= availableFromSkips;
-  const quickAmounts = [25, 50, 100, goal.targetAmount]
-    .filter((value, index, all) => value > 0 && value <= availableFromSkips && all.indexOf(value) === index);
-
+  const canContinue = cleanAmount > 0;
+  const coveredAmount = Math.min(cleanAmount, Math.max(0, availableFromSkips));
+  const uncoveredAmount = Math.max(0, cleanAmount - Math.max(0, availableFromSkips));
+  const extraFromUnassigned = Math.max(0, cleanAmount - safeJarBalance);
+  const coveredFromUnassigned = Math.min(extraFromUnassigned, Math.max(0, availableFromSkips - safeJarBalance));
   function handleAmountSubmit(event?: React.FormEvent) {
     event?.preventDefault();
     if (!canContinue) return;
-    setStep("ready");
+    if (cleanAmount > safeJarBalance) {
+      setStep("coverage");
+      return;
+    }
+    handlePurchaseStep();
+  }
+
+  function handleCoverageConfirm() {
+    if (!canContinue) return;
+    handlePurchaseStep();
   }
 
   function handlePurchaseStep() {
@@ -861,19 +947,26 @@ function GoalSpendModal({
   }
 
   async function handleCompleted() {
-    if (!canContinue) return;
+    if (!canContinue || coveredAmount <= 0) return;
     setSaving(true);
-    const ok = await onComplete(cleanAmount);
+    const ok = await onComplete(coveredAmount);
     setSaving(false);
     if (!ok) return;
     toast.success("Goal spend logged from your Skip Bank.");
     onClose();
   }
 
+  function handleCloseWithoutLogging() {
+    toast.info("No purchase logged. Your jar balance remains the same.");
+    onClose();
+  }
+
+  const handleModalClose = step === "confirm" ? handleCloseWithoutLogging : onClose;
+
   return (
     <div
       className="fixed inset-0 bg-black/60 z-[70] flex items-center justify-center p-4"
-      onClick={onClose}
+      onClick={handleModalClose}
     >
       <div
         ref={dialogRef}
@@ -886,7 +979,7 @@ function GoalSpendModal({
         onClick={(event) => event.stopPropagation()}
       >
         <button
-          onClick={onClose}
+          onClick={handleModalClose}
           aria-label="Close spend modal"
           className="absolute top-3 right-4 text-xl leading-none"
           style={{ color: "var(--text-muted)" }}
@@ -905,56 +998,42 @@ function GoalSpendModal({
         </p>
         <p className="text-sm leading-relaxed mt-3" style={{ color: "var(--text-secondary)" }}>
           {step === "confirm"
-            ? "When you come back, confirm the purchase so your Skip Bank and goal progress stay accurate."
+            ? goal.shoppingLink
+              ? "When you come back, confirm the purchase so your Skip Bank and goal progress stay accurate."
+              : "No purchase link is attached to this reward yet. Please make the purchase wherever you planned to, then log it here once complete."
+            : step === "coverage"
+              ? uncoveredAmount > 0
+                ? `You are planning to spend ${formatCurrencyRounded(cleanAmount)}, which is more than you saved for this reward. ${formatCurrencyRounded(coveredFromUnassigned)} will be covered by Unassigned Skip Bucks. The remaining ${formatCurrencyRounded(uncoveredAmount)} will not come from skipped savings.`
+                : `You are planning to spend ${formatCurrencyRounded(cleanAmount)}, which is more than you saved for this reward. Your Unassigned Skip Bucks can cover the extra ${formatCurrencyRounded(coveredFromUnassigned)}.`
             : step === "ready"
-              ? `${formatCurrencyRounded(cleanAmount)} is ready from your Skip Bank for ${goal.label}.`
-              : "How much do you want to spend from your Skip Bank?"}
+              ? goal.shoppingLink
+                ? `${formatCurrencyRounded(coveredAmount)} is ready from your Skip Bank for ${goal.label}.`
+                : `${formatCurrencyRounded(coveredAmount)} is ready from your Skip Bank. No purchase link is attached to this reward yet. Please buy it wherever you planned to, then log it here so your saved balance stays accurate.`
+              : "Enter the purchase amount. It is prefilled with this jar's saved balance."}
         </p>
 
-        <form className="mt-5 rounded-xl p-4" style={{ background: "rgba(237,245,240,0.045)", border: "1px solid rgba(237,245,240,0.08)" }} onSubmit={handleAmountSubmit}>
-          <div style={{ display: "flex", justifyContent: "space-between", gap: 12, alignItems: "baseline", marginBottom: 12 }}>
-            <p className="text-xs font-black uppercase tracking-wide" style={{ color: "var(--text-muted)" }}>From Skip Bank</p>
-            <p className="text-xs font-bold" style={{ color: "var(--text-secondary)" }}>{formatCurrencyRounded(availableFromSkips)} available</p>
-          </div>
-          <label className="sr-only" htmlFor="goal-spend-amount">Spend amount</label>
-          <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-            <span style={{ color: "#A78BFA", fontSize: 26, fontWeight: 900 }}>$</span>
-            <input
-              id="goal-spend-amount"
-              type="number"
-              min="1"
-              max={availableFromSkips}
-              step="0.01"
-              value={amount}
-              disabled={step !== "amount"}
-              onChange={(event) => setAmount(event.target.value)}
-              style={{ flex: 1, minWidth: 0, background: "transparent", border: "none", borderBottom: "2px solid #A78BFA", color: "var(--text-primary)", fontSize: 28, fontWeight: 900, outline: "none" }}
-            />
-          </div>
-          {quickAmounts.length > 0 && (
-            <div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginTop: 14 }}>
-              {quickAmounts.map((value) => (
-                <button
-                  key={value}
-                  type="button"
-                  disabled={step !== "amount"}
-                  onClick={() => setAmount(value.toString())}
-                  style={{ border: "1px solid rgba(167,139,250,0.32)", background: cleanAmount === value ? "#A78BFA" : "rgba(139,92,246,0.1)", color: cleanAmount === value ? "#0B1A14" : "#A78BFA", borderRadius: 999, padding: "7px 12px", fontSize: 12, fontWeight: 900 }}
-                >
-                  {formatCurrencyRounded(value)}
-                </button>
-              ))}
+        {step === "amount" && (
+          <form className="mt-5 rounded-xl p-4" style={{ background: "rgba(237,245,240,0.045)", border: "1px solid rgba(237,245,240,0.08)" }} onSubmit={handleAmountSubmit}>
+            <div style={{ display: "flex", justifyContent: "space-between", gap: 12, alignItems: "baseline", marginBottom: 12 }}>
+              <p className="text-xs font-black uppercase tracking-wide" style={{ color: "var(--text-muted)" }}>Jar amount</p>
+              <p className="text-xs font-bold" style={{ color: "var(--text-secondary)" }}>{formatCurrencyRounded(safeJarBalance)} in jar</p>
             </div>
-          )}
-          {cleanAmount > availableFromSkips && (
-            <p className="text-xs font-bold mt-3" style={{ color: "#EF4444" }}>
-              That is more than you have available in your Skip Bank.
-            </p>
-          )}
-          {step === "amount" && (
+            <label className="sr-only" htmlFor="goal-spend-amount">Spend amount</label>
+            <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+              <span style={{ color: "#A78BFA", fontSize: 26, fontWeight: 900 }}>$</span>
+              <input
+                id="goal-spend-amount"
+                type="number"
+                min="1"
+                step="0.01"
+                value={amount}
+                onChange={(event) => setAmount(event.target.value)}
+                style={{ flex: 1, minWidth: 0, background: "transparent", border: "none", borderBottom: "2px solid #A78BFA", color: "var(--text-primary)", fontSize: 28, fontWeight: 900, outline: "none" }}
+              />
+            </div>
             <button type="submit" className="sr-only">Continue</button>
-          )}
-        </form>
+          </form>
+        )}
 
         {step === "amount" ? (
           <button
@@ -966,6 +1045,23 @@ function GoalSpendModal({
           >
             Enter amount
           </button>
+        ) : step === "coverage" ? (
+          <div className="mt-5 grid gap-3">
+            <div className="rounded-xl p-3" style={{ background: uncoveredAmount > 0 ? "rgba(239,68,68,0.08)" : "rgba(139,92,246,0.1)", border: uncoveredAmount > 0 ? "1px solid rgba(239,68,68,0.2)" : "1px solid rgba(167,139,250,0.2)" }}>
+              <p className="text-xs font-bold leading-relaxed" style={{ color: uncoveredAmount > 0 ? "#FCA5A5" : "#C4B5FD" }}>
+                {formatCurrencyRounded(Math.min(cleanAmount, safeJarBalance))} from this jar · {formatCurrencyRounded(coveredFromUnassigned)} from Unassigned Skip Bucks{uncoveredAmount > 0 ? ` · ${formatCurrencyRounded(uncoveredAmount)} not from skipped savings` : ""}
+              </p>
+            </div>
+            <button
+              type="button"
+              onClick={handleCoverageConfirm}
+              disabled={!canContinue}
+              className="w-full py-3 rounded-xl text-sm font-black disabled:opacity-50"
+              style={{ background: "#A78BFA", color: "#0B1A14" }}
+            >
+              {goal.shoppingLink ? "Continue to purchase page" : "Continue"}
+            </button>
+          </div>
         ) : step === "ready" ? (
           <>
             <div className="mt-5 rounded-xl p-3" style={{ background: "rgba(237,245,240,0.04)", border: "1px solid rgba(237,245,240,0.08)" }}>
@@ -980,7 +1076,7 @@ function GoalSpendModal({
               className="mt-3 w-full py-3 rounded-xl text-sm font-black disabled:opacity-50"
               style={{ background: "#A78BFA", color: "#0B1A14" }}
             >
-              {goal.shoppingLink ? "Take me to the purchase page" : "I purchased it"}
+              {goal.shoppingLink ? "Take me to the purchase page" : "Continue to log purchase"}
             </button>
           </>
         ) : (
@@ -998,11 +1094,27 @@ function GoalSpendModal({
             <button
               type="button"
               onClick={handleCompleted}
-              disabled={!canContinue || saving}
+              disabled={!canContinue || coveredAmount <= 0 || saving}
               className="w-full py-3 rounded-xl text-sm font-black disabled:opacity-50"
               style={{ background: "#A78BFA", color: "#0B1A14" }}
             >
-              {saving ? "Logging..." : `I spent ${formatCurrencyRounded(cleanAmount)}`}
+              {saving ? "Logging..." : `Log ${formatCurrencyRounded(coveredAmount)} from skips`}
+            </button>
+            <button
+              type="button"
+              onClick={() => setStep("amount")}
+              className="w-full py-2 text-sm font-black"
+              style={{ color: "#C4B5FD" }}
+            >
+              Change amount
+            </button>
+            <button
+              type="button"
+              onClick={handleCloseWithoutLogging}
+              className="w-full py-1 text-sm font-black"
+              style={{ color: "var(--text-muted)" }}
+            >
+              Cancel, don&apos;t log
             </button>
           </div>
         )}
@@ -1294,22 +1406,18 @@ export default function HomePage() {
   const groupGoalReached = communityGoal > 0 && displayedGroupTotal >= communityGoal;
   const personalGoalReached = personalGoalAmt > 0 && userChallengeBalance >= personalGoalAmt;
   const challengeEnded = activeProject?.status === "ended";
-  const lastDonationDate = profile.lastDonationDate ?? null;
-  const daysSinceLastDonation = lastDonationDate
-    ? Math.floor((Date.now() - new Date(lastDonationDate).getTime()) / 86400_000)
-    : Infinity;
-  const hasGivingBalance = givingBalance > 0;
+  const hasReminderReadyBalance = Boolean(activeProject) && givingBalance >= DONATION_REMINDER_MIN_BALANCE;
   const readyToDonateText = activeProject
-    ? `You have ${formatCurrency(givingBalance)} in your Giving Jar for ${activeProject.title}.`
-    : `You have ${formatCurrency(givingBalance)} in your Giving Jar.`;
+    ? `You have ${formatCurrency(givingBalance)} saved for ${activeProject.groupName ?? activeProject.title}.`
+    : "";
   const donationReminderPrompt: DonationReminderPrompt | null = (() => {
-    if (!hasGivingBalance) return null;
+    if (!activeProject || !hasReminderReadyBalance) return null;
     if (challengeEnded) {
       return {
         kind: "challenge-ended",
         eyebrow: "Donation reminder",
-        title: "This challenge ended. Your Giving Jar is ready.",
-        body: `${readyToDonateText} Turning it into a donation helps the cause actually receive it.`,
+        title: "This fundraiser ended. Your saved skips are ready.",
+        body: `${readyToDonateText} Donating outside iSkipped helps the fundraiser actually receive the money.`,
         impactLine: givingJarImpactLine,
         readyAmount: givingBalance,
         donatedAmount: profile.totalDonated ?? 0,
@@ -1320,8 +1428,8 @@ export default function HomePage() {
       return {
         kind: "group-goal",
         eyebrow: "Goal reached",
-        title: "Your group hit the goal. Time to donate your jar.",
-        body: `${readyToDonateText} Sending it now helps convert the group's progress into real-world support.`,
+        title: "Your group hit the goal.",
+        body: `${readyToDonateText} This is a good moment to donate outside iSkipped and turn the group's progress into real support.`,
         impactLine: givingJarImpactLine,
         readyAmount: givingBalance,
         donatedAmount: profile.totalDonated ?? 0,
@@ -1332,20 +1440,8 @@ export default function HomePage() {
       return {
         kind: "personal-goal",
         eyebrow: "Jar goal reached",
-        title: "You hit your Giving Jar goal.",
-        body: `${readyToDonateText} This is a good moment to donate it and keep the momentum going.`,
-        impactLine: givingJarImpactLine,
-        readyAmount: givingBalance,
-        donatedAmount: profile.totalDonated ?? 0,
-        donationURL: activeProject?.donationURL ?? null,
-      };
-    }
-    if (daysSinceLastDonation >= 30) {
-      return {
-        kind: "thirty-day",
-        eyebrow: "Donation reminder",
-        title: "Your Giving Jar is ready to make an impact.",
-        body: `${readyToDonateText} Consider donating it so that pledged impact can become real.`,
+        title: "You hit your fundraiser jar goal.",
+        body: `${readyToDonateText} This is a good moment to donate outside iSkipped or keep the balance parked for later.`,
         impactLine: givingJarImpactLine,
         readyAmount: givingBalance,
         donatedAmount: profile.totalDonated ?? 0,
@@ -1565,6 +1661,10 @@ export default function HomePage() {
     const goalAmount = parseFloat(homeFundraiserGoalStr);
     const bankAmount = parseFloat(homeFundraiserBankStr);
     if (!goalAmount || goalAmount <= 0) return;
+    if (bankAmount > availableHomeSkipBankBalance) {
+      toast.error(`You only have ${formatCurrency(availableHomeSkipBankBalance)} in available Skip Bucks.`);
+      return;
+    }
 
     setHomeFundraiserWorking(true);
     try {
@@ -1572,7 +1672,7 @@ export default function HomePage() {
       await pinProjectToHome(user.uid, homeFundraiserSetup.id);
       let appliedAmount = 0;
       if (bankAmount > 0 && availableHomeSkipBankBalance > 0) {
-        appliedAmount = await allocateSkipBankToJar(user.uid, target, Math.min(bankAmount, availableHomeSkipBankBalance), "set");
+        appliedAmount = await allocateSkipBankToJar(user.uid, target, bankAmount, "set");
       }
       updateProfile({
         activeProjectId: homeFundraiserSetup.id,
@@ -1604,10 +1704,14 @@ export default function HomePage() {
     if (!user || !homeFundingTarget) return;
     const amount = parseFloat(homeFundingAmountStr);
     if (!amount || amount <= 0) return;
+    if (amount > availableHomeSkipBankBalance) {
+      toast.error(`You only have ${formatCurrency(availableHomeSkipBankBalance)} in available Skip Bucks.`);
+      return;
+    }
 
     setHomeFundingWorking(true);
     try {
-      const appliedAmount = await allocateSkipBankToJar(user.uid, homeFundingTarget, Math.min(amount, availableHomeSkipBankBalance), "set");
+      const appliedAmount = await allocateSkipBankToJar(user.uid, homeFundingTarget, amount, "set");
       if (appliedAmount > 0) {
         if (homeFundingTarget.type === "goal") {
           updateProfile({
@@ -2797,7 +2901,7 @@ export default function HomePage() {
         prompt={donationReminderPrompt}
         userId={user?.uid}
         projectId={profile.activeProjectId}
-        blocked={showSkipPicker || editingSkip != null}
+        blocked={showSkipPicker || editingSkip != null || homeFundraiserSetup != null || homeFundingTarget != null || showContributionModal || showSpendModal}
         onDonate={() => {
           if (donationReminderPrompt?.donationURL) {
             window.open(donationReminderPrompt.donationURL, "_blank", "noopener,noreferrer");
@@ -2888,11 +2992,16 @@ export default function HomePage() {
                       Covers about {homeFundraiserBankUnitPreview}.
                     </p>
                   )}
+                  {parseFloat(homeFundraiserBankStr) > availableHomeSkipBankBalance && (
+                    <p className="mt-2 text-xs font-bold leading-relaxed" style={{ color: "#EF4444" }}>
+                      That is more than your available Skip Bucks. Lower the amount to {formatCurrency(availableHomeSkipBankBalance)} or less.
+                    </p>
+                  )}
                 </div>
               )}
               <button
                 onClick={() => void confirmHomeFundraiserSetup()}
-                disabled={homeFundraiserWorking || !homeFundraiserGoalStr || parseFloat(homeFundraiserGoalStr) <= 0}
+                disabled={homeFundraiserWorking || !homeFundraiserGoalStr || parseFloat(homeFundraiserGoalStr) <= 0 || parseFloat(homeFundraiserBankStr) > availableHomeSkipBankBalance}
                 className="w-full rounded-xl py-3 text-sm font-black disabled:opacity-50"
                 style={{ background: "#2ECC71", color: "#071B14" }}
               >
@@ -2956,9 +3065,14 @@ export default function HomePage() {
                       {homeFundingPreview(homeFundingTarget, homeFundingAmountStr)}
                     </p>
                   )}
+                  {parseFloat(homeFundingAmountStr) > availableHomeSkipBankBalance && (
+                    <p className="text-xs font-bold leading-relaxed mt-3" style={{ color: "#EF4444" }}>
+                      That is more than your available Skip Bucks. Lower the amount to {formatCurrency(availableHomeSkipBankBalance)} or less.
+                    </p>
+                  )}
                   <button
                     onClick={() => void confirmHomeSkipBankFunding()}
-                    disabled={homeFundingWorking || !homeFundingAmountStr || parseFloat(homeFundingAmountStr) <= 0}
+                    disabled={homeFundingWorking || !homeFundingAmountStr || parseFloat(homeFundingAmountStr) <= 0 || parseFloat(homeFundingAmountStr) > availableHomeSkipBankBalance}
                     className="mt-3 w-full rounded-xl py-3 text-sm font-black disabled:opacity-50"
                     style={{ background: "rgba(139,92,246,0.2)", color: "#DDD6FE" }}
                   >
@@ -2982,6 +3096,7 @@ export default function HomePage() {
         <FundraiserContributionModal
           project={activeProject}
           availableFromSkips={givingBalance + skipBalance.unassignedSkipBank}
+          jarBalance={givingBalance}
           unitCost={fundraiserUnitCost}
           unitLabel={fundraiserUnitLabel}
           mode={contributionMode}
@@ -2994,6 +3109,7 @@ export default function HomePage() {
         <GoalSpendModal
           goal={activeGoal}
           availableFromSkips={spendingBalance + skipBalance.unassignedSkipBank}
+          jarBalance={spendingBalance}
           onClose={() => setShowSpendModal(false)}
           onComplete={async (amount) => {
             try {

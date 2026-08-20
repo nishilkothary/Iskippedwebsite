@@ -2,11 +2,12 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { useParams, useRouter, useSearchParams } from "next/navigation";
+import { toast } from "sonner";
 import { useAuthStore } from "@/store/authStore";
 import { useUIStore } from "@/store/uiStore";
 import { useProjects } from "@/hooks/useProjects";
-import { Project } from "@/lib/types/models";
-import { pinProjectToHome, normalizeJarSplit, setChallengeEmailConsent, setUserCauseGoal } from "@/lib/services/firebase/users";
+import { Project, SkipAllocationTarget, UserProfile } from "@/lib/types/models";
+import { joinProject, pinProjectToHome, normalizeJarSplit, setChallengeEmailConsent, setUserCauseGoal } from "@/lib/services/firebase/users";
 import { isChallengeProject, getProject } from "@/lib/services/firebase/projects";
 import { formatCurrency } from "@/lib/utils/currency";
 import { getChallengeCountdown } from "@/lib/utils/dates";
@@ -33,7 +34,7 @@ type ChallengeView = {
   skipChallengeLine: string | null;
 };
 
-type InviteStep = "intro" | "goal" | "first-skip";
+type InviteStep = "intro" | "active-choice" | "goal" | "first-skip";
 
 
 function challengeTitle(project: Project): string {
@@ -213,6 +214,20 @@ function donationHost(url?: string | null) {
   }
 }
 
+function getActiveJarLabel(target: SkipAllocationTarget | null | undefined, profile: UserProfile | null, projects: Project[]) {
+  if (!target || !profile) return "your current jar";
+  if (target.type === "fundraiser") {
+    const project = projects.find((item) => item.id === target.id);
+    return project?.groupName ?? project?.title ?? "your current fundraiser";
+  }
+  const goal = profile.spendingGoals?.find((item) => item.id === target.id);
+  return goal?.label ?? "your current reward";
+}
+
+function toastJoinedInactive(title: string) {
+  toast.success(`${title} was added to your jars. Future skips will keep going to your current jar.`);
+}
+
 function DetailTile({ label, value, accent = "var(--text-primary)" }: { label: string; value: string; accent?: string }) {
   return (
     <div className="rounded-xl p-3" style={{ background: "rgba(237,245,240,0.045)", border: "1px solid rgba(237,245,240,0.08)" }}>
@@ -265,6 +280,7 @@ export default function ChallengeDetailPage() {
   const [showShare, setShowShare] = useState(false);
   const [inviteStep, setInviteStep] = useState<InviteStep | null>(null);
   const [inviteFlowSeenFor, setInviteFlowSeenFor] = useState("");
+  const [inviteMakeActive, setInviteMakeActive] = useState(true);
   const [personalGoalInput, setPersonalGoalInput] = useState("");
   const canNativeShare = typeof navigator !== "undefined" && typeof navigator.share === "function";
 
@@ -330,6 +346,17 @@ export default function ChallengeDetailPage() {
   }
 
   const isActive = challenge.project.id === profile?.activeProjectId;
+  const activeInviteTarget = profile?.activeSkipTarget === undefined
+    ? profile?.activeSpendingGoalId
+      ? { type: "goal" as const, id: profile.activeSpendingGoalId }
+      : profile?.activeProjectId
+        ? { type: "fundraiser" as const, id: profile.activeProjectId }
+        : null
+    : profile.activeSkipTarget;
+  const hasDifferentActiveJar = Boolean(
+    activeInviteTarget && !(activeInviteTarget.type === "fundraiser" && activeInviteTarget.id === challenge.project.id)
+  );
+  const activeJarLabel = getActiveJarLabel(activeInviteTarget, profile, projects);
   const countdown = getChallengeCountdown(challenge.project);
   const split = normalizeJarSplit(profile?.jarSplit as any);
   const giveTotal = profile ? (profile.totalGiveAllocated ?? profile.totalSaved * (split.give / 100)) : 0;
@@ -413,25 +440,49 @@ export default function ChallengeDetailPage() {
     setJoining(true);
     try {
       await Promise.all([
-        pinProjectToHome(user.uid, challenge.project.id),
+        inviteMakeActive ? pinProjectToHome(user.uid, challenge.project.id) : joinProject(user.uid, challenge.project.id, false),
         setUserCauseGoal(user.uid, challenge.project.id, amount),
         profile?.challengeEmailConsents?.[challenge.project.id] === undefined
           ? setChallengeEmailConsent(user.uid, challenge.project.id, false)
           : Promise.resolve(),
       ]);
       updateProfile({
-        activeProjectId: challenge.project.id,
-        activeSkipTarget: { type: "fundraiser", id: challenge.project.id },
+        ...(inviteMakeActive
+          ? {
+              activeProjectId: challenge.project.id,
+              activeSkipTarget: { type: "fundraiser", id: challenge.project.id },
+            }
+          : {}),
         joinedProjectIds: Array.from(new Set([...(profile?.joinedProjectIds ?? []), challenge.project.id])),
         causeGoalAmounts: { ...(profile?.causeGoalAmounts ?? {}), [challenge.project.id]: amount },
         challengeEmailConsents: profile?.challengeEmailConsents?.[challenge.project.id] === undefined
           ? { ...(profile?.challengeEmailConsents ?? {}), [challenge.project.id]: false }
           : profile?.challengeEmailConsents,
       });
-      setInviteStep("first-skip");
+      if (inviteMakeActive) {
+        setInviteStep("first-skip");
+      } else {
+        setInviteStep(null);
+        toastJoinedInactive(challenge.title);
+        router.push("/jar-activity");
+      }
     } finally {
       setJoining(false);
     }
+  }
+
+  function startInviteJoin() {
+    if (hasDifferentActiveJar) {
+      setInviteStep("active-choice");
+      return;
+    }
+    setInviteMakeActive(true);
+    setInviteStep("goal");
+  }
+
+  function chooseInviteActivity(makeActive: boolean) {
+    setInviteMakeActive(makeActive);
+    setInviteStep("goal");
   }
 
   function finishInvite(openSkipPicker: boolean) {
@@ -671,7 +722,9 @@ export default function ChallengeDetailPage() {
           goalValue={personalGoalInput}
           joining={joining}
           onClose={() => setInviteStep(null)}
-          onStart={() => setInviteStep("goal")}
+          onStart={startInviteJoin}
+          activeJarLabel={activeJarLabel}
+          onChooseActivity={chooseInviteActivity}
           onGoalChange={setPersonalGoalInput}
           onSubmitGoal={completeInviteGoal}
           onLogSkip={() => finishInvite(true)}
@@ -690,6 +743,8 @@ function InviteFlowModal({
   joining,
   onClose,
   onStart,
+  activeJarLabel,
+  onChooseActivity,
   onGoalChange,
   onSubmitGoal,
   onLogSkip,
@@ -701,6 +756,8 @@ function InviteFlowModal({
   joining: boolean;
   onClose: () => void;
   onStart: () => void;
+  activeJarLabel: string;
+  onChooseActivity: (makeActive: boolean) => void;
   onGoalChange: (value: string) => void;
   onSubmitGoal: () => void;
   onLogSkip: () => void;
@@ -719,7 +776,13 @@ function InviteFlowModal({
             Fundraiser invite
           </p>
           <p className="text-xl font-black leading-tight pr-8" style={{ color: "var(--text-primary)" }}>
-            {step === "intro" ? `You were invited to skip for ${challenge.title}` : step === "goal" ? `Set your goal for ${challenge.title}` : "Have you skipped anything recently?"}
+            {step === "intro"
+              ? `You were invited to skip for ${challenge.title}`
+              : step === "active-choice"
+                ? `You are currently skipping for ${activeJarLabel}`
+                : step === "goal"
+                  ? `Set your goal for ${challenge.title}`
+                  : "Have you skipped anything recently?"}
           </p>
           <button
             type="button"
@@ -749,6 +812,30 @@ function InviteFlowModal({
                 style={{ background: "linear-gradient(135deg, var(--green-primary), var(--green-grad-end))", color: "var(--bg-base)" }}
               >
                 Yes, join this fundraiser
+              </button>
+            </>
+          )}
+
+          {step === "active-choice" && (
+            <>
+              <p className="text-sm leading-relaxed" style={{ color: "var(--text-secondary)" }}>
+                Joining {challenge.title} can make future skips go to this fundraiser. Your saved balance for {activeJarLabel} will stay parked.
+              </p>
+              <button
+                type="button"
+                onClick={() => onChooseActivity(true)}
+                className="w-full rounded-full py-3 text-sm font-black"
+                style={{ background: "linear-gradient(135deg, var(--green-primary), var(--green-grad-end))", color: "var(--bg-base)" }}
+              >
+                Make this my active jar
+              </button>
+              <button
+                type="button"
+                onClick={() => onChooseActivity(false)}
+                className="w-full rounded-full py-3 text-sm font-black"
+                style={{ background: "transparent", border: "1px solid var(--border-default)", color: "var(--text-secondary)" }}
+              >
+                Keep my current jar
               </button>
             </>
           )}

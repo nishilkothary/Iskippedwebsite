@@ -209,7 +209,7 @@ function ParkedJarCard({
                 className="w-full py-3 rounded-xl text-sm font-black"
                 style={{ background: "linear-gradient(135deg, var(--green-primary), #1E9485)", color: "white" }}
               >
-                Mark as Donated
+                Donate outside iSkipped
               </button>
             )}
             {transferTargets.length > 0 && (
@@ -226,6 +226,11 @@ function ParkedJarCard({
 
         {donateConfirm && (
           <div className="space-y-2">
+            {!donationURL && (
+              <p className="text-sm leading-relaxed" style={{ color: "var(--text-secondary)" }}>
+                No donation link is attached to this fundraiser yet. Please donate directly through the organization, then log it here so your jar stays accurate.
+              </p>
+            )}
             <p className="text-sm font-semibold" style={{ color: "var(--text-primary)" }}>
               Did you donate {formatCurrency(balance)} to {title}?
             </p>

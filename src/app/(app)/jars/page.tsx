@@ -263,21 +263,17 @@ function RewardProgress({
 
   return (
     <div className="mt-3">
-      <div className="rounded-xl px-3 py-2" style={{ background: active ? "rgba(139,92,246,0.13)" : "rgba(139,92,246,0.1)", border: "1px solid rgba(139,92,246,0.18)" }}>
-        <div className="flex items-center justify-between gap-2">
-          <p className="text-[10px] font-black uppercase tracking-wide" style={{ color: "#C4B5FD" }}>Saved</p>
-          <p className="text-xs font-black" style={{ color: balance > 0 ? "#DDD6FE" : "var(--text-muted)" }}>
-            {formatCurrency(balance)}
-          </p>
-        </div>
-        <div className="relative mt-1.5 h-2 overflow-hidden rounded-full" style={{ background: "rgba(139,92,246,0.15)" }}>
-          <div className="absolute inset-y-0 left-0 rounded-full" style={{ width: `${boostedPercent}%`, background: "rgba(167,139,250,0.22)" }} />
-          <div className="absolute inset-y-0 left-0 rounded-full" style={{ width: `${percent}%`, background: "#8B5CF6" }} />
-        </div>
-        <div className="mt-1.5 flex items-center justify-between gap-2 text-[10px] font-bold leading-snug" style={{ color: "var(--text-secondary)" }}>
-          <span>{rewardSkipEquivalentLine(balance, target)}</span>
-          <span>{remaining > 0 ? `${formatCurrency(remaining)} left` : "Ready"}</span>
-        </div>
+      <div className="flex items-center justify-between gap-3 text-[10px] font-black uppercase tracking-wide" style={{ color: "#C4B5FD" }}>
+        <span>{formatCurrency(balance)} saved</span>
+        <span>{percent}%</span>
+      </div>
+      <div className="relative mt-1 h-2 overflow-hidden rounded-full" style={{ background: "rgba(139,92,246,0.15)" }}>
+        <div className="absolute inset-y-0 left-0 rounded-full" style={{ width: `${boostedPercent}%`, background: "rgba(167,139,250,0.22)" }} />
+        <div className="absolute inset-y-0 left-0 rounded-full" style={{ width: `${percent}%`, background: "#8B5CF6" }} />
+      </div>
+      <div className="mt-1.5 flex items-center justify-between gap-2 text-[10px] font-bold leading-snug" style={{ color: "var(--text-secondary)" }}>
+        <span>{rewardSkipEquivalentLine(balance, target)}</span>
+        <span>{remaining > 0 ? `${formatCurrency(remaining)} left` : "Ready"}</span>
       </div>
     </div>
   );
@@ -665,9 +661,9 @@ function JarsPageInner() {
       }
       return releasedAmount;
     },
-    onEditHistory: (event: SpendingHistoryEvent, newAmount: number) => {
+    onEditHistory: async (event: SpendingHistoryEvent, newAmount: number) => {
       updateProfile({ totalSpent: (profile.totalSpent ?? 0) + (newAmount - event.amountSaved) });
-      return updateSpendingHistory(user.uid, event.id, newAmount, event.amountSaved);
+      await updateSpendingHistory(user.uid, event.id, newAmount, event.amountSaved);
     },
     onDeleteHistory: (event: SpendingHistoryEvent) => {
       const updates: Parameters<typeof updateProfile>[0] = { totalSpent: (profile.totalSpent ?? 0) - event.amountSaved };
@@ -1607,9 +1603,6 @@ function SplurgeTab({
   const [fundingWorking, setFundingWorking] = useState(false);
   const [showFundingDetails, setShowFundingDetails] = useState(false);
   const [switchPrompt, setSwitchPrompt] = useState<{ previous: SkipAllocationTarget; next: SkipAllocationTarget; balance: number } | null>(null);
-  const [deactivateTarget, setDeactivateTarget] = useState<{ target: SkipAllocationTarget; balance: number } | null>(null);
-  const [donationSwitchPrompt, setDonationSwitchPrompt] = useState<{ previous: SkipAllocationTarget; next: SkipAllocationTarget; balance: number } | null>(null);
-  const [switchWorking, setSwitchWorking] = useState(false);
   const [fundraiserSetup, setFundraiserSetup] = useState<Project | null>(null);
   const [donatingProject, setDonatingProject] = useState<Project | null>(null);
   const [fundraiserGoalStr, setFundraiserGoalStr] = useState("");
@@ -1729,6 +1722,15 @@ function SplurgeTab({
     return `Goal ${formatCurrency(groupGoal)}`;
   }
 
+  function fundraiserGroupGoalLine(project: Project) {
+    const groupGoal = project.goalAmount ?? 0;
+    if (groupGoal <= 0) return "Group goal: Open";
+    if (project.unitCost && project.unitCost > 0 && project.unitName) {
+      return `Group goal: ${formatCurrency(groupGoal)} (${formatUnits(groupGoal, project.unitCost, project.unitName, project.unitDisplay)})`;
+    }
+    return `Group goal: ${formatCurrency(groupGoal)}`;
+  }
+
   function fundraiserHelpCopy(project: Project) {
     const description = project.description.trim();
     if (!description) return "Your skips will help fund this fundraiser.";
@@ -1759,7 +1761,6 @@ function SplurgeTab({
   async function handleSkipFor(target: SkipAllocationTarget) {
     const isCurrentTarget = activeSkipTarget?.type === target.type && activeSkipTarget.id === target.id;
     if (isCurrentTarget) {
-      setDeactivateTarget({ target, balance: targetBalance(target) });
       return;
     }
     if (
@@ -1797,28 +1798,21 @@ function SplurgeTab({
     toast.success("Future skips will go to this jar.");
   }
 
-  async function releasePreviousAndContinue() {
-    if (!switchPrompt) return;
-    setSwitchWorking(true);
-    const releasedAmount = await onReleaseJar(switchPrompt.previous);
-    setSwitchWorking(false);
-    const next = switchPrompt.next;
-    setSwitchPrompt(null);
-    if (releasedAmount > 0) toast.success(`${formatCurrency(releasedAmount)} moved back to your Skip Bank.`);
-    await proceedToTarget(next);
-  }
-
   async function confirmFundraiserSetup() {
     if (!fundraiserSetup) return;
     const target: SkipAllocationTarget = { type: "fundraiser", id: fundraiserSetup.id };
     const goalAmount = parseFloat(fundraiserGoalStr);
     const bankAmount = parseFloat(fundraiserBankStr);
     if (!goalAmount || goalAmount <= 0) return;
+    if (bankAmount > availableSkipBankBalance) {
+      toast.error(`You only have ${formatCurrency(availableSkipBankBalance)} in available Skip Bucks.`);
+      return;
+    }
     setFundraiserSetupWorking(true);
     await onSetFundraiserGoal(fundraiserSetup.id, goalAmount);
     await onSetSkipTarget(target);
     if (bankAmount > 0 && availableSkipBankBalance > 0) {
-      const appliedAmount = await onApplySkipBank(target, Math.min(bankAmount, availableSkipBankBalance), "set");
+      const appliedAmount = await onApplySkipBank(target, bankAmount, "set");
       if (appliedAmount > 0) toast.success(`${formatCurrency(appliedAmount)} moved into the fundraiser jar.`);
     }
     setFundraiserSetupWorking(false);
@@ -1832,8 +1826,12 @@ function SplurgeTab({
     if (!fundingTarget) return;
     const amount = parseFloat(fundingAmountStr);
     if (!amount || amount <= 0) return;
+    if (amount > availableSkipBankBalance) {
+      toast.error(`You only have ${formatCurrency(availableSkipBankBalance)} in available Skip Bucks.`);
+      return;
+    }
     setFundingWorking(true);
-    const appliedAmount = await onApplySkipBank(fundingTarget, Math.min(amount, availableSkipBankBalance), "set");
+    const appliedAmount = await onApplySkipBank(fundingTarget, amount, "set");
     setFundingWorking(false);
     setFundingTarget(null);
     if (appliedAmount > 0) toast.success(`${formatCurrency(appliedAmount)} moved into the jar.`);
@@ -2034,66 +2032,39 @@ function SplurgeTab({
           <div className="rounded-2xl w-full max-w-sm shadow-2xl" style={{ background: "var(--bg-surface-1)", border: "1px solid var(--border-default)" }} onClick={(e) => e.stopPropagation()}>
             <div className="px-5 pt-5 pb-4" style={{ borderBottom: "1px solid var(--border-default)" }}>
               <p className="text-lg font-black leading-tight" style={{ color: "var(--text-primary)" }}>
-                Switch what you're skipping for?
+                Change reason for skipping?
               </p>
               <p className="text-sm mt-2 leading-relaxed" style={{ color: "var(--text-secondary)" }}>
-                You currently have skipped {formatCurrency(switchPrompt.balance)} for {targetLabel(switchPrompt.previous)} that you haven&apos;t {switchPrompt.previous.type === "goal" ? "spent" : "donated"} yet.
+                You currently have {formatCurrency(switchPrompt.balance)} saved for {targetLabel(switchPrompt.previous)}.
               </p>
               <p className="text-sm mt-2 leading-relaxed" style={{ color: "var(--text-secondary)" }}>
-                What would you like to do before picking a new jar?
+                Switching only changes where future skips go. Your saved balance stays parked unless you move it.
               </p>
             </div>
             <div className="space-y-3 p-5">
               <button
-                onClick={() => {
+                onClick={async () => {
+                  const next = switchPrompt.next;
                   setSwitchPrompt(null);
-                  if (switchPrompt.previous.type === "goal") {
-                    setShopView("rewards");
-                    setShowAddForm(false);
-                    setEditingGoalId(null);
-                    setPurchasingId(switchPrompt.previous.id);
-                    setPurchaseAmountStr(String(switchPrompt.balance));
-                  } else {
-                    setDonationSwitchPrompt(switchPrompt);
-                  }
+                  await proceedToTarget(next);
                 }}
                 className="w-full rounded-xl py-3 text-sm font-black disabled:opacity-45"
-                style={{ background: "#8B5CF6", color: "white" }}
+                style={{ background: "#2ECC71", color: "#071B14" }}
               >
-                {switchPrompt.previous.type === "goal" ? "Record purchase first" : "Record donation first"}
+                Change reason for skipping
               </button>
               <button
-                onClick={releasePreviousAndContinue}
-                disabled={switchWorking}
-                className="w-full py-1 text-sm font-bold disabled:opacity-50"
+                type="button"
+                onClick={() => setSwitchPrompt(null)}
+                className="w-full py-1 text-sm font-bold"
                 style={{ background: "transparent", border: "none", color: "var(--text-muted)" }}
               >
-                {switchWorking
-                  ? "Moving it back..."
-                  : `I no longer want to skip for this ${switchPrompt.previous.type === "goal" ? "reward" : "cause"}`}
+                Cancel
               </button>
             </div>
           </div>
         </div>
       )}
-
-      {donationSwitchPrompt?.previous.type === "fundraiser" && (() => {
-        const project = projects.find((candidate) => candidate.id === donationSwitchPrompt.previous.id);
-        if (!project) return null;
-        return (
-          <DonationLogModal
-            projectId={project.id}
-            projectTitle={project.groupName ?? project.title}
-            initialAmount={donationSwitchPrompt.balance}
-            onClose={() => setDonationSwitchPrompt(null)}
-            onLogged={async () => {
-              const next = donationSwitchPrompt.next;
-              setDonationSwitchPrompt(null);
-              await proceedToTarget(next);
-            }}
-          />
-        );
-      })()}
 
       {donatingProject && (
         <DonationLogModal
@@ -2110,6 +2081,9 @@ function SplurgeTab({
             <div className="relative px-5 pt-5 pb-4 pr-12" style={{ borderBottom: "1px solid var(--border-default)" }}>
               <p className="text-lg font-black leading-tight" style={{ color: "var(--text-primary)" }}>
                 Skip for {fundraiserSetup.groupName ?? fundraiserSetup.title}?
+              </p>
+              <p className="mt-1 text-xs font-bold" style={{ color: "var(--text-muted)" }}>
+                {fundraiserGroupGoalLine(fundraiserSetup)}
               </p>
               <button
                 type="button"
@@ -2179,11 +2153,16 @@ function SplurgeTab({
                       Covers about {fundraiserBankUnitPreview}.
                     </p>
                   )}
+                  {parseFloat(fundraiserBankStr) > availableSkipBankBalance && (
+                    <p className="mt-2 text-xs font-bold leading-relaxed" style={{ color: "#EF4444" }}>
+                      That is more than your available Skip Bucks. Lower the amount to {formatCurrency(availableSkipBankBalance)} or less.
+                    </p>
+                  )}
                 </div>
               )}
               <button
                 onClick={confirmFundraiserSetup}
-                disabled={fundraiserSetupWorking || !fundraiserGoalStr || parseFloat(fundraiserGoalStr) <= 0}
+                disabled={fundraiserSetupWorking || !fundraiserGoalStr || parseFloat(fundraiserGoalStr) <= 0 || parseFloat(fundraiserBankStr) > availableSkipBankBalance}
                 className="w-full rounded-xl py-3 text-sm font-black disabled:opacity-50"
                 style={{ background: "#2ECC71", color: "#071B14" }}
               >
@@ -2194,7 +2173,11 @@ function SplurgeTab({
         </div>
       )}
 
-      {fundingTarget && (
+      {fundingTarget && (() => {
+        const fundingAccent = fundingTarget.type === "fundraiser" ? "#2ECC71" : "#8B5CF6";
+        const fundingTextColor = fundingTarget.type === "fundraiser" ? "#071B14" : "white";
+        const fundingMutedColor = fundingTarget.type === "fundraiser" ? "var(--green-primary)" : "#C4B5FD";
+        return (
         <div className="fixed inset-0 bg-black/60 z-50 flex items-end sm:items-center justify-center p-4" onClick={() => setFundingTarget(null)}>
           <div className="rounded-2xl w-full max-w-sm shadow-2xl" style={{ background: "var(--bg-surface-1)", border: "1px solid var(--border-default)" }} onClick={(e) => e.stopPropagation()}>
             <div className="px-5 pt-5 pb-4 relative" style={{ borderBottom: "1px solid var(--border-default)" }}>
@@ -2210,20 +2193,22 @@ function SplurgeTab({
                   toast.success("Future skips will go to this jar.");
                 }}
                 className="w-full rounded-xl py-3 text-sm font-black"
-                style={{ background: "#8B5CF6", color: "white" }}
+                style={{ background: fundingAccent, color: fundingTextColor }}
               >
                 Start skipping for this
               </button>
-              <button
-                type="button"
-                onClick={() => setShowFundingDetails((value) => !value)}
-                className="w-full py-1 text-sm font-bold"
-                style={{ background: "transparent", border: "none", color: "var(--text-muted)" }}
-                aria-expanded={showFundingDetails}
-              >
-                {showFundingDetails ? "Hide Skip Bucks" : "Use existing Skip Bucks"}
-              </button>
-              {showFundingDetails && (
+              {availableSkipBankBalance > 0 && (
+                <button
+                  type="button"
+                  onClick={() => setShowFundingDetails((value) => !value)}
+                  className="w-full py-1 text-sm font-bold"
+                  style={{ background: "transparent", border: "none", color: "var(--text-muted)" }}
+                  aria-expanded={showFundingDetails}
+                >
+                  {showFundingDetails ? "Hide Skip Bucks" : `Move ${formatCurrency(availableSkipBankBalance)} available Skip Bucks into this jar`}
+                </button>
+              )}
+              {availableSkipBankBalance > 0 && showFundingDetails && (
                 <div className="rounded-xl p-4" style={{ background: "rgba(237,245,240,0.045)", border: "1px solid rgba(237,245,240,0.08)" }}>
                   <p className="mb-3 text-xs font-bold" style={{ color: "var(--text-secondary)" }}>
                     {formatCurrency(availableSkipBankBalance)} available
@@ -2243,15 +2228,20 @@ function SplurgeTab({
                     />
                   </div>
                   {skipFundingPreview(fundingTarget, fundingAmountStr) && (
-                    <p className="text-xs font-bold leading-relaxed mt-3" style={{ color: "#C4B5FD" }}>
+                    <p className="text-xs font-bold leading-relaxed mt-3" style={{ color: fundingMutedColor }}>
                       {skipFundingPreview(fundingTarget, fundingAmountStr)}
+                    </p>
+                  )}
+                  {parseFloat(fundingAmountStr) > availableSkipBankBalance && (
+                    <p className="text-xs font-bold leading-relaxed mt-3" style={{ color: "#EF4444" }}>
+                      That is more than your available Skip Bucks. Lower the amount to {formatCurrency(availableSkipBankBalance)} or less.
                     </p>
                   )}
                   <button
                     onClick={confirmSkipBankFunding}
-                    disabled={fundingWorking || !fundingAmountStr || parseFloat(fundingAmountStr) <= 0}
+                    disabled={fundingWorking || !fundingAmountStr || parseFloat(fundingAmountStr) <= 0 || parseFloat(fundingAmountStr) > availableSkipBankBalance}
                     className="mt-3 w-full rounded-xl py-3 text-sm font-black disabled:opacity-50"
-                    style={{ background: "rgba(139,92,246,0.2)", color: "#DDD6FE" }}
+                    style={{ background: fundingTarget.type === "fundraiser" ? "rgba(46,204,113,0.18)" : "rgba(139,92,246,0.2)", color: fundingMutedColor }}
                   >
                     {fundingWorking ? "Applying..." : "Apply Skip Bucks"}
                   </button>
@@ -2260,7 +2250,8 @@ function SplurgeTab({
             </div>
           </div>
         </div>
-      )}
+        );
+      })()}
 
       {/* Switch modal */}
       {switchTarget && (
@@ -2335,41 +2326,6 @@ function SplurgeTab({
                 style={{ border: "1px solid rgba(139,92,246,0.3)", color: "rgba(237,245,240,0.6)" }}
               >
                 Cancel
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {deactivateTarget && (
-        <div className="fixed inset-0 bg-black/60 z-50 flex items-end sm:items-center justify-center p-4" onClick={() => setDeactivateTarget(null)}>
-          <div className="rounded-2xl w-full max-w-sm shadow-2xl" style={{ background: "var(--bg-surface-1)", border: "1px solid var(--border-default)" }} onClick={(e) => e.stopPropagation()}>
-            <div className="px-5 pt-5 pb-4 relative" style={{ borderBottom: "1px solid var(--border-default)" }}>
-              <button onClick={() => setDeactivateTarget(null)} aria-label="Close" className="absolute top-4 right-4 text-xl leading-none" style={{ color: "var(--text-muted)" }}>x</button>
-              <p className="text-lg font-bold pr-6" style={{ color: "var(--text-primary)" }}>Stop skipping for this?</p>
-              <p className="text-sm mt-2 leading-relaxed" style={{ color: "var(--text-secondary)" }}>
-                You currently have {formatCurrency(deactivateTarget.balance)} in this jar. What would you like to do with it?
-              </p>
-            </div>
-            <div className="px-5 py-4 space-y-2">
-              <button
-                onClick={() => setDeactivateTarget(null)}
-                className="w-full rounded-xl px-4 py-3 text-sm font-black"
-                style={{ background: "#2ECC71", border: "1px solid rgba(46,204,113,0.45)", color: "#071B14" }}
-              >
-                Keep this active
-              </button>
-              <button
-                onClick={async () => {
-                  if (deactivateTarget.balance > 0) await onReleaseJar(deactivateTarget.target);
-                  await onSetSkipTarget(null);
-                  setDeactivateTarget(null);
-                  toast.success("Your jar was moved back to the Skip Bank.");
-                }}
-                className="w-full rounded-xl px-4 py-3 text-sm font-bold"
-                style={{ background: "var(--bg-surface-2)", border: "1px solid rgba(237,245,240,0.08)", color: "var(--text-secondary)" }}
-              >
-                I no longer want to skip for this
               </button>
             </div>
           </div>
