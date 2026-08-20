@@ -2220,18 +2220,19 @@ export default function HomePage() {
                   {activeProject ? "Donate Your Savings" : "Browse fundraisers"}
                 </button>
               </div>
-              <div style={{ borderTop: "1px solid rgba(237,245,240,0.08)", paddingTop: 12, marginBottom: 14 }}>
-                <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, marginBottom: 8 }}>
-                  <p style={{ fontSize: 10, fontWeight: 900, letterSpacing: 1.2, textTransform: "uppercase", color: "var(--text-muted)" }}>Live activity</p>
-                  <button
-                    type="button"
-                    onClick={() => router.push(`/challenges/${activeProject.id}/activity`)}
-                    style={{ border: "none", background: "transparent", color: "#2BBAA4", fontSize: 11, fontWeight: 900, cursor: "pointer" }}
-                  >
-                    Full feed
-                  </button>
-                </div>
-                {featuredChallengeFeedItem ? (() => {
+              {featuredChallengeFeedItem && (
+                <div style={{ borderTop: "1px solid rgba(237,245,240,0.08)", paddingTop: 12, marginBottom: 14 }}>
+                  <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, marginBottom: 8 }}>
+                    <p style={{ fontSize: 10, fontWeight: 900, letterSpacing: 1.2, textTransform: "uppercase", color: "var(--text-muted)" }}>Live activity</p>
+                    <button
+                      type="button"
+                      onClick={() => router.push(`/challenges/${activeProject.id}/activity`)}
+                      style={{ border: "none", background: "transparent", color: "#2BBAA4", fontSize: 11, fontWeight: 900, cursor: "pointer" }}
+                    >
+                      Full feed
+                    </button>
+                  </div>
+                  {(() => {
                   const item = challengeFeedItems[Math.min(featuredFeedIndex, challengeFeedItems.length - 1)] ?? featuredChallengeFeedItem;
                   return (
                     <div key={item.id} style={{ display: "grid", gridTemplateColumns: "34px minmax(0, 1fr) auto", alignItems: "center", gap: 10, borderRadius: 14, background: "rgba(237,245,240,0.045)", padding: "10px 12px" }}>
@@ -2253,16 +2254,9 @@ export default function HomePage() {
                       )}
                     </div>
                   );
-                })() : (
-                  <button
-                    type="button"
-                    onClick={() => setShowSkipPicker(true)}
-                    style={{ width: "100%", borderRadius: 14, background: "rgba(237,245,240,0.045)", border: "1px dashed rgba(46,204,113,0.28)", padding: "10px 12px", color: "var(--text-secondary)", fontSize: 13, fontWeight: 800, textAlign: "left", cursor: "pointer" }}
-                  >
-                    Be the first skip in this group.
-                  </button>
-                )}
-              </div>
+                  })()}
+                </div>
+              )}
               </>
             ) : null}
           </div>
@@ -2306,7 +2300,7 @@ export default function HomePage() {
             </div>
           </div>
 
-          {featuredChallengeFeedItem ? (
+          {featuredChallengeFeedItem && (
             <div style={{ borderTop: "1px solid rgba(237,245,240,0.08)", borderBottom: "1px solid rgba(237,245,240,0.08)" }}>
               {(() => {
                 const item = challengeFeedItems[Math.min(featuredFeedIndex, challengeFeedItems.length - 1)] ?? featuredChallengeFeedItem;
@@ -2357,14 +2351,6 @@ export default function HomePage() {
                 View full feed →
               </button>
             </div>
-          ) : (
-            <button
-              type="button"
-              onClick={() => setShowSkipPicker(true)}
-              style={{ width: "100%", borderRadius: 16, background: "rgba(237,245,240,0.045)", border: "1px dashed rgba(46,204,113,0.28)", padding: "11px 12px", color: "var(--text-secondary)", fontSize: 13, fontWeight: 800, textAlign: "left", cursor: "pointer" }}
-            >
-              Be the first skip in this group.
-            </button>
           )}
         </div>
       )}

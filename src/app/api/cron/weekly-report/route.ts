@@ -22,36 +22,21 @@ type ProjectImpactDetails = {
 
 const OFFICIAL_PROJECT_IMPACT: Record<string, ProjectImpactDetails> = {
   cfc: {
-    title: "A Student's Education in Cambodia",
+    title: "Educate Cambodia's Children",
     unitName: "Day of Education",
     unitCost: 300 / 365,
   },
   kc: {
-    title: "Chromebooks for Students",
-    unitName: "Chromebook",
+    title: "Laptops for Students in Kenya",
+    unitName: "Laptop",
     unitCost: 250,
     unitIsGoal: true,
-    unitPhrase: "a Chromebook for a student",
+    unitPhrase: "a laptop for a student in a remote Kenyan village",
   },
   "pop-education": {
-    title: "Educational Opportunities For a Student",
+    title: "Pencils for Promise",
     unitName: "Day of Education",
     unitCost: 0.27,
-  },
-  "stm-palestine": {
-    title: "Life-Saving Meals in Palestine",
-    unitName: "Life-Saving Meal",
-    unitCost: 0.8,
-  },
-  "stm-ukraine": {
-    title: "Emergency Meals in Ukraine",
-    unitName: "Emergency Meal",
-    unitCost: 0.8,
-  },
-  "stm-syria": {
-    title: "Meals in Syria",
-    unitName: "Meal",
-    unitCost: 0.8,
   },
   "new-incentives": {
     title: "Child Vaccination in Nigeria",

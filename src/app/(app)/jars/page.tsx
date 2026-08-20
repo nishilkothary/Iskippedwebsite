@@ -29,6 +29,7 @@ import {
 import { addCustomProject, updateCustomProject, deleteCustomProject, isCauseProject, isChallengeProject, isProjectEnded, PARTNER_CHALLENGE_IDS } from "@/lib/services/firebase/projects";
 import { formatAggregateImpactUnitsDecimal, formatUnits } from "@/lib/utils/impact";
 import { getSkipBalanceSummary } from "@/lib/utils/skipBalances";
+import { getChallengeCausePhrase } from "@/lib/utils/challengeShareCopy";
 import { SpendingHistoryEvent, Project, SpendingGoal, DonationEvent, SkipAllocationTarget } from "@/lib/types/models";
 import { DonationLogModal } from "@/components/skip/DonationLogModal";
 import { apiRequest } from "@/lib/services/firebase/apiClient";
@@ -93,6 +94,9 @@ function rewardDefaultImage(label: string, explicitCategory?: string) {
   if (/(flight|abroad|plane|travel|trip|weekend|vacation|getaway)/.test(normalized)) {
     return "https://images.unsplash.com/photo-1436491865332-7a61a109cc05?auto=format&fit=crop&w=900&q=80";
   }
+  if (/(wedding|honeymoon|marriage|bridal)/.test(normalized)) {
+    return "https://images.unsplash.com/photo-1519741497674-611481863552?auto=format&fit=crop&w=900&q=80";
+  }
   if (/(book|course|class|learn)/.test(normalized)) {
     return "https://images.unsplash.com/photo-1512820790803-83ca734da794?auto=format&fit=crop&w=900&q=80";
   }
@@ -135,6 +139,11 @@ const rewardInspoPics = [
     label: "Museum",
     category: "Experience",
     url: "https://images.unsplash.com/photo-1531058020387-3be344556be6?auto=format&fit=crop&w=900&q=80",
+  },
+  {
+    label: "Wedding",
+    category: "Wedding",
+    url: "https://images.unsplash.com/photo-1519741497674-611481863552?auto=format&fit=crop&w=900&q=80",
   },
   {
     label: "Spa",
@@ -1690,16 +1699,7 @@ function SplurgeTab({
     .filter((project) =>
       !isProjectEnded(project)
       && (isChallengeProject(project) || PARTNER_CHALLENGE_IDS.includes(project.id))
-    )
-    .sort((a, b) => {
-      if (activeSkipTarget?.type === "fundraiser") {
-        if (a.id === activeSkipTarget.id) return -1;
-        if (b.id === activeSkipTarget.id) return 1;
-      }
-      if (activeProject?.id === a.id) return -1;
-      if (activeProject?.id === b.id) return 1;
-      return a.title.localeCompare(b.title);
-    });
+    );
 
   function fundraiserGoal(project: Project) {
     return causeGoalAmounts?.[project.id] ?? project.goalAmount ?? 0;
@@ -1732,9 +1732,9 @@ function SplurgeTab({
   }
 
   function fundraiserHelpCopy(project: Project) {
-    const description = project.description.trim();
-    if (!description) return "Your skips will help fund this fundraiser.";
-    return `Your skips will help fund ${description}`;
+    const causePhrase = getChallengeCausePhrase(project);
+    if (!causePhrase) return "Your skips will help fund this fundraiser.";
+    return `Your skips will help fund ${causePhrase}`;
   }
 
   function fundraiserTrustLabel(project: Project) {
@@ -1761,6 +1761,8 @@ function SplurgeTab({
   async function handleSkipFor(target: SkipAllocationTarget) {
     const isCurrentTarget = activeSkipTarget?.type === target.type && activeSkipTarget.id === target.id;
     if (isCurrentTarget) {
+      await onSetSkipTarget(null);
+      toast.success("Future skips will go to Unassigned Skip Bucks.");
       return;
     }
     if (
@@ -2744,20 +2746,6 @@ function SplurgeTab({
             </p>
           </div>
           <div className="space-y-3 p-4">
-          <input
-            type="url"
-            placeholder="Shopping link"
-            value={addLink}
-            onChange={(e) => {
-              setAddLink(e.target.value);
-              if (addImageSource === "product") {
-                setAddImageURL("");
-                setAddImageSource(null);
-              }
-            }}
-            onBlur={() => void previewProductImage()}
-            className="w-full rounded-xl px-4 py-3 text-sm focus:outline-none" style={{ background: "var(--bg-surface-2)", border: "1px solid rgba(139,92,246,0.4)", color: "var(--text-primary)" }}
-          />
             <input
               type="text"
               placeholder="Reward name, e.g. headphones or a trip"
@@ -2782,6 +2770,20 @@ function SplurgeTab({
               className="w-full pl-8 rounded-xl px-4 py-3 text-sm focus:outline-none" style={{ background: "var(--bg-surface-2)", border: "1px solid var(--border-default)", color: "var(--text-primary)" }}
             />
           </div>
+          <input
+            type="url"
+            placeholder="Shopping link"
+            value={addLink}
+            onChange={(e) => {
+              setAddLink(e.target.value);
+              if (addImageSource === "product") {
+                setAddImageURL("");
+                setAddImageSource(null);
+              }
+            }}
+            onBlur={() => void previewProductImage()}
+            className="w-full rounded-xl px-4 py-3 text-sm focus:outline-none" style={{ background: "var(--bg-surface-2)", border: "1px solid rgba(139,92,246,0.4)", color: "var(--text-primary)" }}
+          />
           <div>
             <p className="mb-2 text-xs font-black uppercase tracking-[0.14em]" style={{ color: "#C4B5FD" }}>Inspo pic</p>
             <div

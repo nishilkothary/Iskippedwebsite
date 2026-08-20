@@ -170,6 +170,18 @@ export async function releaseJarToSkipBank(uid: string, target: SkipAllocationTa
   return result.releasedAmount;
 }
 
+export type JarBalanceEndpoint = SkipAllocationTarget | { type: "skip-bucks" };
+
+export async function moveJarBalance(
+  uid: string,
+  source: JarBalanceEndpoint,
+  destination: JarBalanceEndpoint,
+  amount: number
+): Promise<number> {
+  const result = await apiRequest<{ movedAmount: number }>("/api/jars/move", "POST", { source, destination, amount });
+  return result.movedAmount;
+}
+
 export async function joinProject(uid: string, projectId: string, makeActive: boolean): Promise<void> {
   await Promise.all([
     updateDoc(doc(db, "users", uid), {

@@ -11,7 +11,7 @@ import { normalizeJarSplit, normalizeSpendingGoals } from "@/lib/services/fireba
 import { formatAggregateImpactUnitsDecimal, formatUnits, oneUnitPhrase } from "@/lib/utils/impact";
 import { getChallengeCountdown } from "@/lib/utils/dates";
 import { appendRefParam, getChallengeSharePath } from "@/lib/utils/share";
-import { getChallengeCausePhrase } from "@/lib/utils/challengeShareCopy";
+import { getChallengeCausePhrase, getPostSkipShareText } from "@/lib/utils/challengeShareCopy";
 import { ShareButton } from "@/components/share/ShareButton";
 import { SkipSetupPrompt } from "@/components/setup/SkipSetupPrompt";
 
@@ -372,7 +372,9 @@ export function SkipModal({ onClose }: Props) {
         : successMoment === "fundraiser" && !hasFundraiserMoment
         ? "personal"
         : successMoment;
-    const causeName = successActiveProject ? getChallengeCausePhrase(successActiveProject) : "this cause";
+    const fundraiserShareName = successActiveProject
+      ? `${(successActiveProject.groupName ?? successActiveProject.title).replace(/[.!?]+$/g, "").trim()} fundraiser`
+      : "this fundraiser";
     const fundraiserPersonalGoal = successActiveProject
       ? profile?.causeGoalAmounts?.[successActiveProject.id] ?? successActiveProject.goalAmount ?? 0
       : 0;
@@ -399,7 +401,7 @@ export function SkipModal({ onClose }: Props) {
       ? `I skipped ${itemLabel} and put ${formatCurrency(amount)} toward ${activeGoal.label}. Join me on iSkipped and start saving for your own goal.`
       : `I skipped ${itemLabel} and saved ${formatCurrency(amount)}. Want to see what you can save? Join me on iSkipped!`;
     const causeShareCopy = successActiveProject
-      ? `I skipped ${itemLabel} and put the savings toward ${causeName}. Want to skip for the same cause?`
+      ? getPostSkipShareText(successActiveProject, itemLabel, amount)
       : `I skipped ${itemLabel} and saved ${formatCurrency(amount)}. Want to see what you can save? Join me on iSkipped!`;
 
     function chooseVariableReward(candidates: VariableReward[], fallback: VariableReward): VariableReward {
@@ -505,7 +507,7 @@ export function SkipModal({ onClose }: Props) {
             buttonLabel: "Share",
             buttonAction: "share",
             shareMessage: successProjectUnitCost
-              ? `I skipped ${itemLabel} and saved enough to fund ${unitPhrase} for ${causeName}. Want to skip for the same cause?`
+              ? `I skipped ${itemLabel} and saved enough to fund ${unitPhrase}. Want to skip with the ${fundraiserShareName}?`
               : causeShareCopy,
             accent: "#F59E0B",
             effect: "fireworks",
@@ -518,7 +520,7 @@ export function SkipModal({ onClose }: Props) {
             ctaPrompt: "Rally others to help finish it",
             buttonLabel: "Invite Friends",
             buttonAction: "share",
-            shareMessage: `Our group is almost at the goal for ${causeName}. Join us on iSkipped and help finish it.`,
+            shareMessage: `Our group is almost at the goal for the ${fundraiserShareName}. Join us on iSkipped and help finish it.`,
             accent: "var(--green-primary)",
           });
         }
@@ -529,7 +531,7 @@ export function SkipModal({ onClose }: Props) {
             ctaPrompt: "Share your progress",
             buttonLabel: "Share",
             buttonAction: "share",
-            shareMessage: `I've skipped over ${formatCurrency(successJarBalance)} of expenses and I'm almost at my goal for ${causeName}. Join me on iSkipped.`,
+            shareMessage: `I've skipped over ${formatCurrency(successJarBalance)} of expenses and I'm almost at my savings goal for the ${fundraiserShareName}. Join me on iSkipped.`,
             accent: "var(--green-primary)",
           });
         }
@@ -541,7 +543,7 @@ export function SkipModal({ onClose }: Props) {
             ctaPrompt: "Invite others to skip for this cause",
             buttonLabel: "Invite Friends",
             buttonAction: "share",
-            shareMessage: `I'm skipping expenses I no longer need to support ${causeName}. Want to join me?`,
+            shareMessage: `I'm skipping expenses I no longer need for the ${fundraiserShareName}. Want to join me?`,
             accent: "var(--green-primary)",
           });
         }
@@ -564,7 +566,7 @@ export function SkipModal({ onClose }: Props) {
           ctaPrompt: "Invite others to skip for this cause",
           buttonLabel: "Invite Friends",
           buttonAction: "share",
-          shareMessage: `I'm skipping expenses I no longer need to support ${causeName}. Want to join me?`,
+          shareMessage: `I'm skipping expenses I no longer need for the ${fundraiserShareName}. Want to join me?`,
           accent: "var(--green-primary)",
         });
       }
@@ -1005,7 +1007,7 @@ export function SkipModal({ onClose }: Props) {
                         ? `${pct}% toward ${spendingGoalLabelLive}`
                         : `${formatCurrency(skipLiveLive)} toward ${spendingGoalLabelLive}`;
                     } else if (activeProjectLive?.unitCost && !activeProjectLive.unitIsGoal) {
-                      const units = formatUnits(skipGiveLive, activeProjectLive.unitCost, activeProjectLive.unitName!, activeProjectLive.unitDisplay);
+                      const units = formatUnits(skipGiveLive, activeProjectLive.unitCost, activeProjectLive.unitName!);
                       return activeProjectLive.location ? `${units} in ${activeProjectLive.location}` : units;
                     } else if (activeProjectLive?.unitCost && activeProjectLive.unitIsGoal) {
                       const pct = Math.max(1, Math.round((skipGiveLive / activeProjectLive.unitCost) * 100));

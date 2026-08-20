@@ -12,8 +12,10 @@ import { isChallengeProject, getProject } from "@/lib/services/firebase/projects
 import { formatCurrency } from "@/lib/utils/currency";
 import { getChallengeCountdown } from "@/lib/utils/dates";
 import { appendRefParam, getChallengeSharePath } from "@/lib/utils/share";
-import { getDirectChallengeShareText } from "@/lib/utils/challengeShareCopy";
+import { getChallengeCausePhrase, getDirectChallengeShareText } from "@/lib/utils/challengeShareCopy";
 import { ShareButton } from "@/components/share/ShareButton";
+
+const ADMIN_EMAIL = process.env.NEXT_PUBLIC_ADMIN_EMAIL ?? "";
 
 type ChallengeCategory = "Education" | "Meals" | "Health" | "Community";
 
@@ -228,11 +230,23 @@ function toastJoinedInactive(title: string) {
   toast.success(`${title} was added to your jars. Future skips will keep going to your current jar.`);
 }
 
-function DetailTile({ label, value, accent = "var(--text-primary)" }: { label: string; value: string; accent?: string }) {
+function DetailTile({ label, value, accent = "var(--text-primary)", href }: { label: string; value: string; accent?: string; href?: string | null }) {
   return (
     <div className="rounded-xl p-3" style={{ background: "rgba(237,245,240,0.045)", border: "1px solid rgba(237,245,240,0.08)" }}>
       <p className="text-[10px] font-black uppercase tracking-[0.13em]" style={{ color: "var(--text-muted)" }}>{label}</p>
-      <p className="mt-1 text-sm font-black leading-snug" style={{ color: accent }}>{value}</p>
+      {href ? (
+        <a
+          href={href}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="mt-1 block text-sm font-black leading-snug"
+          style={{ color: accent, textDecoration: "none" }}
+        >
+          {value}
+        </a>
+      ) : (
+        <p className="mt-1 text-sm font-black leading-snug" style={{ color: accent }}>{value}</p>
+      )}
     </div>
   );
 }
@@ -358,6 +372,7 @@ export default function ChallengeDetailPage() {
   );
   const activeJarLabel = getActiveJarLabel(activeInviteTarget, profile, projects);
   const countdown = getChallengeCountdown(challenge.project);
+  const canManageChallenge = challenge.project.createdBy === user?.uid || profile?.email === ADMIN_EMAIL;
   const split = normalizeJarSplit(profile?.jarSplit as any);
   const giveTotal = profile ? (profile.totalGiveAllocated ?? profile.totalSaved * (split.give / 100)) : 0;
   const profileChallengeBalance = Math.max(0, profile?.causeJarBalances?.[challenge.project.id] ?? 0);
@@ -497,14 +512,26 @@ export default function ChallengeDetailPage() {
         <button onClick={() => router.push("/jars?tab=fundraisers")} className="text-sm font-bold" style={{ color: "var(--green-primary)" }}>
           ← Back to fundraisers
         </button>
-        <button
-          type="button"
-          onClick={handleShare}
-          className="px-3 py-1.5 rounded-full text-xs font-black"
-          style={{ border: "1px solid rgba(46,204,113,0.3)", color: "var(--green-primary)" }}
-        >
-          ↗ Share
-        </button>
+        <div className="flex items-center gap-2">
+          {canManageChallenge && (
+            <button
+              type="button"
+              onClick={() => router.push(`/challenges/${challenge.project.id}/manage`)}
+              className="px-3 py-1.5 rounded-full text-xs font-black"
+              style={{ background: "rgba(46,204,113,0.14)", border: "1px solid rgba(46,204,113,0.34)", color: "var(--green-primary)" }}
+            >
+              Manage
+            </button>
+          )}
+          <button
+            type="button"
+            onClick={handleShare}
+            className="px-3 py-1.5 rounded-full text-xs font-black"
+            style={{ border: "1px solid rgba(46,204,113,0.3)", color: "var(--green-primary)" }}
+          >
+            ↗ Share
+          </button>
+        </div>
       </div>
 
       <article className="relative rounded-2xl overflow-hidden" style={{ background: "var(--bg-surface-1)", border: "1px solid rgba(46,204,113,0.28)" }}>
@@ -521,22 +548,10 @@ export default function ChallengeDetailPage() {
         <div className="p-5">
           <div className="flex flex-wrap gap-2 mb-3">
             <Badge>{challenge.trustLabel}</Badge>
-            <Badge>{challenge.category}</Badge>
             <Badge>{challenge.visibilityLabel}</Badge>
             {countdown.isExpired && (
               <span className="px-2 py-0.5 rounded-full text-xs font-bold" style={{ background: "rgba(239,68,68,0.1)", color: "#EF4444" }}>
                 Ended
-              </span>
-            )}
-            {!countdown.isExpired && countdown.daysLeft !== null && (
-              <span
-                className="px-2 py-0.5 rounded-full text-xs font-bold"
-                style={{
-                  background: countdown.daysLeft < 3 ? "rgba(239,68,68,0.1)" : countdown.daysLeft < 7 ? "rgba(255,183,0,0.12)" : "rgba(46,204,113,0.1)",
-                  color: countdown.daysLeft < 3 ? "#EF4444" : countdown.daysLeft < 7 ? "var(--gold-cta)" : "var(--green-primary)",
-                }}
-              >
-                {countdown.label}
               </span>
             )}
           </div>
@@ -561,7 +576,20 @@ export default function ChallengeDetailPage() {
                 : "Any amount"}
               accent="var(--gold-cta)"
             />
-            <DetailTile label="Donate through" value={donationHost(challenge.project.donationURL) ?? challenge.project.sponsor ?? "Organizer"} accent="#7DD3FC" />
+            <DetailTile
+              label="Donate through"
+              value={donationHost(challenge.project.donationURL) ?? challenge.project.sponsor ?? "Organizer"}
+              href={challenge.project.donationURL}
+              accent="#7DD3FC"
+            />
+            {challenge.project.learnMoreURL && (
+              <DetailTile
+                label="Learn more"
+                value={donationHost(challenge.project.learnMoreURL) ?? "Learn more"}
+                href={challenge.project.learnMoreURL}
+                accent="var(--green-primary)"
+              />
+            )}
           </section>
 
           <section className="mt-4">
@@ -767,6 +795,7 @@ function InviteFlowModal({
   const validGoal = Number.isFinite(amount) && amount > 0;
   const unitCount = challenge.project.unitCost && validGoal ? amount / challenge.project.unitCost : null;
   const unitLabel = challenge.project.unitDisplay ?? challenge.project.unitName ?? "units";
+  const causePhrase = getChallengeCausePhrase(challenge.project);
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4" style={{ background: "rgba(0,0,0,0.68)" }}>
@@ -799,7 +828,7 @@ function InviteFlowModal({
           {step === "intro" && (
             <>
               <p className="text-sm leading-relaxed" style={{ color: "var(--text-secondary)" }}>
-                Instead of asking you to donate upfront, this fundraiser asks you to skip everyday expenses and save those dollars for {challenge.title}.
+                Instead of asking you to donate upfront, this fundraiser asks you to skip everyday expenses and save those dollars for {causePhrase}.
               </p>
               <div className="rounded-xl p-4" style={{ background: "var(--bg-surface-2)", border: "1px solid var(--border-default)" }}>
                 <p className="text-xs uppercase tracking-wide font-black mb-1" style={{ color: "var(--text-muted)" }}>Group goal</p>

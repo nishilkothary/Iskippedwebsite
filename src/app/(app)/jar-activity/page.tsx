@@ -7,11 +7,10 @@ import { useAuthStore } from "@/store/authStore";
 import { useProjects } from "@/hooks/useProjects";
 import { formatCurrency } from "@/lib/utils/currency";
 import {
-  allocateSkipBankToJar,
+  JarBalanceEndpoint,
   normalizeSpendingGoals,
   pinProjectToHome,
-  releaseJarToSkipBank,
-  setActiveProject,
+  moveJarBalance,
   setActiveSkipTarget,
   deleteDonation,
   deleteSpendingHistory,
@@ -22,7 +21,7 @@ import {
   updateSpendingGoals,
 } from "@/lib/services/firebase/users";
 import { getSkipBalanceSummary } from "@/lib/utils/skipBalances";
-import { DonationEvent, Project, SkipAllocationTarget, SpendingGoal, SpendingHistoryEvent } from "@/lib/types/models";
+import { DonationEvent, Project, SpendingGoal, SpendingHistoryEvent } from "@/lib/types/models";
 import { DonationLogModal } from "@/components/skip/DonationLogModal";
 
 const SKIP_BUCKS_DESTINATION = "skip-bucks";
@@ -70,6 +69,15 @@ function progressPercent(balance: number, goalAmount: number) {
 function goalLine(item: JarActivityItem) {
   if (item.goalAmount <= 0) return "Open goal";
   return `${progressPercent(item.balance, item.goalAmount)}% of ${formatCurrency(item.goalAmount)}`;
+}
+
+function cents(value: number) {
+  return Math.round(value * 100) / 100;
+}
+
+function amountInputValue(value: number) {
+  const rounded = cents(value);
+  return Number.isInteger(rounded) ? String(rounded) : rounded.toFixed(2);
 }
 
 function formatEventDate(value: { toDate?: () => Date } | undefined, fallback?: string) {
@@ -385,9 +393,11 @@ function MoveBalanceModal({
   source,
   destinations,
   selectedId,
+  amount,
   working,
   onSourceSelect,
   onSelect,
+  onAmountChange,
   onClose,
   onConfirm,
 }: {
@@ -395,9 +405,11 @@ function MoveBalanceModal({
   source: MoveSource;
   destinations: JarActivityItem[];
   selectedId: string;
+  amount: string;
   working: boolean;
   onSourceSelect: (id: string) => void;
   onSelect: (id: string) => void;
+  onAmountChange: (value: string) => void;
   onClose: () => void;
   onConfirm: () => void;
 }) {
@@ -405,6 +417,8 @@ function MoveBalanceModal({
   const releasing = source.type !== "skip-bucks" && selectedId === SKIP_BUCKS_DESTINATION;
   const destinationLabel = releasing ? "Unassigned Skip Bucks" : selected?.title ?? "another jar";
   const sourceIsSkipBucks = source.type === "skip-bucks";
+  const parsedAmount = cents(Number.parseFloat(amount));
+  const validAmount = Number.isFinite(parsedAmount) && parsedAmount > 0 && parsedAmount <= cents(source.balance);
   return (
     <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/60 p-4 sm:items-center" onClick={onClose}>
       <div className="w-full max-w-md rounded-2xl shadow-2xl" style={{ background: "var(--bg-surface-1)", border: "1px solid var(--border-default)" }} onClick={(event) => event.stopPropagation()}>
@@ -413,8 +427,8 @@ function MoveBalanceModal({
           <p className="text-lg font-black leading-tight pr-6" style={{ color: "var(--text-primary)" }}>Move balance?</p>
           <p className="mt-2 text-sm leading-relaxed" style={{ color: "var(--text-secondary)" }}>
             {sourceIsSkipBucks
-              ? `Move ${formatCurrency(source.balance)} from Unassigned Skip Bucks into ${destinationLabel}?`
-              : "Review this move before changing where your skips go."}
+              ? `Move saved money from Unassigned Skip Bucks into ${destinationLabel}.`
+              : "Review this move before changing where saved skips are kept."}
           </p>
         </div>
         <div className="space-y-4 p-5">
@@ -449,21 +463,43 @@ function MoveBalanceModal({
                 ))}
               </select>
             </label>
+          <label className="block">
+            <span className="text-xs font-black uppercase tracking-wide" style={{ color: "var(--green-primary)" }}>Amount to move</span>
+            <div
+              className="mt-2 flex items-center rounded-xl px-3 py-3"
+              style={{ background: "var(--bg-surface-2)", border: "1px solid var(--border-default)" }}
+            >
+              <span className="mr-2 text-sm font-black" style={{ color: "var(--text-muted)" }}>$</span>
+              <input
+                type="number"
+                min="0.01"
+                max={source.balance}
+                step="0.01"
+                value={amount}
+                onChange={(event) => onAmountChange(event.target.value)}
+                className="w-full bg-transparent text-sm font-black outline-none"
+                style={{ color: "var(--text-primary)" }}
+              />
+            </div>
+            <p className="mt-1 text-xs font-bold" style={{ color: "var(--text-muted)" }}>
+              {formatCurrency(source.balance)} available
+            </p>
+          </label>
           {(selected || releasing) && (
             <div className="rounded-xl p-3" style={{ background: "rgba(245,158,11,0.08)", border: "1px solid rgba(245,158,11,0.18)" }}>
               <p className="text-xs font-bold leading-relaxed" style={{ color: "var(--gold-cta)" }}>
                 {releasing
-                  ? `You skipped ${formatCurrency(source.balance)} for ${source.title}. Are you sure you want to move it back to Unassigned Skip Bucks?`
+                  ? `You skipped ${formatCurrency(parsedAmount || 0)} for ${source.title}. Are you sure you want to move it back to Unassigned Skip Bucks?`
                   : sourceIsSkipBucks
-                    ? `Are you sure you want to move ${formatCurrency(source.balance)} from Unassigned Skip Bucks into ${selected?.title}? Future skips will go to ${selected?.title}.`
-                  : `You skipped ${formatCurrency(source.balance)} for ${source.title}. Are you sure you want to move it to ${selected?.title}? Future skips will go to ${selected?.title}.`}
+                    ? `Are you sure you want to move ${formatCurrency(parsedAmount || 0)} from Unassigned Skip Bucks into ${selected?.title}?`
+                  : `You skipped ${formatCurrency(parsedAmount || 0)} for ${source.title}. Are you sure you want to move it to ${selected?.title}?`}
               </p>
             </div>
           )}
           <button
             type="button"
             onClick={onConfirm}
-            disabled={working || !selectedId}
+            disabled={working || !selectedId || !validAmount}
             className="w-full rounded-full py-3 text-sm font-black disabled:opacity-50"
             style={{ background: "var(--green-primary)", color: "#071B14" }}
           >
@@ -489,6 +525,7 @@ export default function JarActivityPage() {
   const [historyWorkingId, setHistoryWorkingId] = useState<string | null>(null);
   const [moveSource, setMoveSource] = useState<MoveSource | null>(null);
   const [moveDestinationId, setMoveDestinationId] = useState("");
+  const [moveAmount, setMoveAmount] = useState("");
   const [donatingProject, setDonatingProject] = useState<Project | null>(null);
   const [donationNextStepProject, setDonationNextStepProject] = useState<Project | null>(null);
 
@@ -614,40 +651,11 @@ export default function JarActivityPage() {
     }
   }
 
-  async function handleRelease(item: JarActivityItem) {
-    if (!user || workingId || item.balance <= 0) return;
-    const target: SkipAllocationTarget = { type: item.type === "fundraiser" ? "fundraiser" : "goal", id: item.id };
-    setWorkingId(item.id);
-    try {
-      const releasedAmount = await releaseJarToSkipBank(user.uid, target);
-      if (item.type === "fundraiser") {
-        const nextBalances = { ...(profileData.causeJarBalances ?? {}), [item.id]: 0 };
-        const nextUpdate: Parameters<typeof updateProfile>[0] = { causeJarBalances: nextBalances };
-        if (activeTarget?.type === "fundraiser" && activeTarget.id === item.id) {
-          await setActiveProject(user.uid, null);
-          nextUpdate.activeProjectId = null;
-          nextUpdate.activeSkipTarget = null;
-        }
-        updateProfile(nextUpdate);
-      } else {
-        const nextBalances = { ...(profileData.goalJarBalances ?? {}), [item.id]: 0 };
-        updateProfile({
-          goalJarBalances: nextBalances,
-          ...(activeTarget?.type === "goal" && activeTarget.id === item.id ? { activeSkipTarget: null } : {}),
-        });
-      }
-      toast.success(`${formatCurrency(releasedAmount)} moved back to Skip Bucks.`);
-    } catch {
-      toast.error("Could not move this jar balance. Try again.");
-    } finally {
-      setWorkingId(null);
-    }
-  }
-
   function beginMoveBalance(item: MoveSource) {
     const destinations = items.filter((candidate) => item.type === "skip-bucks" || !(candidate.type === item.type && candidate.id === item.id));
     setMoveSource(item);
     setMoveDestinationId(item.type === "skip-bucks" ? (destinations[0] ? jarKey(destinations[0]) : "") : (destinations[0] ? jarKey(destinations[0]) : SKIP_BUCKS_DESTINATION));
+    setMoveAmount(amountInputValue(item.balance));
   }
 
   function beginDonate(project: Project) {
@@ -680,101 +688,57 @@ export default function JarActivityPage() {
     const destinations = items.filter((candidate) => nextSource.type === "skip-bucks" || jarKey(candidate) !== jarKey(nextSource));
     setMoveSource(nextSource);
     setMoveDestinationId(nextSource.type === "skip-bucks" ? (destinations[0] ? jarKey(destinations[0]) : "") : (destinations[0] ? jarKey(destinations[0]) : SKIP_BUCKS_DESTINATION));
+    setMoveAmount(amountInputValue(nextSource.balance));
   }
 
   async function handleMoveBalance() {
     if (!user || !moveSource || workingId || moveSource.balance <= 0 || !moveDestinationId) return;
-    if (moveSource.type !== "skip-bucks" && moveDestinationId === SKIP_BUCKS_DESTINATION) {
-      await handleRelease(moveSource);
-      setMoveSource(null);
+    const amountToMove = cents(Number.parseFloat(moveAmount));
+    if (!Number.isFinite(amountToMove) || amountToMove <= 0) {
+      toast.error("Enter an amount to move.");
       return;
     }
-    const destination = moveDestinations.find((item) => jarKey(item) === moveDestinationId);
-    if (!destination) return;
-    const destinationTarget: SkipAllocationTarget = { type: destination.type === "fundraiser" ? "fundraiser" : "goal", id: destination.id };
+    if (amountToMove > cents(moveSource.balance)) {
+      toast.error("That is more than this balance has available.");
+      return;
+    }
+    const destination = moveDestinationId === SKIP_BUCKS_DESTINATION
+      ? null
+      : moveDestinations.find((item) => jarKey(item) === moveDestinationId);
+    if (!destination && moveDestinationId !== SKIP_BUCKS_DESTINATION) return;
+    const sourceEndpoint: JarBalanceEndpoint = moveSource.type === "skip-bucks"
+      ? { type: "skip-bucks" }
+      : { type: moveSource.type === "fundraiser" ? "fundraiser" : "goal", id: moveSource.id };
+    const destinationEndpoint: JarBalanceEndpoint = moveDestinationId === SKIP_BUCKS_DESTINATION
+      ? { type: "skip-bucks" }
+      : { type: destination!.type === "fundraiser" ? "fundraiser" : "goal", id: destination!.id };
     setWorkingId(moveSourceKey(moveSource));
     try {
-      let releasedAmount = moveSource.balance;
-      if (moveSource.type !== "skip-bucks") {
-        const sourceTarget: SkipAllocationTarget = { type: moveSource.type === "fundraiser" ? "fundraiser" : "goal", id: moveSource.id };
-        releasedAmount = await releaseJarToSkipBank(user.uid, sourceTarget);
+      const appliedAmount = await moveJarBalance(user.uid, sourceEndpoint, destinationEndpoint, amountToMove);
+      const nextCauseBalances = { ...(profileData.causeJarBalances ?? {}) };
+      const nextGoalBalances = { ...(profileData.goalJarBalances ?? {}) };
+      if (moveSource.type === "fundraiser") {
+        nextCauseBalances[moveSource.id] = Math.max(0, cents((nextCauseBalances[moveSource.id] ?? 0) - appliedAmount));
       }
-      if (destination.type === "fundraiser") {
-        await pinProjectToHome(user.uid, destination.id);
-      } else {
-        await Promise.all([
-          updateSpendingGoals(user.uid, spendingGoals, destination.id),
-          setActiveSkipTarget(user.uid, { type: "goal", id: destination.id }),
-        ]);
+      if (moveSource.type === "goal") {
+        nextGoalBalances[moveSource.id] = Math.max(0, cents((nextGoalBalances[moveSource.id] ?? 0) - appliedAmount));
       }
-      const appliedAmount = await allocateSkipBankToJar(user.uid, destinationTarget, releasedAmount, "increment");
-      if (moveSource.type === "skip-bucks") {
-        if (destination.type === "fundraiser") {
-          updateProfile({
-            causeJarBalances: {
-              ...(profileData.causeJarBalances ?? {}),
-              [destination.id]: Math.max(0, profileData.causeJarBalances?.[destination.id] ?? 0) + appliedAmount,
-            },
-            activeProjectId: destination.id,
-            activeSkipTarget: destinationTarget,
-            joinedProjectIds: Array.from(new Set([...(profileData.joinedProjectIds ?? []), destination.id])),
-          });
-        } else {
-          updateProfile({
-            goalJarBalances: {
-              ...(profileData.goalJarBalances ?? {}),
-              [destination.id]: Math.max(0, profileData.goalJarBalances?.[destination.id] ?? 0) + appliedAmount,
-            },
-            activeProjectId: null,
-            activeSpendingGoalId: destination.id,
-            activeSkipTarget: destinationTarget,
-          });
-        }
-      } else if (moveSource.type === "fundraiser") {
-        const nextCauseBalances = { ...(profileData.causeJarBalances ?? {}), [moveSource.id]: 0 };
-        if (destination.type === "fundraiser") {
-          nextCauseBalances[destination.id] = Math.max(0, nextCauseBalances[destination.id] ?? 0) + appliedAmount;
-        }
-        updateProfile({
-          causeJarBalances: nextCauseBalances,
-          activeProjectId: destination.type === "fundraiser" ? destination.id : null,
-          activeSpendingGoalId: destination.type === "goal" ? destination.id : profileData.activeSpendingGoalId,
-          activeSkipTarget: destinationTarget,
-          ...(destination.type === "goal"
-            ? {
-                goalJarBalances: {
-                  ...(profileData.goalJarBalances ?? {}),
-                  [destination.id]: Math.max(0, profileData.goalJarBalances?.[destination.id] ?? 0) + appliedAmount,
-                },
-              }
-            : {}),
-          ...(destination.type === "fundraiser"
-            ? { joinedProjectIds: Array.from(new Set([...(profileData.joinedProjectIds ?? []), destination.id])) }
-            : {}),
-        });
-      } else {
-        const nextGoalBalances = { ...(profileData.goalJarBalances ?? {}), [moveSource.id]: 0 };
-        if (destination.type === "goal") {
-          nextGoalBalances[destination.id] = Math.max(0, nextGoalBalances[destination.id] ?? 0) + appliedAmount;
-        }
-        updateProfile({
-          goalJarBalances: nextGoalBalances,
-          activeProjectId: destination.type === "fundraiser" ? destination.id : null,
-          activeSpendingGoalId: destination.type === "goal" ? destination.id : profileData.activeSpendingGoalId,
-          activeSkipTarget: destinationTarget,
-          ...(destination.type === "fundraiser"
-            ? {
-                causeJarBalances: {
-                  ...(profileData.causeJarBalances ?? {}),
-                  [destination.id]: Math.max(0, profileData.causeJarBalances?.[destination.id] ?? 0) + appliedAmount,
-                },
-                joinedProjectIds: Array.from(new Set([...(profileData.joinedProjectIds ?? []), destination.id])),
-              }
-            : {}),
-        });
+      if (destination?.type === "fundraiser") {
+        nextCauseBalances[destination.id] = cents(Math.max(0, nextCauseBalances[destination.id] ?? 0) + appliedAmount);
       }
+      if (destination?.type === "goal") {
+        nextGoalBalances[destination.id] = cents(Math.max(0, nextGoalBalances[destination.id] ?? 0) + appliedAmount);
+      }
+      updateProfile({
+        causeJarBalances: nextCauseBalances,
+        goalJarBalances: nextGoalBalances,
+        ...(destination?.type === "fundraiser"
+          ? { joinedProjectIds: Array.from(new Set([...(profileData.joinedProjectIds ?? []), destination.id])) }
+          : {}),
+      });
       setMoveSource(null);
-      toast.success(`${formatCurrency(appliedAmount)} moved to ${destination.title}.`);
+      setMoveAmount("");
+      toast.success(`${formatCurrency(appliedAmount)} moved to ${destination?.title ?? "Unassigned Skip Bucks"}.`);
     } catch {
       toast.error("Could not move this balance. Try again.");
     } finally {
@@ -1023,9 +987,11 @@ export default function JarActivityPage() {
           source={moveSource}
           destinations={moveDestinations}
           selectedId={moveDestinationId}
+          amount={moveAmount}
           working={workingId === moveSourceKey(moveSource)}
           onSourceSelect={selectMoveSource}
           onSelect={setMoveDestinationId}
+          onAmountChange={setMoveAmount}
           onClose={() => setMoveSource(null)}
           onConfirm={handleMoveBalance}
         />

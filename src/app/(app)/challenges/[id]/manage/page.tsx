@@ -4,14 +4,13 @@ import { useState, useEffect } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { useAuthStore } from "@/store/authStore";
 import { useProjects } from "@/hooks/useProjects";
-import { deleteCustomProject, endChallenge, setChallengeDeadline, subscribeToProject } from "@/lib/services/firebase/projects";
+import { deleteCustomProject, endChallenge, subscribeToProject } from "@/lib/services/firebase/projects";
 import { subscribeToCommunityFeed } from "@/lib/services/firebase/social";
 import { formatCurrency } from "@/lib/utils/currency";
 import { formatAggregateImpactUnits } from "@/lib/utils/impact";
-import { getChallengeCountdown } from "@/lib/utils/dates";
 import { Project, FeedItem } from "@/lib/types/models";
 import { appendRefParam, getChallengeSharePath } from "@/lib/utils/share";
-import { getDirectChallengeShareText } from "@/lib/utils/challengeShareCopy";
+import { getChallengeCausePhrase, getDirectChallengeShareText } from "@/lib/utils/challengeShareCopy";
 import { ShareButton } from "@/components/share/ShareButton";
 import { apiRequest } from "@/lib/services/firebase/apiClient";
 
@@ -48,11 +47,6 @@ export default function ManageChallengePage() {
   const [endConfirm, setEndConfirm] = useState(false);
   const [archiving, setArchiving] = useState(false);
   const [archiveConfirm, setArchiveConfirm] = useState(false);
-  const [showDeadlineEdit, setShowDeadlineEdit] = useState(false);
-  const [newDeadlineDays, setNewDeadlineDays] = useState<number | null | "custom">(30);
-  const [customDateStr, setCustomDateStr] = useState("");
-  const [settingDeadline, setSettingDeadline] = useState(false);
-  const [deadlineSuccess, setDeadlineSuccess] = useState(false);
   const [showAllActivity, setShowAllActivity] = useState(false);
   const [showMembers, setShowMembers] = useState(false);
   const [members, setMembers] = useState<ChallengeMember[]>([]);
@@ -117,15 +111,11 @@ export default function ManageChallengePage() {
     : 0;
 
   const shareIntentText = getDirectChallengeShareText(challenge);
-  const endDateMs = challenge.endDate?.toMillis?.();
-  const endDateLabel = endDateMs
-    ? new Date(endDateMs).toLocaleDateString(undefined, { month: "long", day: "numeric", year: "numeric" })
-    : "the end of the challenge";
-  const challengeCauseName = (challenge.groupName ?? challenge.title).replace(/[.!?]+$/, "");
+  const challengeCauseName = getChallengeCausePhrase(challenge);
   const nudgeGoalLine = challenge.goalAmount > 0
-    ? `Our goal is to raise at least ${formatCurrency(challenge.goalAmount)}${endDateMs ? ` by ${endDateLabel}` : ""}.`
+    ? `Our goal is to raise at least ${formatCurrency(challenge.goalAmount)}.`
     : "Every skipped expense helps this group make progress.";
-  const nudgeMessage = `Join me in skipping at least one expense a week to help fund ${challengeCauseName}. ${nudgeGoalLine}\n\n${challengeUrl}`;
+  const nudgeMessage = `Join me in skipping at least one expense a week to help save money for ${challengeCauseName}. ${nudgeGoalLine}\n\n${challengeUrl}`;
   const progressUpdateText = buildProgressUpdate({
     title: challenge.groupName ?? challenge.title,
     raised: totalRaised,
@@ -159,25 +149,6 @@ export default function ManageChallengePage() {
     } catch {
       setEnding(false);
       setEndConfirm(false);
-    }
-  }
-
-  async function handleSetDeadline() {
-    if (!user || settingDeadline) return;
-    let endDate: Date | null = null;
-    if (newDeadlineDays === "custom") {
-      endDate = customDateStr ? new Date(customDateStr) : null;
-    } else if (newDeadlineDays !== null) {
-      endDate = new Date(Date.now() + newDeadlineDays * 86400_000);
-    }
-    setSettingDeadline(true);
-    try {
-      await setChallengeDeadline(user.uid, challengeId, endDate);
-      setDeadlineSuccess(true);
-      setShowDeadlineEdit(false);
-      setTimeout(() => setDeadlineSuccess(false), 3000);
-    } finally {
-      setSettingDeadline(false);
     }
   }
 
@@ -425,101 +396,6 @@ export default function ManageChallengePage() {
         >
           Edit Challenge Details
         </button>
-      </section>
-
-      {/* Deadline */}
-      <section className="rounded-2xl p-4 mb-4" style={{ background: "var(--bg-surface-2)", border: "1px solid var(--border-default)" }}>
-        <p className="text-xs uppercase tracking-wide font-bold mb-1" style={{ color: "var(--text-muted)" }}>
-          Deadline
-        </p>
-        {(() => {
-          const countdown = getChallengeCountdown(challenge);
-          const endDateMs = challenge.endDate?.toMillis();
-          const endLabel = endDateMs
-            ? new Date(endDateMs).toLocaleDateString(undefined, { month: "long", day: "numeric", year: "numeric" })
-            : null;
-          return (
-            <>
-              <p className="text-sm font-semibold mb-1" style={{ color: "var(--text-primary)" }}>
-                {endLabel
-                  ? countdown.isExpired
-                    ? `This challenge ended on ${endLabel}.`
-                    : `This challenge ends in ${countdown.label} (${endLabel}).`
-                  : "This challenge has no deadline."}
-              </p>
-              {deadlineSuccess && (
-                <p className="text-xs mb-2 font-semibold" style={{ color: "var(--green-primary)" }}>Deadline updated!</p>
-              )}
-              {!showDeadlineEdit ? (
-                <button
-                  onClick={() => setShowDeadlineEdit(true)}
-                  className="text-xs font-semibold mt-1"
-                  style={{ color: "var(--green-primary)", background: "none", border: "none", padding: 0, cursor: "pointer", textDecoration: "underline", textUnderlineOffset: 2 }}
-                >
-                  Change deadline
-                </button>
-              ) : (
-                <div className="mt-3 space-y-3">
-                  <div className="flex flex-wrap gap-2">
-                    {([
-                      { label: "2 weeks", days: 14 as number | null | "custom" },
-                      { label: "1 month", days: 30 as number | null | "custom" },
-                      { label: "2 months", days: 60 as number | null | "custom" },
-                      { label: "Pick a date", days: "custom" as number | null | "custom" },
-                      { label: "Open-ended", days: null as number | null | "custom" },
-                    ]).map(({ label, days }) => (
-                      <button
-                        key={label}
-                        type="button"
-                        onClick={() => setNewDeadlineDays(days)}
-                        className="px-3 py-1.5 rounded-full text-xs font-bold"
-                        style={
-                          newDeadlineDays === days
-                            ? { background: "rgba(46,204,113,0.18)", border: "1px solid rgba(46,204,113,0.45)", color: "var(--green-primary)" }
-                            : { background: "var(--bg-surface-3)", border: "1px solid var(--border-default)", color: "var(--text-secondary)" }
-                        }
-                      >
-                        {label}
-                      </button>
-                    ))}
-                  </div>
-                  {newDeadlineDays === "custom" && (
-                    <input
-                      type="date"
-                      value={customDateStr}
-                      min={new Date(Date.now() + 86400_000).toISOString().split("T")[0]}
-                      onChange={(e) => setCustomDateStr(e.target.value)}
-                      className="w-full rounded-xl px-3 py-2 text-sm"
-                      style={{ background: "var(--bg-surface-3)", border: "1px solid var(--border-default)", color: "var(--text-primary)" }}
-                    />
-                  )}
-                  {newDeadlineDays !== null && newDeadlineDays !== "custom" && (
-                    <p className="text-xs" style={{ color: "var(--text-muted)" }}>
-                      New deadline: {new Date(Date.now() + newDeadlineDays * 86400_000).toLocaleDateString(undefined, { month: "long", day: "numeric", year: "numeric" })}
-                    </p>
-                  )}
-                  <div className="flex gap-2">
-                    <button
-                      onClick={() => setShowDeadlineEdit(false)}
-                      className="flex-1 py-2 rounded-xl text-xs font-semibold"
-                      style={{ border: "1px solid var(--border-default)", color: "var(--text-secondary)" }}
-                    >
-                      Cancel
-                    </button>
-                    <button
-                      onClick={handleSetDeadline}
-                      disabled={settingDeadline || (newDeadlineDays === "custom" && !customDateStr)}
-                      className="flex-1 py-2 rounded-xl text-xs font-bold disabled:opacity-50"
-                      style={{ background: "var(--green-primary)", color: "#0B1A14" }}
-                    >
-                      {settingDeadline ? "Saving..." : "Confirm"}
-                    </button>
-                  </div>
-                </div>
-              )}
-            </>
-          );
-        })()}
       </section>
 
       {/* End Challenge (archive) */}

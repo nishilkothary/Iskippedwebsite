@@ -1,32 +1,32 @@
 import type { Project } from "@/lib/types/models";
-import { oneUnitPhrase } from "@/lib/utils/impact";
 import { formatCurrency } from "@/lib/utils/currency";
 
 function cleanTitle(value: string): string {
   return value.replace(/\s+/g, " ").trim();
 }
 
-function withLocation(phrase: string, location?: string): string {
-  const cleanPhrase = cleanTitle(phrase);
-  const cleanLocation = location ? cleanTitle(location) : "";
-  if (!cleanLocation || cleanPhrase.toLowerCase().includes(cleanLocation.toLowerCase())) {
-    return cleanPhrase;
-  }
-  return `${cleanPhrase} in ${cleanLocation}`;
+function stripSentenceEnd(value: string): string {
+  return cleanTitle(value).replace(/[.!?]+$/g, "").trim();
+}
+
+function descriptionCausePhrase(description: string): string {
+  return stripSentenceEnd(description)
+    .replace(/^your\s+(?:skips|savings|skipped savings)\s+(?:can|could|will)?\s*(?:help\s+)?(?:fund|provide|support|equip)\s+/i, "")
+    .replace(/^skips\s+(?:can|could|will)?\s*(?:help\s+)?(?:fund|provide|support|equip)\s+/i, "")
+    .replace(/^help\s+(?:fund|provide|support|equip)\s+/i, "")
+    .trim();
 }
 
 export function getChallengeCausePhrase(project: Project): string {
-  if (project.unitIsGoal && (project.unitPhrase || project.unitName)) {
-    return withLocation(project.unitPhrase ?? oneUnitPhrase(project.unitName!), project.location);
-  }
-
-  return withLocation(project.title, project.location);
+  const descriptionPhrase = descriptionCausePhrase(project.description ?? "");
+  if (descriptionPhrase) return descriptionPhrase;
+  return stripSentenceEnd(project.groupName ?? project.title);
 }
 
 export function getDirectChallengeShareText(project: Project): string {
-  return `Join me in skipping one expense this week to help fund ${getChallengeCausePhrase(project)}.`;
+  return `Join me in skipping one expense this week to help save money for ${getChallengeCausePhrase(project)}.`;
 }
 
 export function getPostSkipShareText(project: Project, itemLabel: string, amount: number): string {
-  return `I skipped ${itemLabel} and added ${formatCurrency(amount)} to my Skip Bank. Join me in skipping one expense this week to help fund ${getChallengeCausePhrase(project)}.`;
+  return `I just skipped ${itemLabel} and saved ${formatCurrency(amount)} toward ${getChallengeCausePhrase(project)}.`;
 }

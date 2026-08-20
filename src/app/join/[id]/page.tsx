@@ -9,6 +9,7 @@ import { useAuthStore } from "@/store/authStore";
 import { Project } from "@/lib/types/models";
 import { formatCurrency } from "@/lib/utils/currency";
 import { getChallengeCountdown } from "@/lib/utils/dates";
+import { getChallengeCausePhrase } from "@/lib/utils/challengeShareCopy";
 import { captureReferralCode } from "@/lib/utils/referral";
 import { slugifyChallengeName } from "@/lib/utils/share";
 import Link from "next/link";
@@ -267,6 +268,7 @@ export default function JoinChallengePage() {
   const countdown = getChallengeCountdown(challenge.project);
   const totalSkips = challenge.project.totalSkips ?? 0;
   const displayedRaised = challenge.raised; // already Math.min(goal, totalRaised) from challengeFromProject
+  const causePhrase = getChallengeCausePhrase(challenge.project);
   const unitCost = challenge.project.unitCost ?? 0;
   const hasUnits = unitCost > 0;
   const unitsCount = hasUnits ? Math.floor(displayedRaised / unitCost) : 0;
@@ -304,17 +306,6 @@ export default function JoinChallengePage() {
                   Ended
                 </span>
               )}
-              {!countdown.isExpired && countdown.daysLeft !== null && (
-                <span
-                  className="px-2 py-0.5 rounded-full text-xs font-bold"
-                  style={{
-                    background: countdown.daysLeft < 3 ? "rgba(239,68,68,0.1)" : countdown.daysLeft < 7 ? "rgba(255,183,0,0.12)" : "rgba(46,204,113,0.1)",
-                    color: countdown.daysLeft < 3 ? "#EF4444" : countdown.daysLeft < 7 ? "var(--gold-cta)" : "var(--green-primary)",
-                  }}
-                >
-                  {countdown.label}
-                </span>
-              )}
             </div>
 
             {countdown.isExpired && (
@@ -332,7 +323,7 @@ export default function JoinChallengePage() {
               Skip expenses for {challenge.title}
             </h1>
             <p className="text-sm mt-2 leading-relaxed" style={{ color: "var(--text-secondary)" }}>
-              Instead of asking you to donate upfront, this fundraiser asks you to skip everyday expenses and save those dollars for {challenge.title}.
+              Instead of asking you to donate upfront, this fundraiser asks you to skip everyday expenses and save those dollars for {causePhrase}.
             </p>
             <p className="text-sm mt-1" style={{ color: "var(--text-muted)" }}>{challenge.organizerLine}</p>
 
