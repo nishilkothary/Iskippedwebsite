@@ -2023,6 +2023,9 @@ function SplurgeTab({
                 onClick={() => {
                   setSwitchPrompt(null);
                   if (switchPrompt.previous.type === "goal") {
+                    setShopView("rewards");
+                    setShowAddForm(false);
+                    setEditingGoalId(null);
                     setPurchasingId(switchPrompt.previous.id);
                     setPurchaseAmountStr(String(switchPrompt.balance));
                   } else {
@@ -2251,7 +2254,16 @@ function SplurgeTab({
                 style={{ borderBottom: "1px solid var(--border-default)" }}
                 onMouseEnter={(e) => (e.currentTarget as HTMLElement).style.background = "var(--bg-surface-2)"}
                 onMouseLeave={(e) => (e.currentTarget as HTMLElement).style.background = "transparent"}
-                onClick={() => { setSwitchTarget(null); if (activeGoalId) setPurchasingId(activeGoalId); }}
+                onClick={() => {
+                  setSwitchTarget(null);
+                  setShopView("rewards");
+                  setShowAddForm(false);
+                  setEditingGoalId(null);
+                  if (activeGoalId) {
+                    setPurchasingId(activeGoalId);
+                    setPurchaseAmountStr(String(spendingBalance));
+                  }
+                }}
               >
                 <p className="text-sm font-semibold" style={{ color: "var(--text-primary)" }}>
                   {activeGoal?.type === "donation" ? "Log a donation first" : "Log a purchase first"}
