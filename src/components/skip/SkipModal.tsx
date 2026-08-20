@@ -1,5 +1,5 @@
 "use client";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, type CSSProperties } from "react";
 import { useRouter } from "next/navigation";
 import { useSkips } from "@/hooks/useSkips";
 import { useProjects } from "@/hooks/useProjects";
@@ -689,6 +689,16 @@ export function SkipModal({ onClose }: Props) {
     }
 
     const variableReward = buildVariableReward();
+    const celebrationPieces = variableReward.effect
+      ? [
+          { x: "-138px", y: "-118px", color: "#2ECC71", delay: "0ms" },
+          { x: "132px", y: "-112px", color: "#A78BFA", delay: "55ms" },
+          { x: "-116px", y: "70px", color: "#F59E0B", delay: "100ms" },
+          { x: "112px", y: "76px", color: "#7DD3FC", delay: "145ms" },
+          { x: "-38px", y: "-138px", color: "#EDFFF5", delay: "190ms" },
+          { x: "42px", y: "118px", color: "#2ECC71", delay: "235ms" },
+        ]
+      : [];
     return (
       <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4" onClick={dismissSuccess}>
         <div
@@ -701,8 +711,23 @@ export function SkipModal({ onClose }: Props) {
           style={{ background: "var(--bg-surface-1)", border: "1px solid var(--border-default)", outline: "none" }}
           onClick={(e) => e.stopPropagation()}
         >
+          {celebrationPieces.map((piece, index) => (
+            <span
+              key={`${piece.x}-${piece.y}`}
+              className="iskip-burst-piece z-0"
+              style={{
+                "--bx": piece.x,
+                "--by": piece.y,
+                animationDelay: piece.delay,
+                background: piece.color,
+                borderRadius: variableReward.effect === "confetti" && index % 2 === 0 ? "2px" : "999px",
+                height: variableReward.effect === "confetti" && index % 2 === 0 ? 10 : 7,
+                width: variableReward.effect === "confetti" && index % 2 === 0 ? 5 : 7,
+              } as CSSProperties}
+            />
+          ))}
           <button onClick={dismissSuccess} aria-label="Close" className="absolute top-4 right-4 text-2xl leading-none z-10" style={{ color: "var(--text-muted)" }}>x</button>
-          <div className="px-6 pb-6 pt-6">
+          <div className="relative z-10 px-6 pb-6 pt-6">
             <StreakCheckHero streak={successStreak} />
             {successHighlight === "largest" && (
               <div className="mt-3 rounded-xl px-3 py-2 text-left" style={{ background: "var(--bg-surface-2)" }}>
@@ -716,8 +741,8 @@ export function SkipModal({ onClose }: Props) {
                 <p className="mt-0.5 text-sm font-black" style={{ color: "var(--text-primary)" }}>#{postLogSkipCount}</p>
               </div>
             )}
-            <div className="mt-4 mb-5 rounded-xl px-4 py-4 text-left" style={{ background: "var(--bg-surface-2)", border: "1px solid var(--border-default)" }}>
-              <p id="skip-success-title" className="text-[1.05rem] font-semibold leading-relaxed" style={{ color: "var(--text-primary)" }}>
+            <div className="mt-5 mb-5 px-3 text-center">
+              <p id="skip-success-title" className="text-[1.08rem] font-semibold leading-relaxed" style={{ color: "var(--text-primary)" }}>
                 {variableReward.message}
               </p>
             </div>
