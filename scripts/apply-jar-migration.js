@@ -17,6 +17,8 @@ readEnvLocal();
 const serviceAccount = JSON.parse(fs.readFileSync(process.env.FIREBASE_SERVICE_ACCOUNT_PATH, "utf8"));
 initializeApp({ credential: cert(serviceAccount) });
 
+const MIGRATION_VERSION = "skip-pot-v1";
+
 const namedOverrides = {
   "shravaninanduri@gmail.com": { type: "goal", id: "1775518411938" },
   "lindsay@kenyaconnect.org": { type: "fundraiser", id: "kc" },
@@ -40,6 +42,7 @@ function hasReward(profile, goalId) {
 
 async function main() {
   const apply = process.argv.includes("--apply");
+  const force = process.argv.includes("--force");
   const db = getFirestore();
   const [snap, projectSnap] = await Promise.all([
     db.collection("users").get(),
@@ -65,9 +68,20 @@ async function main() {
   }
 
   const report = [];
+  let skippedAlreadyMigrated = 0;
 
   for (const doc of snap.docs) {
     const profile = doc.data();
+    if (!force && profile.jarMigrationVersion === MIGRATION_VERSION) {
+      skippedAlreadyMigrated += 1;
+      report.push({
+        uid: doc.id,
+        displayName: profile.displayName || profile.name || "",
+        email: String(profile.email || "").toLowerCase(),
+        skipped: "already migrated",
+      });
+      continue;
+    }
     const email = String(profile.email || "").toLowerCase();
     const override = namedOverrides[email] || null;
     const before = summarize(profile);
@@ -87,13 +101,24 @@ async function main() {
           savedTowardActiveCause: 0,
           causeJarBalances: {},
           goalJarBalances: {},
+          causeGoalAmounts: {},
+          causeJarOverflowCounts: {},
         };
+    updates.jarMigrationVersion = MIGRATION_VERSION;
     const after = { ...before, ...summarize({ ...profile, ...updates }) };
     report.push({ uid: doc.id, displayName: profile.displayName || profile.name || "", email, override, before, after });
     if (apply) await doc.ref.update(updates);
   }
 
-  console.log(JSON.stringify({ mode: apply ? "APPLIED" : "DRY_RUN", users: report.length, overrides: namedOverrides, report }, null, 2));
+  console.log(JSON.stringify({
+    mode: apply ? "APPLIED" : "DRY_RUN",
+    migrationVersion: MIGRATION_VERSION,
+    force,
+    users: report.length,
+    skippedAlreadyMigrated,
+    overrides: namedOverrides,
+    report,
+  }, null, 2));
 }
 
 main().catch((error) => { console.error(error); process.exit(1); });

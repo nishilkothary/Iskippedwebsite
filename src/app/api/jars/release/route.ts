@@ -36,8 +36,14 @@ export async function POST(req: NextRequest) {
       const updates: Record<string, unknown> = {};
       if (releasedAmount > 0 && target.type === "goal") updates[`goalJarBalances.${target.id}`] = 0;
       if (releasedAmount > 0 && target.type === "fundraiser") updates[`causeJarBalances.${target.id}`] = 0;
-      if (clearActive && profile.activeSkipTarget?.type === target.type && profile.activeSkipTarget.id === target.id) {
+      const targetIsActive = profile.activeSkipTarget?.type === target.type && profile.activeSkipTarget.id === target.id;
+      const targetMatchesLegacyActive = target.type === "goal"
+        ? profile.activeSpendingGoalId === target.id
+        : profile.activeProjectId === target.id;
+      if (clearActive && (targetIsActive || targetMatchesLegacyActive)) {
         updates.activeSkipTarget = null;
+        updates.activeProjectId = null;
+        updates.activeSpendingGoalId = null;
       }
       if (Object.keys(updates).length > 0) tx.update(userRef, updates);
       return releasedAmount;

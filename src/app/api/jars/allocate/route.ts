@@ -42,7 +42,11 @@ export async function POST(req: NextRequest) {
         const currentBalance = Math.max(0, profile.causeJarBalances?.[target.id] ?? 0);
         updates[`causeJarBalances.${target.id}`] = currentBalance + amountToApply;
       }
-      if (makeActive) updates.activeSkipTarget = target;
+      if (makeActive) {
+        updates.activeSkipTarget = target;
+        updates.activeProjectId = target.type === "fundraiser" ? target.id : null;
+        updates.activeSpendingGoalId = target.type === "goal" ? target.id : null;
+      }
       tx.update(userRef, updates);
       return amountToApply;
     });
