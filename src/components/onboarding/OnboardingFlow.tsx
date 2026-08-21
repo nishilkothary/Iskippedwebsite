@@ -30,7 +30,7 @@ export function OnboardingFlow({ onDone }: Props) {
 
   if (!user || !profile) return null;
 
-  // The user may already have an active cause — e.g. they joined a challenge (official or
+  // The user may already have an active fundraiser — e.g. they joined a challenge (official or
   // community-created) via a referral link before onboarding ever got a chance to run.
   // Honor that instead of prompting them to pick again.
   const preselectedProject = profile.activeProjectId

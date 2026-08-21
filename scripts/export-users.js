@@ -86,12 +86,12 @@ async function main() {
     "UID",
     "Display Name",
     "Email",
-    "Active Cause ID",
-    "Active Cause Name",
+    "Active Fundraiser ID",
+    "Active Fundraiser Name",
     "Total Saved ($)",
-    "Total Give Allocated ($)",
+    "Total Fundraiser Allocated ($)",
     "Total Donated ($)",
-    "Give Jar Balance ($)",
+    "Fundraiser Jar Balance ($)",
     "Total Live Allocated ($)",
     "Total Spent ($)",
     "Total Skips",
@@ -101,7 +101,7 @@ async function main() {
   ];
 
   const summaryRows = [summaryHeaders];
-  const balanceRows = [["UID", "Display Name", "Cause ID", "Cause Name", "Balance ($)", "Is Active Cause"]];
+  const balanceRows = [["UID", "Display Name", "Fundraiser ID", "Fundraiser Name", "Balance ($)", "Is Active Fundraiser"]];
 
   usersSnap.forEach((doc) => {
     const p = doc.data();

@@ -31,7 +31,8 @@ export function normalizeSpendingGoals(profile: UserProfile): {
         : profile.spendingGoals[0]?.id ?? null,
     };
   }
-  // Backward compat: migrate legacy spendingGoal
+  // Backward compatibility: expose the old single reward field through the
+  // current rewards shape. "splurge" is a persisted legacy enum value.
   if (profile.spendingGoal) {
     const goal: SpendingGoal = {
       id: "legacy",
@@ -135,10 +136,9 @@ export async function setActiveSkipTarget(uid: string, target: SkipAllocationTar
 export async function allocateSkipBankToJar(
   uid: string,
   target: SkipAllocationTarget,
-  amount: number,
-  mode: "increment" | "set" = "increment"
+  amount: number
 ): Promise<number> {
-  const result = await apiRequest<{ appliedAmount: number }>("/api/jars/allocate", "POST", { target, amount, mode });
+  const result = await apiRequest<{ appliedAmount: number }>("/api/jars/allocate", "POST", { target, amount });
   return result.appliedAmount;
 }
 

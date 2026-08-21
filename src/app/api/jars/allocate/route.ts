@@ -20,7 +20,6 @@ export async function POST(req: NextRequest) {
     const body = await req.json();
     const target = parseTarget(body.target);
     const amount = validateAmount(body.amount);
-    const mode = body.mode === "set" ? "set" : "increment";
     const makeActive = body.makeActive !== false;
 
     const db = getAdminDb();
@@ -37,15 +36,11 @@ export async function POST(req: NextRequest) {
       const updates: Record<string, unknown> = {};
       if (target.type === "goal") {
         const currentBalance = Math.max(0, profile.goalJarBalances?.[target.id] ?? 0);
-        updates[`goalJarBalances.${target.id}`] = mode === "set"
-          ? amountToApply
-          : currentBalance + amountToApply;
+        updates[`goalJarBalances.${target.id}`] = currentBalance + amountToApply;
       }
       if (target.type === "fundraiser") {
         const currentBalance = Math.max(0, profile.causeJarBalances?.[target.id] ?? 0);
-        updates[`causeJarBalances.${target.id}`] = mode === "set"
-          ? amountToApply
-          : currentBalance + amountToApply;
+        updates[`causeJarBalances.${target.id}`] = currentBalance + amountToApply;
       }
       if (makeActive) updates.activeSkipTarget = target;
       tx.update(userRef, updates);

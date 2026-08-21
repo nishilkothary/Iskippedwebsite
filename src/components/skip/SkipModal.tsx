@@ -261,7 +261,7 @@ export function SkipModal({ onClose }: Props) {
       ? appendRefParam(`${typeof window !== "undefined" ? window.location.origin : "https://iskipped.com"}${getChallengeSharePath(successActiveProject)}`, profile?.uid)
       : "https://iskipped.com";
 
-    // Show jar-full celebration when give jar hits/exceeds goal (first time, then every 3rd skip)
+    // Show the jar-full celebration when a fundraiser jar hits/exceeds its goal.
     const overflowCount = successOverflowCount ?? 0;
     const showJarFull = successActiveProject != null && overflowCount >= 1 && (overflowCount === 1 || (overflowCount - 1) % 3 === 0);
 
@@ -280,10 +280,10 @@ export function SkipModal({ onClose }: Props) {
           >
             <button onClick={dismissSuccess} aria-label="Close" className="absolute top-4 right-4 text-2xl leading-none" style={{ color: "var(--text-muted)" }}>×</button>
             <div className="text-6xl mb-3">🫙</div>
-            <p id="skip-jarfull-title" className="text-2xl font-bold" style={{ color: "var(--text-primary)" }}>Giving Jar Full!</p>
+            <p id="skip-jarfull-title" className="text-2xl font-bold" style={{ color: "var(--text-primary)" }}>Fundraiser Jar Full!</p>
             <p className="font-bold text-lg mt-1" style={{ color: "#2ECC71" }}>Congratulations!</p>
             <p className="text-sm mt-3" style={{ color: "var(--text-secondary)" }}>
-              You&apos;ve pledged 100% of your <strong style={{ color: "var(--text-primary)" }}>{successActiveProject.title}</strong>{" "}giving jar.
+              You&apos;ve pledged 100% of your <strong style={{ color: "var(--text-primary)" }}>{successActiveProject.title}</strong>{" "}fundraiser jar.
               It&apos;s time to empty your jar and send it over!
             </p>
             <p className="text-sm mt-2 font-semibold" style={{ color: "#2ECC71" }}>
@@ -308,7 +308,7 @@ export function SkipModal({ onClose }: Props) {
       );
     }
 
-    // Show cause nudge INSTEAD of great job on skip #1 and every 3rd skip (until cause is chosen)
+    // Retained for compatibility with the old nudge flow; it is intentionally disabled.
     const showCauseNudge = false;
 
     if (showCauseNudge) {

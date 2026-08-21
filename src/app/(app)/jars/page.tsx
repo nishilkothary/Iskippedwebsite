@@ -32,8 +32,6 @@ import { Project, SpendingGoal, DonationEvent, SkipAllocationTarget } from "@/li
 import { DonationLogModal } from "@/components/skip/DonationLogModal";
 import { apiRequest } from "@/lib/services/firebase/apiClient";
 
-type Tab = "cause" | "live";
-
 const rewardArtwork = [
   { background: "linear-gradient(135deg, #4C1D95 0%, #8B5CF6 48%, #E9D5FF 140%)", accent: "#E9D5FF" },
   { background: "linear-gradient(135deg, #064E3B 0%, #0F766E 48%, #99F6E4 140%)", accent: "#CCFBF1" },
@@ -304,13 +302,6 @@ function JarsPageInner() {
   const autoOpenRewardLabel = searchParams.get("label") ?? "";
   const autoOpenRewardAmount = searchParams.get("amount") ?? "";
   const autoOpenRewardCategory = searchParams.get("category") ?? "";
-  const initialTab: Tab = rawTab === "live" || rawTab === "cause" ? rawTab : "cause";
-  const [activeTab, setActiveTab] = useState<Tab>(initialTab);
-
-  useEffect(() => {
-    setActiveTab(rawTab === "live" ? "live" : "cause");
-  }, [rawTab]);
-
   const { user, profile, updateProfile } = useAuthStore();
   const { donate, editDonation, deleteDonation, donations } = useSkips();
   const { projects, refetch } = useProjects();
@@ -524,7 +515,7 @@ function JarsPageInner() {
     updateProfile({ activeSpendingGoalId: null, spendingGoals, spendingGoal: null });
   }
 
-  const splurgeProps = {
+  const jarBrowserProps = {
     spendingBalance,
     totalSpent: profile.totalSpent ?? 0,
     goals: spendingGoals,
@@ -592,16 +583,14 @@ function JarsPageInner() {
     },
     onAddCause: handleAddCause,
     onSetFundraiserGoal: handleSetCauseGoal,
-    onApplySkipBank: async (target: SkipAllocationTarget, amount: number, mode: "increment" | "set" = "increment") => {
-      const appliedAmount = await allocateSkipBankToJar(user.uid, target, amount, mode);
+    onApplySkipBank: async (target: SkipAllocationTarget, amount: number) => {
+      const appliedAmount = await allocateSkipBankToJar(user.uid, target, amount);
       if (appliedAmount > 0) {
         if (target.type === "goal") {
           updateProfile({
             goalJarBalances: {
               ...(profile.goalJarBalances ?? {}),
-              [target.id]: mode === "set"
-                ? appliedAmount
-                : Math.max(0, profile.goalJarBalances?.[target.id] ?? 0) + appliedAmount,
+              [target.id]: Math.max(0, profile.goalJarBalances?.[target.id] ?? 0) + appliedAmount,
             },
             activeSkipTarget: target,
           });
@@ -609,9 +598,7 @@ function JarsPageInner() {
           updateProfile({
             causeJarBalances: {
               ...(profile.causeJarBalances ?? {}),
-              [target.id]: mode === "set"
-                ? appliedAmount
-                : Math.max(0, profile.causeJarBalances?.[target.id] ?? 0) + appliedAmount,
+              [target.id]: Math.max(0, profile.causeJarBalances?.[target.id] ?? 0) + appliedAmount,
             },
             activeSkipTarget: target,
           });
@@ -683,7 +670,7 @@ function JarsPageInner() {
           Jar Activity
         </Link>
       </div>
-      <SplurgeTab {...splurgeProps} />
+      <JarBrowser {...jarBrowserProps} />
     </div>
   );
 }
@@ -897,7 +884,7 @@ function getCategoryFallback(project: Project): { img: string | null; abbr: stri
   return { img: null, abbr: "GIVE", color: "#2ECC71" };
 }
 
-/* ── Giving Jar Tab ── */
+/* ── Retired legacy fundraiser browser (kept temporarily for data compatibility) ── */
 function CauseTab({
   projects,
   activeProject,
@@ -1460,8 +1447,8 @@ function CompactRewardJar({
   );
 }
 
-/* ── Splurge Tab ── */
-function SplurgeTab({
+/* ── Skip Jar Browser ── */
+function JarBrowser({
   spendingBalance,
   totalSpent,
   goals,
@@ -1520,7 +1507,7 @@ function SplurgeTab({
   onSetSkipTarget: (target: SkipAllocationTarget | null) => Promise<void>;
   onAddCause: (title: string, sponsor: string, location: string | undefined, goalAmount: number, donationURL?: string, description?: string, tags?: string[]) => Promise<void>;
   onSetFundraiserGoal: (fundraiserId: string, amount: number) => Promise<void>;
-  onApplySkipBank: (target: SkipAllocationTarget, amount: number, mode?: "increment" | "set") => Promise<number>;
+  onApplySkipBank: (target: SkipAllocationTarget, amount: number) => Promise<number>;
   onReleaseJar: (target: SkipAllocationTarget) => Promise<number>;
   onMoveJarBalance: (source: SkipAllocationTarget, destination: SkipAllocationTarget, amount: number) => Promise<number>;
   autoOpenRewardForm?: boolean;
@@ -1895,7 +1882,7 @@ function SplurgeTab({
       await onSetFundraiserGoal(fundraiserSetup.id, goalAmount);
       await onSetSkipTarget(target);
       if (bankAmount > 0 && availableSkipBankBalance > 0) {
-        const appliedAmount = await onApplySkipBank(target, bankAmount, "set");
+        const appliedAmount = await onApplySkipBank(target, bankAmount);
         if (appliedAmount > 0) toast.success(`${formatCurrency(appliedAmount)} moved into the fundraiser jar.`);
       }
       setFundraiserSetup(null);
@@ -1951,7 +1938,7 @@ function SplurgeTab({
       return;
     }
     setFundingWorking(true);
-    const appliedAmount = await onApplySkipBank(fundingTarget, amount, "set");
+    const appliedAmount = await onApplySkipBank(fundingTarget, amount);
     setFundingWorking(false);
     setFundingTarget(null);
     if (appliedAmount > 0) toast.success(`${formatCurrency(appliedAmount)} moved into the jar.`);
@@ -2185,14 +2172,14 @@ function SplurgeTab({
     }
   }
 
-  async function handleEditGoalSave(goalId: string, goalType: "splurge" | "donation") {
+  async function handleEditGoalSave(goalId: string, storedGoalType: "splurge" | "donation") {
     const amount = parseFloat(editAmount);
     if (!editLabel.trim() || !amount || amount <= 0) return;
     setEditWorking(true);
     const updates: Partial<SpendingGoal> = { label: editLabel.trim(), targetAmount: amount, category: editCategory.trim() || undefined };
     let shoppingLink = "";
     if (editLink.trim()) {
-      if (goalType === "splurge") {
+      if (storedGoalType === "splurge") {
         shoppingLink = normalizeExternalLink(editLink);
         updates.shoppingLink = shoppingLink;
         updates.imageURL = undefined;
@@ -2201,10 +2188,10 @@ function SplurgeTab({
     } else {
       updates.shoppingLink = undefined;
       updates.donationURL = undefined;
-      if (goalType === "splurge") updates.imageURL = undefined;
+      if (storedGoalType === "splurge") updates.imageURL = undefined;
     }
     await onEditGoal(goalId, updates);
-    if (goalType === "splurge" && shoppingLink) void enrichGoalImage(goalId, shoppingLink);
+    if (storedGoalType === "splurge" && shoppingLink) void enrichGoalImage(goalId, shoppingLink);
     setEditingGoalId(null);
     setEditWorking(false);
   }

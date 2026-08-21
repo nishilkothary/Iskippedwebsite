@@ -1,6 +1,7 @@
 // Recalculates totalRaised for all official projects from actual user data.
 //
-// Run with: node --use-system-ca scripts/recalc-project-totals.js
+// Preview with: node --use-system-ca scripts/recalc-project-totals.js
+// Apply with:   node --use-system-ca scripts/recalc-project-totals.js --apply
 //
 // totalRaised = sum over all users of:
 //   causeJarBalances[projectId]   (still in jar, not yet donated)
@@ -29,6 +30,7 @@ if (fs.existsSync(envPath)) {
 const serviceAccount = JSON.parse(fs.readFileSync(keyPath, "utf-8"));
 initializeApp({ credential: cert(serviceAccount) });
 const db = getFirestore();
+const shouldApply = process.argv.includes("--apply");
 
 async function run() {
   console.log("Reading all users...");
@@ -64,9 +66,10 @@ async function run() {
     console.log(`  ${id}: jar=${jarBalance.toFixed(2)}, donated=${donated.toFixed(2)}, totalRaised=${total.toFixed(2)}`);
   }
 
-  console.log("\nUpdating Firestore project docs...");
+  console.log(shouldApply ? "\nUpdating Firestore project docs..." : "\nDry run only. Re-run with --apply to update Firestore project docs.");
   for (const [id, { jarBalance, donated }] of Object.entries(totals)) {
     const total = jarBalance + donated;
+    if (!shouldApply) continue;
     try {
       await db.collection("projects").doc(id).set({ totalRaised: total }, { merge: true });
       console.log(`  ✓ ${id} → totalRaised = $${total.toFixed(2)}`);

@@ -17,7 +17,7 @@ const STEPS = [
     number: "02",
     title: "Log It",
     copy: "Log a skip and turn that saved money into Skip Bucks.",
-    body: "Coffee, takeout, impulse buy — anything you can do without. Log it in iSkipped and your Giving Jar grows with every skip.",
+    body: "Coffee, takeout, impulse buy — anything you can do without. Log it in iSkipped and your active jar grows with every skip.",
     color: "var(--gold-cta)",
     bgColor: "rgba(255,183,0,0.10)",
   },
@@ -25,16 +25,9 @@ const STEPS = [
     number: "03",
     title: "Use It",
     copy: "Turn your Skip Bucks into purpose by picking a savings jar for a personal reward or a group fundraiser working toward a shared goal.",
-    body: "Pick something you're saving toward — dinner out, a splurge, a small treat. A share of every skip fills your Reward Jar alongside your giving. All good deeds deserve a reward.",
+    body: "Pick something you are saving toward, like a dinner out, concert tickets, or a small treat. Your skips fill the reward or fundraiser jar you choose, and you can change or park it anytime.",
     color: "#8B5CF6",
     bgColor: "rgba(139,92,246,0.10)",
-  },
-  {
-    number: "04",
-    title: "Donate",
-    body: "When you're ready, donate your donation jar directly to the cause. No money moves through iSkipped — it goes straight to the organization.",
-    color: "var(--coral-primary)",
-    bgColor: "rgba(239,68,68,0.10)",
   },
 ];
 
@@ -165,7 +158,7 @@ export default function AboutPage() {
             </h2>
           </div>
           <div className="space-y-6">
-            {STEPS.slice(0, 3).map((step) => (
+            {STEPS.map((step) => (
               <div
                 key={step.number}
                 className="flex gap-4 items-start"

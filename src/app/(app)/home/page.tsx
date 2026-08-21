@@ -1328,7 +1328,7 @@ export default function HomePage() {
   const destinationHref = activeProject
     ? (isActiveChallenge ? `/challenges/${activeProject.id}` : "/jars?tab=cause")
     : "/jars?tab=cause";
-  const destinationLabel = "Giving Jar";
+  const destinationLabel = "Fundraiser Jar";
   const destinationEmptyLabel = "Join a challenge →";
   const challengeSkips = activeProject && isActiveChallenge
     ? recentSkips.filter((skip) => skip.projectId === activeProject.id)
@@ -1683,7 +1683,7 @@ export default function HomePage() {
       await pinProjectToHome(user.uid, homeFundraiserSetup.id);
       let appliedAmount = 0;
       if (bankAmount > 0 && availableHomeSkipBankBalance > 0) {
-        appliedAmount = await allocateSkipBankToJar(user.uid, target, bankAmount, "set");
+        appliedAmount = await allocateSkipBankToJar(user.uid, target, bankAmount);
       }
       updateProfile({
         activeProjectId: homeFundraiserSetup.id,
@@ -1722,7 +1722,7 @@ export default function HomePage() {
 
     setHomeFundingWorking(true);
     try {
-      const appliedAmount = await allocateSkipBankToJar(user.uid, homeFundingTarget, amount, "set");
+      const appliedAmount = await allocateSkipBankToJar(user.uid, homeFundingTarget, amount);
       if (appliedAmount > 0) {
         if (homeFundingTarget.type === "goal") {
           updateProfile({
@@ -2185,8 +2185,8 @@ export default function HomePage() {
                   <Jar
                     fillPercent={fundraiserGoalAmount > 0 ? Math.min(100, (displayedGroupTotal / fundraiserGoalAmount) * 100) : (displayedGroupTotal > 0 ? 18 : 0)}
                     paused={showSkipPicker}
-                    color="#2BBAA4"
-                    gradEnd="#1E9485"
+                    color="#00F0D0"
+                    gradEnd="#009C8B"
                     label="Group jar"
                     amount={formatCurrency(displayedGroupTotal)}
                     emoji=""
@@ -2195,11 +2195,11 @@ export default function HomePage() {
                     centerValueOverride={`${groupFundraiserPercent}%`}
                     centerLabelOverride="to goal"
                     topLabel="Group jar"
-                    topLabelColor="#7DD3FC"
+                    topLabelColor="#A7FFF0"
                     hideBottomLabel
                     href="/jar-activity"
                   />
-                  <p style={{ marginTop: 6, textAlign: "center", fontSize: 12, fontWeight: 900, color: "#7DD3FC", lineHeight: 1.25 }}>
+                  <p style={{ marginTop: 6, textAlign: "center", fontSize: 12, fontWeight: 900, color: "#A7FFF0", lineHeight: 1.25 }}>
                     {hasCommunityUnit && communityUnitCountDisplay !== null
                       ? `~ ${communityUnitCountDisplay} ${communityUnitLabel}`
                       : `${formatCurrencyRounded(displayedGroupTotal)} raised`}
@@ -2215,7 +2215,7 @@ export default function HomePage() {
                     }
                     router.push("/jars?tab=cause");
                   }}
-                  style={{ borderRadius: 999, padding: "11px 28px", minWidth: 210, background: activeProject ? "#2BBAA4" : "rgba(237,245,240,0.06)", color: activeProject ? "#06251D" : "var(--text-primary)", border: activeProject ? "1px solid #42D5BA" : "1px solid rgba(237,245,240,0.08)", fontSize: 13, fontWeight: 900 }}
+                  style={{ borderRadius: 999, padding: "11px 28px", minWidth: 210, background: activeProject ? "#2ECC71" : "rgba(237,245,240,0.06)", color: activeProject ? "#071B14" : "var(--text-primary)", border: activeProject ? "1px solid #2ECC71" : "1px solid rgba(237,245,240,0.08)", fontSize: 13, fontWeight: 900 }}
                 >
                   {activeProject ? "Donate Your Savings" : "Browse fundraisers"}
                 </button>
@@ -2227,7 +2227,7 @@ export default function HomePage() {
                     <button
                       type="button"
                       onClick={() => router.push(`/challenges/${activeProject.id}/activity`)}
-                      style={{ border: "none", background: "transparent", color: "#2BBAA4", fontSize: 11, fontWeight: 900, cursor: "pointer" }}
+                      style={{ border: "none", background: "transparent", color: "var(--green-primary)", fontSize: 11, fontWeight: 900, cursor: "pointer" }}
                     >
                       Full feed
                     </button>

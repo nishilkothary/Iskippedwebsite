@@ -4,6 +4,7 @@ export interface SpendingGoal {
   id: string;
   label: string;
   targetAmount: number;
+  /** "splurge" is the legacy persisted value for a personal reward. Do not use it in UI copy. */
   type: "splurge" | "donation";
   category?: string;
   shoppingLink?: string;
@@ -50,7 +51,7 @@ export interface UserProfile {
   causeJarBalances?: Record<string, number>;
   goalJarBalances?: Record<string, number>;
   causeGoalAmounts?: Record<string, number>; // per-cause personal dollar goal set by user
-  causeJarOverflowCounts?: Record<string, number>; // skips taken while give jar ≥ goal, per cause
+  causeJarOverflowCounts?: Record<string, number>; // skips taken while a fundraiser jar is at or above its goal
   weeklyEmailOptOut?: boolean;
   emailVerified?: boolean;
   /** null once profile is created for a new user, set to a timestamp when the first-run onboarding flow is completed/skipped. Absent (undefined) on profiles created before onboarding existed. */

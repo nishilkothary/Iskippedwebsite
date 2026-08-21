@@ -146,7 +146,7 @@ export function ExtensionSkipClient() {
               {formatCurrency(amount)} on {item}
             </p>
             <p className="mt-1 text-xs" style={{ color: "var(--text-muted)" }}>
-              {activeProject ? `Give jar: ${activeProject.title}` : "No active cause selected yet."}
+              {activeProject ? `Fundraiser jar: ${activeProject.title}` : "No active fundraiser selected yet."}
             </p>
           </div>
         )}

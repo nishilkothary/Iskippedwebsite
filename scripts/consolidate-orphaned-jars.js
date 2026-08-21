@@ -1,6 +1,8 @@
 // One-time script: for each user with an active project, move all orphaned
 // cause jar balances (from non-active causes) into their active cause jar.
 // Also updates project.totalRaised accordingly.
+// Preview with: node --use-system-ca scripts/consolidate-orphaned-jars.js
+// Apply with:   node --use-system-ca scripts/consolidate-orphaned-jars.js --apply
 
 const { initializeApp, cert } = require("firebase-admin/app");
 const { getFirestore, FieldValue } = require("firebase-admin/firestore");
@@ -20,6 +22,7 @@ if (fs.existsSync(envPath)) {
 
 initializeApp({ credential: cert(JSON.parse(fs.readFileSync(keyPath, "utf-8"))) });
 const db = getFirestore();
+const shouldApply = process.argv.includes("--apply");
 
 async function run() {
   const usersSnap = await db.collection("users").get();
@@ -37,18 +40,21 @@ async function run() {
     const updates = { [`causeJarBalances.${activeId}`]: FieldValue.increment(totalOrphaned) };
     for (const [id] of orphans) updates[`causeJarBalances.${id}`] = 0;
 
-    await db.collection("users").doc(d.id).update(updates);
-    console.log(`✓ ${p.displayName ?? d.id}: moved $${totalOrphaned.toFixed(2)} from [${orphans.map(([id]) => id).join(", ")}] → ${activeId}`);
+    if (shouldApply) {
+      await db.collection("users").doc(d.id).update(updates);
+    }
+    console.log(`${shouldApply ? "✓" : "•"} ${p.displayName ?? d.id}: ${shouldApply ? "moved" : "would move"} $${totalOrphaned.toFixed(2)} from [${orphans.map(([id]) => id).join(", ")}] → ${activeId}`);
     moved += totalOrphaned;
 
     // Update project totals
+    if (!shouldApply) continue;
     for (const [id, bal] of orphans) {
       await db.collection("projects").doc(id).set({ totalRaised: FieldValue.increment(-Number(bal)) }, { merge: true }).catch(() => {});
     }
     await db.collection("projects").doc(activeId).set({ totalRaised: FieldValue.increment(totalOrphaned) }, { merge: true }).catch(() => {});
   }
 
-  console.log(`\nDone. Total moved: $${moved.toFixed(2)}`);
+  console.log(`\n${shouldApply ? "Done" : "Dry run complete"}. Total ${shouldApply ? "moved" : "to move"}: $${moved.toFixed(2)}`);
   process.exit(0);
 }
 

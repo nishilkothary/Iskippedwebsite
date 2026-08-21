@@ -33,10 +33,37 @@ function summarize(profile) {
   };
 }
 
+function hasReward(profile, goalId) {
+  if (profile.spendingGoals?.some((goal) => goal?.id === goalId)) return true;
+  return goalId === "legacy" && Boolean(profile.spendingGoal);
+}
+
 async function main() {
   const apply = process.argv.includes("--apply");
   const db = getFirestore();
-  const snap = await db.collection("users").get();
+  const [snap, projectSnap] = await Promise.all([
+    db.collection("users").get(),
+    db.collection("projects").get(),
+  ]);
+  const projectIds = new Set(projectSnap.docs.map((doc) => doc.id));
+  const invalidOverrides = [];
+
+  for (const doc of snap.docs) {
+    const profile = doc.data();
+    const email = String(profile.email || "").toLowerCase();
+    const override = namedOverrides[email];
+    if (!override) continue;
+
+    const targetExists = override.type === "goal"
+      ? hasReward(profile, override.id)
+      : projectIds.has(override.id);
+    if (!targetExists) invalidOverrides.push({ email, uid: doc.id, override });
+  }
+
+  if (invalidOverrides.length > 0) {
+    throw new Error(`Migration overrides reference missing jars: ${JSON.stringify(invalidOverrides)}`);
+  }
+
   const report = [];
 
   for (const doc of snap.docs) {
