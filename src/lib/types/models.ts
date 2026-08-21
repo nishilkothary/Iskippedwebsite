@@ -31,6 +31,8 @@ export interface UserProfile {
   level: number;
   activeProjectId: string | null;
   activeSkipTarget?: SkipAllocationTarget | null;
+  /** Jars intentionally paused by the user. These remain available to resume, even with a zero balance. */
+  parkedSkipTargets?: SkipAllocationTarget[];
   joinedProjectIds?: string[];
   /** Per-challenge permission for organizers to see and email this address. */
   challengeEmailConsents?: Record<string, boolean>;

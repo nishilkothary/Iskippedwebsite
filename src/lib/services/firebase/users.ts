@@ -130,7 +130,24 @@ export async function setActiveProject(uid: string, projectId: string | null): P
 }
 
 export async function setActiveSkipTarget(uid: string, target: SkipAllocationTarget | null): Promise<void> {
-  await updateDoc(doc(db, "users", uid), { activeSkipTarget: target });
+  await updateDoc(doc(db, "users", uid), {
+    activeSkipTarget: target,
+    ...(target ? { parkedSkipTargets: arrayRemove(target) } : {}),
+  });
+}
+
+/**
+ * Stops sending future skips to a jar without releasing its balance or losing
+ * the user's ability to resume it later.
+ */
+export async function parkSkipTarget(uid: string, target: SkipAllocationTarget): Promise<void> {
+  await updateDoc(doc(db, "users", uid), {
+    parkedSkipTargets: arrayUnion(target),
+    activeSkipTarget: null,
+    ...(target.type === "fundraiser"
+      ? { activeProjectId: null }
+      : { activeSpendingGoalId: null, spendingGoal: null }),
+  });
 }
 
 export async function allocateSkipBankToJar(
@@ -194,7 +211,11 @@ export async function switchCause(
 
 export async function pinProjectToHome(uid: string, projectId: string): Promise<void> {
   await apiRequest("/api/causes/switch", "POST", { newCauseId: projectId, transferBalance: false });
-  await updateDoc(doc(db, "users", uid), { activeSkipTarget: { type: "fundraiser", id: projectId } });
+  const target: SkipAllocationTarget = { type: "fundraiser", id: projectId };
+  await updateDoc(doc(db, "users", uid), {
+    activeSkipTarget: target,
+    parkedSkipTargets: arrayRemove(target),
+  });
 }
 
 export async function switchGoal(

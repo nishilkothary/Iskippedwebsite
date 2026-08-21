@@ -14,6 +14,7 @@ import {
   recordPurchase,
   setActiveProject,
   setActiveSkipTarget,
+  parkSkipTarget,
   deleteDonation,
   deleteSpendingHistory,
   subscribeToDonations,
@@ -549,6 +550,7 @@ export default function JarActivityPage() {
     if (!profile) return [];
     const fundraiserIds = new Set([
       ...Object.entries(profile.causeJarBalances ?? {}).filter(([, balance]) => Math.max(0, balance) > 0).map(([id]) => id),
+      ...(profile.parkedSkipTargets ?? []).filter((target) => target.type === "fundraiser").map((target) => target.id),
       ...(profile.activeProjectId ? [profile.activeProjectId] : []),
       ...(activeTarget?.type === "fundraiser" ? [activeTarget.id] : []),
     ]);
@@ -568,7 +570,11 @@ export default function JarActivityPage() {
     });
 
     const rewardItems: JarActivityItem[] = spendingGoals
-      .filter((goal) => Math.max(0, profile.goalJarBalances?.[goal.id] ?? 0) > 0 || activeTarget?.type === "goal" && activeTarget.id === goal.id)
+      .filter((goal) =>
+        Math.max(0, profile.goalJarBalances?.[goal.id] ?? 0) > 0
+        || activeTarget?.type === "goal" && activeTarget.id === goal.id
+        || (profile.parkedSkipTargets ?? []).some((target) => target.type === "goal" && target.id === goal.id)
+      )
       .map((goal) => ({
         type: "goal",
         id: goal.id,
@@ -708,14 +714,18 @@ export default function JarActivityPage() {
     if (!user || workingId) return;
     setWorkingId(item.id);
     try {
-      await setActiveSkipTarget(user.uid, null);
-      if (item.type === "fundraiser") {
-        await setActiveProject(user.uid, null);
-        updateProfile({ activeSkipTarget: null, activeProjectId: null });
-      } else {
-        await updateSpendingGoals(user.uid, spendingGoals, null);
-        updateProfile({ activeSkipTarget: null, activeSpendingGoalId: null, spendingGoal: null });
-      }
+      const target = { type: item.type, id: item.id } as const;
+      await parkSkipTarget(user.uid, target);
+      updateProfile({
+        activeSkipTarget: null,
+        parkedSkipTargets: [
+          ...(profileData.parkedSkipTargets ?? []).filter((parked) => parked.type !== target.type || parked.id !== target.id),
+          target,
+        ],
+        ...(item.type === "fundraiser"
+          ? { activeProjectId: null }
+          : { activeSpendingGoalId: null, spendingGoal: null }),
+      });
       toast.success("Future skips will go to Unassigned Skip Bucks.");
     } catch {
       toast.error("Could not pause this jar. Try again.");

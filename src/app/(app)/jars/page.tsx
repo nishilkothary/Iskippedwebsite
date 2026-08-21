@@ -17,6 +17,7 @@ import {
   updateSpendingGoals,
   setUserCauseGoal,
   setActiveSkipTarget,
+  parkSkipTarget,
   setChallengeEmailConsent,
   allocateSkipBankToJar,
   releaseJarToSkipBank,
@@ -555,17 +556,15 @@ function JarsPageInner() {
     },
     onSetSkipTarget: async (target: SkipAllocationTarget | null) => {
       if (!target) {
-        await setActiveSkipTarget(user.uid, null);
-        if (profile.activeSkipTarget?.type === "goal") {
-          await updateSpendingGoals(user.uid, spendingGoals, null);
-        }
-        if (profile.activeSkipTarget?.type === "fundraiser") {
-          await setActiveProject(user.uid, null);
-        }
+        if (activeSkipTarget) await parkSkipTarget(user.uid, activeSkipTarget);
+        else await setActiveSkipTarget(user.uid, null);
         updateProfile({
           activeSkipTarget: null,
-          ...(profile.activeSkipTarget?.type === "goal" ? { activeSpendingGoalId: null } : {}),
-          ...(profile.activeSkipTarget?.type === "fundraiser" ? { activeProjectId: null } : {}),
+          parkedSkipTargets: activeSkipTarget
+            ? [...(profile.parkedSkipTargets ?? []).filter((parked) => parked.type !== activeSkipTarget.type || parked.id !== activeSkipTarget.id), activeSkipTarget]
+            : profile.parkedSkipTargets,
+          ...(activeSkipTarget?.type === "goal" ? { activeSpendingGoalId: null, spendingGoal: null } : {}),
+          ...(activeSkipTarget?.type === "fundraiser" ? { activeProjectId: null } : {}),
         });
         return;
       }

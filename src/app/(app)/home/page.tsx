@@ -2015,7 +2015,7 @@ export default function HomePage() {
       {/* What it could become */}
       <div style={{ marginTop: 32, marginBottom: 28 }}>
         {!activeGoal && !activeProject && !dismissedJarCarousel && activeJarCarouselItem && (
-          <div style={{ ...cardStyle, padding: 18, overflow: "hidden", background: "linear-gradient(180deg, rgba(237,245,240,0.055), var(--bg-surface-1))", border: "1px solid rgba(237,245,240,0.11)", position: "relative" }}>
+          <div className="home-suggestion-card" style={{ ...cardStyle, padding: 18, overflow: "hidden", background: "linear-gradient(180deg, rgba(237,245,240,0.055), var(--bg-surface-1))", border: "1px solid rgba(237,245,240,0.11)", position: "relative" }}>
             <button
               type="button"
               aria-label="Hide jar suggestions"
