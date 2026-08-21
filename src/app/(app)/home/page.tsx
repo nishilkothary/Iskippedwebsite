@@ -1929,7 +1929,7 @@ export default function HomePage() {
         </p>
         <button
           onClick={() => setShowSkipPicker(true)}
-          className="w-full font-black py-4 rounded-full text-lg hover:scale-[1.02] active:scale-[0.97] transition-all duration-200"
+          className="home-skip-cta w-full rounded-full font-black hover:scale-[1.02] active:scale-[0.97] transition-all duration-200"
           style={{
             background: "linear-gradient(135deg, var(--gold-cta), var(--gold-light))",
             color: "var(--bg-base)",
@@ -2027,7 +2027,7 @@ export default function HomePage() {
             </button>
             <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 14, marginBottom: 14, paddingRight: 34 }}>
               <div style={{ minWidth: 0 }}>
-                <p style={{ fontSize: 23, fontWeight: 950, color: "var(--text-primary)", lineHeight: 1.05 }}>
+                <p className="home-suggestion-title" style={{ fontWeight: 950, color: "var(--text-primary)", lineHeight: 1.05 }}>
                   Need Motivation to Skip More?
                 </p>
                 <p style={{ marginTop: 7, fontSize: 13, color: "var(--text-secondary)", lineHeight: 1.45 }}>

@@ -209,6 +209,7 @@ function ChallengeBanners() {
 
 export default function AppLayout({ children }: { children: React.ReactNode }) {
   const router = useRouter();
+  const pathname = usePathname();
   const { user, profile, isLoading } = useAuthStore();
   const { showSkipPicker, setShowSkipPicker } = useUIStore();
 
@@ -244,18 +245,21 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
 
       {showSkipPicker && <SkipModal onClose={() => setShowSkipPicker(false)} />}
 
-      {/* Floating skip button — mobile only */}
-      <button
-        onClick={() => setShowSkipPicker(true)}
-        className="md:hidden fixed bottom-24 right-4 z-20 flex items-center gap-1.5 px-4 py-3 rounded-full font-bold text-sm shadow-lg active:scale-95 transition-transform"
-        style={{
-          background: "linear-gradient(135deg, var(--gold-cta), var(--gold-light))",
-          color: "var(--bg-base)",
-          boxShadow: "0 4px 20px var(--gold-glow)",
-        }}
-      >
-        <span className="text-base leading-none">✨</span> Skip
-      </button>
+      {/* Keep the quick action on Home, where it complements the primary log-skip flow without covering jar controls. */}
+      {pathname === "/home" && (
+        <button
+          onClick={() => setShowSkipPicker(true)}
+          aria-label="Log a skip"
+          className="mobile-skip-fab md:hidden fixed bottom-24 right-4 z-20 flex h-11 items-center justify-center gap-1.5 rounded-full px-3 text-sm font-bold shadow-lg transition-transform active:scale-95"
+          style={{
+            background: "linear-gradient(135deg, var(--gold-cta), var(--gold-light))",
+            color: "var(--bg-base)",
+            boxShadow: "0 4px 20px var(--gold-glow)",
+          }}
+        >
+          <span className="text-base leading-none">✨</span><span className="mobile-skip-fab-label">Skip</span>
+        </button>
+      )}
 
       <Suspense fallback={null}>
         <MobileBottomNav />

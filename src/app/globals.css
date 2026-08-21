@@ -260,11 +260,25 @@ body {
 }
 
 @media (max-width: 520px) {
-  .iskip-scoreboard { padding-inline: 10px; }
-  .iskip-scoreboard-header { font-size: 9px; gap: 7px; }
+  .iskip-scoreboard { padding: 12px 12px 11px; }
+  .iskip-scoreboard-header { margin-bottom: 10px; font-size: 8px; gap: 6px; letter-spacing: 0.13em; }
+  .iskip-scoreboard-stat { padding: 0 8px; }
+  .iskip-scoreboard-stat p { margin-bottom: 4px; font-size: 9px; }
+  .iskip-scoreboard-stat strong { font-size: clamp(22px, 7.5vw, 28px); }
+  .home-skip-cta { min-height: 52px; padding-block: 12px; font-size: 16px; }
+  .home-suggestion-title { font-size: 20px; }
+  .mobile-skip-fab { width: 44px; padding: 0; }
+  .mobile-skip-fab-label { display: none; }
+}
+
+@media (max-width: 380px) {
+  .iskip-scoreboard { padding-inline: 9px; }
+  .iskip-scoreboard-header { font-size: 7px; }
   .iskip-scoreboard-stat { padding: 0 6px; }
-  .iskip-scoreboard-stat p { font-size: 10px; }
-  .iskip-scoreboard-stat strong { font-size: clamp(22px, 8vw, 30px); }
+  .iskip-scoreboard-stat p { font-size: 8px; }
+  .iskip-scoreboard-stat strong { font-size: 22px; }
+  .scoreboard-suffix { margin-left: 3px; }
+  .home-suggestion-title { font-size: 19px; }
 }
 
 /* Scrollbar */

@@ -133,7 +133,7 @@ export default function ProfilePage() {
           border: "1px solid rgba(46,204,113,0.24)",
         }}
       >
-        <div className="p-6 md:p-7 flex flex-col md:flex-row md:items-center md:justify-between gap-6">
+        <div className="p-6 md:p-7">
           <div className="flex items-center gap-5 min-w-0">
             <div
               className="w-20 h-20 rounded-full flex items-center justify-center text-3xl flex-shrink-0 overflow-hidden"
@@ -157,10 +157,6 @@ export default function ProfilePage() {
                 </span>
               </div>
             </div>
-          </div>
-          <div className="md:text-right">
-            <p className="text-xs font-black uppercase tracking-[0.14em]" style={{ color: "var(--text-secondary)" }}>Skip Bucks</p>
-            <p className="text-4xl font-black mt-1" style={{ color: "var(--green-primary)", letterSpacing: 0 }}>{formatCurrency(skipBalance.availableFromSkips)}</p>
           </div>
         </div>
       </div>
@@ -191,16 +187,16 @@ export default function ProfilePage() {
 
       {/* Lifetime stats */}
       <div className="mb-8">
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-4">
+        <div className="grid grid-cols-3 gap-2 sm:gap-3 mb-4">
           {[
             { label: "Skipped", value: formatCurrency(skipBalance.lifetimeSaved), note: `${profile.totalSkips} no-thanks`, color: "var(--text-primary)" },
             { label: "Spent", value: formatCurrency(skipBalance.spentFromSkips), note: "on goals", color: "#A78BFA" },
             { label: "Donated", value: formatCurrency(skipBalance.donatedFromSkips), note: "to fundraisers", color: "var(--green-primary)" },
           ].map((s, i) => (
-            <div key={s.label} className="px-4 py-4" style={{ ...cardStyle, borderRadius: 16 }}>
+            <div key={s.label} className="px-3 py-3 sm:px-4 sm:py-4" style={{ ...cardStyle, borderRadius: 16 }}>
               <p className="text-[10px] font-black uppercase tracking-[0.12em]" style={{ color: "var(--text-secondary)" }}>{s.label}</p>
-              <p className="text-xl font-black mt-1" style={{ color: s.color }}>{s.value}</p>
-              <p className="text-xs mt-0.5" style={{ color: "var(--text-muted)" }}>{s.note}</p>
+              <p className="mt-1 text-base font-black sm:text-xl" style={{ color: s.color }}>{s.value}</p>
+              <p className="mt-0.5 text-[10px] sm:text-xs" style={{ color: "var(--text-muted)" }}>{s.note}</p>
             </div>
           ))}
         </div>
