@@ -14,10 +14,11 @@ interface Props {
   initialAmount?: number;
   donationURL?: string;
   donationRecipient?: string;
+  unassignedSkipBucks?: number;
   onLogged?: () => void | Promise<void>;
 }
 
-export function DonationLogModal({ projectId, projectTitle, onClose, initialAmount, donationURL, donationRecipient, onLogged }: Props) {
+export function DonationLogModal({ projectId, projectTitle, onClose, initialAmount, donationURL, donationRecipient, unassignedSkipBucks: unassignedSkipBucksProp, onLogged }: Props) {
   const { donate } = useSkips();
   const { profile } = useAuthStore();
   const [amount, setAmount] = useState(initialAmount && initialAmount > 0 ? String(initialAmount) : "");
@@ -28,7 +29,7 @@ export function DonationLogModal({ projectId, projectTitle, onClose, initialAmou
   const parsedAmount = parseFloat(amount);
   const cleanAmount = Number.isFinite(parsedAmount) ? parsedAmount : 0;
   const jarBalance = Math.max(0, profile?.causeJarBalances?.[projectId] ?? 0);
-  const unassignedSkipBucks = getSkipBalanceSummary(profile).unassignedSkipBank;
+  const unassignedSkipBucks = unassignedSkipBucksProp ?? getSkipBalanceSummary(profile).unassignedSkipBank;
   const totalAvailable = jarBalance + unassignedSkipBucks;
   const amountOverAvailable = cleanAmount > totalAvailable;
   const extraFromUnassigned = Math.max(0, cleanAmount - jarBalance);

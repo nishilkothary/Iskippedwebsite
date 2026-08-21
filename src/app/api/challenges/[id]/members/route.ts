@@ -49,6 +49,7 @@ export async function GET(req: NextRequest, context: { params: Promise<{ id: str
     }
 
     const project = projectSnap.data() ?? {};
+    const challengeTitle = typeof project.title === "string" ? project.title : "";
     const isOwner = project.createdBy === decoded.uid;
     const isSiteAdmin = Boolean(ADMIN_EMAIL && decoded.email === ADMIN_EMAIL);
 
@@ -73,18 +74,46 @@ export async function GET(req: NextRequest, context: { params: Promise<{ id: str
       const uid = feedSnap.get("uid");
       if (typeof uid === "string" && uid) memberUidSet.add(uid);
     }
+
+    // A donation can be recorded before a member profile is added to the
+    // project's memberUids array. Include those donor profiles so the
+    // challenge total is attributable to a specific member in the list.
+    try {
+      const [causeDonations, titleDonations] = await Promise.all([
+        db.collectionGroup("donations").where("causeId", "==", challengeId).get(),
+        challengeTitle
+          ? db.collectionGroup("donations").where("causeTitle", "==", challengeTitle).get()
+          : Promise.resolve({ docs: [] }),
+      ]);
+      const donorDocs = new Map<string, FirebaseFirestore.QueryDocumentSnapshot>();
+      for (const donation of [...causeDonations.docs, ...titleDonations.docs]) donorDocs.set(donation.ref.path, donation);
+      for (const donation of donorDocs.values()) {
+        const uid = donation.ref.parent.parent?.id;
+        if (uid) memberUidSet.add(uid);
+      }
+    } catch (error) {
+      console.warn("[challenge members] donor lookup failed", error);
+    }
+
     const resolvedMemberUids = Array.from(memberUidSet);
 
     const donatedByUid = new Map<string, number>();
     let totalDonated = 0;
     for (const batch of chunks(resolvedMemberUids, 10)) {
-      const donationSnaps = await Promise.all(
-        batch.map((uid) => db.collection("users").doc(uid).collection("donations").where("causeId", "==", challengeId).get())
-      );
+      const donationSnaps = await Promise.all(batch.map(async (uid) => {
+        const donationsRef = db.collection("users").doc(uid).collection("donations");
+        const [causeDocs, titleDocs] = await Promise.all([
+          donationsRef.where("causeId", "==", challengeId).get(),
+          challengeTitle ? donationsRef.where("causeTitle", "==", challengeTitle).get() : Promise.resolve({ docs: [] }),
+        ]);
+        const unique = new Map<string, FirebaseFirestore.QueryDocumentSnapshot>();
+        for (const doc of [...causeDocs.docs, ...titleDocs.docs]) unique.set(doc.id, doc);
+        return [...unique.values()];
+      }));
       for (let i = 0; i < donationSnaps.length; i += 1) {
         const uid = batch[i];
         let userDonated = 0;
-        for (const doc of donationSnaps[i].docs) {
+        for (const doc of donationSnaps[i]) {
           const amount = doc.get("amount");
           userDonated += typeof amount === "number" ? amount : 0;
         }
@@ -109,7 +138,7 @@ export async function GET(req: NextRequest, context: { params: Promise<{ id: str
           photoURL: data.photoURL ?? null,
           emailVerified: data.emailVerified ?? null,
           pledged: Math.max(0, Number(data.causeJarBalances?.[challengeId] ?? 0) || 0),
-          donated: donatedByUid.get(uid) ?? 0,
+          donated: donatedByUid.get(snap.id) ?? donatedByUid.get(uid) ?? 0,
           joinedChallenge: data.joinedProjectIds?.includes(challengeId) ?? true,
           joinedAt: data.createdAt?.toDate?.().toISOString() ?? null,
         });
@@ -118,9 +147,12 @@ export async function GET(req: NextRequest, context: { params: Promise<{ id: str
 
     members.sort((a, b) => b.pledged - a.pledged || a.displayName.localeCompare(b.displayName));
 
+    const totalPledged = members.reduce((sum, member) => sum + member.pledged, 0);
+
     return NextResponse.json({
       members,
       totalMembers: resolvedMemberUids.length,
+      totalPledged,
       emailableMembers: members.filter((member) => member.email).length,
       totalDonated,
     });

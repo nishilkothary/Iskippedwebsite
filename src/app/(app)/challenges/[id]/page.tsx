@@ -360,6 +360,7 @@ export default function ChallengeDetailPage() {
     activeInviteTarget && !(activeInviteTarget.type === "fundraiser" && activeInviteTarget.id === challenge.project.id)
   );
   const activeJarLabel = getActiveJarLabel(activeInviteTarget, profile, projects);
+  const challengeOrganizerName = challenge.project.sponsor?.trim() || challenge.project.groupName?.trim() || "the organizer";
   const countdown = getChallengeCountdown(challenge.project);
   const canManageChallenge = challenge.project.createdBy === user?.uid || profile?.email === ADMIN_EMAIL;
   const profileChallengeBalance = Math.max(0, profile?.causeJarBalances?.[challenge.project.id] ?? 0);
@@ -445,7 +446,7 @@ export default function ChallengeDetailPage() {
         inviteMakeActive ? pinProjectToHome(user.uid, challenge.project.id) : joinProject(user.uid, challenge.project.id, false),
         setUserCauseGoal(user.uid, challenge.project.id, amount),
         profile?.challengeEmailConsents?.[challenge.project.id] === undefined
-          ? setChallengeEmailConsent(user.uid, challenge.project.id, false)
+          ? setChallengeEmailConsent(user.uid, challenge.project.id, shareEmailOnJoin)
           : Promise.resolve(),
       ]);
       updateProfile({
@@ -458,7 +459,7 @@ export default function ChallengeDetailPage() {
         joinedProjectIds: Array.from(new Set([...(profile?.joinedProjectIds ?? []), challenge.project.id])),
         causeGoalAmounts: { ...(profile?.causeGoalAmounts ?? {}), [challenge.project.id]: amount },
         challengeEmailConsents: profile?.challengeEmailConsents?.[challenge.project.id] === undefined
-          ? { ...(profile?.challengeEmailConsents ?? {}), [challenge.project.id]: false }
+          ? { ...(profile?.challengeEmailConsents ?? {}), [challenge.project.id]: shareEmailOnJoin }
           : profile?.challengeEmailConsents,
       });
       if (inviteMakeActive) {
@@ -513,10 +514,12 @@ export default function ChallengeDetailPage() {
           <button
             type="button"
             onClick={handleShare}
-            className="px-3 py-1.5 rounded-full text-xs font-black"
+            aria-label="Share challenge"
+            title="Share challenge"
+            className="flex h-9 w-9 items-center justify-center rounded-full text-lg font-black"
             style={{ border: "1px solid rgba(46,204,113,0.3)", color: "var(--green-primary)" }}
           >
-            ↗ Share
+            ↗
           </button>
         </div>
       </div>
@@ -675,12 +678,9 @@ export default function ChallengeDetailPage() {
       {showEmailConsent && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4" style={{ background: "rgba(0,0,0,0.62)" }}>
           <div className="w-full max-w-md rounded-2xl p-5" style={{ background: "var(--bg-surface-1)", border: "1px solid var(--border-emphasis)" }}>
-            <p className="text-lg font-black" style={{ color: "var(--text-primary)" }}>Pin this fundraiser?</p>
+            <p className="text-lg font-black" style={{ color: "var(--text-primary)" }}>Join {challengeOrganizerName}&apos;s challenge?</p>
             <p className="text-sm leading-relaxed mt-2" style={{ color: "var(--text-secondary)" }}>
-              This puts the fundraiser on Home and makes future skips track toward it by default. Organizers can see donations logged for this fundraiser and recent skip activity.
-            </p>
-            <p className="text-sm leading-relaxed mt-2" style={{ color: "var(--text-secondary)" }}>
-              Your email is shared by default for fundraiser updates or reminders, but you can uncheck this and still pin it.
+              This adds the challenge to your jars and sends future skips here by default. You can change your active jar anytime.
             </p>
             <label
               className="mt-4 flex items-start gap-3 rounded-xl p-3 cursor-pointer"
@@ -693,9 +693,9 @@ export default function ChallengeDetailPage() {
                 className="mt-1 h-4 w-4 accent-[var(--green-primary)]"
               />
               <span>
-                <span className="block text-sm font-black" style={{ color: "var(--text-primary)" }}>Share my email with the organizer</span>
+                <span className="block text-sm font-black" style={{ color: "var(--text-primary)" }}>Allow {challengeOrganizerName} to send challenge updates by email</span>
                 <span className="block text-xs leading-relaxed mt-1" style={{ color: "var(--text-muted)" }}>
-                  They may use it to contact you about this challenge only.
+                  Only for this challenge. You can turn this off anytime.
                 </span>
               </span>
             </label>
@@ -706,7 +706,7 @@ export default function ChallengeDetailPage() {
                 className="py-3 rounded-full text-sm font-black"
                 style={{ background: "linear-gradient(135deg, var(--gold-cta), var(--gold-light))", color: "var(--bg-base)" }}
               >
-                Skip for this
+                Join challenge
               </button>
               <button
                 type="button"
@@ -732,6 +732,8 @@ export default function ChallengeDetailPage() {
           activeJarLabel={activeJarLabel}
           onChooseActivity={chooseInviteActivity}
           onGoalChange={setPersonalGoalInput}
+          shareEmailOnJoin={shareEmailOnJoin}
+          onShareEmailChange={setShareEmailOnJoin}
           onSubmitGoal={completeInviteGoal}
           onLogSkip={() => finishInvite(true)}
           onLater={() => finishInvite(false)}
@@ -752,6 +754,8 @@ function InviteFlowModal({
   activeJarLabel,
   onChooseActivity,
   onGoalChange,
+  shareEmailOnJoin,
+  onShareEmailChange,
   onSubmitGoal,
   onLogSkip,
   onLater,
@@ -765,6 +769,8 @@ function InviteFlowModal({
   activeJarLabel: string;
   onChooseActivity: (makeActive: boolean) => void;
   onGoalChange: (value: string) => void;
+  shareEmailOnJoin: boolean;
+  onShareEmailChange: (value: boolean) => void;
   onSubmitGoal: () => void;
   onLogSkip: () => void;
   onLater: () => void;
@@ -874,6 +880,23 @@ function InviteFlowModal({
                   About {unitCount < 10 ? unitCount.toFixed(1) : Math.round(unitCount).toLocaleString()} {unitLabel}.
                 </p>
               )}
+              <label
+                className="flex items-start gap-3 rounded-xl p-3 cursor-pointer"
+                style={{ background: "var(--bg-surface-2)", border: "1px solid var(--border-default)" }}
+              >
+                <input
+                  type="checkbox"
+                  checked={shareEmailOnJoin}
+                  onChange={(event) => onShareEmailChange(event.target.checked)}
+                  className="mt-1 h-4 w-4 accent-[var(--green-primary)]"
+                />
+                <span>
+                  <span className="block text-sm font-black" style={{ color: "var(--text-primary)" }}>Allow challenge updates by email</span>
+                  <span className="block text-xs leading-relaxed mt-1" style={{ color: "var(--text-muted)" }}>
+                    From {challenge.project.sponsor?.trim() || challenge.project.groupName?.trim() || "the organizer"}, for this challenge only.
+                  </span>
+                </span>
+              </label>
               <button
                 type="button"
                 onClick={onSubmitGoal}

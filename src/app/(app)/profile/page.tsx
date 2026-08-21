@@ -258,9 +258,9 @@ export default function ProfilePage() {
         <div className="p-5 mb-4" style={{ ...cardStyle, borderRadius: 20 }}>
           <div className="flex items-center justify-between gap-4">
             <div>
-              <p className="text-sm font-bold" style={{ color: "var(--text-primary)" }}>Share fundraiser skips by default</p>
+              <p className="text-sm font-bold" style={{ color: "var(--text-primary)" }}>Share fundraiser skips</p>
               <p className="text-xs mt-1" style={{ color: "var(--text-secondary)" }}>
-                When you are skipping with a fundraiser, new skips start shared with the group. Personal reward skips stay private.
+                When you skip for a fundraiser, the group can see your skip and amount. Reward skips stay private.
               </p>
             </div>
             <button
@@ -291,7 +291,7 @@ export default function ProfilePage() {
           <div className="p-5" style={{ ...cardStyle, borderRadius: 20 }}>
             <div className="flex items-center justify-between gap-4">
               <div>
-                <p className="text-sm font-bold" style={{ color: "var(--text-primary)" }}>🔔 Push notifications</p>
+                <p className="text-sm font-bold" style={{ color: "var(--text-primary)" }}>🔔 Allow weekly push reminders to log a skip</p>
                 <p className="text-xs mt-1" style={{ color: "var(--text-secondary)" }}>
                   Streak reminders and challenge activity, sent to this device.
                 </p>

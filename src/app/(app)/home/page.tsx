@@ -1954,8 +1954,14 @@ export default function HomePage() {
 
       {/* Scoreboard */}
       <div className="iskip-scoreboard" style={{ marginBottom: 32 }}>
-        <div className="iskip-scoreboard-header">
+        <div className="iskip-scoreboard-header" style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12 }}>
           <span>YOUR SKIP SCOREBOARD</span>
+          <SkipBucksBill
+            amount={skipBalance.availableFromSkips}
+            compact
+            paused={showSkipPicker}
+            onManage={() => router.push("/jars")}
+          />
         </div>
         <div className="iskip-scoreboard-grid">
           <div className="iskip-scoreboard-stat">
@@ -1995,12 +2001,6 @@ export default function HomePage() {
                   Pick a skipping jar and start saving for a purpose
                 </p>
               </div>
-              <SkipBucksBill
-                amount={skipBalance.availableFromSkips}
-                compact
-                paused={showSkipPicker}
-                onManage={() => router.push("/jars")}
-              />
             </div>
 
             <div style={{ display: "grid", gridTemplateColumns: "40px minmax(0, 1fr) 40px", alignItems: "center", gap: 10, marginTop: 22 }}>
@@ -2075,12 +2075,6 @@ export default function HomePage() {
                     </p>
                   </div>
                 </div>
-                <SkipBucksBill
-                  amount={skipBalance.availableFromSkips}
-                  compact
-                  paused={showSkipPicker}
-                  onManage={() => setShowSpendModal(true)}
-                />
               </div>
             ) : (
               <div style={{ marginBottom: 0 }}>
@@ -2158,14 +2152,6 @@ export default function HomePage() {
                       )}
                     </div>
                   </div>
-                  {activeProject && (
-                    <SkipBucksBill
-                      amount={skipBalance.availableFromSkips}
-                      compact
-                      paused={showSkipPicker}
-                      onManage={() => setShowContributionModal(true)}
-                    />
-                  )}
                 </div>
             </div>
             {activeProject ? (

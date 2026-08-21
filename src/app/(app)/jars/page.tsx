@@ -17,6 +17,7 @@ import {
   updateSpendingGoals,
   setUserCauseGoal,
   setActiveSkipTarget,
+  setChallengeEmailConsent,
   allocateSkipBankToJar,
   releaseJarToSkipBank,
   moveJarBalance,
@@ -1529,6 +1530,7 @@ function SplurgeTab({
 }) {
   const router = useRouter();
   const searchParams = useSearchParams();
+  const { user, profile, updateProfile } = useAuthStore();
   const [shopView, setShopView] = useState<"rewards" | "fundraisers">(
     searchParams.get("tab") === "live" || activeSkipTarget?.type === "goal" ? "rewards" : "fundraisers"
   );
@@ -1591,6 +1593,7 @@ function SplurgeTab({
   const [fundraiserBankStr, setFundraiserBankStr] = useState("");
   const [fundraiserSetupWorking, setFundraiserSetupWorking] = useState(false);
   const [showFundraiserBankDetails, setShowFundraiserBankDetails] = useState(false);
+  const [fundraiserShareEmail, setFundraiserShareEmail] = useState(true);
   const fundraiserGoalAmountPreview = parseFloat(fundraiserGoalStr);
   const fundraiserGoalUnitPreview = fundraiserSetup?.unitCost && fundraiserGoalAmountPreview > 0
     ? formatAggregateImpactUnitsDecimal(
@@ -1849,6 +1852,7 @@ function SplurgeTab({
         setFundraiserGoalStr(String(causeGoalAmounts?.[project.id] ?? project.goalAmount ?? ""));
         setFundraiserBankStr("");
         setShowFundraiserBankDetails(false);
+        setFundraiserShareEmail(profile?.challengeEmailConsents?.[project.id] ?? true);
         return;
       }
     }
@@ -1876,17 +1880,31 @@ function SplurgeTab({
       return;
     }
     setFundraiserSetupWorking(true);
-    await onSetFundraiserGoal(fundraiserSetup.id, goalAmount);
-    await onSetSkipTarget(target);
-    if (bankAmount > 0 && availableSkipBankBalance > 0) {
-      const appliedAmount = await onApplySkipBank(target, bankAmount, "set");
-      if (appliedAmount > 0) toast.success(`${formatCurrency(appliedAmount)} moved into the fundraiser jar.`);
+    try {
+      if (user && profile?.challengeEmailConsents?.[fundraiserSetup.id] !== fundraiserShareEmail) {
+        await setChallengeEmailConsent(user.uid, fundraiserSetup.id, fundraiserShareEmail);
+        updateProfile({
+          challengeEmailConsents: {
+            ...(profile?.challengeEmailConsents ?? {}),
+            [fundraiserSetup.id]: fundraiserShareEmail,
+          },
+        });
+      }
+      await onSetFundraiserGoal(fundraiserSetup.id, goalAmount);
+      await onSetSkipTarget(target);
+      if (bankAmount > 0 && availableSkipBankBalance > 0) {
+        const appliedAmount = await onApplySkipBank(target, bankAmount, "set");
+        if (appliedAmount > 0) toast.success(`${formatCurrency(appliedAmount)} moved into the fundraiser jar.`);
+      }
+      setFundraiserSetup(null);
+      setFundraiserGoalStr("");
+      setFundraiserBankStr("");
+      toast.success("Future skips will go to this fundraiser.");
+    } catch {
+      toast.error("Couldn't join this fundraiser. Please try again.");
+    } finally {
+      setFundraiserSetupWorking(false);
     }
-    setFundraiserSetupWorking(false);
-    setFundraiserSetup(null);
-    setFundraiserGoalStr("");
-    setFundraiserBankStr("");
-    toast.success("Future skips will go to this fundraiser.");
   }
 
   function resetFundraiserForm() {
@@ -2414,6 +2432,7 @@ function SplurgeTab({
           initialAmount={fundraiserJar(donatingProject)}
           donationURL={donatingProject.donationURL ?? undefined}
           donationRecipient={donatingProject.sponsor || donatingProject.groupName || donatingProject.title}
+          unassignedSkipBucks={availableSkipBankBalance}
           onClose={() => setDonatingProject(null)}
         />
       )}
@@ -2644,6 +2663,17 @@ function SplurgeTab({
                   )}
                 </div>
               )}
+              <label className="flex items-start gap-2 cursor-pointer pt-1">
+                <input
+                  type="checkbox"
+                  checked={fundraiserShareEmail}
+                  onChange={(event) => setFundraiserShareEmail(event.target.checked)}
+                  className="mt-0.5 h-3 w-3 accent-[var(--green-primary)]"
+                />
+                <span className="text-[10px] leading-snug" style={{ color: "var(--text-muted)" }}>
+                  Allow {fundraiserSetup.sponsor?.trim() || fundraiserSetup.groupName?.trim() || "the organizer"} to email me challenge updates. You can change this anytime.
+                </span>
+              </label>
               <button
                 onClick={confirmFundraiserSetup}
                 disabled={fundraiserSetupWorking || !fundraiserGoalStr || parseFloat(fundraiserGoalStr) <= 0 || parseFloat(fundraiserBankStr) > availableSkipBankBalance}

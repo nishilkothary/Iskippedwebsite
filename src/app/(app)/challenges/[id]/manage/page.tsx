@@ -10,7 +10,7 @@ import { formatCurrency } from "@/lib/utils/currency";
 import { formatAggregateImpactUnits } from "@/lib/utils/impact";
 import { Project, FeedItem } from "@/lib/types/models";
 import { appendRefParam, getChallengeSharePath } from "@/lib/utils/share";
-import { getChallengeCausePhrase, getDirectChallengeShareText } from "@/lib/utils/challengeShareCopy";
+import { getDirectChallengeShareText } from "@/lib/utils/challengeShareCopy";
 import { ShareButton } from "@/components/share/ShareButton";
 import { apiRequest } from "@/lib/services/firebase/apiClient";
 
@@ -29,7 +29,14 @@ type ChallengeMember = {
 type ChallengeMembersResponse = {
   members: ChallengeMember[];
   totalMembers: number;
+  totalPledged: number;
   emailableMembers: number;
+  totalDonated: number;
+};
+
+type ChallengeProgressResponse = {
+  total: number;
+  totalPledged: number;
   totalDonated: number;
 };
 
@@ -51,16 +58,31 @@ export default function ManageChallengePage() {
   const [showMembers, setShowMembers] = useState(false);
   const [members, setMembers] = useState<ChallengeMember[]>([]);
   const [membersTotal, setMembersTotal] = useState(0);
+  const [membersTotalPledged, setMembersTotalPledged] = useState<number | null>(null);
   const [membersTotalDonated, setMembersTotalDonated] = useState<number | null>(null);
   const [loadingMembers, setLoadingMembers] = useState(false);
   const [membersError, setMembersError] = useState<string | null>(null);
   const [liveProject, setLiveProject] = useState<Project | null>(null);
+  const [liveProgress, setLiveProgress] = useState<ChallengeProgressResponse | null>(null);
   const [communityFeed, setCommunityFeed] = useState<FeedItem[]>([]);
 
   // Live project subscription for real-time stats
   useEffect(() => {
     if (!challengeId) return;
     return subscribeToProject(challengeId, setLiveProject);
+  }, [challengeId]);
+
+  useEffect(() => {
+    if (!challengeId) return;
+    let cancelled = false;
+    void apiRequest<ChallengeProgressResponse>(`/api/challenges/${challengeId}/progress`, "GET")
+      .then((data) => {
+        if (!cancelled) setLiveProgress(data);
+      })
+      .catch(() => {
+        // The project snapshot remains available as a temporary fallback.
+      });
+    return () => { cancelled = true; };
   }, [challengeId]);
 
   // Activity feed subscription filtered to this challenge
@@ -90,8 +112,11 @@ export default function ManageChallengePage() {
   if (challenge.createdBy !== user?.uid && !isSiteAdmin) return null;
 
   // Merge live stats over static challenge data
-  const totalRaised = liveProject?.totalRaised ?? challenge.totalRaised;
-  const totalDonated = membersTotalDonated ?? 0;
+  const totalDonated = liveProgress?.totalDonated ?? membersTotalDonated ?? 0;
+  const totalRaised = liveProgress?.total
+    ?? (membersTotalPledged !== null ? membersTotalPledged + totalDonated : null)
+    ?? liveProject?.totalRaised
+    ?? challenge.totalRaised;
   const totalSkips = liveProject?.totalSkips ?? challenge.totalSkips ?? 0;
   const memberUids = liveProject?.memberUids ?? challenge.memberUids ?? [];
 
@@ -111,11 +136,10 @@ export default function ManageChallengePage() {
     : 0;
 
   const shareIntentText = getDirectChallengeShareText(challenge);
-  const challengeCauseName = getChallengeCausePhrase(challenge);
   const nudgeGoalLine = challenge.goalAmount > 0
     ? `Our goal is to raise at least ${formatCurrency(challenge.goalAmount)}.`
     : "Every skipped expense helps this group make progress.";
-  const nudgeMessage = `Join me in skipping at least one expense a week to help save money for ${challengeCauseName}. ${nudgeGoalLine}\n\n${challengeUrl}`;
+  const nudgeMessage = `${shareIntentText} ${nudgeGoalLine}\n\n${challengeUrl}`;
   const progressUpdateText = buildProgressUpdate({
     title: challenge.groupName ?? challenge.title,
     raised: totalRaised,
@@ -160,6 +184,7 @@ export default function ManageChallengePage() {
       const data = await apiRequest<ChallengeMembersResponse>(`/api/challenges/${challengeId}/members`, "GET");
       setMembers(data.members);
       setMembersTotal(data.totalMembers);
+      setMembersTotalPledged(data.totalPledged);
       setMembersTotalDonated(data.totalDonated);
     } catch (error: any) {
       setMembersError(error?.message || "Could not load members.");
@@ -535,7 +560,7 @@ function SocialStatsSharePanel({
   unitIsGoal?: boolean;
 }) {
   const impactStat = unitName && unitCost && unitCost > 0
-    ? capitalizeImpactUnit(formatAggregateImpactUnits(raised, unitCost, unitName, unitDisplay, unitIsGoal))
+    ? capitalizeImpactUnit(formatAggregateImpactUnits(raised, unitCost, unitName, undefined, unitIsGoal))
     : "In progress";
   const cardImage = buildSocialCardImage({
     title,
@@ -732,7 +757,7 @@ function buildProgressUpdate({
   }
 
   if (unitCost && unitCost > 0 && raised > 0 && (unitDisplay || unitName)) {
-    lines.push("", `That represents about ${capitalizeImpactUnit(formatAggregateImpactUnits(raised, unitCost, unitName || unitDisplay || "impact", unitDisplay, unitIsGoal))}.`);
+    lines.push("", `That represents about ${capitalizeImpactUnit(formatAggregateImpactUnits(raised, unitCost, unitName || unitDisplay || "impact", undefined, unitIsGoal))}.`);
   }
 
   lines.push("", "Thanks for keeping the momentum going and making a difference with your skipped expenses.");

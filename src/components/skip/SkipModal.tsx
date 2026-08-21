@@ -1055,6 +1055,19 @@ export function SkipModal({ onClose }: Props) {
   const fundraiserContributionPctLive = fundraiserGoalAmountLive > 0 ? (skipAmountLive / fundraiserGoalAmountLive) * 100 : 0;
   const rewardGoalAmountLive = activeGoalLive?.targetAmount ?? 0;
   const rewardContributionPctLive = rewardGoalAmountLive > 0 ? (skipAmountLive / rewardGoalAmountLive) * 100 : 0;
+  const liveImpactText = activeGoalLive
+    ? rewardGoalAmountLive > 0
+      ? `${Math.max(1, Math.round((skipAmountLive / rewardGoalAmountLive) * 100))}% toward ${spendingGoalLabelLive}`
+      : `${formatCurrency(skipAmountLive)} toward ${spendingGoalLabelLive}`
+    : activeProjectLive?.unitCost && !activeProjectLive.unitIsGoal
+      ? `${formatUnits(skipAmountLive, activeProjectLive.unitCost, activeProjectLive.unitName!)}${activeProjectLive.location ? ` in ${activeProjectLive.location}` : ""}`
+      : activeProjectLive?.unitCost && activeProjectLive.unitIsGoal
+        ? `${Math.max(1, Math.round((skipAmountLive / activeProjectLive.unitCost) * 100))}% of ${activeProjectLive.unitPhrase ?? (activeProjectLive.unitName ? oneUnitPhrase(activeProjectLive.unitName) : "a unit")} funded${activeProjectLive.location ? ` in ${activeProjectLive.location}` : ""}`
+        : activeProjectLive && fundraiserGoalAmountLive > 0
+          ? `${formatCurrency(skipAmountLive)} toward ${activeProjectLive.title}`
+          : activeProjectLive
+            ? `${formatCurrency(skipAmountLive)} toward ${activeProjectLive.title}`
+            : null;
 
   return (
     <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4" onClick={onClose}>
@@ -1123,35 +1136,14 @@ export function SkipModal({ onClose }: Props) {
           </div>
 
           {/* This Skip's Impact */}
-          {amount > 0 && (
+          {amount > 0 && liveImpactText && (
             <div style={{ display: "block" }}>
-              <p className="text-xs font-semibold uppercase tracking-widest mb-2" style={{ color: "var(--text-muted)" }}>This Skip&apos;s Impact</p>
+              <p className="text-xs font-semibold uppercase tracking-widest mb-2" style={{ color: "var(--text-muted)" }}>
+                {activeProjectLive ? "This skip could help fund" : "This skip could move you"}
+              </p>
               <div className="space-y-1">
                 <p className="text-sm font-semibold" style={{ color: "var(--coral-primary)" }}>
-                  🤲 {(() => {
-                    if (activeGoalLive) {
-                      const pct = rewardGoalAmountLive > 0
-                        ? Math.max(1, Math.round((skipAmountLive / rewardGoalAmountLive) * 100))
-                        : 0;
-                      return pct > 0
-                        ? `${pct}% toward ${spendingGoalLabelLive}`
-                        : `${formatCurrency(skipAmountLive)} toward ${spendingGoalLabelLive}`;
-                    } else if (activeProjectLive?.unitCost && !activeProjectLive.unitIsGoal) {
-                      const units = formatUnits(skipAmountLive, activeProjectLive.unitCost, activeProjectLive.unitName!);
-                      return activeProjectLive.location ? `${units} in ${activeProjectLive.location}` : units;
-                    } else if (activeProjectLive?.unitCost && activeProjectLive.unitIsGoal) {
-                      const pct = Math.max(1, Math.round((skipAmountLive / activeProjectLive.unitCost) * 100));
-                      const unitPhrase = activeProjectLive.unitPhrase
-                        ?? (activeProjectLive.unitName ? oneUnitPhrase(activeProjectLive.unitName) : "a unit");
-                      return `${pct}% of ${unitPhrase} funded`;
-                    } else if (activeProjectLive && fundraiserGoalAmountLive > 0) {
-                      return `${fundraiserContributionPctLive.toFixed(1)}% toward ${activeProjectLive.title}`;
-                    } else if (activeProjectLive) {
-                      return `${formatCurrency(skipAmountLive)} toward ${activeProjectLive.title}`;
-                    } else {
-                      return formatCurrency(skipAmountLive);
-                    }
-                  })()}
+                  🤲 {liveImpactText}
                 </p>
                 <p className="text-sm font-semibold" style={{ color: "#2BBAA4", display: "none" }}>
                   😊 {rewardGoalAmountLive > 0 ? `${rewardContributionPctLive.toFixed(1)}% toward ${spendingGoalLabelLive}` : formatCurrency(skipAmountLive)}
@@ -1224,7 +1216,17 @@ export function SkipModal({ onClose }: Props) {
                 className={`absolute top-0.5 left-0.5 w-5 h-5 rounded-full bg-white shadow transition-transform ${shareWithCommunity ? "translate-x-5" : ""}`}
               />
             </button>
-            <span className="text-sm" style={{ color: "var(--text-primary)" }}>Share this skip with the fundraiser group</span>
+            <span className="text-xs" style={{ color: "var(--text-primary)" }}>Share this skip with the fundraiser group</span>
+            <button
+              type="button"
+              onClick={() => { onClose(); router.push("/profile"); }}
+              aria-label="Change fundraiser skip sharing in Profile"
+              title="You can change this default on your Profile."
+              className="flex h-4 w-4 items-center justify-center rounded-full text-[10px] font-black"
+              style={{ border: "1px solid var(--text-muted)", color: "var(--text-muted)" }}
+            >
+              i
+            </button>
           </div>
           )}
         </div>

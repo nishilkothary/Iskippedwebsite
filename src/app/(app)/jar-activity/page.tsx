@@ -1064,6 +1064,7 @@ export default function JarActivityPage() {
           initialAmount={Math.max(0, profileData.causeJarBalances?.[donatingProject.id] ?? 0)}
           donationURL={donatingProject.donationURL ?? undefined}
           donationRecipient={donatingProject.sponsor || donatingProject.groupName || donatingProject.title}
+          unassignedSkipBucks={unassignedSkipBucks}
           onClose={() => setDonatingProject(null)}
         />
       )}
