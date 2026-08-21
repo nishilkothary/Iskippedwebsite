@@ -41,14 +41,11 @@ export interface UserProfile {
   lastDonationDate?: string | null; // YYYY-MM-DD
   favoriteCauseIds: string[];
   causeStats?: Record<string, { donated: number }>;
-  jarSplit?: { give: number; live: number };
   /** @deprecated use spendingGoals + activeSpendingGoalId */
   spendingGoal?: { label: string; targetAmount: number; shoppingLink?: string } | null;
   spendingGoals?: SpendingGoal[];
   activeSpendingGoalId?: string | null;
   totalSpent?: number;
-  totalGiveAllocated?: number;
-  totalLiveAllocated?: number;
   causeJarBalances?: Record<string, number>;
   goalJarBalances?: Record<string, number>;
   causeGoalAmounts?: Record<string, number>; // per-cause personal dollar goal set by user
@@ -97,8 +94,6 @@ export interface Skip {
   createdAt: Timestamp;
   whatSkipped?: string;
   notes?: string;
-  jarSplit?: { give: number; live: number };
-  allocationMode?: "jar-split" | "skip-pot";
   allocationTarget?: SkipAllocationTarget | null;
 }
 

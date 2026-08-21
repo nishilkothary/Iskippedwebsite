@@ -847,7 +847,7 @@ export default function JarActivityPage() {
           ? {
               goalJarBalances: {
                 ...(profileData.goalJarBalances ?? {}),
-                [event.goalId]: Math.max(0, profileData.goalJarBalances?.[event.goalId] ?? 0) + event.amountSaved,
+                [event.goalId]: Math.max(0, profileData.goalJarBalances?.[event.goalId] ?? 0) + Math.max(0, event.amountSaved),
               },
             }
           : {}),

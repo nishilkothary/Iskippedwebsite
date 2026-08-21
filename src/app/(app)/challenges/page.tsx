@@ -582,7 +582,7 @@ export default function ChallengesPage() {
         archivedChallenges.length > 0 ? (
           <div className="mt-3 space-y-3">
             {archivedChallenges.map((challenge) => {
-              const remaining = profile?.causeJarBalances?.[challenge.project.id] ?? 0;
+              const remaining = Math.max(0, profile?.causeJarBalances?.[challenge.project.id] ?? 0);
               return (
                 <div key={challenge.project.id}>
                   <ChallengeListCard

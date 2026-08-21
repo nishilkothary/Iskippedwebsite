@@ -19,11 +19,12 @@ export async function POST(req: NextRequest) {
       const userSnap = await tx.get(userRef);
       if (!userSnap.exists) throw new ApiError(404, "User not found");
       const profile = userSnap.data() as UserProfile;
-      const bal = profile.causeJarBalances?.[fromProjectId] ?? 0;
+      const bal = Math.max(0, profile.causeJarBalances?.[fromProjectId] ?? 0);
+      const destinationBalance = Math.max(0, profile.causeJarBalances?.[toProjectId] ?? 0);
       if (bal <= 0) return;
 
       tx.update(userRef, {
-        [`causeJarBalances.${toProjectId}`]: FieldValue.increment(bal),
+        [`causeJarBalances.${toProjectId}`]: destinationBalance + bal,
         [`causeJarBalances.${fromProjectId}`]: 0,
       });
       tx.set(db.collection("projects").doc(fromProjectId), { totalRaised: FieldValue.increment(-bal) }, { merge: true });

@@ -19,10 +19,10 @@ export default function JarResolvePage() {
   const jarBalances = profile?.causeJarBalances ?? {};
 
   const parkedJars = Object.entries(jarBalances)
-    .filter(([id, bal]) => id !== activeId && bal > 0)
+    .filter(([id, bal]) => id !== activeId && Math.max(0, bal) > 0)
     .map(([id, bal]) => {
       const project = projects.find((p) => p.id === id) ?? null;
-      return { id, balance: bal, project };
+      return { id, balance: Math.max(0, bal), project };
     });
 
   if (parkedJars.length === 0) {

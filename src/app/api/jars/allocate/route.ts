@@ -1,5 +1,4 @@
 import { NextRequest, NextResponse } from "next/server";
-import { FieldValue } from "firebase-admin/firestore";
 import { getAdminDb } from "@/lib/services/firebaseAdmin";
 import { requireUid, ApiError, handleApiError } from "@/lib/services/apiAuth";
 import { validateAmount, validateNonEmptyString } from "@/lib/services/serverProfileDefaults";
@@ -37,14 +36,16 @@ export async function POST(req: NextRequest) {
 
       const updates: Record<string, unknown> = {};
       if (target.type === "goal") {
+        const currentBalance = Math.max(0, profile.goalJarBalances?.[target.id] ?? 0);
         updates[`goalJarBalances.${target.id}`] = mode === "set"
           ? amountToApply
-          : FieldValue.increment(amountToApply);
+          : currentBalance + amountToApply;
       }
       if (target.type === "fundraiser") {
+        const currentBalance = Math.max(0, profile.causeJarBalances?.[target.id] ?? 0);
         updates[`causeJarBalances.${target.id}`] = mode === "set"
           ? amountToApply
-          : FieldValue.increment(amountToApply);
+          : currentBalance + amountToApply;
       }
       if (makeActive) updates.activeSkipTarget = target;
       tx.update(userRef, updates);

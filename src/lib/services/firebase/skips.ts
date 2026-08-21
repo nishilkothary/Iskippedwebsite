@@ -34,8 +34,6 @@ export interface LogSkipParams {
   shareWithCommunity?: boolean;
   whatSkipped?: string;
   notes?: string;
-  jarSplit?: { give: number; live: number };
-  defaultJarSplit?: { give: number; live: number };
   activeGoalId?: string | null;
   displayName?: string;
   photoURL?: string | null;
@@ -64,11 +62,7 @@ export function subscribeToSkips(uid: string, callback: (skips: Skip[]) => void)
 export async function updateSkip(
   uid: string,
   skipId: string,
-  updates: Partial<Pick<Skip, "category" | "categoryLabel" | "categoryEmoji" | "amount" | "projectId" | "projectTitle" | "whatSkipped" | "notes" | "jarSplit">>,
-  amountDelta: number,
-  giveAllocDelta = 0,
-  liveAllocDelta = 0,
-  projectId?: string | null
+  updates: Partial<Pick<Skip, "category" | "categoryLabel" | "categoryEmoji" | "amount" | "projectId" | "projectTitle" | "whatSkipped" | "notes" | "allocationTarget">>
 ): Promise<void> {
   const cleanUpdates = Object.fromEntries(
     Object.entries(updates).filter(([, v]) => v !== undefined)
@@ -78,11 +72,7 @@ export async function updateSkip(
 
 export async function deleteSkip(
   uid: string,
-  skipId: string,
-  amount: number,
-  giveAllocAmount = 0,
-  liveAllocAmount = 0,
-  projectId?: string | null
+  skipId: string
 ): Promise<void> {
   await apiRequest(`/api/skips/${skipId}`, "DELETE");
 }

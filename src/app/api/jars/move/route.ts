@@ -69,7 +69,8 @@ export async function POST(req: NextRequest) {
         updates[balancePath(source)] = cents(sourceBalance - amount);
       }
       if (destination.type !== "skip-bucks") {
-        updates[balancePath(destination)] = FieldValue.increment(amount);
+        const destinationBalance = jarBalance(profile, destination);
+        updates[balancePath(destination)] = cents(destinationBalance + amount);
         if (destination.type === "fundraiser") {
           updates.joinedProjectIds = FieldValue.arrayUnion(destination.id);
         }

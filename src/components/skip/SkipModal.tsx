@@ -7,7 +7,7 @@ import { useModalA11y } from "@/hooks/useModalA11y";
 import { useAuthStore } from "@/store/authStore";
 import { SKIP_CATEGORIES } from "@/lib/constants/skipCategories";
 import { formatCurrency } from "@/lib/utils/currency";
-import { normalizeJarSplit, normalizeSpendingGoals } from "@/lib/services/firebase/users";
+import { normalizeSpendingGoals } from "@/lib/services/firebase/users";
 import { formatAggregateImpactUnitsDecimal, formatUnits, oneUnitPhrase } from "@/lib/utils/impact";
 import { getChallengeCountdown } from "@/lib/utils/dates";
 import { appendRefParam, getChallengeSharePath } from "@/lib/utils/share";
@@ -59,8 +59,6 @@ export function SkipModal({ onClose }: Props) {
   const { projects } = useProjects();
   const { profile } = useAuthStore();
 
-  const profileSplit = normalizeJarSplit(profile?.jarSplit as any);
-
   const defaultCat = SKIP_CATEGORIES[0];
   const [selectedCat, setSelectedCat] = useState(defaultCat);
   const [amount, setAmount] = useState(0);
@@ -80,7 +78,6 @@ export function SkipModal({ onClose }: Props) {
   const [successProjectUnitName, setSuccessProjectUnitName] = useState<string | null>(null);
   const [successProjectUnitDisplay, setSuccessProjectUnitDisplay] = useState<string | null>(null);
   const [successProjectUnitCost, setSuccessProjectUnitCost] = useState<number | null>(null);
-  const [skipGivePct, setSkipGivePct] = useState(0);
   const [successOverflowCount, setSuccessOverflowCount] = useState<number | undefined>(undefined);
   const [successJarBalance, setSuccessJarBalance] = useState(0);
   const [successSkipBank, setSuccessSkipBank] = useState(0);
@@ -157,7 +154,6 @@ export function SkipModal({ onClose }: Props) {
       projectUnitIsGoal: selectedProject?.unitIsGoal ?? null,
       shareWithCommunity: isFundraiserSkip && shareWithCommunity,
       whatSkipped: whatSkipped || undefined,
-      jarSplit: { give: 0, live: 0 },
       causeGoalAmount: personalGoal,
       allocationTarget: skipAllocationTarget,
     });
@@ -168,7 +164,14 @@ export function SkipModal({ onClose }: Props) {
       setSuccessProjectUnitDisplay(selectedProject?.unitDisplay ?? null);
       setSuccessProjectUnitCost(selectedProject?.unitCost ?? null);
       setSuccessJarBalance(expectedJarBal);
-      setSuccessGroupTotal(selectedProject ? Math.max(0, (selectedProject.totalRaised ?? 0) + amount) : 0);
+      setSuccessGroupTotal(selectedProject
+        ? Math.max(
+            0,
+            (selectedProject.totalDonated ?? 0) +
+              (profile?.causeJarBalances?.[selectedProject.id] ?? 0) +
+              amount
+          )
+        : 0);
       setSuccessLargestSkip(Math.max(amount, ...recentSkips.filter((skip) => skip.projectId === effectiveProjectId).map((skip) => skip.amount)));
       setSuccessSkipBank(projectedSkipBank);
       setSuccessLifetimeSaved((profile?.totalSaved ?? 0) + amount);
@@ -219,7 +222,6 @@ export function SkipModal({ onClose }: Props) {
   }
 
   if (success) {
-    const skipGive = amount * (skipGivePct / 100);
     const successActiveProject = successProject
       ?? projects.find((p) => p.id === selectedFundraiserId)
       ?? projects.find((p) => p.id === profile?.activeProjectId)
@@ -328,12 +330,12 @@ export function SkipModal({ onClose }: Props) {
             <p id="skip-nudge-title" className="text-2xl font-bold" style={{ color: "var(--text-primary)" }}>Your skips can change lives</p>
             <p className="font-bold text-lg mt-1" style={{ color: "var(--green-primary)" }}>{formatCurrency(amount)} saved</p>
             <p className="text-sm mt-3" style={{ color: "var(--text-secondary)" }}>
-              You could pledge {formatCurrency(skipGive)} from this skip toward:
+              You could pledge {formatCurrency(amount)} from this skip toward:
             </p>
             <ul className="text-left mt-2 space-y-1" style={{ color: "var(--text-secondary)", fontSize: 13, paddingLeft: 20 }}>
-              {nudgeCfc?.unitCost && <li>{formatUnits(skipGive, nudgeCfc.unitCost, nudgeCfc.unitName!)} in {nudgeCfc.location}</li>}
-              {nudgePalestine?.unitCost && <li>{formatUnits(skipGive, nudgePalestine.unitCost, nudgePalestine.unitName!)} in Palestine</li>}
-              {nudgeUkraine?.unitCost && <li>{formatUnits(skipGive, nudgeUkraine.unitCost, nudgeUkraine.unitName!)} in Ukraine</li>}
+              {nudgeCfc?.unitCost && <li>{formatUnits(amount, nudgeCfc.unitCost, nudgeCfc.unitName!)} in {nudgeCfc.location}</li>}
+              {nudgePalestine?.unitCost && <li>{formatUnits(amount, nudgePalestine.unitCost, nudgePalestine.unitName!)} in Palestine</li>}
+              {nudgeUkraine?.unitCost && <li>{formatUnits(amount, nudgeUkraine.unitCost, nudgeUkraine.unitName!)} in Ukraine</li>}
             </ul>
             <p className="text-xs mt-2" style={{ color: "var(--text-muted)" }}>...amongst many other things.</p>
             <button
@@ -1035,8 +1037,7 @@ export function SkipModal({ onClose }: Props) {
     );
   }
 
-  const skipGiveLive = amount;
-  const skipLiveLive = amount;
+  const skipAmountLive = amount;
   const activeTargetLive = profile?.activeSkipTarget ?? null;
   const { goals: spendingGoals, activeId: activeSpendingGoalId } = normalizeSpendingGoals(profile ?? {} as any);
   const activeProjectLive = activeTargetLive?.type === "fundraiser"
@@ -1050,10 +1051,10 @@ export function SkipModal({ onClose }: Props) {
       ? null
       : spendingGoals.find((g) => g.id === activeSpendingGoalId) ?? null;
   const spendingGoalLabelLive = activeGoalLive?.label ?? "Reward Jar";
-  const giveGoalAmount = activeProjectLive?.goalAmount ?? 0;
-  const giveContribPctLive = giveGoalAmount > 0 ? (skipGiveLive / giveGoalAmount) * 100 : 0;
-  const liveGoalAmount = activeGoalLive?.targetAmount ?? 0;
-  const liveContribPctLive = liveGoalAmount > 0 ? (skipLiveLive / liveGoalAmount) * 100 : 0;
+  const fundraiserGoalAmountLive = activeProjectLive?.goalAmount ?? 0;
+  const fundraiserContributionPctLive = fundraiserGoalAmountLive > 0 ? (skipAmountLive / fundraiserGoalAmountLive) * 100 : 0;
+  const rewardGoalAmountLive = activeGoalLive?.targetAmount ?? 0;
+  const rewardContributionPctLive = rewardGoalAmountLive > 0 ? (skipAmountLive / rewardGoalAmountLive) * 100 : 0;
 
   return (
     <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4" onClick={onClose}>
@@ -1121,44 +1122,6 @@ export function SkipModal({ onClose }: Props) {
             </div>
           </div>
 
-          {/* Per-skip split slider */}
-          <div style={{ display: "none" }}>
-            <label className="block text-sm font-medium mb-2" style={{ color: "var(--text-primary)" }}>This skip&apos;s split</label>
-            <div className="flex items-center justify-between text-xs mb-1" style={{ color: "var(--text-secondary)" }}>
-              <span>🤲 Giving <span className="font-bold" style={{ color: "var(--coral-primary)" }}>{skipGivePct}%</span></span>
-              <span>💰 Reward <span className="font-bold" style={{ color: "#2BBAA4" }}>{100 - skipGivePct}%</span></span>
-            </div>
-            <div className="relative">
-              <input
-                type="range"
-                min={0}
-                max={100}
-                value={skipGivePct}
-                onChange={(e) => {
-                  const raw = Number(e.target.value);
-                  const snapped = Math.abs(raw - profileSplit.give) <= 3 ? profileSplit.give : raw;
-                  setSkipGivePct(snapped);
-                }}
-                className="w-full h-2 rounded-full appearance-none cursor-pointer"
-                style={{
-                  background: `linear-gradient(to right, #E8637A ${skipGivePct}%, #2BBAA4 ${skipGivePct}%)`,
-                }}
-              />
-              <div
-                className="absolute top-0 h-full w-0.5 pointer-events-none"
-                style={{
-                  left: `${profileSplit.give}%`,
-                  background: "rgba(255,255,255,0.55)",
-                  transform: "translateX(-50%)",
-                }}
-              />
-            </div>
-            <div className="flex justify-between mt-0.5" style={{ fontSize: 10, color: "var(--text-muted)" }}>
-              <span>All Giving</span>
-              <span>All Reward</span>
-            </div>
-          </div>
-
           {/* This Skip's Impact */}
           {amount > 0 && (
             <div style={{ display: "block" }}>
@@ -1167,31 +1130,31 @@ export function SkipModal({ onClose }: Props) {
                 <p className="text-sm font-semibold" style={{ color: "var(--coral-primary)" }}>
                   🤲 {(() => {
                     if (activeGoalLive) {
-                      const pct = liveGoalAmount > 0
-                        ? Math.max(1, Math.round((skipLiveLive / liveGoalAmount) * 100))
+                      const pct = rewardGoalAmountLive > 0
+                        ? Math.max(1, Math.round((skipAmountLive / rewardGoalAmountLive) * 100))
                         : 0;
                       return pct > 0
                         ? `${pct}% toward ${spendingGoalLabelLive}`
-                        : `${formatCurrency(skipLiveLive)} toward ${spendingGoalLabelLive}`;
+                        : `${formatCurrency(skipAmountLive)} toward ${spendingGoalLabelLive}`;
                     } else if (activeProjectLive?.unitCost && !activeProjectLive.unitIsGoal) {
-                      const units = formatUnits(skipGiveLive, activeProjectLive.unitCost, activeProjectLive.unitName!);
+                      const units = formatUnits(skipAmountLive, activeProjectLive.unitCost, activeProjectLive.unitName!);
                       return activeProjectLive.location ? `${units} in ${activeProjectLive.location}` : units;
                     } else if (activeProjectLive?.unitCost && activeProjectLive.unitIsGoal) {
-                      const pct = Math.max(1, Math.round((skipGiveLive / activeProjectLive.unitCost) * 100));
+                      const pct = Math.max(1, Math.round((skipAmountLive / activeProjectLive.unitCost) * 100));
                       const unitPhrase = activeProjectLive.unitPhrase
                         ?? (activeProjectLive.unitName ? oneUnitPhrase(activeProjectLive.unitName) : "a unit");
                       return `${pct}% of ${unitPhrase} funded`;
-                    } else if (activeProjectLive && giveGoalAmount > 0) {
-                      return `${giveContribPctLive.toFixed(1)}% toward ${activeProjectLive.title}`;
+                    } else if (activeProjectLive && fundraiserGoalAmountLive > 0) {
+                      return `${fundraiserContributionPctLive.toFixed(1)}% toward ${activeProjectLive.title}`;
                     } else if (activeProjectLive) {
-                      return `${formatCurrency(skipGiveLive)} toward ${activeProjectLive.title}`;
+                      return `${formatCurrency(skipAmountLive)} toward ${activeProjectLive.title}`;
                     } else {
-                      return formatCurrency(skipGiveLive);
+                      return formatCurrency(skipAmountLive);
                     }
                   })()}
                 </p>
                 <p className="text-sm font-semibold" style={{ color: "#2BBAA4", display: "none" }}>
-                  😊 {liveGoalAmount > 0 ? `${liveContribPctLive.toFixed(1)}% toward ${spendingGoalLabelLive}` : formatCurrency(skipLiveLive)}
+                  😊 {rewardGoalAmountLive > 0 ? `${rewardContributionPctLive.toFixed(1)}% toward ${spendingGoalLabelLive}` : formatCurrency(skipAmountLive)}
                 </p>
               </div>
             </div>

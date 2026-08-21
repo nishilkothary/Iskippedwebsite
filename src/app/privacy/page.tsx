@@ -34,7 +34,7 @@ export default function PrivacyPage() {
           <strong>Account information:</strong> When you sign up we collect your email address and display
           name (and, if you sign in with Google, your Google profile photo).
           <br /><br />
-          <strong>Usage data you enter:</strong> Skips you log (amount, category, date), jar split
+          <strong>Usage data you enter:</strong> Skips you log (amount, category, date), active jar
           preferences, personal spending goals, and cause selections.
           <br /><br />
           <strong>Technical data:</strong> Browser or device type, IP address, pages visited, and error

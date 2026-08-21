@@ -4,12 +4,11 @@ import { toast } from "sonner";
 import { useAuthStore } from "@/store/authStore";
 import { useSkipStore } from "@/store/skipStore";
 import { subscribeToSkips, logSkip, LogSkipParams, updateSkip as firebaseUpdateSkip, deleteSkip as firebaseDeleteSkip } from "@/lib/services/firebase/skips";
-import { normalizeJarSplit } from "@/lib/services/firebase/users";
 import { recordDonation, subscribeToDonations, updateDonation as firebaseUpdateDonation, deleteDonation as firebaseDeleteDonation } from "@/lib/services/firebase/users";
 import { today } from "@/lib/utils/dates";
 import { getImpactMessage } from "@/lib/constants/impactMessages";
 import { xpForSkip, levelForXp } from "@/lib/utils/xp";
-import { Skip, DonationEvent } from "@/lib/types/models";
+import { Skip, DonationEvent, SkipAllocationTarget } from "@/lib/types/models";
 
 export function useSkips() {
   const { user, profile, updateProfile } = useAuthStore();
@@ -28,7 +27,7 @@ export function useSkips() {
     return unsub;
   }, [user?.uid]);
 
-  async function log(params: Omit<LogSkipParams, "uid" | "currentTotalSaved" | "currentTotalSkips" | "currentXp" | "currentStreak" | "currentLongestStreak" | "lastSkipDate" | "savedTowardActiveCause" | "defaultJarSplit" | "activeGoalId" | "causeJarBalance" | "causeJarOverflowCount">) {
+  async function log(params: Omit<LogSkipParams, "uid" | "currentTotalSaved" | "currentTotalSkips" | "currentXp" | "currentStreak" | "currentLongestStreak" | "lastSkipDate" | "savedTowardActiveCause" | "activeGoalId" | "causeJarBalance" | "causeJarOverflowCount">) {
     if (!user || !profile) return null;
     setLogging(true);
     const allocationTarget = params.allocationTarget
@@ -36,7 +35,7 @@ export function useSkips() {
       ?? (params.projectId ? { type: "fundraiser" as const, id: params.projectId } : null)
       ?? (profile.activeProjectId ? { type: "fundraiser" as const, id: profile.activeProjectId } : null);
     const causeJarId = allocationTarget?.type === "fundraiser" ? allocationTarget.id : params.projectId ?? "";
-    const causeJarBalance = profile.causeJarBalances?.[causeJarId] ?? 0;
+    const causeJarBalance = Math.max(0, profile.causeJarBalances?.[causeJarId] ?? 0);
     const causeJarOverflowCount = profile.causeJarOverflowCounts?.[causeJarId] ?? 0;
     try {
       const result = await logSkip({
@@ -49,7 +48,6 @@ export function useSkips() {
         currentLongestStreak: profile.longestStreak,
         lastSkipDate: profile.lastSkipDate,
         savedTowardActiveCause: profile.savedTowardActiveCause,
-        defaultJarSplit: { give: 0, live: 100 },
         displayName: user.displayName || profile.displayName,
         photoURL: user.photoURL || profile.photoURL || undefined,
         activeGoalId: null,
@@ -105,7 +103,7 @@ export function useSkips() {
       return false;
     }
     const prevDonated = profile.causeStats?.[projectId]?.donated ?? 0;
-    const prevJarBal = profile.causeJarBalances?.[projectId] ?? 0;
+    const prevJarBal = Math.max(0, profile.causeJarBalances?.[projectId] ?? 0);
     updateProfile({
       totalDonated: profile.totalDonated + amount,
       causeStats: { ...profile.causeStats, [projectId]: { donated: prevDonated + amount } },
@@ -117,40 +115,59 @@ export function useSkips() {
 
   async function edit(
     skip: Skip,
-    updates: Partial<Pick<Skip, "category" | "categoryLabel" | "categoryEmoji" | "amount" | "projectId" | "projectTitle" | "whatSkipped" | "notes" | "jarSplit">>
+    updates: Partial<Pick<Skip, "category" | "categoryLabel" | "categoryEmoji" | "amount" | "projectId" | "projectTitle" | "whatSkipped" | "notes" | "allocationTarget">>
   ): Promise<void> {
     if (!user || !profile) return;
     const oldAmount = skip.amount;
     const newAmount = updates.amount ?? oldAmount;
     const amountDelta = newAmount - oldAmount;
-    const oldSplit = skip.jarSplit ?? normalizeJarSplit(profile.jarSplit as any);
-    const newSplit = updates.jarSplit ?? oldSplit;
-    // Full reallocation: compare old (amount × old split) vs new (amount × new split)
-    const oldGiveAlloc = oldAmount * (oldSplit.give / 100);
-    const newGiveAlloc = newAmount * (newSplit.give / 100);
-    const oldLiveAlloc = oldAmount * (oldSplit.live / 100);
-    const newLiveAlloc = newAmount * (newSplit.live / 100);
-    const giveAllocDelta = newGiveAlloc - oldGiveAlloc;
-    const liveAllocDelta = newLiveAlloc - oldLiveAlloc;
-    await firebaseUpdateSkip(user.uid, skip.id, updates, amountDelta, 0, 0, skip.projectId);
+    const target = resolveSkipTarget(skip, updates.allocationTarget);
+
+    await firebaseUpdateSkip(user.uid, skip.id, updates);
     storeUpdateSkip(skip.id, updates);
     if (amountDelta !== 0) {
+      const targetedBalanceUpdates: Partial<Pick<UserProfilePatch, "goalJarBalances" | "causeJarBalances">> = {};
+      if (target?.type === "goal") {
+        targetedBalanceUpdates.goalJarBalances = {
+          ...(profile.goalJarBalances ?? {}),
+          [target.id]: Math.max(0, (profile.goalJarBalances?.[target.id] ?? 0) + amountDelta),
+        };
+      }
+      if (target?.type === "fundraiser") {
+        targetedBalanceUpdates.causeJarBalances = {
+          ...(profile.causeJarBalances ?? {}),
+          [target.id]: Math.max(0, (profile.causeJarBalances?.[target.id] ?? 0) + amountDelta),
+        };
+      }
       updateProfile({
         totalSaved: profile.totalSaved + amountDelta,
+        ...targetedBalanceUpdates,
       });
     }
   }
 
   async function deleteSkip(skip: Skip): Promise<void> {
     if (!user || !profile) return;
-    const skipSplit = skip.jarSplit ?? normalizeJarSplit(profile.jarSplit as any);
-    const giveAllocAmount = skip.amount * (skipSplit.give / 100);
-    const liveAllocAmount = skip.amount * (skipSplit.live / 100);
-    await firebaseDeleteSkip(user.uid, skip.id, skip.amount, 0, 0, skip.projectId);
+    const target = resolveSkipTarget(skip);
+    await firebaseDeleteSkip(user.uid, skip.id);
     removeSkip(skip.id);
+    const targetedBalanceUpdates: Partial<Pick<UserProfilePatch, "goalJarBalances" | "causeJarBalances">> = {};
+    if (target?.type === "goal") {
+      targetedBalanceUpdates.goalJarBalances = {
+        ...(profile.goalJarBalances ?? {}),
+        [target.id]: Math.max(0, (profile.goalJarBalances?.[target.id] ?? 0) - skip.amount),
+      };
+    }
+    if (target?.type === "fundraiser") {
+      targetedBalanceUpdates.causeJarBalances = {
+        ...(profile.causeJarBalances ?? {}),
+        [target.id]: Math.max(0, (profile.causeJarBalances?.[target.id] ?? 0) - skip.amount),
+      };
+    }
     updateProfile({
-      totalSaved: profile.totalSaved - skip.amount,
-      totalSkips: profile.totalSkips - 1,
+      totalSaved: Math.max(0, profile.totalSaved - skip.amount),
+      totalSkips: Math.max(0, profile.totalSkips - 1),
+      ...targetedBalanceUpdates,
     });
   }
 
@@ -159,7 +176,7 @@ export function useSkips() {
     const delta = newAmount - donation.amount;
     await firebaseUpdateDonation(user.uid, donation.id, newAmount, donation.amount, donation.causeId, date);
     if (delta !== 0) {
-      const currentBal = profile.causeJarBalances?.[donation.causeId] ?? 0;
+      const currentBal = Math.max(0, profile.causeJarBalances?.[donation.causeId] ?? 0);
       const jarDelta = delta > 0
         ? -Math.min(delta, Math.max(0, currentBal))
         : -delta;
@@ -167,7 +184,7 @@ export function useSkips() {
         totalDonated: profile.totalDonated + delta,
         causeJarBalances: {
           ...(profile.causeJarBalances ?? {}),
-          [donation.causeId]: currentBal + jarDelta,
+          [donation.causeId]: Math.max(0, currentBal + jarDelta),
         },
       });
     }
@@ -177,13 +194,22 @@ export function useSkips() {
     if (!user || !profile) return;
     await firebaseDeleteDonation(user.uid, donation.id, donation.amount, donation.causeId);
     updateProfile({
-      totalDonated: profile.totalDonated - donation.amount,
+      totalDonated: Math.max(0, profile.totalDonated - donation.amount),
       causeJarBalances: {
         ...(profile.causeJarBalances ?? {}),
-        [donation.causeId]: (profile.causeJarBalances?.[donation.causeId] ?? 0) + donation.amount,
+        [donation.causeId]: Math.max(0, profile.causeJarBalances?.[donation.causeId] ?? 0) + Math.max(0, donation.amount),
       },
     });
   }
 
   return { recentSkips, isLogging, log, donate, edit, deleteSkip, donations, editDonation, deleteDonation };
+}
+
+type UserProfilePatch = Parameters<ReturnType<typeof useAuthStore.getState>["updateProfile"]>[0];
+
+function resolveSkipTarget(skip: Skip, override?: SkipAllocationTarget | null): SkipAllocationTarget | null {
+  if (override !== undefined) return override;
+  if (skip.allocationTarget) return skip.allocationTarget;
+  if (skip.projectId) return { type: "fundraiser", id: skip.projectId };
+  return null;
 }

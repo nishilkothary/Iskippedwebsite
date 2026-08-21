@@ -32,11 +32,10 @@ export function ExtensionSync() {
       unitCost: project.unitCost ?? null,
       unitIsGoal: project.unitIsGoal === true,
       unitPhrase: project.unitPhrase ?? null,
-      givePercent: profile.jarSplit?.give ?? 50,
-      livePercent: profile.jarSplit?.live ?? 50,
+      activeSkipTarget: profile.activeSkipTarget ?? null,
       rewardGoalLabel: activeGoal?.label ?? null,
       rewardGoalTargetAmount: activeGoal?.targetAmount ?? null,
-      syncVersion: 2,
+      syncVersion: 3,
       updatedAt: Date.now(),
     };
   }, [profile, projects]);

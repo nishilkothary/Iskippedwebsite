@@ -69,25 +69,6 @@ export async function completeGoal(
   await apiRequest("/api/goals/complete", "POST", { goalId, label, targetAmount });
 }
 
-export async function transferLiveToGive(
-  uid: string,
-  amount: number,
-  goals: SpendingGoal[],
-  goalId: string,
-  currentActiveGoalId: string | null
-): Promise<void> {
-  if (amount <= 0) return;
-  await apiRequest("/api/goals/transfer-to-give", "POST", { goalId });
-}
-
-export function normalizeJarSplit(
-  raw: { give?: number; live?: number; giving?: number; spending?: number } | undefined
-): { give: number; live: number } {
-  if (!raw) return { give: 50, live: 50 };
-  if (raw.give !== undefined && raw.live !== undefined) return { give: raw.give, live: raw.live };
-  return { give: raw.giving ?? 50, live: raw.spending ?? 50 };
-}
-
 export async function createOrUpdateUser(user: User): Promise<boolean> {
   const ref = doc(db, "users", user.uid);
   const snap = await getDoc(ref);
@@ -113,7 +94,6 @@ export async function createOrUpdateUser(user: User): Promise<boolean> {
       followersCount: 0,
       lastSkipDate: null,
       favoriteCauseIds: [],
-      jarSplit: { give: 50, live: 50 },
       shareSkipsByDefault: true,
       emailVerified: user.emailVerified,
       onboardingCompletedAt: null,
@@ -134,13 +114,6 @@ export async function dismissSetupPrompt(uid: string): Promise<void> {
 
 export async function completeSetupPrompt(uid: string): Promise<void> {
   await updateDoc(doc(db, "users", uid), { setupPromptCompletedAt: serverTimestamp() });
-}
-
-export async function updateJarSettings(
-  uid: string,
-  jarSplit: { give: number; live: number }
-): Promise<void> {
-  await updateDoc(doc(db, "users", uid), { jarSplit });
 }
 
 export async function setShareSkipsByDefault(uid: string, shareSkipsByDefault: boolean): Promise<void> {
@@ -211,7 +184,7 @@ export async function switchCause(
   oldCauseId: string | null,
   newCauseId: string,
 ): Promise<Record<string, number> | null> {
-  const result = await apiRequest<{ balanceTransfer: Record<string, number> | null }>("/api/causes/switch", "POST", { newCauseId });
+  const result = await apiRequest<{ balanceTransfer: Record<string, number> | null }>("/api/causes/switch", "POST", { newCauseId, transferBalance: false });
   return result.balanceTransfer;
 }
 
@@ -310,11 +283,4 @@ export async function getAllUsers(): Promise<UserProfile[]> {
   const q = query(collection(db, "users"), orderBy("createdAt", "desc"));
   const snap = await getDocs(q);
   return snap.docs.map((d) => d.data() as UserProfile);
-}
-
-export async function recalculateTotals(
-  uid: string,
-  defaultSplit: { give: number; live: number }
-): Promise<{ totalSaved: number; totalSkips: number; totalGiveAllocated: number; totalLiveAllocated: number; totalDonated: number; totalSpent: number; causeJarBalances: Record<string, number> }> {
-  return apiRequest<{ totalSaved: number; totalSkips: number; totalGiveAllocated: number; totalLiveAllocated: number; totalDonated: number; totalSpent: number; causeJarBalances: Record<string, number> }>("/api/users/recalculate", "POST", { defaultSplit });
 }

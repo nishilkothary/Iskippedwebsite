@@ -192,13 +192,10 @@ export async function GET(req: NextRequest) {
         const endedStreakWeeks = skipCount === 0
           ? getConsecutiveWeeklyStreak(allRecentDates, addDays(week.start, -1))
           : 0;
-        let causeAmount = 0;
-
-        for (const sk of weekSkips) {
-          const amt = sk.amount ?? 0;
-          const give = sk.jarSplit?.give ?? (u.jarSplit?.give ?? 50);
-          causeAmount += amt * (give / 100);
-        }
+        const causeAmount = weekSkips.reduce((sum: number, sk: any) => {
+          const isFundraiserSkip = sk.allocationTarget?.type === "fundraiser" || Boolean(sk.projectId);
+          return isFundraiserSkip ? sum + (sk.amount ?? 0) : sum;
+        }, 0);
 
         return {
           uid: u.uid,

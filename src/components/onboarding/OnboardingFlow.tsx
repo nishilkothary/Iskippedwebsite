@@ -4,7 +4,7 @@ import { toast } from "sonner";
 import { useAuthStore } from "@/store/authStore";
 import { useProjects } from "@/hooks/useProjects";
 import { OFFICIAL_PROJECTS, PARTNER_CHALLENGE_IDS } from "@/lib/services/firebase/projects";
-import { switchCause, updateJarSettings, completeOnboarding } from "@/lib/services/firebase/users";
+import { switchCause, completeOnboarding } from "@/lib/services/firebase/users";
 import { SkipModal } from "@/components/skip/SkipModal";
 
 const PICKABLE_CAUSES = OFFICIAL_PROJECTS.filter((p) => PARTNER_CHALLENGE_IDS.includes(p.id));
@@ -26,7 +26,6 @@ export function OnboardingFlow({ onDone }: Props) {
   const [step, setStep] = useState<Step>(1);
   const [selectedCauseId, setSelectedCauseId] = useState<string | null>(null);
   const [overrideCausePicker, setOverrideCausePicker] = useState(false);
-  const [splitGive, setSplitGive] = useState(50);
   const [saving, setSaving] = useState(false);
 
   if (!user || !profile) return null;
@@ -70,16 +69,6 @@ export function OnboardingFlow({ onDone }: Props) {
   }
 
   async function handleContinueStep2() {
-    const split = { give: splitGive, live: 100 - splitGive };
-    setSaving(true);
-    try {
-      await updateJarSettings(user!.uid, split);
-      updateProfile({ jarSplit: split });
-    } catch {
-      toast.error("Couldn't save your split — you can adjust it anytime from Jars.");
-    } finally {
-      setSaving(false);
-    }
     setStep(3);
   }
 
@@ -134,7 +123,7 @@ export function OnboardingFlow({ onDone }: Props) {
           <div className="px-6 py-5">
             <h2 className="text-lg font-bold" style={{ color: "var(--text-primary)" }}>You&apos;re already in!</h2>
             <p className="text-sm mt-1 mb-4" style={{ color: "var(--text-muted)" }}>
-              Your giving jar is set up for the cause you joined.
+              Your fundraiser jar is set up for the cause you joined.
             </p>
             <div className="rounded-xl overflow-hidden" style={{ border: "1px solid var(--border-default)", background: "var(--bg-surface-2)" }}>
               {preselectedProject.imageURL ? (
@@ -163,7 +152,7 @@ export function OnboardingFlow({ onDone }: Props) {
           <div className="px-6 py-5">
             <h2 className="text-lg font-bold" style={{ color: "var(--text-primary)" }}>Pick a cause</h2>
             <p className="text-sm mt-1 mb-4" style={{ color: "var(--text-muted)" }}>
-              Choose where your giving jar goes. You can change this anytime.
+              Choose where your skips go. You can change this anytime.
             </p>
             <div className="grid grid-cols-2 gap-3">
               {PICKABLE_CAUSES.map((p) => (
@@ -195,34 +184,26 @@ export function OnboardingFlow({ onDone }: Props) {
 
         {step === 2 && (
           <div className="px-6 py-5">
-            <h2 className="text-lg font-bold" style={{ color: "var(--text-primary)" }}>Set your split</h2>
+            <h2 className="text-lg font-bold" style={{ color: "var(--text-primary)" }}>Choose where skips go</h2>
             <p className="text-sm mt-1 mb-4" style={{ color: "var(--text-muted)" }}>
-              Every skip gets divided between your giving jar and your reward jar. Start at 50/50 — you can adjust it per skip later.
+              Every skip fills one active jar. If no jar is active, it waits in Skip Bucks until you choose where it belongs.
             </p>
-            <div className="flex justify-between mb-2">
-              <div>
-                <p className="text-xs font-semibold" style={{ color: "var(--green-primary)" }}>🤲 Giving Jar</p>
-                <p className="text-xl font-black" style={{ color: "var(--green-primary)" }}>{splitGive}%</p>
-              </div>
-              <div className="text-right">
-                <p className="text-xs font-semibold" style={{ color: "#8B5CF6" }}>😊 Reward Jar</p>
-                <p className="text-xl font-black" style={{ color: "#8B5CF6" }}>{100 - splitGive}%</p>
-              </div>
+            <div className="grid gap-3">
+              {[
+                ["Active jar", "Future skips go to the reward or fundraiser you pick."],
+                ["Skip Bucks", "Skipped money can wait unassigned until you choose."],
+                ["You stay in control", "You can move balances later from Jar Activity."],
+              ].map(([title, body]) => (
+                <div
+                  key={title}
+                  className="rounded-xl p-4"
+                  style={{ border: "1px solid var(--border-default)", background: "var(--bg-surface-2)" }}
+                >
+                  <p className="text-sm font-bold" style={{ color: "var(--text-primary)" }}>{title}</p>
+                  <p className="mt-1 text-xs" style={{ color: "var(--text-muted)" }}>{body}</p>
+                </div>
+              ))}
             </div>
-            <div className="relative h-2 rounded-full mb-4 overflow-hidden" style={{ background: "var(--bg-surface-3)" }}>
-              <div className="absolute inset-y-0 left-0 rounded-full" style={{ width: `${splitGive}%`, background: "linear-gradient(90deg, var(--green-primary), #2ECC71)" }} />
-              <div className="absolute inset-y-0 right-0 rounded-full" style={{ width: `${100 - splitGive}%`, background: "linear-gradient(90deg, #7C3AED, #8B5CF6)" }} />
-            </div>
-            <input
-              type="range"
-              min={0}
-              max={100}
-              step={5}
-              value={splitGive}
-              onChange={(e) => setSplitGive(Number(e.target.value))}
-              className="w-full"
-              style={{ accentColor: "var(--green-primary)", height: 4 }}
-            />
           </div>
         )}
 

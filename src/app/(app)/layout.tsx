@@ -145,7 +145,7 @@ function ChallengeBanners() {
     return (profile.joinedProjectIds ?? [])
       .map((id) => projects.find((p) => p.id === id))
       .filter((p): p is Project => !!p && isChallengeProject(p) && isProjectEnded(p))
-      .filter((p) => (profile.causeJarBalances?.[p.id] ?? 0) > 0);
+      .filter((p) => Math.max(0, profile.causeJarBalances?.[p.id] ?? 0) > 0);
   }, [profile?.joinedProjectIds, profile?.causeJarBalances, projects]);
 
   // Auto-clear activeProjectId when active challenge has ended
@@ -191,7 +191,7 @@ function ChallengeBanners() {
         </div>
       )}
       {endedWithBalance.map((p) => {
-        const balance = profile!.causeJarBalances?.[p.id] ?? 0;
+        const balance = Math.max(0, profile!.causeJarBalances?.[p.id] ?? 0);
         return (
           <div key={p.id} className="flex items-center justify-between gap-3 px-4 py-3" style={{ background: "rgba(245,158,11,0.08)", borderBottom: "1px solid rgba(245,158,11,0.18)" }}>
             <p className="text-xs font-semibold leading-relaxed" style={{ color: "#F59E0B" }}>

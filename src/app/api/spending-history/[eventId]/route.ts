@@ -30,16 +30,18 @@ export async function PATCH(req: NextRequest, ctx: RouteContext) {
       const goalId = event.goalId;
       const oldJarDecrease = event.jarDecrease ?? event.amountSaved;
       let jarDecreaseDelta = 0;
+      let nextGoalBalance: number | null = null;
 
       if (delta !== 0 && goalId) {
-        const currentBal = profile?.goalJarBalances?.[goalId] ?? 0;
+        const currentBal = Math.max(0, profile?.goalJarBalances?.[goalId] ?? 0);
         const unassignedSkipBank = getSkipBalanceSummary(profile).unassignedSkipBank;
-        if (delta > Math.max(0, currentBal) + unassignedSkipBank) {
+        if (delta > currentBal + unassignedSkipBank) {
           throw new ApiError(400, "Purchase exceeds available skipped savings");
         }
         jarDecreaseDelta = delta > 0
-          ? Math.min(delta, Math.max(0, currentBal))
+          ? Math.min(delta, currentBal)
           : delta;
+        nextGoalBalance = Math.max(0, currentBal - jarDecreaseDelta);
       }
 
       tx.update(eventRef, {
@@ -48,7 +50,7 @@ export async function PATCH(req: NextRequest, ctx: RouteContext) {
       });
       if (delta !== 0) {
         const updates: Record<string, unknown> = { totalSpent: FieldValue.increment(delta) };
-        if (goalId && jarDecreaseDelta !== 0) updates[`goalJarBalances.${goalId}`] = FieldValue.increment(-jarDecreaseDelta);
+        if (goalId && jarDecreaseDelta !== 0 && nextGoalBalance !== null) updates[`goalJarBalances.${goalId}`] = nextGoalBalance;
         tx.update(userRef, updates);
       }
       return { jarDecrease: Math.max(0, oldJarDecrease + jarDecreaseDelta) };
@@ -70,13 +72,17 @@ export async function DELETE(req: NextRequest, ctx: RouteContext) {
     const eventRef = userRef.collection("spendingHistory").doc(eventId);
 
     await db.runTransaction(async (tx) => {
-      const eventSnap = await tx.get(eventRef);
+      const [eventSnap, userSnap] = await Promise.all([tx.get(eventRef), tx.get(userRef)]);
       if (!eventSnap.exists) throw new ApiError(404, "Event not found");
       const event = eventSnap.data() as SpendingHistoryEvent;
+      const amountSaved = Math.max(0, event.amountSaved);
+      const profile = userSnap.data() as UserProfile | undefined;
 
       tx.delete(eventRef);
-      const updates: Record<string, unknown> = { totalSpent: FieldValue.increment(-event.amountSaved) };
-      if (event.goalId) updates[`goalJarBalances.${event.goalId}`] = FieldValue.increment(event.amountSaved);
+      const updates: Record<string, unknown> = { totalSpent: FieldValue.increment(-amountSaved) };
+      if (event.goalId) {
+        updates[`goalJarBalances.${event.goalId}`] = Math.max(0, profile?.goalJarBalances?.[event.goalId] ?? 0) + amountSaved;
+      }
       tx.update(userRef, updates);
     });
 

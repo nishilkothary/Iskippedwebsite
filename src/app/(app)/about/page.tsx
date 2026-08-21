@@ -48,7 +48,7 @@ const LEGACY_FAQ_ITEMS = [
   },
   {
     q: "My balance doesn't look right. What should I do?",
-    a: "Use the Recalculate button on your Profile page. It rebuilds all your totals directly from your logged skip history and should bring everything back in sync.",
+    a: "Check Jar Activity to see where your skipped savings are parked. If something still looks off, send us a note and we can help trace it.",
   },
   {
     q: "Will more causes be added?",
@@ -117,10 +117,6 @@ const FAQ_ITEMS = [
     q: "What does sharing with the community do?",
     a: "It shares your first name and what you skipped with a group feed to help motivate others. Turn it off to keep your skip private.",
   },
-  {
-    q: "I have feedback. Where can I share it?",
-    a: "We would love to hear from you. Email iskippedfor@gmail.com and we will get back to you.",
-  },
 ];
 
 export default function AboutPage() {
@@ -148,6 +144,36 @@ export default function AboutPage() {
       </div>
 
       <div className="px-4 max-w-lg mx-auto space-y-10 pt-8">
+
+        {/* Origin story */}
+        <section
+          className="rounded-2xl p-5"
+          style={{ background: "var(--bg-surface-1)", border: "1px solid var(--border-default)" }}
+        >
+          <p className="text-xs font-black uppercase tracking-[0.18em]" style={{ color: "var(--green-primary)" }}>
+            Our story
+          </p>
+          <h2 className="mt-2 text-2xl font-black leading-tight" style={{ color: "var(--text-primary)", letterSpacing: 0 }}>
+            How iSkipped began
+          </h2>
+          <div className="mt-4 space-y-4 text-sm leading-relaxed" style={{ color: "var(--text-secondary)" }}>
+            <p>
+              iSkipped began during a backpacking trip through Asia, when I met a local student sleeping on a hotel bench. He told me he was staying there to save money for college. When I asked what tuition would cost, he said $170.
+            </p>
+            <p>
+              That number stayed with me. Back home, $170 could disappear into a few dinners out or a few drinks with friends. For him, it meant a year of education and a lifetime of opportunity.
+            </p>
+            <p>
+              When I returned home, I decided to skip those very expenses and use the savings to fund his tuition. That decision forever changed how I saw my own money. I realized that spending I was fortunate enough to rarely think about could become something intentional. A skipped dinner, drink, ride, or impulse purchase could be redirected into something with real weight, something that truly mattered.
+            </p>
+            <p>
+              &quot;I skipped&quot; became more than a phrase. It became a way to turn everyday restraint into opportunity, for myself and, even better, for someone else.
+            </p>
+            <p className="font-black" style={{ color: "var(--text-primary)" }}>
+              That idea became iSkipped.
+            </p>
+          </div>
+        </section>
 
         {/* How it works */}
         <section>

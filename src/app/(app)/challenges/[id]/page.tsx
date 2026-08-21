@@ -7,7 +7,7 @@ import { useAuthStore } from "@/store/authStore";
 import { useUIStore } from "@/store/uiStore";
 import { useProjects } from "@/hooks/useProjects";
 import { Project, SkipAllocationTarget, UserProfile } from "@/lib/types/models";
-import { joinProject, pinProjectToHome, normalizeJarSplit, setChallengeEmailConsent, setUserCauseGoal } from "@/lib/services/firebase/users";
+import { joinProject, pinProjectToHome, setChallengeEmailConsent, setUserCauseGoal } from "@/lib/services/firebase/users";
 import { isChallengeProject, getProject } from "@/lib/services/firebase/projects";
 import { formatCurrency } from "@/lib/utils/currency";
 import { getChallengeCountdown } from "@/lib/utils/dates";
@@ -26,7 +26,6 @@ type ChallengeView = {
   imageURL: string | null;
   fallbackLabel: string;
   trustLabel: "Verified Partner" | "Community";
-  visibilityLabel: "Public" | "Private";
   organizerLine: string;
   impactLine: string | null;
   raised: number;
@@ -119,15 +118,6 @@ function causeHelpDescription(description: string | undefined): string {
   return `Your skips can help fund ${sentence}`;
 }
 
-function visibilityLabel(project: Project): ChallengeView["visibilityLabel"] {
-  const privateTags = ["visibility-private", "visibility-unlisted"];
-  return project.visibility === "private"
-    || project.visibility === "unlisted"
-    || Boolean(project.tags?.some((tag) => privateTags.includes(tag)))
-    ? "Private"
-    : "Public";
-}
-
 function challengeFromProject(project: Project): ChallengeView {
   const category = challengeCategory(project);
   const fallback = fallbackForCategory(category);
@@ -142,7 +132,6 @@ function challengeFromProject(project: Project): ChallengeView {
     imageURL: project.imageURL || (project.isCustom ? null : fallback.imageURL),
     fallbackLabel: fallback.label,
     trustLabel: project.isCustom ? "Community" : "Verified Partner",
-    visibilityLabel: visibilityLabel(project),
     organizerLine: project.sponsor ? `by ${project.sponsor}` : project.location ? `for ${project.location}` : "community challenge",
     impactLine: project.unitName && project.unitCost ? `1 ${project.unitName} = ${formatCurrency(project.unitCost)}` : null,
     raised,
@@ -373,10 +362,8 @@ export default function ChallengeDetailPage() {
   const activeJarLabel = getActiveJarLabel(activeInviteTarget, profile, projects);
   const countdown = getChallengeCountdown(challenge.project);
   const canManageChallenge = challenge.project.createdBy === user?.uid || profile?.email === ADMIN_EMAIL;
-  const split = normalizeJarSplit(profile?.jarSplit as any);
-  const giveTotal = profile ? (profile.totalGiveAllocated ?? profile.totalSaved * (split.give / 100)) : 0;
   const profileChallengeBalance = Math.max(0, profile?.causeJarBalances?.[challenge.project.id] ?? 0);
-  const pledgedAmount = Math.max(challenge.project.totalRaised || 0, profileChallengeBalance);
+  const pledgedAmount = Math.max(0, (challenge.project.totalDonated ?? 0) + profileChallengeBalance);
   const challengeUrl = appendRefParam(
     typeof window !== "undefined" ? `${window.location.origin}${getChallengeSharePath(challenge.project)}` : getChallengeSharePath(challenge.project),
     user?.uid
@@ -548,7 +535,6 @@ export default function ChallengeDetailPage() {
         <div className="p-5">
           <div className="flex flex-wrap gap-2 mb-3">
             <Badge>{challenge.trustLabel}</Badge>
-            <Badge>{challenge.visibilityLabel}</Badge>
             {countdown.isExpired && (
               <span className="px-2 py-0.5 rounded-full text-xs font-bold" style={{ background: "rgba(239,68,68,0.1)", color: "#EF4444" }}>
                 Ended
@@ -582,14 +568,6 @@ export default function ChallengeDetailPage() {
               href={challenge.project.donationURL}
               accent="#7DD3FC"
             />
-            {challenge.project.learnMoreURL && (
-              <DetailTile
-                label="Learn more"
-                value={donationHost(challenge.project.learnMoreURL) ?? "Learn more"}
-                href={challenge.project.learnMoreURL}
-                accent="var(--green-primary)"
-              />
-            )}
           </section>
 
           <section className="mt-4">
@@ -650,7 +628,7 @@ export default function ChallengeDetailPage() {
               className="mt-5 flex items-center justify-center rounded-xl px-4 py-3 text-sm font-black"
               style={{ background: "var(--bg-surface-2)", border: "1px solid var(--border-default)", color: "var(--green-primary)", textDecoration: "none" }}
             >
-              Learn more →
+              Learn more about this cause →
             </a>
           )}
 

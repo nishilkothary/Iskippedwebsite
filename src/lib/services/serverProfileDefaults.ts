@@ -1,60 +1,24 @@
-import { UserProfile, SpendingGoal } from "@/lib/types/models";
 import { ApiError } from "@/lib/services/apiAuth";
+import type { Project } from "@/lib/types/models";
 
-// Server-side mirrors of the pure helpers in firebase/users.ts (kept dependency-free
-// so API routes never bundle the client Firebase SDK). Keep behavior identical.
+export function validateAmount(value: unknown, fieldName = "amount"): number {
+  const amount = typeof value === "number" ? value : typeof value === "string" ? Number(value) : NaN;
 
-export function normalizeJarSplitServer(
-  raw: { give?: number; live?: number; giving?: number; spending?: number } | undefined
-): { give: number; live: number } {
-  if (!raw) return { give: 50, live: 50 };
-  if (raw.give !== undefined && raw.live !== undefined) return { give: raw.give, live: raw.live };
-  return { give: raw.giving ?? 50, live: raw.spending ?? 50 };
+  if (!Number.isFinite(amount) || amount <= 0) {
+    throw new ApiError(400, `${fieldName} must be a positive number`);
+  }
+
+  return Math.round(amount * 100) / 100;
 }
 
-export function normalizeSpendingGoalsServer(profile: Partial<UserProfile>): {
-  goals: SpendingGoal[];
-  activeId: string | null;
-} {
-  if (profile.spendingGoals && profile.spendingGoals.length > 0) {
-    return {
-      goals: profile.spendingGoals,
-      activeId: profile.activeSpendingGoalId !== undefined
-        ? profile.activeSpendingGoalId
-        : profile.spendingGoals[0]?.id ?? null,
-    };
+export function validateNonEmptyString(value: unknown, fieldName: string): string {
+  if (typeof value !== "string" || value.trim().length === 0) {
+    throw new ApiError(400, `${fieldName} is required`);
   }
-  if (profile.spendingGoal) {
-    const goal: SpendingGoal = {
-      id: "legacy",
-      label: profile.spendingGoal.label,
-      targetAmount: profile.spendingGoal.targetAmount,
-      type: "splurge",
-      shoppingLink: profile.spendingGoal.shoppingLink,
-    };
-    return { goals: [goal], activeId: "legacy" };
-  }
-  return { goals: [], activeId: null };
+
+  return value.trim();
 }
 
-export const MAX_MONEY_AMOUNT = 10000;
-
-export function validateAmount(amount: unknown, max = MAX_MONEY_AMOUNT): number {
-  if (typeof amount !== "number" || !Number.isFinite(amount) || amount <= 0 || amount > max) {
-    throw new ApiError(400, "Invalid amount");
-  }
-  return amount;
-}
-
-export function validateNonEmptyString(value: unknown, field: string): string {
-  if (typeof value !== "string" || value.length === 0) {
-    throw new ApiError(400, `Invalid ${field}`);
-  }
-  return value;
-}
-
-/** Mirror of isChallengeProject in firebase/projects.ts — dependency-free so API routes never bundle the client Firebase SDK. */
-export function isChallengeProjectServer(project: { projectKind?: string; tags?: string[]; isCustom?: boolean }): boolean {
-  if (project.projectKind) return project.projectKind === "challenge";
-  return !!project.tags?.includes("challenge") || !!project.isCustom;
+export function isChallengeProjectServer(project: Pick<Project, "projectKind" | "memberUids" | "visibility"> | null | undefined): boolean {
+  return project?.projectKind === "challenge" || Array.isArray(project?.memberUids) || Boolean(project?.visibility);
 }

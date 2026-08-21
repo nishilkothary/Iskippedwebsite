@@ -2,13 +2,12 @@ import { NextRequest, NextResponse } from "next/server";
 import { FieldValue } from "firebase-admin/firestore";
 import { getAdminDb } from "@/lib/services/firebaseAdmin";
 import { requireUid, ApiError, handleApiError } from "@/lib/services/apiAuth";
-import { normalizeJarSplitServer } from "@/lib/services/serverProfileDefaults";
 import { adjustGlobalStats } from "@/lib/services/globalStats";
-import { UserProfile, Skip } from "@/lib/types/models";
+import { UserProfile, Skip, SkipAllocationTarget } from "@/lib/types/models";
 
 type RouteContext = { params: Promise<{ skipId: string }> };
 
-const EDITABLE_FIELDS = ["category", "categoryLabel", "categoryEmoji", "amount", "projectId", "projectTitle", "whatSkipped", "notes", "jarSplit", "allocationTarget"] as const;
+const EDITABLE_FIELDS = ["category", "categoryLabel", "categoryEmoji", "amount", "projectId", "projectTitle", "whatSkipped", "notes", "allocationTarget"] as const;
 
 export async function PATCH(req: NextRequest, ctx: RouteContext) {
   try {
@@ -28,76 +27,55 @@ export async function PATCH(req: NextRequest, ctx: RouteContext) {
     const userRef = db.collection("users").doc(uid);
     const skipRef = userRef.collection("skips").doc(skipId);
 
-    const { projectId, giveAllocDelta, amountDelta, resolvedAmount, resolvedCategoryLabel } = await db.runTransaction(async (tx) => {
+    const { projectId, fundraiserAmountDelta, amountDelta, resolvedAmount, resolvedCategoryLabel } = await db.runTransaction(async (tx) => {
       const [skipSnap, userSnap] = await Promise.all([tx.get(skipRef), tx.get(userRef)]);
       if (!skipSnap.exists) throw new ApiError(404, "Skip not found");
       const skip = skipSnap.data() as Skip;
       const profile = userSnap.data() as UserProfile;
 
-      const defaultSplit = skip.allocationMode === "skip-pot"
-        ? { give: 0, live: 0 }
-        : normalizeJarSplitServer(profile.jarSplit as any);
       const oldAmount = skip.amount;
       const newAmount = (updates.amount as number | undefined) ?? oldAmount;
       const amountDelta = newAmount - oldAmount;
-      const oldSplit = skip.jarSplit ?? defaultSplit;
-      const newSplit = (updates.jarSplit as { give: number; live: number } | undefined) ?? oldSplit;
-      const oldGiveAlloc = oldAmount * (oldSplit.give / 100);
-      const newGiveAlloc = newAmount * (newSplit.give / 100);
-      const oldLiveAlloc = oldAmount * (oldSplit.live / 100);
-      const newLiveAlloc = newAmount * (newSplit.live / 100);
-      const giveAllocDelta = newGiveAlloc - oldGiveAlloc;
-      const liveAllocDelta = newLiveAlloc - oldLiveAlloc;
-      const projectId = skip.projectId;
-      const allocationTarget = skip.allocationTarget
-        ?? (skip.allocationMode === "skip-pot" && skip.projectId
-          ? { type: "fundraiser" as const, id: skip.projectId }
-          : null);
+      const allocationTarget = resolveSkipTarget(skip, updates.allocationTarget as SkipAllocationTarget | null | undefined);
 
       if (Object.keys(updates).length > 0) tx.update(skipRef, updates);
 
       const userUpdate: Record<string, unknown> = {};
       if (amountDelta !== 0) userUpdate.totalSaved = FieldValue.increment(amountDelta);
-      if (skip.allocationMode === "skip-pot") {
-        if (amountDelta !== 0 && allocationTarget?.type === "goal") {
-          userUpdate[`goalJarBalances.${allocationTarget.id}`] = Math.max(
-            0,
-            (profile.goalJarBalances?.[allocationTarget.id] ?? 0) + amountDelta
-          );
-        }
-        if (amountDelta !== 0 && allocationTarget?.type === "fundraiser") {
-          userUpdate[`causeJarBalances.${allocationTarget.id}`] = Math.max(
-            0,
-            (profile.causeJarBalances?.[allocationTarget.id] ?? 0) + amountDelta
-          );
-        }
-      } else {
-        if (giveAllocDelta !== 0) userUpdate.totalGiveAllocated = FieldValue.increment(giveAllocDelta);
-        if (liveAllocDelta !== 0) userUpdate.totalLiveAllocated = FieldValue.increment(liveAllocDelta);
-        if (giveAllocDelta !== 0 && projectId) userUpdate[`causeJarBalances.${projectId}`] = FieldValue.increment(giveAllocDelta);
+      if (amountDelta !== 0 && allocationTarget?.type === "goal") {
+        userUpdate[`goalJarBalances.${allocationTarget.id}`] = Math.max(
+          0,
+          (profile.goalJarBalances?.[allocationTarget.id] ?? 0) + amountDelta
+        );
+      }
+      if (amountDelta !== 0 && allocationTarget?.type === "fundraiser") {
+        userUpdate[`causeJarBalances.${allocationTarget.id}`] = Math.max(
+          0,
+          (profile.causeJarBalances?.[allocationTarget.id] ?? 0) + amountDelta
+        );
       }
       if (Object.keys(userUpdate).length > 0) tx.update(userRef, userUpdate);
 
       return {
-        projectId: allocationTarget?.type === "fundraiser" ? allocationTarget.id : projectId,
-        giveAllocDelta: allocationTarget?.type === "fundraiser" ? amountDelta : giveAllocDelta,
+        projectId: allocationTarget?.type === "fundraiser" ? allocationTarget.id : null,
+        fundraiserAmountDelta: allocationTarget?.type === "fundraiser" ? amountDelta : 0,
         amountDelta,
         resolvedAmount: newAmount,
         resolvedCategoryLabel: (updates.categoryLabel as string | undefined) ?? skip.categoryLabel,
       };
     });
 
-    // Sync project totalRaised after the user batch commits (best-effort, matches prior behavior)
-    if (projectId && giveAllocDelta !== 0) {
+    // Keep legacy project counters in sync, but UI progress is derived from donations plus jar balances.
+    if (projectId && fundraiserAmountDelta !== 0) {
       const projectRef = db.collection("projects").doc(projectId);
-      if (giveAllocDelta > 0) {
-        projectRef.update({ totalRaised: FieldValue.increment(giveAllocDelta) })
+      if (fundraiserAmountDelta > 0) {
+        projectRef.update({ totalRaised: FieldValue.increment(fundraiserAmountDelta) })
           .catch((e) => console.warn("[skips] project totalRaised increment failed:", e));
       } else {
         projectRef.get()
           .then((snap) => {
             const current = (snap.data()?.totalRaised ?? 0) as number;
-            return projectRef.update({ totalRaised: Math.max(0, current + giveAllocDelta) });
+            return projectRef.update({ totalRaised: Math.max(0, current + fundraiserAmountDelta) });
           })
           .catch((e) => console.warn("[skips] project totalRaised decrement failed:", e));
       }
@@ -127,49 +105,35 @@ export async function DELETE(req: NextRequest, ctx: RouteContext) {
     const userRef = db.collection("users").doc(uid);
     const skipRef = userRef.collection("skips").doc(skipId);
 
-    const { projectId, giveAllocAmount, deletedAmount } = await db.runTransaction(async (tx) => {
+    const { projectId, fundraiserAmount, deletedAmount } = await db.runTransaction(async (tx) => {
       const [skipSnap, userSnap] = await Promise.all([tx.get(skipRef), tx.get(userRef)]);
       if (!skipSnap.exists) throw new ApiError(404, "Skip not found");
       const skip = skipSnap.data() as Skip;
       const profile = userSnap.data() as UserProfile;
-      const allocationTarget = skip.allocationTarget
-        ?? (skip.allocationMode === "skip-pot" && skip.projectId
-          ? { type: "fundraiser" as const, id: skip.projectId }
-          : null);
-      const split = skip.allocationMode === "skip-pot"
-        ? { give: 0, live: 0 }
-        : (skip.jarSplit ?? normalizeJarSplitServer(profile.jarSplit as any));
-      const giveAllocAmount = skip.amount * (split.give / 100);
-      const liveAllocAmount = skip.amount * (split.live / 100);
+      const allocationTarget = resolveSkipTarget(skip);
 
       tx.delete(skipRef);
       const userUpdate: Record<string, unknown> = {
         totalSaved: FieldValue.increment(-skip.amount),
         totalSkips: FieldValue.increment(-1),
       };
-      if (skip.allocationMode === "skip-pot") {
-        if (allocationTarget?.type === "goal") {
-          userUpdate[`goalJarBalances.${allocationTarget.id}`] = Math.max(
-            0,
-            (profile.goalJarBalances?.[allocationTarget.id] ?? 0) - skip.amount
-          );
-        }
-        if (allocationTarget?.type === "fundraiser") {
-          userUpdate[`causeJarBalances.${allocationTarget.id}`] = Math.max(
-            0,
-            (profile.causeJarBalances?.[allocationTarget.id] ?? 0) - skip.amount
-          );
-        }
-      } else {
-        userUpdate.totalGiveAllocated = FieldValue.increment(-giveAllocAmount);
-        userUpdate.totalLiveAllocated = FieldValue.increment(-liveAllocAmount);
-        if (skip.projectId) userUpdate[`causeJarBalances.${skip.projectId}`] = FieldValue.increment(-giveAllocAmount);
+      if (allocationTarget?.type === "goal") {
+        userUpdate[`goalJarBalances.${allocationTarget.id}`] = Math.max(
+          0,
+          (profile.goalJarBalances?.[allocationTarget.id] ?? 0) - skip.amount
+        );
+      }
+      if (allocationTarget?.type === "fundraiser") {
+        userUpdate[`causeJarBalances.${allocationTarget.id}`] = Math.max(
+          0,
+          (profile.causeJarBalances?.[allocationTarget.id] ?? 0) - skip.amount
+        );
       }
       tx.update(userRef, userUpdate);
 
       return {
         projectId: allocationTarget?.type === "fundraiser" ? allocationTarget.id : skip.projectId,
-        giveAllocAmount: allocationTarget?.type === "fundraiser" ? skip.amount : giveAllocAmount,
+        fundraiserAmount: allocationTarget?.type === "fundraiser" ? skip.amount : 0,
         deletedAmount: skip.amount,
       };
     });
@@ -185,7 +149,7 @@ export async function DELETE(req: NextRequest, ctx: RouteContext) {
           const current = (snap.data()?.totalRaised ?? 0) as number;
           const currentSkips = (snap.data()?.totalSkips ?? 0) as number;
           return projectRef.update({
-            totalRaised: Math.max(0, current - giveAllocAmount),
+            totalRaised: Math.max(0, current - fundraiserAmount),
             totalSkips: Math.max(0, currentSkips - 1),
           });
         })
@@ -196,4 +160,11 @@ export async function DELETE(req: NextRequest, ctx: RouteContext) {
   } catch (e) {
     return handleApiError(e);
   }
+}
+
+function resolveSkipTarget(skip: Skip, override?: SkipAllocationTarget | null): SkipAllocationTarget | null {
+  if (override !== undefined) return override;
+  if (skip.allocationTarget) return skip.allocationTarget;
+  if (skip.projectId) return { type: "fundraiser", id: skip.projectId };
+  return null;
 }

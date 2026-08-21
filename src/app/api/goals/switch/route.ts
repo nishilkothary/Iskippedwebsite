@@ -1,5 +1,4 @@
 import { NextRequest, NextResponse } from "next/server";
-import { FieldValue } from "firebase-admin/firestore";
 import { getAdminDb } from "@/lib/services/firebaseAdmin";
 import { requireUid, ApiError, handleApiError } from "@/lib/services/apiAuth";
 import { validateNonEmptyString } from "@/lib/services/serverProfileDefaults";
@@ -28,11 +27,12 @@ export async function POST(req: NextRequest) {
       };
       let balanceTransfer: Record<string, number> | null = null;
       if (moveFunds && oldGoalId) {
-        const oldBal = profile.goalJarBalances?.[oldGoalId] ?? 0;
+        const oldBal = Math.max(0, profile.goalJarBalances?.[oldGoalId] ?? 0);
         if (oldBal > 0) {
-          updates[`goalJarBalances.${newGoalId}`] = FieldValue.increment(oldBal);
+          const existingNewBalance = Math.max(0, profile.goalJarBalances?.[newGoalId] ?? 0);
+          updates[`goalJarBalances.${newGoalId}`] = existingNewBalance + oldBal;
           updates[`goalJarBalances.${oldGoalId}`] = 0;
-          balanceTransfer = { [oldGoalId]: 0, [newGoalId]: oldBal };
+          balanceTransfer = { [oldGoalId]: 0, [newGoalId]: existingNewBalance + oldBal };
         }
       }
       tx.update(userRef, updates);

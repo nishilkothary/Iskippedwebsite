@@ -22,13 +22,13 @@ export async function POST(req: NextRequest) {
     await db.runTransaction(async (tx) => {
       const userSnap = await tx.get(userRef);
       const profile = userSnap.data() as UserProfile | undefined;
-      const currentBal = profile?.causeJarBalances?.[projectId] ?? 0;
+      const currentBal = Math.max(0, profile?.causeJarBalances?.[projectId] ?? 0);
       const unassignedSkipBank = getSkipBalanceSummary(profile).unassignedSkipBank;
-      const usableFromSkips = Math.max(0, currentBal) + unassignedSkipBank;
+      const usableFromSkips = currentBal + unassignedSkipBank;
       if (amount > usableFromSkips) {
         throw new ApiError(400, "Donation exceeds available skipped savings");
       }
-      const jarDecrease = Math.min(amount, Math.max(0, currentBal));
+      const jarDecrease = Math.min(amount, currentBal);
 
       tx.set(donationRef, {
         causeId: projectId,
@@ -41,7 +41,7 @@ export async function POST(req: NextRequest) {
       tx.update(userRef, {
         totalDonated: FieldValue.increment(amount),
         savedTowardActiveCause: 0,
-        [`causeJarBalances.${projectId}`]: FieldValue.increment(-jarDecrease),
+        [`causeJarBalances.${projectId}`]: Math.max(0, currentBal - jarDecrease),
         [`causeJarOverflowCounts.${projectId}`]: 0,
       });
     });

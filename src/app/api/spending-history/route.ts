@@ -22,14 +22,14 @@ export async function POST(req: NextRequest) {
     const result = await db.runTransaction(async (tx) => {
       const userSnap = await tx.get(userRef);
       const profile = userSnap.data() as UserProfile | undefined;
-      const currentBal = profile?.goalJarBalances?.[goalId] ?? 0;
+      const currentBal = Math.max(0, profile?.goalJarBalances?.[goalId] ?? 0);
       const unassignedSkipBank = getSkipBalanceSummary(profile).unassignedSkipBank;
-      const usableFromSkips = Math.max(0, currentBal) + unassignedSkipBank;
+      const usableFromSkips = currentBal + unassignedSkipBank;
       if (amount > usableFromSkips) {
         throw new ApiError(400, "Purchase exceeds available skipped savings");
       }
       const amountFromSkips = Math.min(amount, usableFromSkips);
-      const jarDecrease = Math.min(amountFromSkips, Math.max(0, currentBal));
+      const jarDecrease = Math.min(amountFromSkips, currentBal);
 
       tx.set(historyRef, {
         goalId,
@@ -41,7 +41,7 @@ export async function POST(req: NextRequest) {
       });
       tx.update(userRef, {
         totalSpent: FieldValue.increment(amountFromSkips),
-        [`goalJarBalances.${goalId}`]: FieldValue.increment(-jarDecrease),
+        [`goalJarBalances.${goalId}`]: Math.max(0, currentBal - jarDecrease),
       });
 
       return { amountFromSkips, jarDecrease };

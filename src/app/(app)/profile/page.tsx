@@ -7,7 +7,7 @@ import { signOut } from "@/lib/services/firebase/auth";
 import { deleteAccount } from "@/lib/services/firebase/account";
 import { formatCurrency } from "@/lib/utils/currency";
 import { impactScore } from "@/lib/utils/impactScore";
-import { normalizeJarSplit, recalculateTotals, setShareSkipsByDefault } from "@/lib/services/firebase/users";
+import { setShareSkipsByDefault } from "@/lib/services/firebase/users";
 import { isPushSupported, registerForPush, unregisterPush } from "@/lib/services/firebase/push";
 import { useSkips } from "@/hooks/useSkips";
 import { DeleteAccountModal } from "@/components/profile/DeleteAccountModal";
@@ -17,8 +17,6 @@ export default function ProfilePage() {
   const router = useRouter();
   const { user, profile, setUser, setProfile, updateProfile } = useAuthStore();
   const { recentSkips } = useSkips();
-  const [recalcState, setRecalcState] = useState<"idle" | "loading" | "done" | "error">("idle");
-  const [recalcResult, setRecalcResult] = useState<{ totalSkips: number; totalSaved: number } | null>(null);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [pushSupported, setPushSupported] = useState(false);
   const [pushBusy, setPushBusy] = useState(false);
@@ -68,7 +66,6 @@ export default function ProfilePage() {
 
   if (!profile || !user) return null;
 
-  const currentSplit = normalizeJarSplit(profile.jarSplit as any);
   const skipBalance = getSkipBalanceSummary(profile);
   const formatWeeks = (weeks: number) => `${weeks} week${weeks === 1 ? "" : "s"}`;
 
@@ -111,19 +108,6 @@ export default function ProfilePage() {
     borderRadius: 16,
   };
   const firstName = profile.displayName.split(" ")[0] || profile.displayName;
-
-  async function handleRecalculate() {
-    setRecalcState("loading");
-    setRecalcResult(null);
-    try {
-      const result = await recalculateTotals(user!.uid, currentSplit);
-      updateProfile(result);
-      setRecalcResult({ totalSkips: result.totalSkips, totalSaved: result.totalSaved });
-      setRecalcState("done");
-    } catch {
-      setRecalcState("error");
-    }
-  }
 
   async function handleToggleShareSkipsByDefault() {
     if (!user || !profile) return;
@@ -271,34 +255,6 @@ export default function ProfilePage() {
 
       {/* Settings */}
       <div className="mb-8">
-        <div className="hidden">
-          <p className="text-sm font-bold mb-1" style={{ color: "var(--text-primary)" }}>🔄 Recalculate totals</p>
-          <p className="text-xs mb-4" style={{ color: "var(--text-secondary)" }}>
-            If your jar balances look off, this recomputes your totals from your actual logged skips. Donations and purchases are not affected.
-          </p>
-          {recalcState === "done" && recalcResult && (
-            <div className="rounded-xl px-4 py-3 mb-3" style={{ background: "var(--bg-surface-2)", border: "1px solid var(--border-emphasis)" }}>
-              <p className="text-sm font-semibold" style={{ color: "var(--green-primary)" }}>
-                Done — {recalcResult.totalSkips} skip{recalcResult.totalSkips !== 1 ? "s" : ""} found,{" "}
-                {formatCurrency(recalcResult.totalSaved)} total saved
-              </p>
-            </div>
-          )}
-          {recalcState === "error" && (
-            <div className="bg-red-500/10 border border-red-500/30 rounded-xl px-4 py-3 mb-3">
-              <p className="text-sm text-red-400">Something went wrong. Please try again.</p>
-            </div>
-          )}
-          <button
-            onClick={handleRecalculate}
-            disabled={recalcState === "loading"}
-            className="w-full py-2.5 font-semibold rounded-xl text-sm transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-            style={{ border: "1px solid var(--border-emphasis)", color: "var(--text-secondary)", background: "transparent" }}
-          >
-            {recalcState === "loading" ? "Recalculating…" : "Recalculate"}
-          </button>
-        </div>
-
         <div className="p-5 mb-4" style={{ ...cardStyle, borderRadius: 20 }}>
           <div className="flex items-center justify-between gap-4">
             <div>

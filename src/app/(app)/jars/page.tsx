@@ -10,14 +10,12 @@ import { formatCurrency } from "@/lib/utils/currency";
 import {
   completeGoal,
   recordPurchase,
-  transferLiveToGive,
   subscribeToSpendingHistory,
   updateSpendingHistory,
   deleteSpendingHistory,
   setActiveProject,
   switchCause,
   switchGoal,
-  normalizeJarSplit,
   normalizeSpendingGoals,
   updateSpendingGoals,
   setUserCauseGoal,
@@ -344,14 +342,6 @@ function JarsPageInner() {
   const [editPurchaseAmountStr, setEditPurchaseAmountStr] = useState("");
   const [deletingPurchaseId, setDeletingPurchaseId] = useState<string | null>(null);
   const [purchaseWorking, setPurchaseWorking] = useState(false);
-  // Must be declared before the early return to satisfy Rules of Hooks
-  const [splitGive, setSplitGive] = useState(() => normalizeJarSplit(profile?.jarSplit as any).give);
-  const [savingSplit, setSavingSplit] = useState(false);
-  // Sync slider when profile loads async or changes from another tab
-  useEffect(() => {
-    setSplitGive(normalizeJarSplit(profile?.jarSplit as any).give);
-  }, [profile?.jarSplit]);
-
   useEffect(() => {
     if (!user || !profile?.spendingGoals?.length) return;
 
@@ -384,9 +374,6 @@ function JarsPageInner() {
 
   if (!profile || !user) return null;
 
-  const split = normalizeJarSplit(profile.jarSplit as any);
-  const giveTotal = profile.totalGiveAllocated ?? profile.totalSaved * (split.give / 100);
-  const globalGivingBalance = Math.max(0, giveTotal - (profile.totalDonated ?? 0));
   const skipBalanceSummary = getSkipBalanceSummary(profile);
   // Skip Bank is the unassigned part of lifetime skipped savings. Jars hold money
   // already picked for a specific reward or fundraiser.
@@ -397,18 +384,18 @@ function JarsPageInner() {
   const completedChallenges = (profile.joinedProjectIds ?? [])
     .map((id) => projects.find((p) => p.id === id))
     .filter((p): p is Project => !!p && isChallengeProject(p) && isProjectEnded(p))
-    .filter((p) => (profile.causeJarBalances?.[p.id] ?? 0) > 0)
+    .filter((p) => Math.max(0, profile.causeJarBalances?.[p.id] ?? 0) > 0)
     .map((p) => ({
       project: p,
-      balance: profile.causeJarBalances?.[p.id] ?? 0,
+      balance: Math.max(0, profile.causeJarBalances?.[p.id] ?? 0),
       donated: donations.filter((d) => d.causeId === p.id).reduce((sum, d) => sum + d.amount, 0),
     }));
 
   const { goals: spendingGoals, activeId: activeSpendingGoalId } = normalizeSpendingGoals(profile);
   const activeGoal = spendingGoals.find((g) => g.id === activeSpendingGoalId) ?? null;
 
-  const givingBalance = globalGivingBalance;
-  const spendingBalance = skipBankBalance;
+  const givingBalance = activeProject ? Math.max(0, profile.causeJarBalances?.[activeProject.id] ?? 0) : 0;
+  const spendingBalance = activeGoal ? Math.max(0, profile.goalJarBalances?.[activeGoal.id] ?? 0) : 0;
 
   async function handleSelectCause(project: Project) {
     let transfer;
@@ -422,7 +409,7 @@ function JarsPageInner() {
     const currentBalances = profile!.causeJarBalances ?? {};
     const newCauseJarBalances = transfer
       ? Object.fromEntries(
-          Object.entries({ ...currentBalances, ...transfer }).map(([k, v]) => [k, v as number])
+          Object.entries({ ...currentBalances, ...transfer }).map(([k, v]) => [k, Math.max(0, Number(v) || 0)])
         )
       : currentBalances;
     updateProfile({ activeProjectId: project.id, causeJarBalances: newCauseJarBalances });
@@ -494,7 +481,7 @@ function JarsPageInner() {
     const currentBalances = profile!.goalJarBalances ?? {};
     const newGoalJarBalances = transfer
       ? Object.fromEntries(
-          Object.entries({ ...currentBalances, ...transfer }).map(([k, v]) => [k, v as number])
+          Object.entries({ ...currentBalances, ...transfer }).map(([k, v]) => [k, Math.max(0, Number(v) || 0)])
         )
       : currentBalances;
     updateProfile({ activeSpendingGoalId: goalId, goalJarBalances: newGoalJarBalances });
@@ -534,28 +521,8 @@ function JarsPageInner() {
     updateProfile({ activeSpendingGoalId: null, spendingGoals, spendingGoal: null });
   }
 
-  async function handleMoveToGive(goalId: string) {
-    try {
-      await transferLiveToGive(user!.uid, spendingBalance, spendingGoals, goalId, activeSpendingGoalId);
-    } catch (err) {
-      console.error("transferLiveToGive failed", err);
-      toast.error("Couldn't move your funds — check your connection and try again.");
-      return;
-    }
-    const newGoals = spendingGoals.filter((g) => g.id !== goalId);
-    const newActiveId =
-      activeSpendingGoalId === goalId ? (newGoals[0]?.id ?? null) : activeSpendingGoalId;
-    updateProfile({
-      totalLiveAllocated: (profile!.totalLiveAllocated ?? 0) - spendingBalance,
-      totalGiveAllocated: (profile!.totalGiveAllocated ?? 0) + spendingBalance,
-      spendingGoals: newGoals,
-      activeSpendingGoalId: newActiveId,
-    });
-  }
-
   const splurgeProps = {
     spendingBalance,
-    totalLiveAllocated: skipBankBalance,
     totalSpent: profile.totalSpent ?? 0,
     goals: spendingGoals,
     projects,
@@ -576,7 +543,6 @@ function JarsPageInner() {
     onSetActiveGoal: handleSetActiveGoal,
     onDeactivateGoal: handleDeactivateGoal,
     onCompleteGoal: handleCompleteGoal,
-    onMoveToGive: handleMoveToGive,
     onPurchase: async (amount: number) => {
       if (!activeSpendingGoalId || !activeGoal) return;
       let purchaseResult: { amountFromSkips: number; jarDecrease: number };
@@ -631,7 +597,7 @@ function JarsPageInner() {
               ...(profile.goalJarBalances ?? {}),
               [target.id]: mode === "set"
                 ? appliedAmount
-                : (profile.goalJarBalances?.[target.id] ?? 0) + appliedAmount,
+                : Math.max(0, profile.goalJarBalances?.[target.id] ?? 0) + appliedAmount,
             },
             activeSkipTarget: target,
           });
@@ -641,7 +607,7 @@ function JarsPageInner() {
               ...(profile.causeJarBalances ?? {}),
               [target.id]: mode === "set"
                 ? appliedAmount
-                : (profile.causeJarBalances?.[target.id] ?? 0) + appliedAmount,
+                : Math.max(0, profile.causeJarBalances?.[target.id] ?? 0) + appliedAmount,
             },
             activeSkipTarget: target,
           });
@@ -675,15 +641,16 @@ function JarsPageInner() {
       await updateSpendingHistory(user.uid, event.id, newAmount, event.amountSaved);
     },
     onDeleteHistory: (event: SpendingHistoryEvent) => {
-      const updates: Parameters<typeof updateProfile>[0] = { totalSpent: (profile.totalSpent ?? 0) - event.amountSaved };
+      const amountSaved = Math.max(0, event.amountSaved);
+      const updates: Parameters<typeof updateProfile>[0] = { totalSpent: Math.max(0, (profile.totalSpent ?? 0) - amountSaved) };
       if (event.goalId) {
         updates.goalJarBalances = {
           ...(profile.goalJarBalances ?? {}),
-          [event.goalId]: (profile.goalJarBalances?.[event.goalId] ?? 0) + event.amountSaved,
+          [event.goalId]: Math.max(0, profile.goalJarBalances?.[event.goalId] ?? 0) + amountSaved,
         };
       }
       updateProfile(updates);
-      return deleteSpendingHistory(user.uid, event.id, event.amountSaved, event.goalId);
+      return deleteSpendingHistory(user.uid, event.id, amountSaved, event.goalId);
     },
     autoOpenRewardForm,
     autoOpenRewardSkip,
@@ -938,7 +905,6 @@ function CauseTab({
   onEditDonation,
   onDeleteDonation,
   onShowCommunityChallenges,
-  totalGiveAllocated,
   totalDonated,
   autoOpenDonationLog,
 }: {
@@ -961,7 +927,6 @@ function CauseTab({
   onEditDonation: (donation: DonationEvent, newAmount: number) => Promise<void>;
   onDeleteDonation: (donation: DonationEvent) => Promise<void>;
   onShowCommunityChallenges: () => void;
-  totalGiveAllocated: number;
   totalDonated: number;
   autoOpenDonationLog?: boolean;
 }) {
@@ -998,11 +963,7 @@ function CauseTab({
           <p className="text-base font-black leading-snug mb-4" style={{ color: "var(--text-primary)" }}>
             {activeProject.title}
           </p>
-          <div className="grid grid-cols-3 gap-3 mb-4">
-            <div className="rounded-xl p-3 text-center" style={{ background: "var(--bg-surface-2)", border: "1px solid var(--border-default)" }}>
-              <p className="text-[10px] font-bold uppercase tracking-wide mb-1" style={{ color: "var(--text-muted)" }}>Lifetime Given</p>
-              <p className="text-lg font-extrabold leading-tight" style={{ color: "var(--text-primary)" }}>{formatCurrency(totalGiveAllocated)}</p>
-            </div>
+          <div className="grid grid-cols-2 gap-3 mb-4">
             <div className="rounded-xl p-3 text-center" style={{ background: "var(--bg-surface-2)", border: "1px solid var(--border-default)" }}>
               <p className="text-[10px] font-bold uppercase tracking-wide mb-1" style={{ color: "var(--text-muted)" }}>Donated</p>
               <p className="text-lg font-extrabold leading-tight" style={{ color: "var(--text-primary)" }}>{formatCurrency(totalDonated)}</p>
@@ -1323,14 +1284,14 @@ function getNextMilestone(targetAmount: number, balance: number): { value: numbe
 /* ── Compact Reward Jar (shown on combined My Jars view) ── */
 function CompactRewardJar({
   spendingBalance,
-  totalLiveAllocated,
+  totalSaved,
   totalSpent,
   activeGoal,
   onPurchase,
   onManageRewards,
 }: {
   spendingBalance: number;
-  totalLiveAllocated: number;
+  totalSaved: number;
   totalSpent: number;
   activeGoal: SpendingGoal | null;
   onPurchase: (amount: number) => Promise<void>;
@@ -1477,7 +1438,7 @@ function CompactRewardJar({
       <div className="grid grid-cols-3 gap-2 mt-4">
         <div className="rounded-xl p-2.5 text-center" style={{ background: "var(--bg-surface-2)" }}>
           <p className="text-[10px] font-bold uppercase tracking-wide mb-0.5" style={{ color: "var(--text-muted)" }}>Lifetime Saved</p>
-          <p className="text-sm font-extrabold" style={{ color: "var(--text-primary)" }}>{formatCurrency(totalLiveAllocated)}</p>
+          <p className="text-sm font-extrabold" style={{ color: "var(--text-primary)" }}>{formatCurrency(totalSaved)}</p>
         </div>
         <div className="rounded-xl p-2.5 text-center" style={{ background: "rgba(139,92,246,0.08)", border: "1px solid rgba(139,92,246,0.2)" }}>
           <p className="text-[10px] font-bold uppercase tracking-wide mb-0.5" style={{ color: "#8B5CF6" }}>In Jar</p>
@@ -1495,7 +1456,6 @@ function CompactRewardJar({
 /* ── Splurge Tab ── */
 function SplurgeTab({
   spendingBalance,
-  totalLiveAllocated,
   totalSpent,
   goals,
   projects,
@@ -1516,7 +1476,6 @@ function SplurgeTab({
   onSetActiveGoal,
   onDeactivateGoal,
   onCompleteGoal,
-  onMoveToGive,
   onPurchase,
   onSetSkipTarget,
   onSetFundraiserGoal,
@@ -1531,7 +1490,6 @@ function SplurgeTab({
   autoOpenRewardCategory = "",
 }: {
   spendingBalance: number;
-  totalLiveAllocated: number;
   totalSpent: number;
   goals: SpendingGoal[];
   projects: Project[];
@@ -1552,7 +1510,6 @@ function SplurgeTab({
   onSetActiveGoal: (goalId: string, moveFunds: boolean) => Promise<void>;
   onDeactivateGoal: () => Promise<void>;
   onCompleteGoal: (goalId: string) => Promise<void>;
-  onMoveToGive: (goalId: string) => Promise<void>;
   onPurchase: (amount: number) => Promise<void>;
   onSetSkipTarget: (target: SkipAllocationTarget | null) => Promise<void>;
   onSetFundraiserGoal: (fundraiserId: string, amount: number) => Promise<void>;
@@ -1695,7 +1652,7 @@ function SplurgeTab({
   const dismissedStarterSet = new Set(dismissedStarterIds);
   const suggestedRewards = rewardPresets.filter((preset) => !dismissedStarterSet.has(preset.id));
   const visibleSavedRewards = goals.filter((goal) => !presetRewardNames.has(goal.label.trim().toLowerCase()));
-  const activeGoalJarBalance = activeGoal ? (goalJarBalances?.[activeGoal.id] ?? 0) : 0;
+  const activeGoalJarBalance = activeGoal ? Math.max(0, goalJarBalances?.[activeGoal.id] ?? 0) : 0;
   const fundraisers = projects
     .filter((project) =>
       !isProjectEnded(project)
@@ -2510,7 +2467,7 @@ function SplurgeTab({
                 (g) => g.label.toLowerCase() === preset.label.toLowerCase() && g.targetAmount === preset.amount
               );
               const isActive = activeSkipTarget?.type === "goal" && matchingGoal?.id === activeSkipTarget.id;
-              const balance = matchingGoal ? (goalJarBalances?.[matchingGoal.id] ?? 0) : 0;
+              const balance = matchingGoal ? Math.max(0, goalJarBalances?.[matchingGoal.id] ?? 0) : 0;
               return (
                 <div
                   key={`preset-${preset.label}`}
@@ -2587,7 +2544,7 @@ function SplurgeTab({
               <div className="grid grid-cols-2 gap-4 sm:grid-cols-3">
             {visibleSavedRewards.map((goal) => {
               const isActiveGoal = activeSkipTarget?.type === "goal" && goal.id === activeSkipTarget.id;
-              const balance = goalJarBalances?.[goal.id] ?? 0;
+              const balance = Math.max(0, goalJarBalances?.[goal.id] ?? 0);
               return (
                 <div
                   key={goal.id}
@@ -2691,7 +2648,8 @@ function SplurgeTab({
               {fundraisers.map((project) => {
                 const isActiveFundraiser = activeSkipTarget?.type === "fundraiser" && activeSkipTarget.id === project.id;
                 const groupGoal = project.goalAmount ?? 0;
-                const groupRaised = groupProgress[project.id] ?? Math.max(0, project.totalRaised ?? 0);
+                const ownJarBalance = Math.max(0, causeJarBalances?.[project.id] ?? 0);
+                const groupRaised = groupProgress[project.id] ?? Math.max(0, (project.totalDonated ?? 0) + ownJarBalance);
                 const groupPct = groupGoal > 0 ? Math.min(100, Math.round((groupRaised / groupGoal) * 100)) : 0;
                 return (
                   <div

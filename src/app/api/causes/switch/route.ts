@@ -11,7 +11,7 @@ export async function POST(req: NextRequest) {
     const uid = await requireUid(req);
     const body = await req.json();
     const newCauseId = validateNonEmptyString(body.newCauseId, "newCauseId");
-    const transferBalance = body.transferBalance !== false;
+    const transferBalance = body.transferBalance === true;
 
     const db = getAdminDb();
     const userRef = db.collection("users").doc(uid);
@@ -39,8 +39,9 @@ export async function POST(req: NextRequest) {
           tx.set(db.collection("projects").doc(causeId), { totalRaised: FieldValue.increment(-amount) }, { merge: true });
         }
         if (totalTransferred > 0) {
-          updates[`causeJarBalances.${newCauseId}`] = FieldValue.increment(totalTransferred);
-          balanceTransfer[newCauseId] = (allJarBalances[newCauseId] ?? 0) + totalTransferred;
+          const existingNewBalance = Math.max(0, Number(allJarBalances[newCauseId]) || 0);
+          updates[`causeJarBalances.${newCauseId}`] = existingNewBalance + totalTransferred;
+          balanceTransfer[newCauseId] = existingNewBalance + totalTransferred;
         }
       }
 

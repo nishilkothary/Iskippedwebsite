@@ -33,19 +33,19 @@ export async function PATCH(req: NextRequest, ctx: RouteContext) {
       if (delta !== 0) {
         const profile = userSnap.data() as UserProfile;
         const causeId = donation.causeId;
-        const currentBal = profile.causeJarBalances?.[causeId] ?? 0;
+        const currentBal = Math.max(0, profile.causeJarBalances?.[causeId] ?? 0);
         const unassignedSkipBank = getSkipBalanceSummary(profile).unassignedSkipBank;
-        if (delta > Math.max(0, currentBal) + unassignedSkipBank) {
+        if (delta > currentBal + unassignedSkipBank) {
           throw new ApiError(400, "Donation exceeds available skipped savings");
         }
         const oldJarDecrease = donation.jarDecrease ?? oldAmount;
         const jarDecreaseDelta = delta > 0
-          ? Math.min(delta, Math.max(0, currentBal))
+          ? Math.min(delta, currentBal)
           : delta;
         const jarDelta = -jarDecreaseDelta;
         tx.update(userRef, {
           totalDonated: FieldValue.increment(delta),
-          [`causeJarBalances.${causeId}`]: FieldValue.increment(jarDelta),
+          [`causeJarBalances.${causeId}`]: Math.max(0, currentBal + jarDelta),
         });
         const donationUpdates: Record<string, unknown> = {
           amount: newAmount,
@@ -76,16 +76,18 @@ export async function DELETE(req: NextRequest, ctx: RouteContext) {
     const donationRef = userRef.collection("donations").doc(donationId);
 
     const jarDecrease = await db.runTransaction(async (tx) => {
-      const donationSnap = await tx.get(donationRef);
+      const [donationSnap, userSnap] = await Promise.all([tx.get(donationRef), tx.get(userRef)]);
       if (!donationSnap.exists) throw new ApiError(404, "Donation not found");
       const donation = donationSnap.data() as DonationEvent & { jarDecrease?: number };
-      const amount = donation.amount;
+      const amount = Math.max(0, donation.amount);
       const causeId = donation.causeId;
+      const profile = userSnap.data() as UserProfile | undefined;
+      const currentBal = Math.max(0, profile?.causeJarBalances?.[causeId] ?? 0);
 
       tx.delete(donationRef);
       tx.update(userRef, {
         totalDonated: FieldValue.increment(-amount),
-        [`causeJarBalances.${causeId}`]: FieldValue.increment(amount),
+        [`causeJarBalances.${causeId}`]: currentBal + amount,
       });
 
       return amount;

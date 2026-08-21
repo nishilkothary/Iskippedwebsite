@@ -48,7 +48,7 @@ export async function POST(req: NextRequest) {
       if (!userSnap.exists) throw new ApiError(404, "User not found");
       const profile = userSnap.data() as UserProfile;
 
-      // Referral: the inviter is credited the give-portion of EVERY skip this invitee logs
+      // Referral: the inviter is credited for fundraiser skips this invitee logs.
       // (feeds the inviter's Impact Score). The one-time XP/referralCount bonus is still gated
       // to the invitee's FIRST skip (prevents empty-account farming). Read the referrer doc now —
       // all transaction reads must precede writes.
@@ -132,7 +132,7 @@ export async function POST(req: NextRequest) {
         createdAt: FieldValue.serverTimestamp(),
       });
 
-      // Credit the inviter: always roll up this skip's give-dollars into their Impact Score;
+      // Credit the inviter: roll up fundraiser skip dollars into their Impact Score;
       // on the invitee's first skip only, also grant the one-time XP + Friends-Joined bonus.
       if (referrerRef && referrerProfile && isFirstSkip) {
         const firstSkipBonus = isFirstSkip

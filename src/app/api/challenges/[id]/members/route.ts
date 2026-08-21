@@ -108,7 +108,7 @@ export async function GET(req: NextRequest, context: { params: Promise<{ id: str
           email: emailShared ? data.email || "" : "",
           photoURL: data.photoURL ?? null,
           emailVerified: data.emailVerified ?? null,
-          pledged: Number(data.causeJarBalances?.[challengeId] ?? 0),
+          pledged: Math.max(0, Number(data.causeJarBalances?.[challengeId] ?? 0) || 0),
           donated: donatedByUid.get(uid) ?? 0,
           joinedChallenge: data.joinedProjectIds?.includes(challengeId) ?? true,
           joinedAt: data.createdAt?.toDate?.().toISOString() ?? null,

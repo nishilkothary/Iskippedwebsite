@@ -1,5 +1,4 @@
 import { NextRequest, NextResponse } from "next/server";
-import { FieldValue } from "firebase-admin/firestore";
 import { getAdminDb } from "@/lib/services/firebaseAdmin";
 import { requireUid, ApiError, handleApiError } from "@/lib/services/apiAuth";
 import { validateNonEmptyString } from "@/lib/services/serverProfileDefaults";
@@ -29,14 +28,14 @@ export async function POST(req: NextRequest) {
       if (!userSnap.exists) throw new ApiError(404, "User not found");
       const profile = userSnap.data() as UserProfile;
       const currentBalance = target.type === "goal"
-        ? profile.goalJarBalances?.[target.id] ?? 0
-        : profile.causeJarBalances?.[target.id] ?? 0;
+        ? Math.max(0, profile.goalJarBalances?.[target.id] ?? 0)
+        : Math.max(0, profile.causeJarBalances?.[target.id] ?? 0);
       const releasedAmount = Math.max(0, currentBalance);
       if (releasedAmount <= 0 && !clearActive) return 0;
 
       const updates: Record<string, unknown> = {};
-      if (releasedAmount > 0 && target.type === "goal") updates[`goalJarBalances.${target.id}`] = FieldValue.increment(-releasedAmount);
-      if (releasedAmount > 0 && target.type === "fundraiser") updates[`causeJarBalances.${target.id}`] = FieldValue.increment(-releasedAmount);
+      if (releasedAmount > 0 && target.type === "goal") updates[`goalJarBalances.${target.id}`] = 0;
+      if (releasedAmount > 0 && target.type === "fundraiser") updates[`causeJarBalances.${target.id}`] = 0;
       if (clearActive && profile.activeSkipTarget?.type === target.type && profile.activeSkipTarget.id === target.id) {
         updates.activeSkipTarget = null;
       }

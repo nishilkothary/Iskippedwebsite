@@ -12,7 +12,6 @@ import { formatRelativeTime, getChallengeCountdown, getConsecutiveWeeklyStreak, 
 import { SkipSetupPrompt } from "@/components/setup/SkipSetupPrompt";
 import {
   allocateSkipBankToJar,
-  normalizeJarSplit,
   normalizeSpendingGoals,
   pinProjectToHome,
   recordPurchase,
@@ -32,6 +31,7 @@ import { SkipBucksBill } from "@/components/SkipBucksBill";
 import { formatAggregateImpactUnitsDecimal, oneUnitPhrase } from "@/lib/utils/impact";
 import { getSkipBalanceSummary } from "@/lib/utils/skipBalances";
 import { useModalA11y } from "@/hooks/useModalA11y";
+import { apiRequest } from "@/lib/services/firebase/apiClient";
 
 // ─── SVG Jar ───────────────────────────────────────────────────────────────
 interface JarProps {
@@ -1230,23 +1230,31 @@ export default function HomePage() {
     if (!activeProjectId) { setLiveChallengeTotalRaised(0); setLiveChallengeTotalSkips(0); return; }
     const proj = projects.find((p) => p.id === activeProjectId);
     if (!proj || !(isChallengeProject(proj) || !proj.isCustom)) { setLiveChallengeTotalRaised(0); setLiveChallengeTotalSkips(0); return; }
-    setLiveChallengeTotalRaised(proj.totalRaised ?? 0);
+    let cancelled = false;
+    const loadProgress = async () => {
+      try {
+        const result = await apiRequest<{ total: number }>(`/api/challenges/${activeProjectId}/progress`, "GET");
+        if (!cancelled) setLiveChallengeTotalRaised(Math.max(0, result.total ?? 0));
+      } catch {
+        if (!cancelled) setLiveChallengeTotalRaised(Math.max(0, proj.totalDonated ?? 0));
+      }
+    };
+    setLiveChallengeTotalRaised(Math.max(0, proj.totalDonated ?? 0));
     setLiveChallengeTotalSkips(proj.totalSkips ?? 0);
-    return subscribeToProject(activeProjectId, (p) => {
-      setLiveChallengeTotalRaised(p?.totalRaised ?? 0);
+    void loadProgress();
+    const unsubscribe = subscribeToProject(activeProjectId, (p) => {
+      setLiveChallengeTotalRaised(Math.max(0, p?.totalDonated ?? 0));
       setLiveChallengeTotalSkips(p?.totalSkips ?? 0);
+      void loadProgress();
     });
+    return () => {
+      cancelled = true;
+      unsubscribe();
+    };
   }, [profile?.activeProjectId, projects]);
 
   if (!profile) return null;
   const profileData = profile;
-
-  const split = normalizeJarSplit(profile.jarSplit as any);
-  // Use per-skip allocated totals if available, fall back to profile-split calculation
-  const giveTotal = profile.totalGiveAllocated ?? profile.totalSaved * (split.give / 100);
-  const liveTotal = profile.totalLiveAllocated ?? profile.totalSaved * (split.live / 100);
-  const globalGivingBalance = Math.max(0, giveTotal - (profile.totalDonated ?? 0));
-  const globalSpendingBalance = Math.max(0, liveTotal - (profile.totalSpent ?? 0));
 
   const { goals: spendingGoals, activeId: activeSpendingGoalId } = normalizeSpendingGoals(profile);
   const activeSkipTarget = profile.activeSkipTarget === undefined
@@ -1264,8 +1272,8 @@ export default function HomePage() {
     : null;
   const skipBalance = getSkipBalanceSummary(profile);
 
-  const givingBalance = activeProject ? Math.max(0, profile.causeJarBalances?.[activeProject.id] ?? 0) : globalGivingBalance;
-  const spendingBalance = activeGoal ? (profile.goalJarBalances?.[activeGoal.id] ?? 0) : globalSpendingBalance;
+  const givingBalance = activeProject ? Math.max(0, profile.causeJarBalances?.[activeProject.id] ?? 0) : 0;
+  const spendingBalance = activeGoal ? Math.max(0, profile.goalJarBalances?.[activeGoal.id] ?? 0) : 0;
 
 
   const isActiveChallenge = activeProject ? (isChallengeProject(activeProject) || !activeProject.isCustom) : false;
@@ -1274,12 +1282,12 @@ export default function HomePage() {
     ? Math.max(0, profile.causeJarBalances?.[activeProject.id] ?? 0)
     : 0;
   const challengeContribution = userChallengeBalance;
-  // Group total: use project's totalRaised, floored by the user's own challenge balance
+  const fundraiserDonatedTotal = activeProject ? Math.max(0, activeProject.totalDonated ?? 0) : 0;
+  // Group total: donations that have been logged plus money currently sitting in users' fundraiser jars.
   const displayedGroupTotal = isActiveChallenge
-    ? Math.max(liveChallengeTotalRaised, userChallengeBalance)
+    ? Math.max(liveChallengeTotalRaised, fundraiserDonatedTotal + userChallengeBalance)
     : 0;
   const communityGoal = activeProject && isActiveChallenge ? getCommunityGoal(activeProject) : 0;
-  const fundraiserDonatedTotal = activeProject ? Math.max(0, activeProject.totalDonated ?? 0) : 0;
   const fundraiserUnitCost = activeProject?.unitCost && activeProject.unitCost > 0 ? activeProject.unitCost : null;
   const temporaryChallengeGoalUnits = activeProject && isActiveChallenge && fundraiserUnitCost && activeProject.goalAmount <= 0 ? 10 : null;
   const fundraiserGoalAmount = activeProject && activeProject.goalAmount > 0
@@ -1453,13 +1461,13 @@ export default function HomePage() {
 
   const parkedJars = Object.entries(profile.causeJarBalances ?? {})
     .filter(([id, bal]) => {
-      if (id === profile.activeProjectId || !(bal > 0)) return false;
+      if (id === profile.activeProjectId || !(Math.max(0, bal) > 0)) return false;
       const proj = projects.find((p) => p.id === id);
       if (!proj) return false;
       const endMs = proj.endDate?.toMillis?.();
       return isChallengeProject(proj) && endMs != null && endMs < Date.now();
     })
-    .map(([id, bal]) => ({ id, balance: bal as number, project: projects.find((p) => p.id === id) ?? null }));
+    .map(([id, bal]) => ({ id, balance: Math.max(0, bal as number), project: projects.find((p) => p.id === id) ?? null }));
 
   const firstName = profile.displayName.split(" ")[0];
   const starterJarRewards = [
@@ -1775,7 +1783,7 @@ export default function HomePage() {
     }
 
     if (item.kind === "reward") {
-      const rewardBalance = item.reward.isSaved ? (profileData.goalJarBalances?.[item.reward.id] ?? 0) : 0;
+      const rewardBalance = item.reward.isSaved ? Math.max(0, profileData.goalJarBalances?.[item.reward.id] ?? 0) : 0;
       return (
         <button
           key={`jar-carousel-reward-${item.reward.id}`}
