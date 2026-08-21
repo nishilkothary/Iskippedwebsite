@@ -23,6 +23,7 @@ import {
   moveJarBalance,
   pinProjectToHome,
 } from "@/lib/services/firebase/users";
+import { getActiveSkipTarget } from "@/lib/utils/skipTargets";
 import { addCustomProject, updateCustomProject, deleteCustomProject, isCauseProject, isChallengeProject, isProjectEnded, PARTNER_CHALLENGE_IDS } from "@/lib/services/firebase/projects";
 import { formatAggregateImpactUnitsDecimal, formatUnits } from "@/lib/utils/impact";
 import { getSkipBalanceSummary } from "@/lib/utils/skipBalances";
@@ -394,6 +395,7 @@ function JarsPageInner() {
 
   const { goals: spendingGoals, activeId: activeSpendingGoalId } = normalizeSpendingGoals(profile);
   const activeGoal = spendingGoals.find((g) => g.id === activeSpendingGoalId) ?? null;
+  const activeSkipTarget = getActiveSkipTarget(profile);
 
   const givingBalance = activeProject ? Math.max(0, profile.causeJarBalances?.[activeProject.id] ?? 0) : 0;
   const spendingBalance = activeGoal ? Math.max(0, profile.goalJarBalances?.[activeGoal.id] ?? 0) : 0;
@@ -530,7 +532,7 @@ function JarsPageInner() {
     activeGoalId: activeSpendingGoalId,
     activeGoal,
     activeProject,
-    activeSkipTarget: profile.activeSkipTarget ?? null,
+    activeSkipTarget,
     skipBankBalance,
     availableSkipBankBalance: skipBalanceSummary.unassignedSkipBank,
     goalJarBalances: profile.goalJarBalances,

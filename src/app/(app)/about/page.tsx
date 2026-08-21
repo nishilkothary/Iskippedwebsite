@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 
 const STEPS = [
   {
@@ -37,85 +38,50 @@ const STEPS = [
   },
 ];
 
-const LEGACY_FAQ_ITEMS = [
-  {
-    q: "How do I empty my jar once I've donated or made a purchase?",
-    a: "Head to the Jars page and choose Donate my skips or Spend my skips. iSkipped will point you to the outside donation or purchase page first, then let you log the amount so your jar balance stays accurate.",
-  },
-  {
-    q: "Does any money actually transfer when I log a skip?",
-    a: "No — iSkipped is a tracking and motivation tool, not a payment platform. We encourage all users to donate what they've pledged in their jar, but no funds move automatically.",
-  },
-  {
-    q: "My balance doesn't look right. What should I do?",
-    a: "Check Jar Activity to see where your skipped savings are parked. If something still looks off, send us a note and we can help trace it.",
-  },
-  {
-    q: "Will more causes be added?",
-    a: "Yes! We're currently in beta and actively growing our list of causes. Stay tuned — more options are on the way.",
-  },
-  {
-    q: "Do I have to select a donation jar?",
-    a: "While we strongly encourage everyone to pick a cause, it's not required. Your Giving Jar will keep filling up until you choose one.",
-  },
-  {
-    q: "Can I fund multiple save or give jars at once?",
-    a: "No — at this time you can save for one thing at a time. You can transfer funds to a new cause or goal by activating a new jar, or mark as donated/purchased to close out that jar and start a new one.",
-  },
-  {
-    q: "Is there an iSkipped app?",
-    a: "We are still in the testing phase so there is no current app. For now we recommend pinning the URL to your phone's home screen for easy access. Based on your feedback, we hope to bring an app to all our users shortly!",
-  },
-  {
-    q: "Does iSkipped process the donations?",
-    a: "No. iSkipped connects you with charitable organizations. Donations are processed directly by each organization. iSkipped does not handle or hold any donation funds.",
-  },
-  {
-    q: "What does the 'Share name and skip with community' toggle do?",
-    a: "This shares your first name and what you skipped. Keeping it off will hide your name and only show the category of the skip.",
-  },
-  {
-    q: "I have feedback — where can I share it?",
-    a: "We'd love to hear from you! Send us an email at iskippedfor@gmail.com and we'll get back to you.",
-  },
-];
-
 const FAQ_ITEMS = [
   {
-    q: "What are Skip Bucks?",
-    a: "Skip Bucks are dollars available from your skipped expenses. They are your lifetime skipped savings minus purchases and donations you have logged.",
+    q: "What are Skip Bucks, and how is my balance calculated?",
+    a: "Skip Bucks equal everything you have saved by skipping, minus purchases and donations you have logged. Some may be sitting in jars while the rest is unassigned and available to use.",
   },
   {
     q: "Does money move when I log a skip?",
     a: "No. iSkipped helps you track the amount you chose not to spend. No money moves automatically into or through iSkipped.",
   },
   {
-    q: "How do I use my Skip Bucks?",
-    a: "Choose a goal when you want to spend on something meaningful, or choose a fundraiser when you want to contribute to a cause. You decide how much to use at that moment.",
+    q: "How do I use my saved Skip Bucks?",
+    a: "Choose a reward or fundraiser and make it your active jar. Future skips go there. When you are ready, choose Spend my skips or Donate my skips. Parked jars keep their saved balance for later.",
   },
   {
-    q: "Do I need to join a fundraiser?",
-    a: "No. You can use your Skip Bucks only for personal goals, only for fundraisers, or a mix of both whenever you are ready.",
+    q: "What happens when I spend or donate from a jar?",
+    a: "iSkipped takes you to the retailer or fundraiser first. After you complete the purchase or donation outside iSkipped, return and log the amount. Your jar balance and Skip Bucks then update to match what you confirmed.",
   },
   {
-    q: "What happens when I contribute to a fundraiser?",
-    a: "Choose an amount from your Skip Bucks, then iSkipped takes you to the fundraiser's external donation page. When you return, you can confirm the donation so your balance and the fundraiser progress stay up to date.",
-  },
-  {
-    q: "What happens when I spend on a goal?",
-    a: "Choose how much to spend. If you saved a shopping link, we can take you there; otherwise, confirm the purchase after you make it outside iSkipped.",
-  },
-  {
-    q: "Can I create a fundraiser with friends or an organization?",
-    a: "Yes. Create a fundraiser, set the impact and its goal, then invite people to skip together for the same cause.",
+    q: "What happens if I change or deactivate a jar?",
+    a: "You can keep the balance parked in that jar, move it to a new jar, or return it to Unassigned Skip Bucks. Deactivating a jar does not delete saved money unless you choose to move or release it.",
   },
   {
     q: "Does iSkipped process donations or purchases?",
-    a: "No. Donations are processed by the external organization and purchases happen with the retailer you choose. iSkipped tracks the choices you confirm.",
+    a: "No. Donations are completed directly with the external organization, and purchases happen with the retailer you choose. iSkipped does not hold funds, process payments, verify outside transactions, or control how organizations use donations.",
   },
   {
-    q: "What does sharing with the community do?",
-    a: "It shares your first name and what you skipped with a group feed to help motivate others. Turn it off to keep your skip private.",
+    q: "Can I join or create a fundraiser?",
+    a: "Yes. You can join an existing fundraiser or create one for a cause, group, or shared goal. Fundraiser skips can appear in the group activity and count toward the shared progress.",
+  },
+  {
+    q: "What does sharing a fundraiser skip do?",
+    a: "When sharing is on, your first name and skip can appear in that fundraiser's group activity to motivate the group. Personal reward skips stay private. You can change the default in Profile.",
+  },
+  {
+    q: "How do weekly reminders work?",
+    a: "If you allow them, iSkipped sends one weekly reminder to log anything you skipped. Push reminders are managed on your device and in Profile; weekly email check-ins can be turned off from the email.",
+  },
+  {
+    q: "Is iSkipped a mobile app?",
+    a: "iSkipped is currently a web app. Add it to your phone's home screen for quick access, then allow notifications if you want weekly push reminders.",
+  },
+  {
+    q: "My balance or jar progress looks wrong. What should I do?",
+    a: "Open Jar Activity to compare Total Skip Bucks, money in jars, and Unassigned Skip Bucks. If something still looks wrong after checking your purchase and donation history, contact us at iskippedfor@gmail.com.",
   },
 ];
 
@@ -151,26 +117,39 @@ export default function AboutPage() {
           style={{ background: "var(--bg-surface-1)", border: "1px solid var(--border-default)" }}
         >
           <p className="text-xs font-black uppercase tracking-[0.18em]" style={{ color: "var(--green-primary)" }}>
-            Our story
+            My story
           </p>
           <h2 className="mt-2 text-2xl font-black leading-tight" style={{ color: "var(--text-primary)", letterSpacing: 0 }}>
             How iSkipped began
           </h2>
           <div className="mt-4 space-y-4 text-sm leading-relaxed" style={{ color: "var(--text-secondary)" }}>
             <p>
-              iSkipped began during a backpacking trip through Asia, when I met a local student sleeping on a hotel bench. He told me he was staying there to save money for college. When I asked what tuition would cost, he said $170.
+              The idea for iSkipped began during a backpacking trip through Asia. There, I met a local student sleeping on a hotel bench and eating plain white rice for dinner to save money for college.
             </p>
             <p>
-              That number stayed with me. Back home, $170 could disappear into a few dinners out or a few drinks with friends. For him, it meant a year of education and a lifetime of opportunity.
+              Amazed by his sacrifice, I asked how much his tuition would cost, expecting a large number. His answer shocked me: &quot;$170,&quot; he said.
             </p>
             <p>
-              When I returned home, I decided to skip those very expenses and use the savings to fund his tuition. That decision forever changed how I saw my own money. I realized that spending I was fortunate enough to rarely think about could become something intentional. A skipped dinner, drink, ride, or impulse purchase could be redirected into something with real weight, something that truly mattered.
+              That number stayed with me. Back home, $170 could disappear into a few dinners out or some drinks with friends. For him, it meant a year of education and a lifetime of opportunity.
             </p>
             <p>
-              &quot;I skipped&quot; became more than a phrase. It became a way to turn everyday restraint into opportunity, for myself and, even better, for someone else.
+              For the rest of my trip, I started looking at every purchase through that frame of reference: if I did not buy this, how much closer could I get to funding his tuition? Eventually, that way of thinking led to real skipped expenses and a redirection of my savings toward his education.
             </p>
             <p className="font-black" style={{ color: "var(--text-primary)" }}>
-              That idea became iSkipped.
+              That decision changed how I saw my own money. I realized that money I was fortunate enough to spend without much thought could be far more powerful when spent with intention. A skipped dinner, drink, ride, or impulse purchase could become an opportunity for myself or someone else.
+            </p>
+            <p>
+              With that, &quot;I skipped&quot; became more than a phrase. It became a moment of pause before spending, prompting me to ask: &quot;Do I really need this, or is there something better I could use it for?&quot;
+            </p>
+            <p>
+              My hope is that iSkipped helps you ask yourself that same question as you turn skipped expenses into purchases that truly make you happy or donations that can change lives.
+            </p>
+            <p>
+              Whatever your reason for skipping, there is power in choosing where your money goes.
+            </p>
+            <p className="pt-2" style={{ color: "var(--text-primary)" }}>
+              <span className="block text-base" style={{ fontFamily: "Georgia, serif", fontStyle: "italic" }}>Nishil Kothary</span>
+              <span className="mt-1 block text-xs font-black uppercase tracking-[0.18em]" style={{ color: "var(--green-primary)" }}>Founder of iSkipped</span>
             </p>
           </div>
         </section>
@@ -247,7 +226,15 @@ export default function AboutPage() {
                   </span>
                 </button>
                 {openFaq === i && (
-                  <p className="px-5 pb-4 text-sm" style={{ color: "var(--text-secondary)" }}>{item.a}</p>
+                  <p className="px-5 pb-4 text-sm" style={{ color: "var(--text-secondary)" }}>
+                    {item.a}
+                    {item.q === "What are Skip Bucks, and how is my balance calculated?" && (
+                      <>
+                        <br />
+                        <Link href="/jar-activity" className="underline" style={{ color: "var(--green-primary)" }}>View Jar Activity for a breakdown</Link>.
+                      </>
+                    )}
+                  </p>
                 )}
               </div>
             ))}

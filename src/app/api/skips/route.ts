@@ -4,6 +4,7 @@ import { getAdminDb, getAdminRtdb } from "@/lib/services/firebaseAdmin";
 import { requireUid, ApiError, handleApiError } from "@/lib/services/apiAuth";
 import { validateAmount, validateNonEmptyString } from "@/lib/services/serverProfileDefaults";
 import { getImpactMessage } from "@/lib/constants/impactMessages";
+import { getActiveSkipTarget } from "@/lib/utils/skipTargets";
 import { xpForSkip, levelForXp, REFERRAL_BONUS_XP } from "@/lib/utils/xp";
 import { getConsecutiveWeeklyStreak, getLongestWeeklyStreak, today } from "@/lib/utils/dates";
 import { adjustGlobalStats } from "@/lib/services/globalStats";
@@ -78,7 +79,7 @@ export async function POST(req: NextRequest) {
       const impactMessage = getImpactMessage(amount);
       const message = `skipped ${whatSkipped || categoryLabel}${causeSuffix}`;
       const allocationTarget = requestedAllocationTarget
-        ?? profile.activeSkipTarget
+        ?? getActiveSkipTarget(profile)
         ?? (projectId ? { type: "fundraiser" as const, id: projectId } : null)
         ?? (profile.activeProjectId ? { type: "fundraiser" as const, id: profile.activeProjectId } : null);
       const resolvedProjectId = projectId

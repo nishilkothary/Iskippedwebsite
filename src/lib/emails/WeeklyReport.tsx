@@ -14,6 +14,7 @@ import {
 import * as React from "react";
 
 export interface WeeklyReportProps {
+  displayName?: string | null;
   weekLabel: string;
   totalSaved: number;
   skipCount: number;
@@ -46,7 +47,12 @@ function dollarsRound(n: number) {
   return `$${Math.round(n).toLocaleString()}`;
 }
 
+function firstName(displayName?: string | null) {
+  return displayName?.trim().split(/\s+/)[0] || "there";
+}
+
 export default function WeeklyReport({
+  displayName,
   weekLabel,
   totalSaved,
   skipCount,
@@ -61,6 +67,8 @@ export default function WeeklyReport({
   appUrl,
 }: WeeklyReportProps) {
   const skipLabel = skipCount === 1 ? "skip" : "skips";
+  const savedSomething = skipCount > 0;
+  const name = firstName(displayName);
   const impactLine =
     causeImpactText ??
     (causeName && causeAmount > 0
@@ -71,26 +79,71 @@ export default function WeeklyReport({
   return (
     <Html>
       <Head />
-      <Preview>{`iSkipped ${dollars(totalSaved)} across ${skipCount} ${skipLabel} this week`}</Preview>
+      <Preview>Did you skip anything this week? Log it and keep your progress going.</Preview>
       <Body style={{ backgroundColor: BG, fontFamily: "'Helvetica Neue', Helvetica, Arial, sans-serif", margin: 0, padding: 0 }}>
         <Container style={{ maxWidth: 560, margin: "0 auto" }}>
 
-          <Section style={{ backgroundColor: GREEN_DARK, padding: "34px 32px 30px", textAlign: "center" }}>
+          <Section style={{ backgroundColor: GREEN_DARK, padding: "34px 32px 32px", textAlign: "center" }}>
             <Text style={{ fontSize: 25, fontWeight: 900, margin: "0 0 16px" }}>
               <span style={{ color: "#ffffff" }}>i</span><span style={{ color: GREEN }}>skipped</span>
             </Text>
-            <Text style={{ color: "#ffffff", fontSize: 54, fontWeight: 900, margin: "0 0 8px", lineHeight: 1 }}>
-              {dollars(totalSaved)}
+            <Text style={{ color: "#ffffff", fontSize: 30, fontWeight: 900, margin: "0 0 10px", lineHeight: 1.15 }}>
+              Hey {name}, anything you skipped this week?
             </Text>
-            <Text style={{ color: "rgba(255,255,255,0.74)", fontSize: 14, margin: "0 0 4px" }}>
-              across <strong>{skipCount}</strong> {skipLabel} this week
+            <Text style={{ color: "rgba(255,255,255,0.74)", fontSize: 15, lineHeight: 1.45, margin: "0 0 22px" }}>
+              Don&apos;t forget to add anything you said no to buying and keep your progress going.
             </Text>
-            <Text style={{ color: "rgba(255,255,255,0.42)", fontSize: 11, margin: 0, letterSpacing: "0.08em", textTransform: "uppercase" as const }}>
-              {weekLabel}
+            <Button
+              href={appUrl}
+              style={{
+                backgroundColor: GREEN,
+                color: GREEN_DARK,
+                fontSize: 15,
+                fontWeight: 900,
+                borderRadius: 50,
+                padding: "14px 38px",
+                textDecoration: "none",
+                display: "inline-block",
+              }}
+            >
+              Log a skip
+            </Button>
+            <Text style={{ color: "rgba(255,255,255,0.42)", fontSize: 11, margin: "18px 0 0", letterSpacing: "0.08em", textTransform: "uppercase" as const }}>
+              Weekly check-in
             </Text>
           </Section>
 
           <Section style={{ padding: "18px 16px 0" }}>
+            <Section style={{ backgroundColor: "#f7fbf7", borderRadius: 10, padding: "22px 22px", marginBottom: 12, border: `1px solid #cfe8d5`, borderTop: `4px solid ${GREEN}` }}>
+              <Text style={{ color: GREEN_DARK, fontSize: 10, fontWeight: 800, letterSpacing: "0.12em", textTransform: "uppercase" as const, margin: "0 0 14px" }}>
+                Your Skip Snapshot
+              </Text>
+              <Row>
+                <Column style={{ width: "50%", textAlign: "center", padding: "10px 8px 8px", backgroundColor: "#edf7ef", borderRadius: 8 }}>
+                  <Text style={{ color: GREEN_DARK, fontSize: 10, fontWeight: 800, letterSpacing: "0.08em", textTransform: "uppercase" as const, margin: "0 0 5px" }}>
+                    {weekLabel}
+                  </Text>
+                  <Text style={{ color: savedSomething ? GREEN_DARK : TEXT_MUTED, fontSize: 28, fontWeight: 900, margin: 0 }}>
+                    {skipCount}
+                  </Text>
+                  <Text style={{ color: TEXT_MUTED, fontSize: 12, fontWeight: 700, margin: "4px 0 0" }}>
+                    {skipLabel} logged
+                  </Text>
+                </Column>
+                <Column style={{ width: "50%", textAlign: "center", padding: "10px 8px 8px", backgroundColor: savedSomething ? "#e1f5e6" : "#f1f4f1", borderRadius: 8 }}>
+                  <Text style={{ color: GREEN_DARK, fontSize: 10, fontWeight: 800, letterSpacing: "0.08em", textTransform: "uppercase" as const, margin: "0 0 5px" }}>
+                    Saved
+                  </Text>
+                  <Text style={{ color: savedSomething ? GREEN_DARK : TEXT_MUTED, fontSize: 28, fontWeight: 900, margin: 0 }}>
+                    {dollars(totalSaved)}
+                  </Text>
+                  <Text style={{ color: TEXT_MUTED, fontSize: 12, fontWeight: 700, margin: "4px 0 0" }}>
+                    from skips
+                  </Text>
+                </Column>
+              </Row>
+            </Section>
+
             {impactLine && (
               <Section style={{ backgroundColor: CARD_BG, borderRadius: 10, padding: "22px 22px", marginBottom: 12, borderLeft: `4px solid ${CORAL}` }}>
                 <Text style={{ color: CORAL, fontSize: 10, fontWeight: 800, letterSpacing: "0.12em", textTransform: "uppercase" as const, margin: "0 0 10px" }}>
@@ -103,13 +156,10 @@ export default function WeeklyReport({
             )}
 
             <Section style={{ backgroundColor: CARD_BG, borderRadius: 10, padding: "22px 22px", marginBottom: 12, border: `1px solid ${BORDER}` }}>
-              <Text style={{ color: GREEN_DARK, fontSize: 10, fontWeight: 800, letterSpacing: "0.12em", textTransform: "uppercase" as const, margin: "0 0 14px" }}>
-                iSkipped Community
-              </Text>
               <Row>
                 <Column style={{ width: "50%", textAlign: "center", paddingRight: 8 }}>
                   <Text style={{ color: TEXT_MUTED, fontSize: 10, fontWeight: 700, letterSpacing: "0.08em", textTransform: "uppercase" as const, margin: "0 0 5px" }}>
-                    Money Saved
+                    Community Saved
                   </Text>
                   <Text style={{ color: TEXT_PRIMARY, fontSize: 26, fontWeight: 900, margin: 0 }}>
                     {dollarsRound(communityTotalSaved)}
@@ -138,10 +188,10 @@ export default function WeeklyReport({
             ) : (
               <>
                 <Text style={{ color: GOLD, fontSize: 19, fontWeight: 900, lineHeight: 1.35, textAlign: "center", margin: "18px 0 4px" }}>
-                  Your weekly skip streak is <strong style={{ color: GOLD }}>{streak}</strong> week{streak === 1 ? "" : "s"}.
+                  Your streak is <strong style={{ color: GOLD }}>{streak}</strong> week{streak === 1 ? "" : "s"}.
                 </Text>
                 <Text style={{ color: TEXT_MUTED, fontSize: 14, lineHeight: 1.45, textAlign: "center", margin: 0 }}>
-                  Keep it alive this week by skipping one more expense.
+                  Keep it going by logging one thing you skipped this week.
                 </Text>
               </>
             )}
@@ -161,7 +211,7 @@ export default function WeeklyReport({
                 display: "inline-block",
               }}
             >
-              Log your next skip
+              Open iSkipped
             </Button>
           </Section>
 
@@ -170,7 +220,7 @@ export default function WeeklyReport({
               You're receiving this as an iSkipped member.
             </Text>
             <Link href={unsubscribeUrl} style={{ color: "rgba(255,255,255,0.3)", fontSize: 11 }}>
-              Unsubscribe from weekly reports
+              Unsubscribe from weekly check-ins
             </Link>
           </Section>
 

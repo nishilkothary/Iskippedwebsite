@@ -50,6 +50,10 @@ function dollars(n: number) {
   return `$${n.toFixed(2).replace(/\.00$/, "")}`;
 }
 
+function firstName(displayName?: string | null) {
+  return displayName?.trim().split(/\s+/)[0] || "";
+}
+
 function getWeekRange(): { start: string; end: string; label: string } {
   const now = new Date();
   const dayOfWeek = now.getUTCDay(); // 0=Sun, 1=Mon, ...
@@ -247,6 +251,7 @@ export async function GET(req: NextRequest) {
 
         const causeAmount = noSkipPreview ? 0 : data.causeAmount;
         const props: WeeklyReportProps = {
+          displayName: profile.displayName ?? null,
           weekLabel: week.label,
           totalSaved: noSkipPreview ? 0 : data.weekSaved,
           skipCount: noSkipPreview ? 0 : data.skipCount,
@@ -263,10 +268,11 @@ export async function GET(req: NextRequest) {
 
         try {
           const html = await render(React.createElement(WeeklyReport, props));
+          const name = firstName(profile.displayName);
           await resend.emails.send({
             from: "iSkipped <hello@iskipped.com>",
             to: data.email,
-            subject: `Your iSkipped savings report - ${week.label}`,
+            subject: name ? `Hey ${name}, did you skip anything this week?` : "Did you skip anything this week?",
             html,
           });
           sent++;

@@ -9,6 +9,7 @@ import { today } from "@/lib/utils/dates";
 import { getImpactMessage } from "@/lib/constants/impactMessages";
 import { xpForSkip, levelForXp } from "@/lib/utils/xp";
 import { Skip, DonationEvent, SkipAllocationTarget } from "@/lib/types/models";
+import { getActiveSkipTarget } from "@/lib/utils/skipTargets";
 
 export function useSkips() {
   const { user, profile, updateProfile } = useAuthStore();
@@ -31,7 +32,7 @@ export function useSkips() {
     if (!user || !profile) return null;
     setLogging(true);
     const allocationTarget = params.allocationTarget
-      ?? profile.activeSkipTarget
+      ?? getActiveSkipTarget(profile)
       ?? (params.projectId ? { type: "fundraiser" as const, id: params.projectId } : null)
       ?? (profile.activeProjectId ? { type: "fundraiser" as const, id: profile.activeProjectId } : null);
     const causeJarId = allocationTarget?.type === "fundraiser" ? allocationTarget.id : params.projectId ?? "";

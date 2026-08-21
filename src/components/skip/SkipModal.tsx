@@ -8,6 +8,7 @@ import { useAuthStore } from "@/store/authStore";
 import { SKIP_CATEGORIES } from "@/lib/constants/skipCategories";
 import { formatCurrency } from "@/lib/utils/currency";
 import { normalizeSpendingGoals } from "@/lib/services/firebase/users";
+import { getActiveSkipTarget } from "@/lib/utils/skipTargets";
 import { formatAggregateImpactUnitsDecimal, formatUnits, oneUnitPhrase } from "@/lib/utils/impact";
 import { getChallengeCountdown } from "@/lib/utils/dates";
 import { appendRefParam, getChallengeSharePath } from "@/lib/utils/share";
@@ -67,9 +68,10 @@ export function SkipModal({ onClose }: Props) {
   const [whatSkipped, setWhatSkipped] = useState("");
   const [shareWithCommunity, setShareWithCommunity] = useState(profile?.shareSkipsByDefault !== false);
   const shareToggleTouchedRef = useRef(false);
-  const selectedFundraiserId = profile?.activeSkipTarget?.type === "fundraiser"
-    ? profile.activeSkipTarget.id
-    : profile?.activeSkipTarget?.type === "goal"
+  const resolvedActiveTarget = profile ? getActiveSkipTarget(profile) : null;
+  const selectedFundraiserId = resolvedActiveTarget?.type === "fundraiser"
+    ? resolvedActiveTarget.id
+    : resolvedActiveTarget?.type === "goal"
       ? null
       : profile?.activeProjectId ?? null;
   const projectId = selectedFundraiserId;
@@ -91,7 +93,7 @@ export function SkipModal({ onClose }: Props) {
   const dialogRef = useModalA11y(onClose);
   const selectedVariableRewardRef = useRef<{ skipCount: number; reward: VariableReward } | null>(null);
   const activeProjectForSkip = projects.find((p) => p.id === projectId) ?? null;
-  const skipAllocationTarget = profile?.activeSkipTarget
+  const skipAllocationTarget = resolvedActiveTarget
     ?? (activeProjectForSkip ? { type: "fundraiser" as const, id: activeProjectForSkip.id } : null);
   const isFundraiserSkip = skipAllocationTarget?.type === "fundraiser" && !!activeProjectForSkip;
   // If the active project has expired, don't credit this skip to its jar
@@ -1038,7 +1040,7 @@ export function SkipModal({ onClose }: Props) {
   }
 
   const skipAmountLive = amount;
-  const activeTargetLive = profile?.activeSkipTarget ?? null;
+  const activeTargetLive = profile ? getActiveSkipTarget(profile) : null;
   const { goals: spendingGoals, activeId: activeSpendingGoalId } = normalizeSpendingGoals(profile ?? {} as any);
   const activeProjectLive = activeTargetLive?.type === "fundraiser"
     ? projects.find((p) => p.id === activeTargetLive.id) ?? null
