@@ -17,6 +17,8 @@ interface Props {
   tone?: "default" | "primary";
   /** Button label. Defaults to "Share". */
   label?: string;
+  /** Render the compact pill as an icon-only control. */
+  iconOnly?: boolean;
 }
 
 const MENU_ITEM: CSSProperties = {
@@ -33,7 +35,7 @@ const MENU_ITEM: CSSProperties = {
   whiteSpace: "nowrap",
 };
 
-export function ShareButton({ url, text, title, imageUrl, variant = "block", tone = "default", label = "Share" }: Props) {
+export function ShareButton({ url, text, title, imageUrl, variant = "block", tone = "default", label = "Share", iconOnly = false }: Props) {
   const [open, setOpen] = useState(false);
   const [copied, setCopied] = useState(false);
   const wrapRef = useRef<HTMLDivElement>(null);
@@ -119,8 +121,8 @@ export function ShareButton({ url, text, title, imageUrl, variant = "block", ton
 
   return (
     <div ref={wrapRef} style={{ position: "relative", display: variant === "pill" ? "inline-block" : "block" }}>
-      <button type="button" onClick={handleClick} style={triggerStyle} aria-haspopup="menu" aria-expanded={open}>
-        ↗ {label}
+      <button type="button" onClick={handleClick} style={triggerStyle} aria-haspopup="menu" aria-expanded={open} aria-label={iconOnly ? label : undefined}>
+        {iconOnly ? "↗" : `↗ ${label}`}
       </button>
 
       {open && (

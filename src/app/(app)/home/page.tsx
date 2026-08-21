@@ -1992,7 +1992,7 @@ export default function HomePage() {
       <div className="iskip-scoreboard" style={{ marginBottom: 32 }}>
         <div className="iskip-scoreboard-header" style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 12 }}>
           <span>YOUR SKIP SCOREBOARD</span>
-          <div style={{ position: "absolute", right: 0, top: "50%", transform: "translateY(-50%)" }}>
+          <div className="home-scoreboard-skip-bucks" style={{ position: "absolute", right: 0, top: "50%", transform: "translateY(-50%)" }}>
             <SkipBucksBill
               amount={skipBalance.availableFromSkips}
               compact
@@ -2160,28 +2160,26 @@ export default function HomePage() {
           )}
 
           {!activeGoal && (
-          <div style={{ ...cardStyle, padding: 18, display: "flex", flexDirection: "column", minHeight: 330, overflow: "visible" }}>
+          <div className="home-active-fundraiser" style={{ ...cardStyle, padding: 18, display: "flex", flexDirection: "column", minHeight: 330, overflow: "visible" }}>
               <div style={{ marginBottom: 6 }}>
-                <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 12 }}>
-                  <div style={{ minWidth: 0, display: "grid", gridTemplateColumns: activeProject?.imageURL ? "72px minmax(0, 1fr)" : "minmax(0, 1fr)", gap: 12, alignItems: "center" }}>
+                <div className="home-fundraiser-header" style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 12 }}>
+                  <div className="home-fundraiser-identity" style={{ minWidth: 0, display: "grid", gridTemplateColumns: activeProject?.imageURL ? "72px minmax(0, 1fr)" : "minmax(0, 1fr)", gap: 12, alignItems: "center" }}>
                     {activeProject?.imageURL && (
-                      <img
-                        src={activeProject.imageURL}
-                        alt=""
-                        style={{ width: 72, height: 72, borderRadius: 16, objectFit: "cover", objectPosition: activeProject.imagePosition ?? "center", border: "1px solid rgba(237,245,240,0.12)" }}
-                      />
-                    )}
-                    <div style={{ minWidth: 0 }}>
-                      <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
-                        <p style={{ fontSize: 11, fontWeight: 900, letterSpacing: 1.1, textTransform: "uppercase", color: "var(--green-primary)" }}>Group Fundraiser</p>
-                        {activeProject && (
-                          <span style={{ display: "inline-flex", alignItems: "center", gap: 5, borderRadius: 999, padding: "3px 8px", background: "rgba(46,204,113,0.12)", border: "1px solid rgba(46,204,113,0.28)", color: "#A7F3D0", fontSize: 10, fontWeight: 900, textTransform: "uppercase", letterSpacing: 0.8 }}>
-                            <span style={{ width: 6, height: 6, borderRadius: 999, background: "#2ECC71", boxShadow: "0 0 10px rgba(46,204,113,0.9)" }} />
-                            Live
-                          </span>
-                        )}
+                      <div className="home-fundraiser-avatar">
+                        <img
+                          className="home-fundraiser-image"
+                          src={activeProject.imageURL}
+                          alt=""
+                          style={{ width: 72, height: 72, borderRadius: 16, objectFit: "cover", objectPosition: activeProject.imagePosition ?? "center", border: "1px solid rgba(237,245,240,0.12)" }}
+                        />
+                        <span className="home-fundraiser-live" aria-label="Live fundraiser"><i />Live</span>
                       </div>
-                      <p style={{ fontSize: 22, fontWeight: 900, lineHeight: 1.1, color: "var(--text-primary)", marginTop: 4 }}>
+                    )}
+                    <div className="home-fundraiser-copy" style={{ minWidth: 0 }}>
+                      <div className="home-fundraiser-meta" style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+                        <p style={{ fontSize: 11, fontWeight: 900, letterSpacing: 1.1, textTransform: "uppercase", color: "var(--green-primary)" }}>Group Fundraiser</p>
+                      </div>
+                      <p className="home-fundraiser-title" style={{ fontSize: 22, fontWeight: 900, lineHeight: 1.1, color: "var(--text-primary)", marginTop: 4 }}>
                         {activeProject?.title ?? "Pick a fundraiser"}
                       </p>
                       {!activeProject && (
@@ -2192,13 +2190,10 @@ export default function HomePage() {
                     </div>
                   </div>
                   {activeProject && (
-                    <ShareButton
-                      variant="pill"
-                      label="Share"
-                      title={activeProject.title}
-                      text={getDirectChallengeShareText(activeProject)}
-                      url={appendRefParam(`${typeof window !== "undefined" ? window.location.origin : "https://iskipped.com"}${getChallengeSharePath(activeProject)}`, user?.uid)}
-                    />
+                    <div className="home-fundraiser-share">
+                      <span className="home-fundraiser-share-desktop"><ShareButton variant="pill" label="Share" title={activeProject.title} text={getDirectChallengeShareText(activeProject)} url={appendRefParam(`${typeof window !== "undefined" ? window.location.origin : "https://iskipped.com"}${getChallengeSharePath(activeProject)}`, user?.uid)} /></span>
+                      <span className="home-fundraiser-share-mobile"><ShareButton variant="pill" label="Share fundraiser" iconOnly title={activeProject.title} text={getDirectChallengeShareText(activeProject)} url={appendRefParam(`${typeof window !== "undefined" ? window.location.origin : "https://iskipped.com"}${getChallengeSharePath(activeProject)}`, user?.uid)} /></span>
+                    </div>
                   )}
                 </div>
             </div>
