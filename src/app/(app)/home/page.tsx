@@ -2172,12 +2172,12 @@ export default function HomePage() {
                           alt=""
                           style={{ width: 72, height: 72, borderRadius: 16, objectFit: "cover", objectPosition: activeProject.imagePosition ?? "center", border: "1px solid rgba(237,245,240,0.12)" }}
                         />
-                        <span className="home-fundraiser-live" aria-label="Live fundraiser"><i />Live</span>
                       </div>
                     )}
                     <div className="home-fundraiser-copy" style={{ minWidth: 0 }}>
                       <div className="home-fundraiser-meta" style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
                         <p style={{ fontSize: 11, fontWeight: 900, letterSpacing: 1.1, textTransform: "uppercase", color: "var(--green-primary)" }}>Group Fundraiser</p>
+                        <span className="home-fundraiser-live" aria-label="Live fundraiser"><i />Live</span>
                       </div>
                       <p className="home-fundraiser-title" style={{ fontSize: 22, fontWeight: 900, lineHeight: 1.1, color: "var(--text-primary)", marginTop: 4 }}>
                         {activeProject?.title ?? "Pick a fundraiser"}
