@@ -1845,7 +1845,9 @@ function JarBrowser({
         return;
       }
     }
-    await activateSkipTarget(target);
+    setFundingTarget(target);
+    setFundingAmountStr("");
+    setShowFundingDetails(false);
   }
 
   async function activateSkipTarget(target: SkipAllocationTarget) {
@@ -1938,10 +1940,17 @@ function JarBrowser({
       return;
     }
     setFundingWorking(true);
-    const appliedAmount = await onApplySkipBank(fundingTarget, amount);
-    setFundingWorking(false);
-    setFundingTarget(null);
-    if (appliedAmount > 0) toast.success(`${formatCurrency(appliedAmount)} moved into the jar.`);
+    try {
+      await onSetSkipTarget(fundingTarget);
+      const appliedAmount = await onApplySkipBank(fundingTarget, amount);
+      setFundingTarget(null);
+      if (appliedAmount > 0) toast.success(`${formatCurrency(appliedAmount)} moved into the jar.`);
+    } catch (err) {
+      console.error("apply Skip Bucks failed", err);
+      toast.error("Couldn't activate this jar. Please try again.");
+    } finally {
+      setFundingWorking(false);
+    }
   }
 
   function skipFundingPromptLabel(target: SkipAllocationTarget | null) {
@@ -2680,41 +2689,43 @@ function JarBrowser({
         const fundingAccent = fundingTarget.type === "fundraiser" ? "#2ECC71" : "#8B5CF6";
         const fundingTextColor = fundingTarget.type === "fundraiser" ? "#071B14" : "white";
         const fundingMutedColor = fundingTarget.type === "fundraiser" ? "var(--green-primary)" : "#C4B5FD";
+        const fundingGoal = fundingTarget.type === "goal"
+          ? goals.find((goal) => goal.id === fundingTarget.id) ?? null
+          : null;
         return (
         <div className="fixed inset-0 bg-black/60 z-50 flex items-end sm:items-center justify-center p-4" onClick={() => setFundingTarget(null)}>
           <div className="rounded-2xl w-full max-w-sm shadow-2xl" style={{ background: "var(--bg-surface-1)", border: "1px solid var(--border-default)" }} onClick={(e) => e.stopPropagation()}>
             <div className="px-5 pt-5 pb-4 relative" style={{ borderBottom: "1px solid var(--border-default)" }}>
               <button onClick={() => setFundingTarget(null)} aria-label="Close" className="absolute top-4 right-4 text-xl leading-none" style={{ color: "var(--text-muted)" }}>x</button>
-              <p className="text-lg font-black leading-tight" style={{ color: "var(--text-primary)" }}>
-                Start skipping for {skipFundingPromptLabel(fundingTarget)}?
+              <p className="text-lg font-black leading-tight pr-6" style={{ color: "var(--text-primary)" }}>
+                {fundingGoal ? `Skip for ${fundingGoal.label}?` : `Start skipping for ${skipFundingPromptLabel(fundingTarget)}?`}
               </p>
             </div>
             <div className="space-y-3 p-5">
-              <button
-                onClick={() => {
-                  setFundingTarget(null);
-                  toast.success("Future skips will go to this jar.");
-                }}
-                className="w-full rounded-xl py-3 text-sm font-black"
-                style={{ background: fundingAccent, color: fundingTextColor }}
-              >
-                Start skipping for this
-              </button>
+              {fundingGoal && (
+                <div className="rounded-xl px-4 py-3" style={{ background: "rgba(139,92,246,0.09)", border: "1px solid rgba(139,92,246,0.22)" }}>
+                  <p className="text-[10px] font-black uppercase tracking-wide" style={{ color: "#C4B5FD" }}>Reward goal</p>
+                  <p className="mt-1 text-sm font-black" style={{ color: "var(--text-primary)" }}>
+                    {formatCurrency(fundingGoal.targetAmount)} in jar
+                  </p>
+                </div>
+              )}
               {availableSkipBankBalance > 0 && (
                 <button
                   type="button"
                   onClick={() => setShowFundingDetails((value) => !value)}
-                  className="w-full py-1 text-sm font-bold"
+                  className="flex w-full items-center justify-between py-1 text-sm font-bold"
                   style={{ background: "transparent", border: "none", color: "var(--text-muted)" }}
                   aria-expanded={showFundingDetails}
                 >
-                  {showFundingDetails ? "Hide Skip Bucks" : `Move ${formatCurrency(availableSkipBankBalance)} available Skip Bucks into this jar`}
+                  <span>{showFundingDetails ? "Hide Skip Bucks" : "Use existing Skip Bucks"}</span>
+                  <span aria-hidden="true">{showFundingDetails ? "▲" : "▼"}</span>
                 </button>
               )}
               {availableSkipBankBalance > 0 && showFundingDetails && (
                 <div className="rounded-xl p-4" style={{ background: "rgba(237,245,240,0.045)", border: "1px solid rgba(237,245,240,0.08)" }}>
-                  <p className="mb-3 text-xs font-bold" style={{ color: "var(--text-secondary)" }}>
-                    {formatCurrency(availableSkipBankBalance)} available
+                  <p className="mb-3 text-xs font-bold leading-snug" style={{ color: "var(--text-muted)" }}>
+                    You have {formatCurrency(availableSkipBankBalance)} in Skip Bucks you have already saved, but have not used. Do you want to add some to this jar?
                   </p>
                   <div className="relative">
                     <span className="absolute left-4 top-1/2 -translate-y-1/2 text-sm" style={{ color: "var(--text-muted)" }}>$</span>
@@ -2750,6 +2761,28 @@ function JarBrowser({
                   </button>
                 </div>
               )}
+              <button
+                onClick={() => {
+                  void (async () => {
+                    setFundingWorking(true);
+                    try {
+                      await onSetSkipTarget(fundingTarget);
+                      setFundingTarget(null);
+                      toast.success("Future skips will go to this jar.");
+                    } catch (err) {
+                      console.error("activate jar failed", err);
+                      toast.error("Couldn't activate this jar. Please try again.");
+                    } finally {
+                      setFundingWorking(false);
+                    }
+                  })();
+                }}
+                disabled={fundingWorking}
+                className="w-full rounded-xl py-3 text-sm font-black disabled:opacity-50"
+                style={{ background: fundingAccent, color: fundingTextColor }}
+              >
+                {fundingWorking ? "Activating..." : fundingGoal ? "Skip for this reward" : "Start skipping for this"}
+              </button>
             </div>
           </div>
         </div>

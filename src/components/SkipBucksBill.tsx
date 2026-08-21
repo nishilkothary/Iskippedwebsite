@@ -2,6 +2,7 @@
 
 import type { CSSProperties } from "react";
 import { useEffect, useState } from "react";
+import { createPortal } from "react-dom";
 
 const billStyle = (compact: boolean, open: boolean): CSSProperties => ({
   position: "relative",
@@ -54,11 +55,11 @@ const sealStyle: CSSProperties = {
 };
 
 const popoverStyle: CSSProperties = {
-  position: "absolute",
-  right: 0,
-  top: "calc(100% + 10px)",
-  width: "min(260px, calc(100vw - 32px))",
-  padding: 16,
+  position: "fixed",
+  right: 20,
+  top: 20,
+  width: "min(236px, calc(100vw - 32px))",
+  padding: 13,
   border: "1px solid rgba(46,204,113,0.28)",
   borderRadius: 14,
   background: "#10241b",
@@ -68,19 +69,16 @@ const popoverStyle: CSSProperties = {
 
 const compactPopoverStyle: CSSProperties = {
   ...popoverStyle,
-  left: 0,
-  right: "auto",
+  zIndex: 2147483647,
 };
 
 export function SkipBucksBill({
   amount,
   compact = false,
-  onManage,
   paused = false,
 }: {
   amount: number;
   compact?: boolean;
-  onManage?: () => void;
   paused?: boolean;
 }) {
   const [open, setOpen] = useState(false);
@@ -200,7 +198,7 @@ export function SkipBucksBill({
         )}
       </button>
 
-      {open && (
+      {open && typeof document !== "undefined" && createPortal(
         <div
           className="skip-bucks-popover iskip-pop-in"
           style={compact ? compactPopoverStyle : popoverStyle}
@@ -208,21 +206,6 @@ export function SkipBucksBill({
           aria-label="What are Skip Bucks?"
           onClick={(event) => event.stopPropagation()}
         >
-          <span
-            aria-hidden="true"
-            style={{
-              position: "absolute",
-              right: compact ? undefined : 34,
-              left: compact ? 16 : undefined,
-              top: -6,
-              width: 12,
-              height: 12,
-              borderLeft: "1px solid rgba(46,204,113,0.28)",
-              borderTop: "1px solid rgba(46,204,113,0.28)",
-              background: "#10241b",
-              transform: "rotate(45deg)",
-            }}
-          />
           <button
             type="button"
             className="skip-bucks-close"
@@ -240,33 +223,12 @@ export function SkipBucksBill({
           >
             x
           </button>
-          <p className="skip-bucks-popover-kicker" style={{ color: "var(--green-primary)", fontSize: 10, fontWeight: 900, letterSpacing: "0.14em", textTransform: "uppercase" }}>Skip Bucks</p>
-          <p className="skip-bucks-popover-copy" style={{ marginTop: 8, color: "var(--text-secondary)", fontSize: 12, fontWeight: 700, lineHeight: 1.45 }}>
+          <p className="skip-bucks-popover-kicker" style={{ color: "var(--text-primary)", fontSize: 12, fontWeight: 700, letterSpacing: "normal", lineHeight: 1.35, textTransform: "none" }}>Skip Bucks</p>
+          <p className="skip-bucks-popover-copy" style={{ marginTop: 6, color: "var(--text-secondary)", fontSize: 12, fontWeight: 400, letterSpacing: "normal", lineHeight: 1.45, textTransform: "none" }}>
             Skip Bucks are dollars available from your skipped expenses. They are your lifetime skipped savings minus purchases and donations you have logged.
           </p>
-          {onManage && (
-            <button
-              type="button"
-              className="skip-bucks-manage"
-              style={{
-                width: "100%",
-                marginTop: 13,
-                borderRadius: 10,
-                padding: "9px 11px",
-                background: "var(--green-primary)",
-                color: "#071b14",
-                fontSize: 12,
-                fontWeight: 900,
-              }}
-              onClick={() => {
-                setOpen(false);
-                onManage();
-              }}
-            >
-              Use Skip Bucks
-            </button>
-          )}
-        </div>
+        </div>,
+        document.body,
       )}
     </div>
   );

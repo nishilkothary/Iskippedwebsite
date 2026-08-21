@@ -924,6 +924,8 @@ function GoalSpendModal({
   const parsedAmount = Number.parseFloat(amount);
   const cleanAmount = Number.isFinite(parsedAmount) ? parsedAmount : 0;
   const canContinue = cleanAmount > 0;
+  const totalAvailable = Math.max(0, availableFromSkips);
+  const amountOverAvailable = cleanAmount > totalAvailable;
   const coveredAmount = Math.min(cleanAmount, Math.max(0, availableFromSkips));
   const uncoveredAmount = Math.max(0, cleanAmount - Math.max(0, availableFromSkips));
   const extraFromUnassigned = Math.max(0, cleanAmount - safeJarBalance);
@@ -999,9 +1001,9 @@ function GoalSpendModal({
             ? "Did you buy it?"
             : step === "ready"
               ? "Great. Your skips can do this."
-              : `Use skips for ${goal.label}`}
+              : `Buy ${goal.label}`}
         </p>
-        <p className="text-sm leading-relaxed mt-3" style={{ color: "var(--text-secondary)" }}>
+        {step !== "amount" && <p className="text-sm leading-relaxed mt-3" style={{ color: "var(--text-secondary)" }}>
           {step === "confirm"
             ? goal.shoppingLink
               ? "When you come back, confirm the purchase so your Skip Bank and goal progress stay accurate."
@@ -1015,10 +1017,29 @@ function GoalSpendModal({
                 ? `${formatCurrencyRounded(coveredAmount)} is ready from your Skip Bank for ${goal.label}.`
                 : `${formatCurrencyRounded(coveredAmount)} is ready from your Skip Bank. No purchase link is attached to this reward yet. Please buy it wherever you planned to, then log it here so your saved balance stays accurate.`
               : "Enter the purchase amount. It is prefilled with this jar's saved balance."}
-        </p>
+        </p>}
 
         {step === "amount" && (
-          <form className="mt-5 rounded-xl p-4" style={{ background: "rgba(237,245,240,0.045)", border: "1px solid rgba(237,245,240,0.08)" }} onSubmit={handleAmountSubmit}>
+          <>
+          <div className="mt-5 rounded-xl p-4" style={{ background: "rgba(139,92,246,0.09)", border: "1px solid rgba(139,92,246,0.22)" }}>
+            <p className="text-xs font-black uppercase tracking-wide" style={{ color: "#C4B5FD" }}>Step 1</p>
+            <p className="mt-1 text-sm font-black" style={{ color: "var(--text-primary)" }}>Buy {goal.label}</p>
+            {goal.shoppingLink ? (
+              <a href={goal.shoppingLink} target="_blank" rel="noopener noreferrer" className="mt-3 inline-flex w-full items-center justify-center rounded-xl py-3 text-sm font-black" style={{ background: "#8B5CF6", color: "white", textDecoration: "none" }}>
+                Open purchase page
+              </a>
+            ) : (
+              <p className="mt-2 text-sm leading-relaxed" style={{ color: "var(--text-secondary)" }}>Buy where intended, then log it here.</p>
+            )}
+            <p className="mt-3 text-[10px] font-bold leading-relaxed" style={{ color: "var(--text-muted)" }}>
+              iSkipped does not process, verify, or manage outside purchases.
+            </p>
+          </div>
+          <div className="mt-4">
+            <p className="text-xs font-black uppercase tracking-wide" style={{ color: "var(--text-muted)" }}>Step 2</p>
+            <p className="mt-1 text-sm" style={{ color: "var(--text-secondary)" }}>After buying, log the amount here.</p>
+          </div>
+          <form className="mt-3 rounded-xl p-4" style={{ background: "rgba(237,245,240,0.045)", border: "1px solid rgba(237,245,240,0.08)" }} onSubmit={(event) => { event.preventDefault(); void handleCompleted(); }}>
             <div style={{ display: "flex", justifyContent: "space-between", gap: 12, alignItems: "baseline", marginBottom: 12 }}>
               <p className="text-xs font-black uppercase tracking-wide" style={{ color: "var(--text-muted)" }}>Jar amount</p>
               <p className="text-xs font-bold" style={{ color: "var(--text-secondary)" }}>{formatCurrencyRounded(safeJarBalance)} in jar</p>
@@ -1038,17 +1059,28 @@ function GoalSpendModal({
             </div>
             <button type="submit" className="sr-only">Continue</button>
           </form>
+          {amountOverAvailable && (
+            <p className="mt-3 text-xs font-bold leading-relaxed" style={{ color: "#EF4444" }}>
+              That is more than your saved skips. Lower the amount to {formatCurrencyRounded(totalAvailable)} or less.
+            </p>
+          )}
+          {!amountOverAvailable && extraFromUnassigned > 0 && cleanAmount > 0 && (
+            <p className="mt-3 text-xs font-bold leading-relaxed" style={{ color: "#F59E0B" }}>
+              You are spending more than this jar holds. {formatCurrencyRounded(extraFromUnassigned)} will come from your saved Skip Bucks.
+            </p>
+          )}
+          </>
         )}
 
         {step === "amount" ? (
           <button
             type="button"
-            onClick={() => handleAmountSubmit()}
-            disabled={!canContinue}
+            onClick={handleCompleted}
+            disabled={!canContinue || amountOverAvailable || saving}
             className="mt-5 w-full py-3 rounded-xl text-sm font-black disabled:opacity-50"
             style={{ background: "#A78BFA", color: "#0B1A14" }}
           >
-            Enter amount
+            {saving ? "Logging..." : "Log purchase"}
           </button>
         ) : step === "coverage" ? (
           <div className="mt-5 grid gap-3">
@@ -1954,14 +1986,15 @@ export default function HomePage() {
 
       {/* Scoreboard */}
       <div className="iskip-scoreboard" style={{ marginBottom: 32 }}>
-        <div className="iskip-scoreboard-header" style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12 }}>
+        <div className="iskip-scoreboard-header" style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 12 }}>
           <span>YOUR SKIP SCOREBOARD</span>
-          <SkipBucksBill
-            amount={skipBalance.availableFromSkips}
-            compact
-            paused={showSkipPicker}
-            onManage={() => router.push("/jars")}
-          />
+          <div style={{ position: "absolute", right: 0, top: "50%", transform: "translateY(-50%)" }}>
+            <SkipBucksBill
+              amount={skipBalance.availableFromSkips}
+              compact
+              paused={showSkipPicker}
+            />
+          </div>
         </div>
         <div className="iskip-scoreboard-grid">
           <div className="iskip-scoreboard-stat">
@@ -2152,6 +2185,15 @@ export default function HomePage() {
                       )}
                     </div>
                   </div>
+                  {activeProject && (
+                    <ShareButton
+                      variant="pill"
+                      label="Share"
+                      title={activeProject.title}
+                      text={getDirectChallengeShareText(activeProject)}
+                      url={appendRefParam(`${typeof window !== "undefined" ? window.location.origin : "https://iskipped.com"}${getChallengeSharePath(activeProject)}`, user?.uid)}
+                    />
+                  )}
                 </div>
             </div>
             {activeProject ? (

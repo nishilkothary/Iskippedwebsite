@@ -117,7 +117,7 @@ export default function AboutPage() {
           </h2>
           <div className="mt-4 space-y-4 text-sm leading-relaxed" style={{ color: "var(--text-secondary)" }}>
             <p>
-              The idea for iSkipped began during a backpacking trip through Asia. There, I met a local student sleeping on a hotel bench and eating plain white rice for dinner to save money for college.
+              The idea for iSkipped began during a backpacking trip through Asia. There, I met a local student sleeping on a hotel bench, eating plain white rice for dinner, as he tried to save money for college.
             </p>
             <p>
               Amazed by his sacrifice, I asked how much his tuition would cost, expecting a large number. His answer shocked me: &quot;$170,&quot; he said.
@@ -129,16 +129,13 @@ export default function AboutPage() {
               For the rest of my trip, I started looking at every purchase through that frame of reference: if I did not buy this, how much closer could I get to funding his tuition? Eventually, that way of thinking led to real skipped expenses and a redirection of my savings toward his education.
             </p>
             <p className="font-black" style={{ color: "var(--text-primary)" }}>
-              That decision changed how I saw my own money. I realized that money I was fortunate enough to spend without much thought could be far more powerful when spent with intention. A skipped dinner, drink, ride, or impulse purchase could become an opportunity for myself or someone else.
+              That decision changed how I saw my own money. &quot;I skipped&quot; turned from a feel-good phrase I would recite to myself on that trip into a lasting habit: taking a moment to pause before I decided to spend. I realized that money I was fortunate enough to use without much thought could be far more powerful when I simply asked, &quot;Do I really want to spend on this?&quot;
             </p>
             <p>
-              With that, &quot;I skipped&quot; became more than a phrase. It became a moment of pause before spending, prompting me to ask: &quot;Do I really need this, or is there something better I could use it for?&quot;
+              My hope is that iSkipped helps you ask yourself that same question as you turn skipped expenses into purchases that truly make you happy.
             </p>
             <p>
-              My hope is that iSkipped helps you ask yourself that same question as you turn skipped expenses into purchases that truly make you happy or donations that can change lives.
-            </p>
-            <p>
-              Whatever your reason for skipping, there is power in choosing where your money goes.
+              Whatever your skips go toward, whether it&apos;s a personal goal you have been saving for or a donation directed toward helping others, there is power in choosing where your money goes.
             </p>
             <p className="pt-2" style={{ color: "var(--text-primary)" }}>
               <span className="block text-base" style={{ fontFamily: "Georgia, serif", fontStyle: "italic" }}>Nishil Kothary</span>
