@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
 import { useAuthStore } from "@/store/authStore";
-import { completeSetupPrompt, dismissSetupPrompt } from "@/lib/services/firebase/users";
+import { completeSetupPrompt, dismissSetupPrompt, dismissWeeklyReminderPrompt } from "@/lib/services/firebase/users";
 import { isPushSupported, registerForPush } from "@/lib/services/firebase/push";
 
 type InstallPlatform = "ios" | "browser" | null;
@@ -107,10 +107,13 @@ export function SkipSetupPrompt({ mode, onClose }: Props) {
   const snoozedAtMs = timestampMs(profile?.setupPromptDismissedAt);
   const snoozed = dismissedLocal || (snoozedAtMs != null && Date.now() - snoozedAtMs < SETUP_PROMPT_SNOOZE_MS);
   const completed = !!profile?.setupPromptCompletedAt;
+  const weeklyReminderDismissed = !!profile?.weeklyReminderPromptDismissedAt;
   const notificationDenied = typeof window !== "undefined" && "Notification" in window && Notification.permission === "denied";
   const showPushAction = isMobile && pushSupported && !notificationDenied && !profile?.pushOptIn;
   const showInstallAction = isMobile && installPlatform !== null;
-  const eligible = isMobile && !!user && !!profile && !completed && !snoozed && (showPushAction || showInstallAction);
+  const setupEligible = isMobile && !!user && !!profile && !completed && !snoozed && (showPushAction || showInstallAction);
+  const reminderOnly = isMobile && !!user && !!profile && completed && showPushAction && !showInstallAction && !weeklyReminderDismissed;
+  const eligible = setupEligible || reminderOnly;
 
   useEffect(() => {
     if ((mode === "inline" || mode === "modal") && ready && !eligible) {
@@ -122,12 +125,18 @@ export function SkipSetupPrompt({ mode, onClose }: Props) {
     setDismissedLocal(true);
     if (user) {
       try {
-        await dismissSetupPrompt(user.uid);
+        if (reminderOnly) {
+          await dismissWeeklyReminderPrompt(user.uid);
+        } else {
+          await dismissSetupPrompt(user.uid);
+        }
       } catch {
         // Local dismissal still prevents an immediate repeat if the network is flaky.
       }
     }
-    updateProfile({ setupPromptDismissedAt: new Date() as any });
+    updateProfile(reminderOnly
+      ? { weeklyReminderPromptDismissedAt: new Date() as any }
+      : { setupPromptDismissedAt: new Date() as any });
     onClose?.();
   }
 
@@ -214,7 +223,7 @@ export function SkipSetupPrompt({ mode, onClose }: Props) {
         ? { color: "var(--green-primary)", background: "none", border: "none" }
         : { background: "var(--green-primary)", color: "#0B1A14", border: "none" }}
     >
-      {pushBusy ? "Turning on..." : "Turn on Reminders"}
+      {pushBusy ? "Turning on..." : "Allow weekly reminder"}
     </button>
   ) : null;
 
@@ -227,7 +236,7 @@ export function SkipSetupPrompt({ mode, onClose }: Props) {
     >
       <p className="text-xs font-bold mb-1" style={{ color: "var(--text-primary)" }}>On iPhone:</p>
       <ol className="space-y-1 text-xs leading-relaxed" style={{ color: "var(--text-secondary)", paddingLeft: 16 }}>
-        <li>Tap the Share button in Safari.</li>
+        <li>Tap Share, or tap ... then Share.</li>
         <li>Choose Add to Home Screen.</li>
         <li>Tap Add.</li>
       </ol>
@@ -262,13 +271,15 @@ export function SkipSetupPrompt({ mode, onClose }: Props) {
             🔥
           </div>
           <p className="text-[11px] font-black uppercase tracking-[0.18em]" style={{ color: "var(--green-primary)" }}>
-            Keep the streak going
+            {reminderOnly ? "Weekly check-in" : "Keep the streak going"}
           </p>
           <h2 id="skip-setup-title" className="mt-2 text-2xl font-black leading-tight" style={{ color: "var(--text-primary)" }}>
-            Make next week easy
+            {reminderOnly ? "Allow one weekly reminder?" : "Make next week easy"}
           </h2>
           <p className="mt-2 text-sm leading-relaxed" style={{ color: "var(--text-secondary)" }}>
-            Add iSkipped to your Home Screen and get one weekly reminder to log a skip.
+            {reminderOnly
+              ? "We'll remind you once a week to log anything you skipped."
+              : "Add iSkipped to your Home Screen and get one weekly reminder to log a skip."}
           </p>
 
           <div className="mt-5 space-y-3 text-left">
@@ -303,10 +314,10 @@ export function SkipSetupPrompt({ mode, onClose }: Props) {
                 </span>
                 <span className="min-w-0">
                   <span className="block text-sm font-black" style={{ color: "var(--text-primary)" }}>
-                    {pushBusy ? "Turning on..." : "Turn on weekly reminders"}
+                    {pushBusy ? "Turning on..." : "Allow one weekly reminder"}
                   </span>
                   <span className="block text-xs mt-1 leading-relaxed" style={{ color: "var(--text-muted)" }}>
-                    A gentle nudge once a week during the challenge.
+                    Did you skip anything this week? We&apos;ll remind you on Sunday.
                   </span>
                 </span>
               </button>
@@ -317,7 +328,7 @@ export function SkipSetupPrompt({ mode, onClose }: Props) {
             <div className="mt-3 rounded-xl p-3 text-left" style={{ background: "var(--bg-surface-2)", border: "1px solid var(--border-default)" }}>
               <p className="text-xs font-bold mb-1" style={{ color: "var(--text-primary)" }}>On iPhone:</p>
               <ol className="space-y-1 text-xs leading-relaxed" style={{ color: "var(--text-secondary)", paddingLeft: 16 }}>
-                <li>Tap the Share button in Safari.</li>
+                <li>Tap Share, or tap ... then Share.</li>
                 <li>Choose Add to Home Screen.</li>
                 <li>Tap Add.</li>
               </ol>
@@ -339,7 +350,7 @@ export function SkipSetupPrompt({ mode, onClose }: Props) {
             className="mt-5 w-full rounded-xl py-3 text-base font-black disabled:opacity-60"
             style={{ background: "linear-gradient(135deg, var(--green-primary), var(--green-grad-end))", color: "#071b12" }}
           >
-            Set this up
+            {reminderOnly ? "Allow weekly reminder" : "Set this up"}
           </button>
           <button
             type="button"
@@ -387,7 +398,9 @@ export function SkipSetupPrompt({ mode, onClose }: Props) {
         <div>
           <p className="text-xs font-black" style={{ color: "var(--text-primary)" }}>Keep this going next week</p>
           <p className="text-[11px] mt-0.5 leading-relaxed" style={{ color: "var(--text-secondary)" }}>
-            Add iSkipped to your phone or get one weekly nudge.
+            {reminderOnly
+              ? "Allow one weekly reminder to log anything you skipped."
+              : "Add iSkipped to your phone or get one weekly reminder."}
           </p>
         </div>
         <button

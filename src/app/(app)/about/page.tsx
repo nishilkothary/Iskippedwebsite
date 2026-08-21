@@ -40,7 +40,7 @@ const STEPS = [
 const LEGACY_FAQ_ITEMS = [
   {
     q: "How do I empty my jar once I've donated or made a purchase?",
-    a: "Head to the Jars page and open the relevant tab. For your Giving Jar, log a donation using the 'Log Donation' button — enter the amount you donated and confirm. For your Reward Jar, tap 'Log a Purchase' on your active reward, enter what you spent, and confirm. Both actions record your real-world action and clear that amount from your jar balance so you can start fresh toward your next goal.",
+    a: "Head to the Jars page and choose Donate my skips or Spend my skips. iSkipped will point you to the outside donation or purchase page first, then let you log the amount so your jar balance stays accurate.",
   },
   {
     q: "Does any money actually transfer when I log a skip?",
@@ -218,27 +218,13 @@ export default function AboutPage() {
             Create a Skipped Reward →
           </button>
           <button
-            onClick={() => router.push("/challenges")}
+            onClick={() => router.push("/jars?tab=cause")}
             className="mt-3 w-full py-3 rounded-2xl text-sm font-semibold"
             style={{ display: "none" }}
           >
             Browse iSkipped Fundraisers →
           </button>
         </section>
-
-        {/* How iSkipped works note */}
-        <div
-          className="rounded-2xl p-4"
-          style={{ background: "var(--bg-surface-1)", border: "1px solid var(--border-default)" }}
-        >
-          <p className="text-xs font-bold uppercase tracking-widest mb-2" style={{ color: "var(--text-muted)" }}>Good to know</p>
-          <p className="text-sm leading-relaxed mb-3" style={{ color: "var(--text-secondary)" }}>
-            iSkipped is a <span className="font-semibold" style={{ color: "var(--text-primary)" }}>motivation and tracking tool</span> — it helps you log, visualize, and stay accountable to the money you save by skipping. No funds move automatically.
-          </p>
-          <p className="text-sm leading-relaxed" style={{ color: "var(--text-secondary)" }}>
-            When you&apos;re ready to donate, iSkipped links you directly to each charitable organization. <span className="font-semibold" style={{ color: "var(--text-primary)" }}>All donations are processed by the cause itself</span> — iSkipped never holds or handles your funds.
-          </p>
-        </div>
 
         {/* FAQ */}
         <section>
@@ -267,6 +253,20 @@ export default function AboutPage() {
             ))}
           </div>
         </section>
+
+        {/* How iSkipped works note */}
+        <div
+          className="rounded-2xl p-4"
+          style={{ background: "var(--bg-surface-1)", border: "1px solid var(--border-default)" }}
+        >
+          <p className="text-xs font-bold uppercase tracking-widest mb-2" style={{ color: "var(--text-muted)" }}>Good to know</p>
+          <p className="text-sm leading-relaxed mb-3" style={{ color: "var(--text-secondary)" }}>
+            iSkipped is a <span className="font-semibold" style={{ color: "var(--text-primary)" }}>motivation and tracking tool</span> — it helps you log, visualize, and stay accountable to the money you save by skipping. No funds move automatically.
+          </p>
+          <p className="text-sm leading-relaxed" style={{ color: "var(--text-secondary)" }}>
+            When you&apos;re ready to donate, iSkipped links you directly to each charitable organization. <span className="font-semibold" style={{ color: "var(--text-primary)" }}>All donations are processed by the cause itself</span> — iSkipped never holds or handles your funds.
+          </p>
+        </div>
 
         {/* Contact */}
         <div

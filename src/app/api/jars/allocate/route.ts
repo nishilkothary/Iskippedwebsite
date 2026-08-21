@@ -30,7 +30,7 @@ export async function POST(req: NextRequest) {
       const userSnap = await tx.get(userRef);
       if (!userSnap.exists) throw new ApiError(404, "User not found");
       const profile = userSnap.data() as UserProfile;
-      const availableSkipBank = getSkipBalanceSummary(profile).availableFromSkips;
+      const availableSkipBank = getSkipBalanceSummary(profile).unassignedSkipBank;
       const amountToApply = Math.min(amount, availableSkipBank);
       if (amountToApply <= 0) return 0;
 

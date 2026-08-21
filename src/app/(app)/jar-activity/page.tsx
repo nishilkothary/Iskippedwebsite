@@ -11,6 +11,8 @@ import {
   normalizeSpendingGoals,
   pinProjectToHome,
   moveJarBalance,
+  recordPurchase,
+  setActiveProject,
   setActiveSkipTarget,
   deleteDonation,
   deleteSpendingHistory,
@@ -114,136 +116,123 @@ function JarActivityCard({
   item,
   working,
   onResume,
-  onLogDonation,
   onDonate,
+  onPurchase,
+  onDeactivate,
 }: {
   item: JarActivityItem;
   working: boolean;
   onResume: (item: JarActivityItem) => void;
-  onLogDonation: (project: Project) => void;
   onDonate: (project: Project) => void;
+  onPurchase: (goal: SpendingGoal) => void;
+  onDeactivate: (item: JarActivityItem) => void;
 }) {
   const percent = progressPercent(item.balance, item.goalAmount);
   const accent = item.type === "fundraiser" ? "var(--green-primary)" : "#A78BFA";
+  const gradEnd = item.type === "fundraiser" ? "#1E9485" : "#6D5FD4";
+  const actionLabel = item.type === "fundraiser" ? "Donate my skips" : "Spend my skips";
+  const visualFillPercent = Math.max(percent, item.balance > 0 ? 8 : 0);
+  const fillHeight = (visualFillPercent / 100) * 120;
+  const fillY = 170 - fillHeight;
+  const jarUid = `${item.type}-${item.id}`.replace(/\W/g, "");
+  const jarPath = "M20,40 Q20,40 25,35 L35,30 Q40,28 42,25 L42,15 Q42,10 48,10 L72,10 Q78,10 78,15 L78,25 Q80,28 85,30 L95,35 Q100,40 100,45 L100,155 Q100,170 85,170 L35,170 Q20,170 20,155 Z";
 
   return (
-    <article className="rounded-xl p-4" style={{ background: "var(--bg-surface-1)", border: "1px solid var(--border-default)" }}>
-      <div className="flex items-start justify-between gap-3">
-        <div>
-          <div className="flex items-center gap-2">
-            <p className="text-xs font-black uppercase tracking-[0.12em]" style={{ color: accent }}>
-              {item.type === "fundraiser" ? "Fundraiser" : "Reward"}
-            </p>
-            {item.active && (
-              <span className="rounded-full px-2 py-0.5 text-[10px] font-black" style={{ background: "rgba(46,204,113,0.14)", color: "var(--green-primary)" }}>
-                Active
-              </span>
+    <article
+      className="w-[172px] p-0"
+      style={{
+        background: "transparent",
+      }}
+    >
+      <div className="text-center">
+        <div className="min-w-0">
+          <h2 className="truncate text-sm font-black leading-tight" style={{ color: accent }}>{item.title}</h2>
+        </div>
+      </div>
+
+      <div className="mt-4 flex justify-center">
+        <svg width="108" height="170" viewBox="0 0 120 190" role="img" aria-label={`${formatCurrency(item.balance)} saved`}>
+          <defs>
+            <linearGradient id={`jar-fill-${jarUid}`} x1="0" y1="1" x2="0" y2="0">
+              <stop offset="0%" stopColor={gradEnd} />
+              <stop offset="100%" stopColor={accent} />
+            </linearGradient>
+            <linearGradient id={`jar-glass-${jarUid}`} x1="0" y1="0" x2="1" y2="1">
+              <stop offset="0%" stopColor="rgba(255,255,255,0.18)" />
+              <stop offset="45%" stopColor="rgba(255,255,255,0.04)" />
+              <stop offset="100%" stopColor="rgba(255,255,255,0.1)" />
+            </linearGradient>
+            <linearGradient id={`jar-shine-${jarUid}`} x1="0" y1="0" x2="0" y2="1">
+              <stop offset="0%" stopColor="rgba(255,255,255,0.55)" />
+              <stop offset="100%" stopColor="rgba(255,255,255,0)" />
+            </linearGradient>
+            <clipPath id={`jar-clip-${jarUid}`}>
+              <path d={jarPath} />
+            </clipPath>
+          </defs>
+          <ellipse cx="60" cy="170" rx="38" ry="7" fill="rgba(0,0,0,0.22)" />
+          <path d={jarPath} fill={`url(#jar-glass-${jarUid})`} />
+          <g clipPath={`url(#jar-clip-${jarUid})`}>
+            <rect x="15" y={fillY} width="90" height={fillHeight + 12} rx="4" fill={`url(#jar-fill-${jarUid})`} opacity="0.86" />
+            {visualFillPercent > 5 && (
+              <path d={`M15,${fillY} Q35,${fillY - 4} 60,${fillY} T105,${fillY}`} fill="none" stroke="rgba(255,255,255,0.28)" strokeWidth="2" strokeLinecap="round" />
             )}
-          </div>
-          <h2 className="mt-1 text-xl font-black leading-tight" style={{ color: "var(--text-primary)" }}>{item.title}</h2>
-          <p className="mt-1 text-sm" style={{ color: "var(--text-muted)" }}>{item.subtitle}</p>
-        </div>
-        <div className="flex shrink-0 flex-col items-end gap-2 text-right">
-          <p className="text-2xl font-black" style={{ color: "var(--text-primary)" }}>{formatCurrency(item.balance)}</p>
-          <p className="text-xs font-bold mt-1" style={{ color: "var(--text-muted)" }}>{goalLine(item)}</p>
-          {!item.active && (
-            <button
-              type="button"
-              onClick={() => onResume(item)}
-              disabled={working}
-              className="rounded-full px-3 py-1.5 text-xs font-black disabled:opacity-50"
-              style={{ background: "transparent", border: `1px solid ${accent}`, color: accent }}
-            >
-              Make active
-            </button>
-          )}
-        </div>
+          </g>
+          <path d="M45,16 L45,28 M75,16 L75,28" stroke="rgba(255,255,255,0.28)" strokeWidth="1.5" strokeLinecap="round" />
+          <path d={jarPath} fill="none" stroke="rgba(255,255,255,0.38)" strokeWidth="2.4" strokeLinejoin="round" />
+          <path d="M36,46 Q28,82 35,139" fill="none" stroke={`url(#jar-shine-${jarUid})`} strokeWidth="4" strokeLinecap="round" opacity="0.85" />
+          <text x="60" y="85" textAnchor="middle" dominantBaseline="middle" fontSize="15" fontWeight="900" fill="rgba(255,255,255,0.92)" style={{ fontFamily: "inherit" }}>
+            {formatCurrency(item.balance)}
+          </text>
+          <text x="60" y="101" textAnchor="middle" dominantBaseline="middle" fontSize="7" fontWeight="800" fill="rgba(255,255,255,0.68)" style={{ fontFamily: "inherit", letterSpacing: 0.8 }}>
+            SAVED
+          </text>
+        </svg>
       </div>
 
-      <div className="mt-4 h-2.5 overflow-hidden rounded-full" style={{ background: "var(--bg-surface-3)" }}>
-        <div className="h-full rounded-full" style={{ width: `${percent}%`, background: accent }} />
-      </div>
-
-      {item.type === "fundraiser" && item.project && (
-        <div className="mt-4 grid gap-2 sm:grid-cols-2">
+      <div className="mt-3 grid gap-1.5">
+        {item.type === "fundraiser" && item.project ? (
           <button
             type="button"
             onClick={() => onDonate(item.project!)}
-            className="rounded-full px-4 py-2.5 text-center text-sm font-black"
-            style={{ background: "var(--green-primary)", color: "#071B14" }}
+            className="rounded-full px-3 py-1.5 text-center text-[11px] font-black"
+            style={{ background: "rgba(46,204,113,0.18)", border: `1px solid ${accent}`, color: accent }}
           >
-            Donate
+            {actionLabel}
           </button>
+        ) : item.type === "goal" ? (
           <button
             type="button"
-            onClick={() => onLogDonation(item.project!)}
-            className="rounded-full px-4 py-2.5 text-sm font-black"
-            style={{ background: "transparent", border: "1px solid var(--border-default)", color: "var(--text-secondary)" }}
+            onClick={() => onPurchase(item.goal)}
+            className="rounded-full px-3 py-1.5 text-center text-[11px] font-black"
+            style={{ background: "rgba(167,139,250,0.18)", border: `1px solid ${accent}`, color: "#DDD6FE" }}
           >
-            Log donation
+            {actionLabel}
           </button>
-        </div>
-      )}
-    </article>
-  );
-}
-
-function DonationNextStepModal({
-  project,
-  onClose,
-  onLogDonation,
-}: {
-  project: Project;
-  onClose: () => void;
-  onLogDonation: (project: Project) => void;
-}) {
-  const hasLink = Boolean(project.donationURL);
-  return (
-    <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/60 p-4 sm:items-center" onClick={onClose}>
-      <div
-        className="w-full max-w-md rounded-2xl shadow-2xl"
-        style={{ background: "var(--bg-surface-1)", border: "1px solid var(--border-default)" }}
-        onClick={(event) => event.stopPropagation()}
-      >
-        <div className="relative px-5 py-4" style={{ borderBottom: "1px solid var(--border-default)" }}>
-          <button type="button" onClick={onClose} aria-label="Close" className="absolute right-4 top-4 text-xl leading-none" style={{ color: "var(--text-muted)" }}>x</button>
-          <p className="text-[11px] font-black uppercase tracking-[0.14em]" style={{ color: "var(--green-primary)" }}>
-            {hasLink ? "Donation link opened" : "No donation link"}
-          </p>
-          <p className="mt-2 text-xl font-black leading-tight pr-6" style={{ color: "var(--text-primary)" }}>
-            {hasLink ? "Did you complete the donation?" : "Donate outside iSkipped"}
-          </p>
-        </div>
-        <div className="space-y-4 p-5">
-          <p className="text-sm leading-relaxed" style={{ color: "var(--text-secondary)" }}>
-            {hasLink
-              ? "When you come back, log the donation so your jar and fundraiser history stay accurate."
-              : "No donation link is attached to this fundraiser yet. Please donate directly through the organization, then log it here so your jar stays accurate."}
-          </p>
-          {hasLink && (
-            <button
-              type="button"
-              onClick={() => window.open(project.donationURL!, "_blank", "noopener,noreferrer")}
-              className="w-full rounded-xl py-3 text-sm font-black"
-              style={{ background: "rgba(237,245,240,0.06)", border: "1px solid rgba(237,245,240,0.1)", color: "var(--text-primary)" }}
-            >
-              Open donation link again
-            </button>
-          )}
+        ) : null}
+        {item.active ? (
           <button
             type="button"
-            onClick={() => onLogDonation(project)}
-            className="w-full rounded-xl py-3 text-sm font-black"
-            style={{ background: "var(--green-primary)", color: "#071B14" }}
+            onClick={() => onDeactivate(item)}
+            disabled={working}
+            className="rounded-full px-3 py-1.5 text-[11px] font-black disabled:opacity-50"
+            style={{ background: "transparent", border: "1px solid rgba(239,68,68,0.34)", color: "#FCA5A5" }}
           >
-            Log donation
+            Deactivate
           </button>
-          <button type="button" onClick={onClose} className="w-full py-1 text-sm font-black" style={{ color: "var(--text-muted)" }}>
-            Not yet
+        ) : (
+          <button
+            type="button"
+            onClick={() => onResume(item)}
+            disabled={working}
+            className="rounded-full px-3 py-1.5 text-[11px] font-black disabled:opacity-50"
+            style={{ background: "transparent", border: `1px solid ${accent}`, color: accent }}
+          >
+            Make active
           </button>
-        </div>
+        )}
       </div>
-    </div>
+    </article>
   );
 }
 
@@ -258,11 +247,17 @@ function SectionHeader({ title, subtitle }: { title: string; subtitle?: string }
   );
 }
 
+function JarShelfLabel({ label }: { label: string }) {
+  return (
+    <h2 className="text-lg font-black" style={{ color: "var(--text-primary)" }}>
+      {label}
+    </h2>
+  );
+}
+
 function EmptySection({ children }: { children: React.ReactNode }) {
   return (
-    <div className="rounded-xl px-4 py-3" style={{ background: "var(--bg-surface-1)", border: "1px dashed var(--border-default)" }}>
-      <p className="text-sm" style={{ color: "var(--text-secondary)" }}>{children}</p>
-    </div>
+    <p className="mt-2 text-sm" style={{ color: "var(--text-muted)" }}>{children}</p>
   );
 }
 
@@ -527,7 +522,10 @@ export default function JarActivityPage() {
   const [moveDestinationId, setMoveDestinationId] = useState("");
   const [moveAmount, setMoveAmount] = useState("");
   const [donatingProject, setDonatingProject] = useState<Project | null>(null);
-  const [donationNextStepProject, setDonationNextStepProject] = useState<Project | null>(null);
+  const [purchasingGoal, setPurchasingGoal] = useState<SpendingGoal | null>(null);
+  const [purchaseAmount, setPurchaseAmount] = useState("");
+  const [purchaseWorking, setPurchaseWorking] = useState(false);
+  const [purchaseDone, setPurchaseDone] = useState<"logged" | "emptied" | null>(null);
 
   useEffect(() => {
     if (!user) return;
@@ -546,8 +544,6 @@ export default function JarActivityPage() {
     : profile.activeSkipTarget;
   const skipBalanceSummary = getSkipBalanceSummary(profile);
   const totalSkipBucks = skipBalanceSummary.availableFromSkips;
-  const inJars = skipBalanceSummary.assignedToJars;
-  const unassignedSkipBucks = skipBalanceSummary.unassignedSkipBank;
 
   const items = useMemo<JarActivityItem[]>(() => {
     if (!profile) return [];
@@ -587,6 +583,8 @@ export default function JarActivityPage() {
     return [...fundraiserItems, ...rewardItems].sort((a, b) => Number(b.active) - Number(a.active) || b.balance - a.balance);
   }, [profile, projects, activeTarget?.type, activeTarget?.id, spendingGoals]);
 
+  const inJars = cents(items.reduce((sum, item) => sum + item.balance, 0));
+  const unassignedSkipBucks = Math.max(0, cents(totalSkipBucks - inJars));
   const activeItems = items.filter((item) => item.active);
   const inactiveItems = items.filter((item) => !item.active);
   const spentSkipEvents = useMemo<SpentSkipEvent[]>(() => {
@@ -659,15 +657,71 @@ export default function JarActivityPage() {
   }
 
   function beginDonate(project: Project) {
-    if (project.donationURL) {
-      window.open(project.donationURL, "_blank", "noopener,noreferrer");
-    }
-    setDonationNextStepProject(project);
+    setDonatingProject(project);
   }
 
-  function beginDonationLog(project: Project) {
-    setDonationNextStepProject(null);
-    setDonatingProject(project);
+  function beginPurchase(goal: SpendingGoal) {
+    const balance = Math.max(0, profileData.goalJarBalances?.[goal.id] ?? 0);
+    setPurchasingGoal(goal);
+    setPurchaseAmount(amountInputValue(balance));
+    setPurchaseDone(null);
+  }
+
+  function closePurchaseModal() {
+    setPurchasingGoal(null);
+    setPurchaseAmount("");
+    setPurchaseDone(null);
+    setPurchaseWorking(false);
+  }
+
+  async function handlePurchaseLog(goal: SpendingGoal) {
+    if (!user) return;
+    const amount = parseFloat(purchaseAmount);
+    const jarBalance = Math.max(0, profileData.goalJarBalances?.[goal.id] ?? 0);
+    const totalAvailable = jarBalance + unassignedSkipBucks;
+    if (!amount || amount <= 0 || amount > totalAvailable) return;
+    setPurchaseWorking(true);
+    try {
+      const result = await recordPurchase(user.uid, goal.id, goal.label, goal.targetAmount, amount);
+      updateProfile({
+        totalSpent: (profileData.totalSpent ?? 0) + result.amountFromSkips,
+        goalJarBalances: {
+          ...(profileData.goalJarBalances ?? {}),
+          [goal.id]: Math.max(0, jarBalance - result.jarDecrease),
+        },
+      });
+      toast.success("Purchase logged.");
+      if (jarBalance > 0 && amount >= jarBalance) {
+        setPurchaseDone("emptied");
+      } else {
+        setPurchaseDone("logged");
+        window.setTimeout(closePurchaseModal, 1400);
+      }
+    } catch {
+      toast.error("Couldn't log your purchase. Try again.");
+    } finally {
+      setPurchaseWorking(false);
+    }
+  }
+
+  async function handleDeactivate(item: JarActivityItem) {
+    if (!user || workingId) return;
+    setWorkingId(item.id);
+    try {
+      await setActiveSkipTarget(user.uid, null);
+      if (item.type === "fundraiser") {
+        await setActiveProject(user.uid, null);
+        updateProfile({ activeSkipTarget: null, activeProjectId: null });
+      } else {
+        await updateSpendingGoals(user.uid, spendingGoals, null);
+        updateProfile({ activeSkipTarget: null, activeSpendingGoalId: null, spendingGoal: null });
+      }
+      toast.success("Future skips will go to Unassigned Skip Bucks.");
+    } catch {
+      toast.error("Could not pause this jar. Try again.");
+    } finally {
+      setWorkingId(null);
+    }
   }
 
   function beginSelectedMoveBalance() {
@@ -907,43 +961,49 @@ export default function JarActivityPage() {
       />
 
       <section className="mb-6">
-        <SectionHeader title="Active Jar" subtitle="Future skips go here." />
-        {activeItems.length === 0 ? (
-          <EmptySection>No active jar right now.</EmptySection>
-        ) : (
-          <div className="space-y-3">
-            {activeItems.map((item) => (
-              <JarActivityCard
-                key={`${item.type}-${item.id}`}
-                item={item}
-                working={workingId === item.id}
-                onResume={handleResume}
-                onLogDonation={setDonatingProject}
-                onDonate={beginDonate}
-              />
-            ))}
+        <div className="space-y-4">
+          <div>
+            <JarShelfLabel label="Current Jar" />
+            {activeItems.length === 0 ? (
+              <p className="mt-2 text-sm" style={{ color: "var(--text-muted)" }}>
+                No current jar. Make a parked jar active when you want future skips to go there.
+              </p>
+            ) : (
+              <div className="mt-3 flex flex-wrap gap-x-8 gap-y-6">
+                {activeItems.map((item) => (
+                  <JarActivityCard
+                    key={`${item.type}-${item.id}`}
+                    item={item}
+                    working={workingId === item.id}
+                    onResume={handleResume}
+                    onDonate={beginDonate}
+                    onPurchase={beginPurchase}
+                    onDeactivate={handleDeactivate}
+                  />
+                ))}
+              </div>
+            )}
           </div>
-        )}
-      </section>
 
-      <section className="mb-6">
-        <SectionHeader title="Inactive Jars" subtitle="Saved progress that is parked for later." />
-        {inactiveItems.length === 0 ? (
-          <EmptySection>No inactive jar balances yet.</EmptySection>
-        ) : (
-          <div className="space-y-3">
-            {inactiveItems.map((item) => (
-            <JarActivityCard
-              key={`${item.type}-${item.id}`}
-              item={item}
-              working={workingId === item.id}
-              onResume={handleResume}
-              onLogDonation={setDonatingProject}
-              onDonate={beginDonate}
-            />
-            ))}
-          </div>
-        )}
+          {inactiveItems.length > 0 && (
+            <div>
+              <JarShelfLabel label="Parked Jars" />
+              <div className="mt-3 flex flex-wrap gap-x-8 gap-y-6">
+                {inactiveItems.map((item) => (
+                  <JarActivityCard
+                    key={`${item.type}-${item.id}`}
+                    item={item}
+                    working={workingId === item.id}
+                    onResume={handleResume}
+                    onDonate={beginDonate}
+                    onPurchase={beginPurchase}
+                    onDeactivate={handleDeactivate}
+                  />
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
       </section>
 
       <section className="mt-8 pt-6" style={{ borderTop: "1px solid rgba(237,245,240,0.12)" }}>
@@ -997,22 +1057,133 @@ export default function JarActivityPage() {
         />
       )}
 
-      {donationNextStepProject && (
-        <DonationNextStepModal
-          project={donationNextStepProject}
-          onClose={() => setDonationNextStepProject(null)}
-          onLogDonation={beginDonationLog}
-        />
-      )}
-
       {donatingProject && (
         <DonationLogModal
           projectId={donatingProject.id}
           projectTitle={donatingProject.groupName ?? donatingProject.title}
           initialAmount={Math.max(0, profileData.causeJarBalances?.[donatingProject.id] ?? 0)}
+          donationURL={donatingProject.donationURL ?? undefined}
+          donationRecipient={donatingProject.sponsor || donatingProject.groupName || donatingProject.title}
           onClose={() => setDonatingProject(null)}
         />
       )}
+
+      {purchasingGoal && (() => {
+        const jarBalance = Math.max(0, profileData.goalJarBalances?.[purchasingGoal.id] ?? 0);
+        const parsedAmount = parseFloat(purchaseAmount);
+        const cleanAmount = Number.isFinite(parsedAmount) ? parsedAmount : 0;
+        const totalAvailable = jarBalance + unassignedSkipBucks;
+        const amountOverAvailable = cleanAmount > totalAvailable;
+        const extraFromSkipBucks = Math.max(0, cleanAmount - jarBalance);
+        return (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4" onClick={closePurchaseModal}>
+            <div
+              role="dialog"
+              aria-modal="true"
+              aria-labelledby="jar-activity-purchase-title"
+              className="w-full max-w-sm rounded-2xl shadow-2xl"
+              style={{ background: "var(--bg-surface-1)", border: "1px solid var(--border-default)" }}
+              onClick={(event) => event.stopPropagation()}
+            >
+              <div className="flex items-center justify-between px-6 py-5" style={{ borderBottom: "1px solid var(--border-default)" }}>
+                <h2 id="jar-activity-purchase-title" className="text-lg font-bold" style={{ color: "var(--text-primary)" }}>
+                  {purchaseDone === "emptied" ? "Jar emptied" : "Spend my skips"}
+                </h2>
+                <button type="button" onClick={closePurchaseModal} aria-label="Close" className="text-2xl leading-none" style={{ color: "var(--text-muted)" }}>x</button>
+              </div>
+              <div className="px-6 py-5">
+                {purchaseDone === "logged" ? (
+                  <div className="text-center py-4">
+                    <p className="text-2xl mb-2">✓</p>
+                    <p className="font-semibold" style={{ color: "var(--text-primary)" }}>Purchase logged!</p>
+                  </div>
+                ) : purchaseDone === "emptied" ? (
+                  <div className="space-y-4">
+                    <div className="rounded-xl p-4 text-center" style={{ background: "rgba(139,92,246,0.1)", border: "1px solid rgba(139,92,246,0.25)" }}>
+                      <p className="text-2xl mb-2">✓</p>
+                      <p className="font-black" style={{ color: "var(--text-primary)" }}>Purchase logged.</p>
+                      <p className="mt-1 text-sm leading-relaxed" style={{ color: "var(--text-secondary)" }}>
+                        You used everything saved in {purchasingGoal.label}.
+                      </p>
+                    </div>
+                    <p className="text-sm font-bold leading-relaxed" style={{ color: "var(--text-secondary)" }}>
+                      Keep this as your active jar for future skips?
+                    </p>
+                    <div className="space-y-2">
+                      <button type="button" onClick={closePurchaseModal} className="w-full rounded-xl py-3 text-sm font-black" style={{ background: "#8B5CF6", color: "white" }}>
+                        Keep this active
+                      </button>
+                      <button type="button" onClick={closePurchaseModal} className="w-full rounded-xl py-3 text-sm font-black" style={{ background: "rgba(237,245,240,0.05)", border: "1px solid rgba(237,245,240,0.1)", color: "var(--text-secondary)" }}>
+                        Pick a new jar
+                      </button>
+                    </div>
+                  </div>
+                ) : (
+                  <>
+                    <div className="mb-5 rounded-xl p-4" style={{ background: "rgba(139,92,246,0.09)", border: "1px solid rgba(139,92,246,0.22)" }}>
+                      <p className="text-xs font-black uppercase tracking-wide" style={{ color: "#C4B5FD" }}>Step 1</p>
+                      <p className="mt-1 text-sm font-black" style={{ color: "var(--text-primary)" }}>Buy {purchasingGoal.label}</p>
+                      {purchasingGoal.shoppingLink ? (
+                        <a href={purchasingGoal.shoppingLink} target="_blank" rel="noopener noreferrer" className="mt-3 inline-flex w-full items-center justify-center rounded-xl py-3 text-sm font-black" style={{ background: "#8B5CF6", color: "white", textDecoration: "none" }}>
+                          Open purchase page
+                        </a>
+                      ) : (
+                        <p className="mt-2 text-sm leading-relaxed" style={{ color: "var(--text-secondary)" }}>
+                          Buy where intended, then log it here.
+                        </p>
+                      )}
+                      <p className="mt-3 text-[10px] font-bold leading-relaxed" style={{ color: "var(--text-muted)" }}>
+                        iSkipped does not process, verify, or manage outside purchases.
+                      </p>
+                    </div>
+                    <div className="mb-4">
+                      <p className="text-xs font-black uppercase tracking-wide" style={{ color: "var(--text-muted)" }}>Step 2</p>
+                      <p className="mt-1 text-sm" style={{ color: "var(--text-secondary)" }}>After buying, log the amount here.</p>
+                    </div>
+                    <div className="mb-5">
+                      <label className="mb-1 block text-xs uppercase tracking-wide" style={{ color: "var(--text-muted)" }}>Amount</label>
+                      <div className="relative">
+                        <span className="absolute left-4 top-1/2 -translate-y-1/2 font-medium" style={{ color: "var(--text-secondary)" }}>$</span>
+                        <input
+                          type="number"
+                          min="1"
+                          max={totalAvailable || undefined}
+                          value={purchaseAmount}
+                          onChange={(event) => setPurchaseAmount(event.target.value)}
+                          placeholder="0"
+                          className="w-full rounded-xl py-3 pl-8 pr-4 text-lg font-semibold focus:outline-none"
+                          style={{ background: "var(--bg-surface-2)", border: "1px solid var(--border-default)", color: "var(--text-primary)" }}
+                          autoFocus
+                        />
+                      </div>
+                      <p className="mt-2 text-xs font-bold" style={{ color: "var(--text-muted)" }}>{formatCurrency(jarBalance)} saved in this jar.</p>
+                      {amountOverAvailable && (
+                        <p className="mt-2 text-xs font-bold leading-relaxed" style={{ color: "#EF4444" }}>
+                          That is more than your saved skips. Lower the amount to {formatCurrency(totalAvailable)} or less.
+                        </p>
+                      )}
+                      {!amountOverAvailable && extraFromSkipBucks > 0 && cleanAmount > 0 && (
+                        <p className="mt-2 text-xs font-bold leading-relaxed" style={{ color: "#F59E0B" }}>
+                          You are spending more than this jar holds. {formatCurrency(extraFromSkipBucks)} will come from your saved Skip Bucks.
+                        </p>
+                      )}
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => handlePurchaseLog(purchasingGoal)}
+                      disabled={purchaseWorking || !purchaseAmount || cleanAmount < 1 || amountOverAvailable}
+                      className="w-full rounded-xl py-3.5 font-bold transition-all disabled:cursor-not-allowed disabled:opacity-60"
+                      style={{ background: "#8B5CF6", color: "white" }}
+                    >
+                      {purchaseWorking ? "Logging..." : "I spent this amount"}
+                    </button>
+                  </>
+                )}
+              </div>
+            </div>
+          </div>
+        );
+      })()}
     </div>
   );
 }

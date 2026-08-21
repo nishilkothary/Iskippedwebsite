@@ -116,6 +116,10 @@ export async function completeSetupPrompt(uid: string): Promise<void> {
   await updateDoc(doc(db, "users", uid), { setupPromptCompletedAt: serverTimestamp() });
 }
 
+export async function dismissWeeklyReminderPrompt(uid: string): Promise<void> {
+  await updateDoc(doc(db, "users", uid), { weeklyReminderPromptDismissedAt: serverTimestamp() });
+}
+
 export async function setShareSkipsByDefault(uid: string, shareSkipsByDefault: boolean): Promise<void> {
   await updateDoc(doc(db, "users", uid), { shareSkipsByDefault });
 }

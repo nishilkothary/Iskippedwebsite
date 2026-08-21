@@ -1,0 +1,266 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>iSkipped Setup Prompt Preview</title>
+    <style>
+      :root {
+        --bg-base: #071b14;
+        --bg-surface-1: #10281e;
+        --bg-surface-2: #173528;
+        --bg-surface-3: #234335;
+        --border-default: rgba(237, 245, 240, 0.12);
+        --border-emphasis: rgba(46, 204, 113, 0.45);
+        --green-primary: #2ecc71;
+        --green-grad-end: #22b8a0;
+        --text-primary: #edf5f0;
+        --text-secondary: rgba(237, 245, 240, 0.72);
+        --text-muted: rgba(237, 245, 240, 0.48);
+      }
+      * { box-sizing: border-box; }
+      body {
+        margin: 0;
+        min-height: 100vh;
+        display: grid;
+        place-items: center;
+        background: #03110c;
+        font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      }
+      .phone {
+        width: 390px;
+        max-width: 100vw;
+        height: 844px;
+        max-height: 100vh;
+        overflow: hidden;
+        position: relative;
+        background:
+          radial-gradient(circle at 50% 0%, rgba(46, 204, 113, 0.16), transparent 34%),
+          var(--bg-base);
+      }
+      .home {
+        padding: 34px 22px;
+        color: var(--text-primary);
+      }
+      .brand {
+        font-size: 31px;
+        font-weight: 950;
+        letter-spacing: -1px;
+        margin: 0 0 38px;
+      }
+      .brand span { color: var(--green-primary); }
+      .score {
+        border: 1px solid rgba(46, 204, 113, 0.25);
+        border-radius: 22px;
+        padding: 18px;
+        background: rgba(16, 40, 30, 0.76);
+      }
+      .score small {
+        display: block;
+        color: var(--text-muted);
+        font-weight: 900;
+        text-transform: uppercase;
+        letter-spacing: 1.6px;
+      }
+      .score strong {
+        display: block;
+        margin-top: 10px;
+        color: var(--green-primary);
+        font-size: 52px;
+        line-height: 1;
+      }
+      .fake-row {
+        margin-top: 18px;
+        height: 72px;
+        border-radius: 18px;
+        background: rgba(237, 245, 240, 0.045);
+        border: 1px solid rgba(237, 245, 240, 0.08);
+      }
+      .overlay {
+        position: absolute;
+        inset: 0;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        padding: 18px;
+        background: rgba(0, 0, 0, 0.62);
+      }
+      .modal {
+        width: 100%;
+        max-width: 350px;
+        text-align: center;
+        border-radius: 24px;
+        padding: 24px 20px 18px;
+        position: relative;
+        color: var(--text-primary);
+        background: var(--bg-surface-1);
+        border: 1px solid var(--border-default);
+        box-shadow: 0 24px 80px rgba(0, 0, 0, 0.42);
+      }
+      .close {
+        position: absolute;
+        right: 16px;
+        top: 14px;
+        border: 0;
+        background: transparent;
+        color: var(--text-muted);
+        font-size: 24px;
+        font-weight: 900;
+      }
+      .icon {
+        width: 58px;
+        height: 58px;
+        border-radius: 18px;
+        display: grid;
+        place-items: center;
+        margin: 0 auto 16px;
+        font-size: 30px;
+        background: rgba(46, 204, 113, 0.13);
+        border: 1px solid var(--border-emphasis);
+      }
+      .eyebrow {
+        color: var(--green-primary);
+        text-transform: uppercase;
+        letter-spacing: 1.8px;
+        font-size: 11px;
+        font-weight: 950;
+        margin: 0;
+      }
+      h1 {
+        margin: 8px 0 0;
+        font-size: 28px;
+        line-height: 1.02;
+        letter-spacing: -0.3px;
+      }
+      .copy {
+        color: var(--text-secondary);
+        font-size: 14px;
+        line-height: 1.48;
+        margin: 12px 8px 0;
+      }
+      .actions {
+        display: grid;
+        gap: 12px;
+        margin-top: 20px;
+        text-align: left;
+      }
+      .action {
+        display: flex;
+        gap: 12px;
+        padding: 14px;
+        border-radius: 16px;
+        background: var(--bg-surface-2);
+        border: 1px solid var(--border-default);
+      }
+      .action .mark {
+        width: 40px;
+        height: 40px;
+        border-radius: 14px;
+        display: grid;
+        place-items: center;
+        flex: 0 0 auto;
+        font-size: 20px;
+        background: rgba(46, 204, 113, 0.12);
+      }
+      .action strong {
+        display: block;
+        font-size: 14px;
+      }
+      .action span {
+        display: block;
+        margin-top: 4px;
+        color: var(--text-muted);
+        font-size: 12px;
+        line-height: 1.35;
+      }
+      .steps {
+        margin-top: 12px;
+        padding: 13px 14px;
+        border-radius: 16px;
+        text-align: left;
+        background: var(--bg-surface-2);
+        border: 1px solid var(--border-default);
+      }
+      .steps p {
+        margin: 0 0 6px;
+        font-size: 12px;
+        font-weight: 900;
+      }
+      ol {
+        margin: 0;
+        padding-left: 18px;
+        color: var(--text-secondary);
+        font-size: 12px;
+        line-height: 1.55;
+      }
+      .primary {
+        width: 100%;
+        border: 0;
+        border-radius: 16px;
+        margin-top: 18px;
+        padding: 14px;
+        font-size: 16px;
+        font-weight: 950;
+        color: #071b12;
+        background: linear-gradient(135deg, var(--green-primary), var(--green-grad-end));
+      }
+      .later {
+        border: 0;
+        background: transparent;
+        color: var(--text-muted);
+        margin-top: 10px;
+        padding: 8px;
+        font-size: 12px;
+        font-weight: 800;
+      }
+    </style>
+  </head>
+  <body>
+    <main class="phone" aria-label="iPhone setup prompt preview">
+      <section class="home">
+        <p class="brand">i<span>skipped</span></p>
+        <div class="score">
+          <small>Your skip scoreboard</small>
+          <strong>$27</strong>
+        </div>
+        <div class="fake-row"></div>
+        <div class="fake-row"></div>
+      </section>
+      <section class="overlay">
+        <div class="modal" role="dialog" aria-modal="true" aria-labelledby="title">
+          <button class="close" aria-label="Close">x</button>
+          <div class="icon">🔥</div>
+          <p class="eyebrow">Keep the streak going</p>
+          <h1 id="title">Make next week easy</h1>
+          <p class="copy">Add iSkipped to your Home Screen and get one weekly reminder to log anything you skipped.</p>
+          <div class="actions">
+            <div class="action">
+              <span class="mark">🏠</span>
+              <span>
+                <strong>Add to Home Screen</strong>
+                <span>Quick access when you're ready to skip something.</span>
+              </span>
+            </div>
+            <div class="action">
+              <span class="mark">🔔</span>
+              <span>
+                <strong>Allow one weekly reminder</strong>
+                <span>Did you skip anything this week? We'll remind you on Sunday.</span>
+              </span>
+            </div>
+          </div>
+          <div class="steps">
+            <p>On iPhone:</p>
+            <ol>
+              <li>Tap Share, or tap ... then Share.</li>
+              <li>Choose Add to Home Screen.</li>
+              <li>Tap Add.</li>
+            </ol>
+          </div>
+          <button class="primary">Set this up</button>
+          <button class="later">Maybe later</button>
+        </div>
+      </section>
+    </main>
+  </body>
+</html>

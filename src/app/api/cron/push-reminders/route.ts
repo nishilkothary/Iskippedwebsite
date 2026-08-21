@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getAdminDb } from "@/lib/services/firebaseAdmin";
 import { sendPushToUser } from "@/lib/services/push";
-import { isPreviousWeek, isSameWeek } from "@/lib/utils/dates";
+import { isSameWeek } from "@/lib/utils/dates";
 
 export const maxDuration = 300;
 
@@ -14,17 +14,13 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  const dayOfWeek = new Date().getDay(); // 0=Sun, 3=Wed (server runs in UTC on Vercel)
-  // Goal is at least one skip a week: nudge midweek (Wed) and again as a last chance (Sun),
-  // for anyone who hasn't logged a skip since Monday.
-  const isWeeklyNudgeDay = dayOfWeek === 3 || dayOfWeek === 0;
-  const isLastChance = dayOfWeek === 0;
+  const dayOfWeek = new Date().getDay(); // 0=Sun (server runs in UTC on Vercel)
+  const isWeeklyReminderDay = dayOfWeek === 0;
 
   const db = getAdminDb();
   const snap = await db.collection("users").where("pushOptIn", "==", true).get();
   const users = snap.docs.map((d) => d.data());
 
-  let streakReminders = 0;
   let weeklyNudges = 0;
   let failed = 0;
 
@@ -34,23 +30,14 @@ export async function GET(req: NextRequest) {
       batch.map(async (u) => {
         if (!u.fcmTokens?.length) return;
         try {
+          if (!isWeeklyReminderDay) return;
           const lastSkipDate = typeof u.lastSkipDate === "string" ? u.lastSkipDate : null;
           const hasSkippedThisWeek = isSameWeek(lastSkipDate);
-          const streakAtRisk = isLastChance && isPreviousWeek(lastSkipDate) && (u.streak ?? 0) > 0;
 
-          if (streakAtRisk) {
+          if (!hasSkippedThisWeek) {
             await sendPushToUser(u.uid, {
-              title: "Your weekly streak is at risk!",
-              body: `You're on a ${u.streak}-week streak. Log one skip this week to keep it going.`,
-              url: "/home",
-            });
-            streakReminders++;
-          } else if (isWeeklyNudgeDay && !hasSkippedThisWeek) {
-            await sendPushToUser(u.uid, {
-              title: isLastChance ? "⏰ Last chance this week" : "👋 Haven't skipped yet this week?",
-              body: isLastChance
-                ? "You haven't logged a skip this week — there's still time today."
-                : "A small skip today still counts toward your goals.",
+              title: "Did you skip anything this week?",
+              body: "Don't forget to add anything you said no to buying and keep your progress going.",
               url: "/home",
             });
             weeklyNudges++;
@@ -62,5 +49,5 @@ export async function GET(req: NextRequest) {
     );
   }
 
-  return NextResponse.json({ checked: users.length, streakReminders, weeklyNudges, failed });
+  return NextResponse.json({ checked: users.length, weeklyNudges, failed });
 }

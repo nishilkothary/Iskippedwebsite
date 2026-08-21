@@ -7,6 +7,7 @@ export interface SpendingGoal {
   type: "splurge" | "donation";
   category?: string;
   shoppingLink?: string;
+  merchant?: string;
   imageURL?: string;
   imagePosition?: string;
   donationURL?: string;
@@ -70,6 +71,8 @@ export interface UserProfile {
   setupPromptDismissedAt?: Timestamp | null;
   /** Set when the user completes the post-skip setup prompt. */
   setupPromptCompletedAt?: Timestamp | null;
+  /** Set when an installed user dismisses the one-time weekly reminder opt-in prompt. */
+  weeklyReminderPromptDismissedAt?: Timestamp | null;
 }
 
 export interface SkipCategory {

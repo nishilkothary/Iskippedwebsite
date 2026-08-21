@@ -20,9 +20,10 @@ import {
   updateSpendingGoals,
 } from "@/lib/services/firebase/users";
 import { levelForXp } from "@/lib/utils/xp";
-import { isChallengeProject, isProjectEnded, PARTNER_CHALLENGE_IDS, subscribeToProject } from "@/lib/services/firebase/projects";
+import { isChallengeProject, isProjectEnded, subscribeToProject } from "@/lib/services/firebase/projects";
 import { subscribeToChallengeFeed, subscribeToCommunityFeed, subscribeToGlobalStats } from "@/lib/services/firebase/social";
 import { EditSkipModal } from "@/components/skip/EditSkipModal";
+import { DonationLogModal } from "@/components/skip/DonationLogModal";
 import { FeedItem, GlobalStats, Project, Skip, SkipAllocationTarget, SpendingGoal } from "@/lib/types/models";
 import { appendRefParam, getChallengeSharePath } from "@/lib/utils/share";
 import { getDirectChallengeShareText } from "@/lib/utils/challengeShareCopy";
@@ -100,6 +101,10 @@ function rewardSkipEquivalentLine(balance: number, target: number) {
   const remaining = Math.max(0, target - balance);
   if (target <= 0) return "Set a target to track progress";
   if (remaining <= 0) return "Ready to claim";
+  if (remaining > 200) {
+    const takeouts = Math.max(1, Math.ceil(remaining / 25));
+    return `~${takeouts.toLocaleString()} takeout skips`;
+  }
   const coffees = Math.max(1, Math.ceil(remaining / 5));
   return `~${coffees.toLocaleString()} coffee skips`;
 }
@@ -1322,7 +1327,7 @@ export default function HomePage() {
     : null;
   const destinationHref = activeProject
     ? (isActiveChallenge ? `/challenges/${activeProject.id}` : "/jars?tab=cause")
-    : "/challenges";
+    : "/jars?tab=cause";
   const destinationLabel = "Giving Jar";
   const destinationEmptyLabel = "Join a challenge →";
   const challengeSkips = activeProject && isActiveChallenge
@@ -1471,16 +1476,14 @@ export default function HomePage() {
 
   const firstName = profile.displayName.split(" ")[0];
   const starterJarRewards = [
-    { id: "weekend-trip", label: "Weekend Trip", amount: 300, category: "Getaway" },
     { id: "concert-tickets", label: "Concert Tickets", amount: 180, category: "Experience" },
     { id: "flight-abroad", label: "Flight Abroad", amount: 900, category: "Travel" },
+    { id: "spa-day", label: "Spa Day", amount: 150, category: "Self-care" },
   ];
+  const starterJarRewardKey = (label: string, amount: number) => `${label.trim().toLowerCase()}-${amount}`;
+  const starterJarRewardKeys = new Set(starterJarRewards.map((reward) => starterJarRewardKey(reward.label, reward.amount)));
   const jarCarouselFundraisers = projects
-    .filter((project) =>
-      !isProjectEnded(project)
-      && (isChallengeProject(project) || PARTNER_CHALLENGE_IDS.includes(project.id))
-    )
-    .slice(0, 4);
+    .filter((project) => !isProjectEnded(project));
   const savedJarRewards = spendingGoals.map((goal) => ({
     id: goal.id,
     label: goal.label,
@@ -1490,9 +1493,9 @@ export default function HomePage() {
     imagePosition: goal.imagePosition ?? "center",
     isSaved: true,
   }));
-  const savedJarRewardNames = new Set(savedJarRewards.map((reward) => reward.label.trim().toLowerCase()));
+  const savedJarRewardKeys = new Set(savedJarRewards.map((reward) => starterJarRewardKey(reward.label, reward.amount)));
   const starterJarRewardSuggestions = starterJarRewards
-    .filter((reward) => !savedJarRewardNames.has(reward.label.toLowerCase()))
+    .filter((reward) => !savedJarRewardKeys.has(starterJarRewardKey(reward.label, reward.amount)))
     .map((reward) => ({
       ...reward,
       imageURL: rewardDefaultImage(reward.label, reward.category),
@@ -1784,6 +1787,7 @@ export default function HomePage() {
 
     if (item.kind === "reward") {
       const rewardBalance = item.reward.isSaved ? Math.max(0, profileData.goalJarBalances?.[item.reward.id] ?? 0) : 0;
+      const isStarterRewardIdea = starterJarRewardKeys.has(starterJarRewardKey(item.reward.label, item.reward.amount));
       return (
         <button
           key={`jar-carousel-reward-${item.reward.id}`}
@@ -1799,7 +1803,7 @@ export default function HomePage() {
             />
             <div style={{ position: "absolute", inset: 0, background: "linear-gradient(180deg, transparent 30%, rgba(7,13,16,0.76))" }} />
             <span style={{ position: "absolute", left: 12, bottom: 12, borderRadius: 999, padding: "5px 10px", background: "rgba(139,92,246,0.92)", color: "white", fontSize: 10, fontWeight: 950, textTransform: "uppercase", letterSpacing: 0.7 }}>
-              {item.reward.isSaved ? "Your reward" : "Reward idea"}
+              {isStarterRewardIdea ? "Reward idea" : "Your reward"}
             </span>
           </div>
           <div style={{ padding: 18, display: "flex", flexDirection: "column", justifyContent: "space-between", gap: 18 }}>
@@ -1808,7 +1812,7 @@ export default function HomePage() {
                 {item.reward.label}
               </p>
               <p style={{ fontSize: 13, color: "var(--text-secondary)", lineHeight: 1.35, marginTop: 7 }}>
-                {formatCurrencyRounded(item.reward.amount)} jar
+                Goal: {formatCurrencyRounded(item.reward.amount)} in jar
               </p>
               <p style={{ fontSize: 12, color: "#C4B5FD", lineHeight: 1.35, marginTop: 5, fontWeight: 850 }}>
                 {rewardSkipEquivalentLine(rewardBalance, item.reward.amount)}
@@ -1855,11 +1859,11 @@ export default function HomePage() {
               {item.project.groupName ?? item.project.title}
             </p>
             <p style={{ fontSize: 13, color: "var(--text-secondary)", lineHeight: 1.35, marginTop: 7 }}>
-              {item.project.unitCost && item.project.unitName ? `${formatCurrency(item.project.unitCost)} per ${item.project.unitName}` : "Shared giving jar"}
+              Goal: {formatCurrencyRounded(item.project.goalAmount ?? 0)} in jar
             </p>
-            {(item.project.goalAmount ?? 0) > 0 && (
+            {item.project.unitCost && item.project.unitName && (
               <p style={{ fontSize: 12, color: "#A7F3D0", lineHeight: 1.35, marginTop: 5, fontWeight: 850 }}>
-                Goal: {formatCurrencyRounded(item.project.goalAmount)}
+                {formatCurrency(item.project.unitCost)} = 1 {item.project.unitName}
               </p>
             )}
           </button>
@@ -1985,10 +1989,10 @@ export default function HomePage() {
             <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 14, marginBottom: 14, paddingRight: 34 }}>
               <div style={{ minWidth: 0 }}>
                 <p style={{ fontSize: 23, fontWeight: 950, color: "var(--text-primary)", lineHeight: 1.05 }}>
-                  Your Next Skip Needs a Jar
+                  Need Motivation to Skip More?
                 </p>
                 <p style={{ marginTop: 7, fontSize: 13, color: "var(--text-secondary)", lineHeight: 1.45 }}>
-                  Turn your savings into something more meaningful
+                  Pick a skipping jar and start saving for a purpose
                 </p>
               </div>
               <SkipBucksBill
@@ -2183,6 +2187,7 @@ export default function HomePage() {
                     topLabel="My jar"
                     topLabelColor="#A7F3D0"
                     hideBottomLabel
+                    href="/jar-activity"
                   />
                   <p style={{ marginTop: 6, textAlign: "center", fontSize: 12, fontWeight: 900, color: "#A7F3D0", lineHeight: 1.25 }}>
                     {hasCommunityUnit && personalUnitCountDisplay !== null
@@ -2206,6 +2211,7 @@ export default function HomePage() {
                     topLabel="Group jar"
                     topLabelColor="#7DD3FC"
                     hideBottomLabel
+                    href="/jar-activity"
                   />
                   <p style={{ marginTop: 6, textAlign: "center", fontSize: 12, fontWeight: 900, color: "#7DD3FC", lineHeight: 1.25 }}>
                     {hasCommunityUnit && communityUnitCountDisplay !== null
@@ -2221,7 +2227,7 @@ export default function HomePage() {
                       setShowContributionModal(true);
                       return;
                     }
-                    router.push("/challenges");
+                    router.push("/jars?tab=cause");
                   }}
                   style={{ borderRadius: 999, padding: "11px 28px", minWidth: 210, background: activeProject ? "#2BBAA4" : "rgba(237,245,240,0.06)", color: activeProject ? "#06251D" : "var(--text-primary)", border: activeProject ? "1px solid #42D5BA" : "1px solid rgba(237,245,240,0.08)", fontSize: 13, fontWeight: 900 }}
                 >
@@ -2766,44 +2772,6 @@ export default function HomePage() {
         </div>
       )}
 
-      {!profile.activeProjectId && givingBalance === 0 && (
-        <div style={{
-          ...cardStyle,
-          marginBottom: 20,
-          borderLeft: "4px solid var(--green-primary)",
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "space-between",
-          gap: 12,
-        }}>
-          <div style={{ flex: 1, minWidth: 0 }}>
-            <div style={{ fontSize: 14, fontWeight: 700, color: "var(--text-primary)" }}>
-              🙌 Join a challenge
-            </div>
-            <div style={{ fontSize: 12, color: "var(--text-muted)", marginTop: 3, lineHeight: 1.5 }}>
-              Skip with a group, give together. No asking for money — just spend less and watch your collective savings grow.
-            </div>
-          </div>
-          <button
-            onClick={() => router.push("/challenges")}
-            style={{
-              background: "linear-gradient(135deg, var(--coral-primary), var(--coral-dark))",
-              color: "#fff",
-              fontWeight: 700,
-              fontSize: 13,
-              border: "none",
-              borderRadius: 12,
-              padding: "10px 16px",
-              cursor: "pointer",
-              flexShrink: 0,
-              whiteSpace: "nowrap",
-            }}
-          >
-            Browse challenges →
-          </button>
-        </div>
-      )}
-
       {/* Recent Skips */}
       <div style={{ marginTop: 10, padding: "0 4px" }}>
           <div style={{
@@ -3087,15 +3055,13 @@ export default function HomePage() {
       )}
 
       {showContributionModal && activeProject && (
-        <FundraiserContributionModal
-          project={activeProject}
-          availableFromSkips={givingBalance + skipBalance.unassignedSkipBank}
-          jarBalance={givingBalance}
-          unitCost={fundraiserUnitCost}
-          unitLabel={fundraiserUnitLabel}
-          mode={contributionMode}
+        <DonationLogModal
+          projectId={activeProject.id}
+          projectTitle={activeProject.title}
+          initialAmount={givingBalance}
+          donationURL={activeProject.donationURL ?? undefined}
+          donationRecipient={activeProject.sponsor || activeProject.groupName || activeProject.title}
           onClose={() => setShowContributionModal(false)}
-          onComplete={(amount) => donate(amount, activeProject.id, activeProject.title)}
         />
       )}
 

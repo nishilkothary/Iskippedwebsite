@@ -133,7 +133,7 @@ export default function ManageChallengePage() {
     setArchiving(true);
     try {
       await endChallenge(user.uid, challengeId);
-      router.push("/challenges");
+      router.push("/jars?tab=cause");
     } catch {
       setArchiving(false);
       setArchiveConfirm(false);
@@ -145,7 +145,7 @@ export default function ManageChallengePage() {
     setEnding(true);
     try {
       await deleteCustomProject(user.uid, challengeId);
-      router.push("/challenges");
+      router.push("/jars?tab=cause");
     } catch {
       setEnding(false);
       setEndConfirm(false);
@@ -183,7 +183,7 @@ export default function ManageChallengePage() {
       {/* Header */}
       <div className="flex items-center gap-3 mb-6">
         <button
-          onClick={() => router.push("/challenges")}
+          onClick={() => router.push("/jars?tab=cause")}
           className="w-9 h-9 rounded-full flex items-center justify-center text-lg shrink-0"
           style={{ background: "var(--bg-surface-2)", color: "var(--text-primary)" }}
         >

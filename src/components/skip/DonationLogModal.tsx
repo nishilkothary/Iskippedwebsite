@@ -12,16 +12,18 @@ interface Props {
   projectTitle: string;
   onClose: () => void;
   initialAmount?: number;
+  donationURL?: string;
+  donationRecipient?: string;
   onLogged?: () => void | Promise<void>;
 }
 
-export function DonationLogModal({ projectId, projectTitle, onClose, initialAmount, onLogged }: Props) {
+export function DonationLogModal({ projectId, projectTitle, onClose, initialAmount, donationURL, donationRecipient, onLogged }: Props) {
   const { donate } = useSkips();
   const { profile } = useAuthStore();
   const [amount, setAmount] = useState(initialAmount && initialAmount > 0 ? String(initialAmount) : "");
   const [date, setDate] = useState(today());
   const [loading, setLoading] = useState(false);
-  const [done, setDone] = useState(false);
+  const [done, setDone] = useState<"logged" | "emptied" | null>(null);
   const dialogRef = useModalA11y(onClose);
   const parsedAmount = parseFloat(amount);
   const cleanAmount = Number.isFinite(parsedAmount) ? parsedAmount : 0;
@@ -30,6 +32,8 @@ export function DonationLogModal({ projectId, projectTitle, onClose, initialAmou
   const totalAvailable = jarBalance + unassignedSkipBucks;
   const amountOverAvailable = cleanAmount > totalAvailable;
   const extraFromUnassigned = Math.max(0, cleanAmount - jarBalance);
+  const emptiesJar = jarBalance > 0 && cleanAmount >= jarBalance;
+  const recipientLabel = donationRecipient?.trim() || projectTitle;
 
   async function handleLog() {
     const num = cleanAmount;
@@ -38,11 +42,15 @@ export function DonationLogModal({ projectId, projectTitle, onClose, initialAmou
     try {
       const ok = await donate(num, projectId, projectTitle, date);
       if (ok) {
-        setDone(true);
-        setTimeout(async () => {
-          await onLogged?.();
-          onClose();
-        }, 2000);
+        if (emptiesJar) {
+          setDone("emptied");
+        } else {
+          setDone("logged");
+          setTimeout(async () => {
+            await onLogged?.();
+            onClose();
+          }, 1400);
+        }
       }
     } finally {
       setLoading(false);
@@ -62,21 +70,85 @@ export function DonationLogModal({ projectId, projectTitle, onClose, initialAmou
         onClick={(e) => e.stopPropagation()}
       >
         <div className="flex items-center justify-between px-6 py-5" style={{ borderBottom: "1px solid var(--border-default)" }}>
-          <h2 id="donation-log-title" className="text-lg font-bold" style={{ color: "var(--text-primary)" }}>Log a Donation</h2>
+          <h2 id="donation-log-title" className="text-lg font-bold" style={{ color: "var(--text-primary)" }}>
+            {done === "emptied" ? "Jar emptied" : "Donate my skips"}
+          </h2>
           <button onClick={onClose} aria-label="Close" className="text-2xl leading-none" style={{ color: "var(--text-muted)" }}>×</button>
         </div>
 
         <div className="px-6 py-5">
-          {done ? (
+          {done === "logged" ? (
             <div className="text-center py-4">
               <p className="text-2xl mb-2">✓</p>
               <p className="font-semibold" style={{ color: "var(--text-primary)" }}>Donation logged!</p>
             </div>
+          ) : done === "emptied" ? (
+            <div className="space-y-4">
+              <div className="rounded-xl p-4 text-center" style={{ background: "rgba(46,204,113,0.08)", border: "1px solid rgba(46,204,113,0.22)" }}>
+                <p className="text-2xl mb-2">✓</p>
+                <p className="font-black" style={{ color: "var(--text-primary)" }}>Donation logged.</p>
+                <p className="mt-1 text-sm leading-relaxed" style={{ color: "var(--text-secondary)" }}>
+                  You used everything saved in {projectTitle}.
+                </p>
+              </div>
+              <p className="text-sm font-bold leading-relaxed" style={{ color: "var(--text-secondary)" }}>
+                Keep this as your active jar for future skips?
+              </p>
+              <div className="space-y-2">
+                <button
+                  type="button"
+                  onClick={async () => {
+                    await onLogged?.();
+                    onClose();
+                  }}
+                  className="w-full rounded-xl py-3 text-sm font-black"
+                  style={{ background: "#2ECC71", color: "#071B14" }}
+                >
+                  Keep this active
+                </button>
+                <button
+                  type="button"
+                  onClick={async () => {
+                    await onLogged?.();
+                    onClose();
+                  }}
+                  className="w-full rounded-xl py-3 text-sm font-black"
+                  style={{ background: "rgba(237,245,240,0.05)", border: "1px solid rgba(237,245,240,0.1)", color: "var(--text-secondary)" }}
+                >
+                  Pick a new jar
+                </button>
+              </div>
+            </div>
           ) : (
             <>
-              <p className="text-sm mb-4" style={{ color: "var(--text-secondary)" }}>
-                How much did you donate to {projectTitle}?
-              </p>
+              <div className="mb-5 rounded-xl p-4" style={{ background: "rgba(46,204,113,0.07)", border: "1px solid rgba(46,204,113,0.18)" }}>
+                <p className="text-xs font-black uppercase tracking-wide" style={{ color: "#A7F3D0" }}>Step 1</p>
+                <p className="mt-1 text-sm font-black" style={{ color: "var(--text-primary)" }}>Donate to {recipientLabel}</p>
+                {donationURL ? (
+                  <a
+                    href={donationURL}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="mt-3 inline-flex w-full items-center justify-center rounded-xl py-3 text-sm font-black"
+                    style={{ background: "#2ECC71", color: "#071B14", textDecoration: "none" }}
+                  >
+                    Open donation page
+                  </a>
+                ) : (
+                  <p className="mt-2 text-sm leading-relaxed" style={{ color: "var(--text-secondary)" }}>
+                    Donate through the organization, then log it here.
+                  </p>
+                )}
+                <p className="mt-3 text-[10px] font-bold leading-relaxed" style={{ color: "var(--text-muted)" }}>
+                  iSkipped does not process, verify, or manage outside donations.
+                </p>
+              </div>
+              <div className="mb-4">
+                <p className="text-xs font-black uppercase tracking-wide" style={{ color: "var(--text-muted)" }}>Step 2</p>
+                <p className="mt-1 text-sm" style={{ color: "var(--text-secondary)" }}>
+                  After donating, log the amount here.
+                </p>
+              </div>
               <div className="space-y-3 mb-5">
                 <div>
                   <label className="text-xs uppercase tracking-wide mb-1 block" style={{ color: "var(--text-muted)" }}>Amount</label>
@@ -98,16 +170,16 @@ export function DonationLogModal({ projectId, projectTitle, onClose, initialAmou
                     />
                   </div>
                   <p className="mt-2 text-xs font-bold" style={{ color: "var(--text-muted)" }}>
-                    {formatCurrency(totalAvailable)} available from this jar and Unassigned Skip Bucks.
+                    {formatCurrency(jarBalance)} saved in this jar.
                   </p>
                   {amountOverAvailable && (
                     <p className="mt-2 text-xs font-bold leading-relaxed" style={{ color: "#EF4444" }}>
-                      This is more than your available Skip Bucks. Lower the amount to {formatCurrency(totalAvailable)} or less.
+                      That is more than your saved skips. Lower the amount to {formatCurrency(totalAvailable)} or less.
                     </p>
                   )}
                   {!amountOverAvailable && extraFromUnassigned > 0 && cleanAmount > 0 && (
-                    <p className="mt-2 text-xs font-bold leading-relaxed" style={{ color: "var(--green-primary)" }}>
-                      {formatCurrency(Math.min(cleanAmount, jarBalance))} will come from this jar and {formatCurrency(extraFromUnassigned)} from Unassigned Skip Bucks.
+                    <p className="mt-2 text-xs font-bold leading-relaxed" style={{ color: "#F59E0B" }}>
+                      You are donating more than this jar holds. {formatCurrency(extraFromUnassigned)} will come from your saved Skip Bucks.
                     </p>
                   )}
                 </div>
@@ -135,7 +207,7 @@ export function DonationLogModal({ projectId, projectTitle, onClose, initialAmou
                   color: "#fff",
                 }}
               >
-                {loading ? "Logging…" : "Log Donation"}
+                {loading ? "Logging..." : "Log donation"}
               </button>
             </>
           )}

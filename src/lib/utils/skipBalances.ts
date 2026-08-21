@@ -8,8 +8,10 @@ export function sumMoneyRecord(record: Record<string, number> | undefined | null
 }
 
 /**
- * Lifetime score stays motivational. Available is the money not already spent
- * on goals or turned into actual donations.
+ * Balance invariant:
+ * Total Skip Bucks = lifetime skips - donations - purchases.
+ * In Jars = sum of all fundraiser and reward jar balances.
+ * Unassigned Skip Bucks = Total Skip Bucks - In Jars.
  */
 export function getSkipBalanceSummary(profile: Pick<UserProfile,
   "totalSaved" | "totalSpent" | "totalDonated" | "causeJarBalances" | "goalJarBalances"

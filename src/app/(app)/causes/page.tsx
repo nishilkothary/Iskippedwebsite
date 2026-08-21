@@ -150,6 +150,8 @@ function formatDonationDate(donation: DonationEvent): string {
         <DonationLogModal
           projectId={cfcProject?.id ?? "caring-for-cambodia"}
           projectTitle={cfcProject?.title ?? "A Student's Yearly Education"}
+          donationURL={cfcProject?.donationURL ?? undefined}
+          donationRecipient={cfcProject?.sponsor || cfcProject?.title}
           onClose={() => setShowDonationModal(false)}
         />
       )}

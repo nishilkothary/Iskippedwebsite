@@ -10,9 +10,6 @@ import { formatCurrency } from "@/lib/utils/currency";
 import {
   completeGoal,
   recordPurchase,
-  subscribeToSpendingHistory,
-  updateSpendingHistory,
-  deleteSpendingHistory,
   setActiveProject,
   switchCause,
   switchGoal,
@@ -22,13 +19,14 @@ import {
   setActiveSkipTarget,
   allocateSkipBankToJar,
   releaseJarToSkipBank,
+  moveJarBalance,
   pinProjectToHome,
 } from "@/lib/services/firebase/users";
 import { addCustomProject, updateCustomProject, deleteCustomProject, isCauseProject, isChallengeProject, isProjectEnded, PARTNER_CHALLENGE_IDS } from "@/lib/services/firebase/projects";
 import { formatAggregateImpactUnitsDecimal, formatUnits } from "@/lib/utils/impact";
 import { getSkipBalanceSummary } from "@/lib/utils/skipBalances";
 import { getChallengeCausePhrase } from "@/lib/utils/challengeShareCopy";
-import { SpendingHistoryEvent, Project, SpendingGoal, DonationEvent, SkipAllocationTarget } from "@/lib/types/models";
+import { Project, SpendingGoal, DonationEvent, SkipAllocationTarget } from "@/lib/types/models";
 import { DonationLogModal } from "@/components/skip/DonationLogModal";
 import { apiRequest } from "@/lib/services/firebase/apiClient";
 
@@ -93,7 +91,7 @@ function rewardDefaultImage(label: string, explicitCategory?: string) {
     return "https://images.unsplash.com/photo-1436491865332-7a61a109cc05?auto=format&fit=crop&w=900&q=80";
   }
   if (/(wedding|honeymoon|marriage|bridal)/.test(normalized)) {
-    return "https://images.unsplash.com/photo-1519741497674-611481863552?auto=format&fit=crop&w=900&q=80";
+    return "https://images.unsplash.com/photo-1522673607200-164d1b6ce486?auto=format&fit=crop&w=900&q=80";
   }
   if (/(book|course|class|learn)/.test(normalized)) {
     return "https://images.unsplash.com/photo-1512820790803-83ca734da794?auto=format&fit=crop&w=900&q=80";
@@ -141,7 +139,7 @@ const rewardInspoPics = [
   {
     label: "Wedding",
     category: "Wedding",
-    url: "https://images.unsplash.com/photo-1519741497674-611481863552?auto=format&fit=crop&w=900&q=80",
+    url: "https://images.unsplash.com/photo-1522673607200-164d1b6ce486?auto=format&fit=crop&w=900&q=80",
   },
   {
     label: "Spa",
@@ -205,10 +203,21 @@ const rewardInspoPics = [
   },
 ];
 
+type ProductPreview = {
+  imageURL?: string | null;
+  title?: string | null;
+  price?: number | null;
+  merchant?: string | null;
+};
+
 function rewardSkipEquivalentLine(balance: number, target: number) {
   const remaining = Math.max(0, target - balance);
   if (target <= 0) return "Set a target to track progress";
   if (remaining <= 0) return "Ready to claim";
+  if (remaining > 200) {
+    const takeouts = Math.max(1, Math.ceil(remaining / 25));
+    return `~${takeouts.toLocaleString()} takeout skips`;
+  }
   const coffees = Math.max(1, Math.ceil(remaining / 5));
   return `~${coffees.toLocaleString()} coffee skips`;
 }
@@ -257,16 +266,13 @@ function RewardArtwork({ label, amount, link, imageURL, imagePosition, category:
 function RewardProgress({
   balance,
   target,
-  availableSkipBankBalance,
   active,
 }: {
   balance: number;
   target: number;
-  availableSkipBankBalance: number;
   active?: boolean;
 }) {
   const { percent, remaining } = goalCoverage(balance, target);
-  const boostedPercent = target > 0 ? Math.min(100, Math.round(((balance + availableSkipBankBalance) / target) * 100)) : 0;
 
   return (
     <div className="mt-3">
@@ -275,7 +281,6 @@ function RewardProgress({
         <span>{percent}%</span>
       </div>
       <div className="relative mt-1 h-2 overflow-hidden rounded-full" style={{ background: "rgba(139,92,246,0.15)" }}>
-        <div className="absolute inset-y-0 left-0 rounded-full" style={{ width: `${boostedPercent}%`, background: "rgba(167,139,250,0.22)" }} />
         <div className="absolute inset-y-0 left-0 rounded-full" style={{ width: `${percent}%`, background: "#8B5CF6" }} />
       </div>
       <div className="mt-1.5 flex items-center justify-between gap-2 text-[10px] font-bold leading-snug" style={{ color: "var(--text-secondary)" }}>
@@ -291,6 +296,7 @@ function JarsPageInner() {
   const searchParams = useSearchParams();
   const rawTab = searchParams.get("tab");
   const autoOpenDonationLog = searchParams.get("donate") === "1";
+  const autoOpenFundraiserForm = rawTab !== "live" && searchParams.get("create") === "1";
   const autoOpenRewardForm = rawTab === "live" && searchParams.get("add") === "reward";
   const autoOpenRewardSkip = searchParams.get("skip") === "1";
   const autoOpenRewardLabel = searchParams.get("label") ?? "";
@@ -332,12 +338,6 @@ function JarsPageInner() {
     });
     return () => { cancelled = true; };
   }, [projects, user?.uid]);
-  const [spendingHistory, setSpendingHistory] = useState<SpendingHistoryEvent[]>([]);
-  useEffect(() => {
-    if (!user) return;
-    const unsub = subscribeToSpendingHistory(user.uid, setSpendingHistory);
-    return unsub;
-  }, [user?.uid]);
   const [editingPurchaseId, setEditingPurchaseId] = useState<string | null>(null);
   const [editPurchaseAmountStr, setEditPurchaseAmountStr] = useState("");
   const [deletingPurchaseId, setDeletingPurchaseId] = useState<string | null>(null);
@@ -531,8 +531,7 @@ function JarsPageInner() {
     activeProject,
     activeSkipTarget: profile.activeSkipTarget ?? null,
     skipBankBalance,
-    availableSkipBankBalance: skipBalanceSummary.availableFromSkips,
-    spendingHistory,
+    availableSkipBankBalance: skipBalanceSummary.unassignedSkipBank,
     goalJarBalances: profile.goalJarBalances,
     causeJarBalances: profile.causeJarBalances,
     causeGoalAmounts: profile.causeGoalAmounts,
@@ -544,20 +543,21 @@ function JarsPageInner() {
     onDeactivateGoal: handleDeactivateGoal,
     onCompleteGoal: handleCompleteGoal,
     onPurchase: async (amount: number) => {
-      if (!activeSpendingGoalId || !activeGoal) return;
+      if (!activeSpendingGoalId || !activeGoal) return false;
       let purchaseResult: { amountFromSkips: number; jarDecrease: number };
       try {
         purchaseResult = await recordPurchase(user.uid, activeSpendingGoalId, activeGoal.label, activeGoal.targetAmount, amount);
       } catch (err) {
         console.error("recordPurchase failed", err);
         toast.error("Couldn't log your purchase — check your connection and try again.");
-        return;
+        return false;
       }
       updateProfile({
         totalSpent: (profile.totalSpent ?? 0) + purchaseResult.amountFromSkips,
         goalJarBalances: { ...(profile.goalJarBalances ?? {}), [activeSpendingGoalId]: Math.max(0, (profile.goalJarBalances?.[activeSpendingGoalId] ?? 0) - purchaseResult.jarDecrease) },
       });
       toast.success("Purchase logged.");
+      return true;
     },
     onSetSkipTarget: async (target: SkipAllocationTarget | null) => {
       if (!target) {
@@ -587,6 +587,7 @@ function JarsPageInner() {
       await setActiveSkipTarget(user.uid, target);
       updateProfile({ activeSkipTarget: target });
     },
+    onAddCause: handleAddCause,
     onSetFundraiserGoal: handleSetCauseGoal,
     onApplySkipBank: async (target: SkipAllocationTarget, amount: number, mode: "increment" | "set" = "increment") => {
       const appliedAmount = await allocateSkipBankToJar(user.uid, target, amount, mode);
@@ -636,27 +637,30 @@ function JarsPageInner() {
       }
       return releasedAmount;
     },
-    onEditHistory: async (event: SpendingHistoryEvent, newAmount: number) => {
-      updateProfile({ totalSpent: (profile.totalSpent ?? 0) + (newAmount - event.amountSaved) });
-      await updateSpendingHistory(user.uid, event.id, newAmount, event.amountSaved);
-    },
-    onDeleteHistory: (event: SpendingHistoryEvent) => {
-      const amountSaved = Math.max(0, event.amountSaved);
-      const updates: Parameters<typeof updateProfile>[0] = { totalSpent: Math.max(0, (profile.totalSpent ?? 0) - amountSaved) };
-      if (event.goalId) {
-        updates.goalJarBalances = {
-          ...(profile.goalJarBalances ?? {}),
-          [event.goalId]: Math.max(0, profile.goalJarBalances?.[event.goalId] ?? 0) + amountSaved,
+    onMoveJarBalance: async (source: SkipAllocationTarget, destination: SkipAllocationTarget, amount: number) => {
+      const movedAmount = await moveJarBalance(user.uid, source, destination, amount);
+      if (movedAmount > 0) {
+        const nextGoalBalances = { ...(profile.goalJarBalances ?? {}) };
+        const nextCauseBalances = { ...(profile.causeJarBalances ?? {}) };
+        const applyDelta = (target: SkipAllocationTarget, delta: number) => {
+          if (target.type === "goal") {
+            nextGoalBalances[target.id] = Math.max(0, (nextGoalBalances[target.id] ?? 0) + delta);
+          } else {
+            nextCauseBalances[target.id] = Math.max(0, (nextCauseBalances[target.id] ?? 0) + delta);
+          }
         };
+        applyDelta(source, -movedAmount);
+        applyDelta(destination, movedAmount);
+        updateProfile({ goalJarBalances: nextGoalBalances, causeJarBalances: nextCauseBalances });
       }
-      updateProfile(updates);
-      return deleteSpendingHistory(user.uid, event.id, amountSaved, event.goalId);
+      return movedAmount;
     },
     autoOpenRewardForm,
     autoOpenRewardSkip,
     autoOpenRewardLabel,
     autoOpenRewardAmount,
     autoOpenRewardCategory,
+    autoOpenFundraiserForm,
   };
 
   return (
@@ -1294,7 +1298,7 @@ function CompactRewardJar({
   totalSaved: number;
   totalSpent: number;
   activeGoal: SpendingGoal | null;
-  onPurchase: (amount: number) => Promise<void>;
+  onPurchase: (amount: number) => Promise<boolean>;
   onManageRewards: () => void;
 }) {
   const [showPurchaseInput, setShowPurchaseInput] = useState(false);
@@ -1465,7 +1469,6 @@ function SplurgeTab({
   activeSkipTarget,
   skipBankBalance,
   availableSkipBankBalance,
-  spendingHistory,
   goalJarBalances,
   causeJarBalances,
   causeGoalAmounts,
@@ -1478,16 +1481,17 @@ function SplurgeTab({
   onCompleteGoal,
   onPurchase,
   onSetSkipTarget,
+  onAddCause,
   onSetFundraiserGoal,
   onApplySkipBank,
   onReleaseJar,
-  onEditHistory,
-  onDeleteHistory,
+  onMoveJarBalance,
   autoOpenRewardForm = false,
   autoOpenRewardSkip = false,
   autoOpenRewardLabel = "",
   autoOpenRewardAmount = "",
   autoOpenRewardCategory = "",
+  autoOpenFundraiserForm = false,
 }: {
   spendingBalance: number;
   totalSpent: number;
@@ -1499,7 +1503,6 @@ function SplurgeTab({
   activeSkipTarget: SkipAllocationTarget | null;
   skipBankBalance: number;
   availableSkipBankBalance: number;
-  spendingHistory: SpendingHistoryEvent[];
   goalJarBalances: Record<string, number> | undefined;
   causeJarBalances: Record<string, number> | undefined;
   causeGoalAmounts: Record<string, number> | undefined;
@@ -1510,31 +1513,36 @@ function SplurgeTab({
   onSetActiveGoal: (goalId: string, moveFunds: boolean) => Promise<void>;
   onDeactivateGoal: () => Promise<void>;
   onCompleteGoal: (goalId: string) => Promise<void>;
-  onPurchase: (amount: number) => Promise<void>;
+  onPurchase: (amount: number) => Promise<boolean>;
   onSetSkipTarget: (target: SkipAllocationTarget | null) => Promise<void>;
+  onAddCause: (title: string, sponsor: string, location: string | undefined, goalAmount: number, donationURL?: string, description?: string, tags?: string[]) => Promise<void>;
   onSetFundraiserGoal: (fundraiserId: string, amount: number) => Promise<void>;
   onApplySkipBank: (target: SkipAllocationTarget, amount: number, mode?: "increment" | "set") => Promise<number>;
   onReleaseJar: (target: SkipAllocationTarget) => Promise<number>;
-  onEditHistory: (event: SpendingHistoryEvent, newAmount: number) => Promise<void>;
-  onDeleteHistory: (event: SpendingHistoryEvent) => Promise<void>;
+  onMoveJarBalance: (source: SkipAllocationTarget, destination: SkipAllocationTarget, amount: number) => Promise<number>;
   autoOpenRewardForm?: boolean;
   autoOpenRewardSkip?: boolean;
   autoOpenRewardLabel?: string;
   autoOpenRewardAmount?: string;
   autoOpenRewardCategory?: string;
+  autoOpenFundraiserForm?: boolean;
 }) {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const [shopView, setShopView] = useState<"rewards" | "fundraisers">(
-    activeSkipTarget?.type === "goal" ? "rewards" : "fundraisers"
+    searchParams.get("tab") === "live" || activeSkipTarget?.type === "goal" ? "rewards" : "fundraisers"
   );
   const [showAddForm, setShowAddForm] = useState(false);
   const [addLabel, setAddLabel] = useState("");
   const [addAmount, setAddAmount] = useState("");
   const [addCategory, setAddCategory] = useState("");
   const [addLink, setAddLink] = useState("");
+  const [addNoShoppingLink, setAddNoShoppingLink] = useState(false);
+  const [addMerchant, setAddMerchant] = useState("");
   const [addImageURL, setAddImageURL] = useState("");
   const [addImagePosition, setAddImagePosition] = useState({ x: 50, y: 50 });
   const [addImageSource, setAddImageSource] = useState<"manual" | "product" | null>(null);
+  const [productPreviewStatus, setProductPreviewStatus] = useState<"idle" | "loading" | "filled" | "partial" | "failed">("idle");
   const [addImageError, setAddImageError] = useState("");
   const [addAndSkipForThis, setAddAndSkipForThis] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -1553,23 +1561,30 @@ function SplurgeTab({
   const [deletingGoalId, setDeletingGoalId] = useState<string | null>(null);
   const [movingToGive, setMovingToGive] = useState(false);
 
-  const [editingHistoryId, setEditingHistoryId] = useState<string | null>(null);
-  const [editHistoryAmountStr, setEditHistoryAmountStr] = useState("");
-  const [deletingHistoryId, setDeletingHistoryId] = useState<string | null>(null);
-  const [historyWorking, setHistoryWorking] = useState(false);
   const [switchTarget, setSwitchTarget] = useState<SpendingGoal | null>(null);
 
   const [purchasingId, setPurchasingId] = useState<string | null>(null);
   const [purchaseAmountStr, setPurchaseAmountStr] = useState("");
   const [purchasing, setPurchasing] = useState(false);
+  const [purchaseDone, setPurchaseDone] = useState<"logged" | "emptied" | null>(null);
   const [deactivatingGoal, setDeactivatingGoal] = useState(false);
   const [deactivating, setDeactivating] = useState(false);
   const [fundingTarget, setFundingTarget] = useState<SkipAllocationTarget | null>(null);
   const [fundingAmountStr, setFundingAmountStr] = useState("");
   const [fundingWorking, setFundingWorking] = useState(false);
+  const [showFundraiserForm, setShowFundraiserForm] = useState(false);
+  const [fundraiserTitle, setFundraiserTitle] = useState("");
+  const [fundraiserOrganizer, setFundraiserOrganizer] = useState("");
+  const [fundraiserGoalAmount, setFundraiserGoalAmount] = useState("");
+  const [fundraiserDonationLink, setFundraiserDonationLink] = useState("");
+  const [fundraiserDescription, setFundraiserDescription] = useState("");
+  const [creatingFundraiser, setCreatingFundraiser] = useState(false);
   const [showFundingDetails, setShowFundingDetails] = useState(false);
   const [switchPrompt, setSwitchPrompt] = useState<{ previous: SkipAllocationTarget; next: SkipAllocationTarget; balance: number } | null>(null);
   const [deactivatePrompt, setDeactivatePrompt] = useState<{ target: SkipAllocationTarget; balance: number } | null>(null);
+  const [showSwitchMoreOptions, setShowSwitchMoreOptions] = useState(false);
+  const [switchConfirmAction, setSwitchConfirmAction] = useState<"move" | "release" | null>(null);
+  const [jarDecisionWorking, setJarDecisionWorking] = useState<"switch" | "move" | "release" | "deactivate-park" | "deactivate-release" | null>(null);
   const [fundraiserSetup, setFundraiserSetup] = useState<Project | null>(null);
   const [donatingProject, setDonatingProject] = useState<Project | null>(null);
   const [fundraiserGoalStr, setFundraiserGoalStr] = useState("");
@@ -1621,6 +1636,13 @@ function SplurgeTab({
   }, [fundraiserSetup]);
 
   useEffect(() => {
+    if (!switchPrompt) {
+      setShowSwitchMoreOptions(false);
+      setSwitchConfirmAction(null);
+    }
+  }, [switchPrompt]);
+
+  useEffect(() => {
     if (!autoOpenRewardForm) return;
     setShopView("rewards");
     setShowAddForm(true);
@@ -1629,13 +1651,23 @@ function SplurgeTab({
     setAddAmount(autoOpenRewardAmount);
     setAddCategory(autoOpenRewardCategory);
     setAddLink("");
+    setAddNoShoppingLink(false);
+    setAddMerchant("");
     const image = rewardDefaultImage(autoOpenRewardLabel, autoOpenRewardCategory);
     setAddImageURL(image ?? "");
     setAddImagePosition({ x: 50, y: 50 });
     setAddImageSource(image ? "manual" : null);
+    setProductPreviewStatus("idle");
     setAddImageError("");
     router.replace("/jars?tab=live");
   }, [autoOpenRewardAmount, autoOpenRewardCategory, autoOpenRewardForm, autoOpenRewardLabel, autoOpenRewardSkip, router]);
+
+  useEffect(() => {
+    if (!autoOpenFundraiserForm) return;
+    setShopView("fundraisers");
+    setShowFundraiserForm(true);
+    router.replace("/jars?tab=cause");
+  }, [autoOpenFundraiserForm, router]);
 
   const activeGoal = activeGoalProp;
   const activeFundraiser = activeSkipTarget?.type === "fundraiser"
@@ -1643,15 +1675,23 @@ function SplurgeTab({
     : null;
   const activeFundraiserJarBalance = activeFundraiser ? fundraiserJar(activeFundraiser) : 0;
   const rewardPresets = [
-    { id: "weekend-trip", label: "Weekend Trip", amount: 300, category: "Getaway" },
     { id: "concert-tickets", label: "Concert Tickets", amount: 180, category: "Experience" },
     { id: "flight-abroad", label: "Flight Abroad", amount: 900, category: "Travel" },
     { id: "spa-day", label: "Spa Day", amount: 150, category: "Self-care" },
   ];
-  const presetRewardNames = new Set(rewardPresets.map((preset) => preset.label.toLowerCase()));
+  const rewardPresetKey = (label: string, amount: number) => `${label.trim().toLowerCase()}-${amount}`;
+  const presetRewardKeys = new Set(rewardPresets.map((preset) => rewardPresetKey(preset.label, preset.amount)));
   const dismissedStarterSet = new Set(dismissedStarterIds);
-  const suggestedRewards = rewardPresets.filter((preset) => !dismissedStarterSet.has(preset.id));
-  const visibleSavedRewards = goals.filter((goal) => !presetRewardNames.has(goal.label.trim().toLowerCase()));
+  const savedPresetRewardKeys = new Set(
+    goals
+      .map((goal) => rewardPresetKey(goal.label, goal.targetAmount))
+      .filter((key) => presetRewardKeys.has(key))
+  );
+  const suggestedRewards = rewardPresets.filter((preset) =>
+    !dismissedStarterSet.has(preset.id)
+    || savedPresetRewardKeys.has(rewardPresetKey(preset.label, preset.amount))
+  );
+  const visibleSavedRewards = goals.filter((goal) => !presetRewardKeys.has(rewardPresetKey(goal.label, goal.targetAmount)));
   const activeGoalJarBalance = activeGoal ? Math.max(0, goalJarBalances?.[activeGoal.id] ?? 0) : 0;
   const fundraisers = projects
     .filter((project) =>
@@ -1733,13 +1773,72 @@ function SplurgeTab({
     await proceedToTarget(target);
   }
 
-  async function confirmDeactivateActiveJar() {
+  async function confirmSwitchKeepParked() {
+    if (!switchPrompt) return;
+    const next = switchPrompt.next;
+    setJarDecisionWorking("switch");
+    setSwitchPrompt(null);
+    try {
+      await proceedToTarget(next);
+    } finally {
+      setJarDecisionWorking(null);
+    }
+  }
+
+  async function confirmSwitchMoveBalance() {
+    if (!switchPrompt) return;
+    const prompt = switchPrompt;
+    setJarDecisionWorking("move");
+    try {
+      const movedAmount = await onMoveJarBalance(prompt.previous, prompt.next, prompt.balance);
+      setSwitchPrompt(null);
+      await proceedToTarget(prompt.next);
+      if (movedAmount > 0) toast.success(`${formatCurrency(movedAmount)} moved to ${targetLabel(prompt.next)}.`);
+    } catch (err) {
+      console.error("move jar balance failed", err);
+      toast.error("Couldn't move that balance — check your connection and try again.");
+    } finally {
+      setJarDecisionWorking(null);
+    }
+  }
+
+  async function confirmSwitchReleaseBalance() {
+    if (!switchPrompt) return;
+    const prompt = switchPrompt;
+    setJarDecisionWorking("release");
+    try {
+      const releasedAmount = await onReleaseJar(prompt.previous);
+      setSwitchPrompt(null);
+      await proceedToTarget(prompt.next);
+      if (releasedAmount > 0) toast.success(`${formatCurrency(releasedAmount)} moved back to Skip Bucks.`);
+    } catch (err) {
+      console.error("release jar balance failed", err);
+      toast.error("Couldn't release that balance — check your connection and try again.");
+    } finally {
+      setJarDecisionWorking(null);
+    }
+  }
+
+  async function confirmDeactivateActiveJar(releaseBalance = false) {
     if (!deactivatePrompt) return;
+    setJarDecisionWorking(releaseBalance ? "deactivate-release" : "deactivate-park");
     setDeactivating(true);
-    await onSetSkipTarget(null);
-    setDeactivating(false);
-    setDeactivatePrompt(null);
-    toast.success("Future skips will go to Unassigned Skip Bucks.");
+    try {
+      const releasedAmount = releaseBalance ? await onReleaseJar(deactivatePrompt.target) : 0;
+      await onSetSkipTarget(null);
+      setDeactivatePrompt(null);
+      toast.success(
+        releaseBalance && releasedAmount > 0
+          ? `${formatCurrency(releasedAmount)} moved back to Skip Bucks. Future skips will be unassigned.`
+          : "Future skips will go to Unassigned Skip Bucks."
+      );
+    } catch (err) {
+      console.error("deactivate jar failed", err);
+      toast.error("Couldn't update that jar — check your connection and try again.");
+    } finally {
+      setDeactivating(false);
+      setJarDecisionWorking(null);
+    }
   }
 
   async function proceedToTarget(target: SkipAllocationTarget) {
@@ -1788,6 +1887,39 @@ function SplurgeTab({
     setFundraiserGoalStr("");
     setFundraiserBankStr("");
     toast.success("Future skips will go to this fundraiser.");
+  }
+
+  function resetFundraiserForm() {
+    setFundraiserTitle("");
+    setFundraiserOrganizer("");
+    setFundraiserGoalAmount("");
+    setFundraiserDonationLink("");
+    setFundraiserDescription("");
+  }
+
+  async function handleCreateFundraiser() {
+    const goal = parseFloat(fundraiserGoalAmount);
+    if (!fundraiserTitle.trim() || !goal || goal <= 0) return;
+    setCreatingFundraiser(true);
+    try {
+      await onAddCause(
+        fundraiserTitle.trim(),
+        fundraiserOrganizer.trim() || "Community fundraiser",
+        undefined,
+        goal,
+        fundraiserDonationLink.trim() ? normalizeExternalLink(fundraiserDonationLink) : undefined,
+        fundraiserDescription.trim() || undefined,
+        ["custom", "challenge"]
+      );
+      toast.success("Fundraiser created.");
+      setShowFundraiserForm(false);
+      resetFundraiserForm();
+    } catch (err) {
+      console.error("create fundraiser failed", err);
+      toast.error("Couldn't create that fundraiser — check your connection and try again.");
+    } finally {
+      setCreatingFundraiser(false);
+    }
   }
 
   async function confirmSkipBankFunding() {
@@ -1850,25 +1982,58 @@ function SplurgeTab({
     try {
       const response = await fetch(`/api/product-preview?url=${encodeURIComponent(shoppingLink)}`);
       if (!response.ok) return;
-      const preview = await response.json() as { imageURL?: string | null };
-      if (preview.imageURL) await onEditGoal(goalId, { imageURL: preview.imageURL });
+      const preview = await response.json() as ProductPreview;
+      const updates: Partial<SpendingGoal> = {};
+      if (preview.imageURL) updates.imageURL = preview.imageURL;
+      if (preview.merchant) updates.merchant = preview.merchant;
+      if (Object.keys(updates).length > 0) await onEditGoal(goalId, updates);
     } catch {
       // Retailers may block preview requests; the artwork fallback remains visible.
     }
   }
 
   async function previewProductImage() {
-    if (!addLink.trim() || addImageSource === "manual") return;
+    if (!addLink.trim()) return;
+    if (addNoShoppingLink) return;
+    setProductPreviewStatus("loading");
     try {
       const response = await fetch(`/api/product-preview?url=${encodeURIComponent(normalizeExternalLink(addLink))}`);
-      if (!response.ok) return;
-      const preview = await response.json() as { imageURL?: string | null };
-      if (preview.imageURL) {
+      if (!response.ok) {
+        setProductPreviewStatus("failed");
+        return;
+      }
+      const preview = await response.json() as ProductPreview;
+      let filled = 0;
+      let missing = 0;
+      if (preview.title && !addLabel.trim()) {
+        setAddLabel(preview.title);
+        filled += 1;
+      } else if (!addLabel.trim()) {
+        missing += 1;
+      }
+      if (preview.price && !addAmount.trim()) {
+        setAddAmount(preview.price.toFixed(2));
+        filled += 1;
+      } else if (!addAmount.trim()) {
+        missing += 1;
+      }
+      if (preview.merchant && !addMerchant.trim()) {
+        setAddMerchant(preview.merchant);
+        filled += 1;
+      } else if (!addMerchant.trim()) {
+        missing += 1;
+      }
+      if (preview.imageURL && addImageSource !== "manual") {
         setAddImageURL(preview.imageURL);
         setAddImagePosition({ x: 50, y: 50 });
         setAddImageSource("product");
+        filled += 1;
+      } else if (!addImageURL && addImageSource !== "manual") {
+        missing += 1;
       }
+      setProductPreviewStatus(filled > 0 && missing === 0 ? "filled" : filled > 0 ? "partial" : "failed");
     } catch {
+      setProductPreviewStatus("failed");
       // A reward can still be saved when a retailer blocks image previews.
     }
   }
@@ -1912,7 +2077,8 @@ function SplurgeTab({
       type: "splurge",
     };
     if (addCategory.trim()) goal.category = addCategory.trim();
-    if (addLink.trim()) goal.shoppingLink = normalizeExternalLink(addLink);
+    if (!addNoShoppingLink && addLink.trim()) goal.shoppingLink = normalizeExternalLink(addLink);
+    if (addMerchant.trim()) goal.merchant = addMerchant.trim();
     if (addImageURL) {
       goal.imageURL = addImageURL;
       goal.imagePosition = `${addImagePosition.x}% ${addImagePosition.y}%`;
@@ -1924,9 +2090,12 @@ function SplurgeTab({
     setAddAmount("");
     setAddCategory("");
     setAddLink("");
+    setAddNoShoppingLink(false);
+    setAddMerchant("");
     setAddImageURL("");
     setAddImagePosition({ x: 50, y: 50 });
     setAddImageSource(null);
+    setProductPreviewStatus("idle");
     setAddImageError("");
     setAddAndSkipForThis(false);
     setShowAddForm(false);
@@ -1953,9 +2122,12 @@ function SplurgeTab({
     setAddAmount(String(amount));
     setAddCategory(category ?? rewardCategory(label).tag);
     setAddLink("");
+    setAddNoShoppingLink(false);
+    setAddMerchant("");
     setAddImageURL(image ?? "");
     setAddImagePosition({ x: 50, y: 50 });
     setAddImageSource(image ? "manual" : null);
+    setProductPreviewStatus("idle");
     setAddImageError("");
     setAddAndSkipForThis(skipForThis);
     setShowAddForm(true);
@@ -1967,6 +2139,30 @@ function SplurgeTab({
     setEditAmount(String(goal.targetAmount));
     setEditCategory(goal.category ?? "");
     setEditLink(goal.shoppingLink ?? goal.donationURL ?? "");
+  }
+
+  function closePurchaseModal() {
+    setPurchasingId(null);
+    setPurchaseAmountStr("");
+    setPurchaseDone(null);
+    setPurchasing(false);
+  }
+
+  async function handlePurchaseLog(goal: SpendingGoal, balance: number) {
+    const amount = parseFloat(purchaseAmountStr);
+    if (!amount || amount <= 0) return;
+    const totalAvailable = balance + availableSkipBankBalance;
+    if (amount > totalAvailable) return;
+    setPurchasing(true);
+    const ok = await onPurchase(amount);
+    setPurchasing(false);
+    if (!ok) return;
+    if (balance > 0 && amount >= balance) {
+      setPurchaseDone("emptied");
+    } else {
+      setPurchaseDone("logged");
+      window.setTimeout(closePurchaseModal, 1400);
+    }
   }
 
   async function handleEditGoalSave(goalId: string, goalType: "splurge" | "donation") {
@@ -1997,39 +2193,149 @@ function SplurgeTab({
     <div className="space-y-4">
       {switchPrompt && (
         <div className="fixed inset-0 bg-black/60 z-50 flex items-end sm:items-center justify-center p-4" onClick={() => setSwitchPrompt(null)}>
-          <div className="rounded-2xl w-full max-w-sm shadow-2xl" style={{ background: "var(--bg-surface-1)", border: "1px solid var(--border-default)" }} onClick={(e) => e.stopPropagation()}>
-            <div className="px-5 pt-5 pb-4" style={{ borderBottom: "1px solid var(--border-default)" }}>
-              <p className="text-lg font-black leading-tight" style={{ color: "var(--text-primary)" }}>
-                Change reason for skipping?
-              </p>
-              <p className="text-sm mt-2 leading-relaxed" style={{ color: "var(--text-secondary)" }}>
-                You currently have {formatCurrency(switchPrompt.balance)} saved for {targetLabel(switchPrompt.previous)}.
-              </p>
-              <p className="text-sm mt-2 leading-relaxed" style={{ color: "var(--text-secondary)" }}>
-                Switching only changes where future skips go. Your saved balance stays parked unless you move it.
-              </p>
-            </div>
-            <div className="space-y-3 p-5">
-              <button
-                onClick={async () => {
-                  const next = switchPrompt.next;
-                  setSwitchPrompt(null);
-                  await proceedToTarget(next);
-                }}
-                className="w-full rounded-xl py-3 text-sm font-black disabled:opacity-45"
-                style={{ background: "#2ECC71", color: "#071B14" }}
-              >
-                Change reason for skipping
-              </button>
-              <button
-                type="button"
-                onClick={() => setSwitchPrompt(null)}
-                className="w-full py-1 text-sm font-bold"
-                style={{ background: "transparent", border: "none", color: "var(--text-muted)" }}
-              >
-                Cancel
-              </button>
-            </div>
+          <div className="rounded-2xl w-full max-w-md shadow-2xl" style={{ background: "var(--bg-surface-1)", border: "1px solid var(--border-default)" }} onClick={(e) => e.stopPropagation()}>
+            {switchConfirmAction ? (
+              <>
+                <div className="relative px-5 pt-5 pb-4 pr-12" style={{ borderBottom: "1px solid var(--border-default)" }}>
+                  <p className="text-lg font-black leading-tight" style={{ color: "var(--text-primary)" }}>
+                    Are you sure?
+                  </p>
+                  <button
+                    type="button"
+                    onClick={() => setSwitchConfirmAction(null)}
+                    aria-label="Go back to jar switch options"
+                    className="absolute right-4 top-4 text-xl font-black leading-none"
+                    style={{ color: "var(--text-muted)" }}
+                  >
+                    x
+                  </button>
+                  <p className="text-sm mt-2 leading-relaxed" style={{ color: "var(--text-secondary)" }}>
+                    {switchConfirmAction === "move"
+                      ? `This will move ${formatCurrency(switchPrompt.balance)} from ${targetLabel(switchPrompt.previous)} to ${targetLabel(switchPrompt.next)}.`
+                      : `This will move ${formatCurrency(switchPrompt.balance)} from ${targetLabel(switchPrompt.previous)} to Skip Bucks.`}
+                  </p>
+                </div>
+                <div className="space-y-3 p-5">
+                  <button
+                    type="button"
+                    onClick={switchConfirmAction === "move" ? confirmSwitchMoveBalance : confirmSwitchReleaseBalance}
+                    disabled={jarDecisionWorking !== null}
+                    className="w-full rounded-xl px-4 py-3 text-left disabled:opacity-45"
+                    style={{ background: "#2ECC71", color: "#071B14" }}
+                  >
+                    <span className="block text-sm font-black">
+                      {switchConfirmAction === "move"
+                        ? (jarDecisionWorking === "move" ? "Moving balance..." : "Yes, move balance")
+                        : (jarDecisionWorking === "release" ? "Moving to Skip Bucks..." : "Yes, move to Skip Bucks")}
+                    </span>
+                    <span className="mt-0.5 block text-xs font-bold opacity-80">
+                      Then future skips will go to {targetLabel(switchPrompt.next)}.
+                    </span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setSwitchConfirmAction(null)}
+                    disabled={jarDecisionWorking !== null}
+                    className="w-full py-1 text-sm font-bold disabled:opacity-45"
+                    style={{ background: "transparent", border: "none", color: "var(--text-muted)" }}
+                  >
+                    Go back
+                  </button>
+                </div>
+              </>
+            ) : (
+              <>
+                <div className="relative px-5 pt-5 pb-4 pr-12" style={{ borderBottom: "1px solid var(--border-default)" }}>
+                  <p className="text-lg font-black leading-tight" style={{ color: "var(--text-primary)" }}>
+                    Change your active jar?
+                  </p>
+                  <button
+                    type="button"
+                    onClick={() => setSwitchPrompt(null)}
+                    aria-label="Close jar switch options"
+                    className="absolute right-4 top-4 text-xl font-black leading-none"
+                    style={{ color: "var(--text-muted)" }}
+                  >
+                    x
+                  </button>
+                  <p className="text-sm mt-2 leading-relaxed" style={{ color: "var(--text-secondary)" }}>
+                    You have {formatCurrency(switchPrompt.balance)} in {targetLabel(switchPrompt.previous)}. Choose what happens next.
+                  </p>
+                </div>
+                <div className="space-y-3 p-5">
+                  <button
+                    type="button"
+                    onClick={confirmSwitchKeepParked}
+                    disabled={jarDecisionWorking !== null}
+                    className="w-full rounded-xl px-4 py-3 text-left disabled:opacity-45"
+                    style={{ background: "#2ECC71", color: "#071B14" }}
+                  >
+                    <span className="block text-sm font-black">
+                      {jarDecisionWorking === "switch" ? "Changing jar..." : `Skip for ${targetLabel(switchPrompt.next)}`}
+                    </span>
+                    <span className="mt-0.5 block text-xs font-bold opacity-80">
+                      Your {formatCurrency(switchPrompt.balance)} will remain in your current jar when you return to it.
+                    </span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setSwitchPrompt(null)}
+                    disabled={jarDecisionWorking !== null}
+                    className="w-full rounded-xl px-4 py-3 text-left text-sm disabled:opacity-45"
+                    style={{ background: "rgba(237,245,240,0.05)", border: "1px solid rgba(237,245,240,0.1)", color: "var(--text-primary)" }}
+                  >
+                    <span className="block text-sm font-black">
+                      Keep skipping for {targetLabel(switchPrompt.previous)}
+                    </span>
+                  </button>
+                  <div className="pt-1">
+                    <button
+                      type="button"
+                      onClick={() => setShowSwitchMoreOptions((value) => !value)}
+                      disabled={jarDecisionWorking !== null}
+                      aria-expanded={showSwitchMoreOptions}
+                      className="flex w-full items-center justify-between py-1 text-sm font-bold disabled:opacity-45"
+                      style={{ background: "transparent", border: "none", color: "var(--text-muted)" }}
+                    >
+                      <span>More options</span>
+                      <span aria-hidden="true">{showSwitchMoreOptions ? "▲" : "▼"}</span>
+                    </button>
+                    {showSwitchMoreOptions && (
+                      <div className="mt-2 space-y-2 rounded-xl p-3" style={{ background: "rgba(237,245,240,0.045)", border: "1px solid rgba(237,245,240,0.08)" }}>
+                        <button
+                          type="button"
+                          onClick={() => setSwitchConfirmAction("move")}
+                          disabled={jarDecisionWorking !== null}
+                          className="w-full rounded-lg px-3 py-2.5 text-left disabled:opacity-45"
+                          style={{ background: "rgba(46,204,113,0.1)", color: "var(--text-primary)" }}
+                        >
+                          <span className="block text-sm font-black">
+                            Move balance to new jar
+                          </span>
+                          <span className="mt-0.5 block text-xs font-bold" style={{ color: "var(--text-muted)" }}>
+                            Put the {formatCurrency(switchPrompt.balance)} into {targetLabel(switchPrompt.next)}.
+                          </span>
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setSwitchConfirmAction("release")}
+                          disabled={jarDecisionWorking !== null}
+                          className="w-full rounded-lg px-3 py-2.5 text-left disabled:opacity-45"
+                          style={{ background: "rgba(237,245,240,0.04)", color: "var(--text-primary)" }}
+                        >
+                          <span className="block text-sm font-black">
+                            Move balance to Skip Bucks
+                          </span>
+                          <span className="mt-0.5 block text-xs font-bold" style={{ color: "var(--text-muted)" }}>
+                            Free it up to use later, then change your active jar.
+                          </span>
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </>
+            )}
           </div>
         </div>
       )}
@@ -2039,7 +2345,7 @@ function SplurgeTab({
           <div className="rounded-2xl w-full max-w-sm shadow-2xl" style={{ background: "var(--bg-surface-1)", border: "1px solid var(--border-default)" }} onClick={(e) => e.stopPropagation()}>
             <div className="relative px-5 pt-5 pb-4 pr-12" style={{ borderBottom: "1px solid var(--border-default)" }}>
               <p className="text-lg font-black leading-tight" style={{ color: "var(--text-primary)" }}>
-                Stop using this as your active jar?
+                Pause this active jar?
               </p>
               <button
                 type="button"
@@ -2052,30 +2358,49 @@ function SplurgeTab({
               </button>
             </div>
             <div className="space-y-3 p-5">
-              <p className="text-sm leading-relaxed" style={{ color: "var(--text-secondary)" }}>
-                Future skips will go to Unassigned Skip Bucks instead.
-              </p>
               {deactivatePrompt.balance > 0 && (
                 <p className="text-sm leading-relaxed" style={{ color: "var(--text-secondary)" }}>
-                  The {formatCurrency(deactivatePrompt.balance)} saved for {targetLabel(deactivatePrompt.target)} will stay in that jar. You can manage it from Jar Activity.
+                  You have {formatCurrency(deactivatePrompt.balance)} in {targetLabel(deactivatePrompt.target)}.
                 </p>
               )}
               <button
                 type="button"
-                onClick={confirmDeactivateActiveJar}
+                onClick={() => confirmDeactivateActiveJar(false)}
                 disabled={deactivating}
-                className="w-full rounded-xl py-3 text-sm font-black disabled:opacity-50"
+                className="w-full rounded-xl px-4 py-3 text-left disabled:opacity-50"
                 style={{ background: "#2ECC71", color: "#071B14" }}
               >
-                {deactivating ? "Deactivating..." : "Deactivate jar"}
+                <span className="block text-sm font-black">
+                  {jarDecisionWorking === "deactivate-park" ? "Pausing jar..." : "Pause jar, keep balance parked"}
+                </span>
+                <span className="mt-0.5 block text-xs font-bold opacity-80">
+                  Your saved money stays in this jar for later.
+                </span>
               </button>
+              {deactivatePrompt.balance > 0 && (
+                <button
+                  type="button"
+                  onClick={() => confirmDeactivateActiveJar(true)}
+                  disabled={deactivating}
+                  className="w-full rounded-xl px-4 py-3 text-left disabled:opacity-50"
+                  style={{ background: "rgba(237,245,240,0.05)", border: "1px solid rgba(237,245,240,0.1)", color: "var(--text-primary)" }}
+                >
+                  <span className="block text-sm font-black">
+                    {jarDecisionWorking === "deactivate-release" ? "Moving balance..." : "Move balance to Skip Bucks"}
+                  </span>
+                  <span className="mt-0.5 block text-xs font-bold" style={{ color: "var(--text-muted)" }}>
+                    Free up the {formatCurrency(deactivatePrompt.balance)} to use anywhere.
+                  </span>
+                </button>
+              )}
               <button
                 type="button"
                 onClick={() => setDeactivatePrompt(null)}
-                className="w-full rounded-xl py-3 text-sm font-black"
-                style={{ background: "rgba(237,245,240,0.05)", border: "1px solid rgba(237,245,240,0.1)", color: "var(--text-secondary)" }}
+                disabled={deactivating}
+                className="w-full py-1 text-sm font-bold disabled:opacity-45"
+                style={{ background: "transparent", border: "none", color: "var(--text-muted)" }}
               >
-                Keep as active jar
+                Keep skipping for this
               </button>
             </div>
           </div>
@@ -2087,9 +2412,152 @@ function SplurgeTab({
           projectId={donatingProject.id}
           projectTitle={donatingProject.groupName ?? donatingProject.title}
           initialAmount={fundraiserJar(donatingProject)}
+          donationURL={donatingProject.donationURL ?? undefined}
+          donationRecipient={donatingProject.sponsor || donatingProject.groupName || donatingProject.title}
           onClose={() => setDonatingProject(null)}
         />
       )}
+
+      {purchasingId && (() => {
+        const goal = goals.find((candidate) => candidate.id === purchasingId);
+        if (!goal) return null;
+        const balance = Math.max(0, goalJarBalances?.[goal.id] ?? 0);
+        const parsedAmount = parseFloat(purchaseAmountStr);
+        const cleanAmount = Number.isFinite(parsedAmount) ? parsedAmount : 0;
+        const totalAvailable = balance + availableSkipBankBalance;
+        const amountOverAvailable = cleanAmount > totalAvailable;
+        const extraFromSkipBucks = Math.max(0, cleanAmount - balance);
+        return (
+          <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4" onClick={closePurchaseModal}>
+            <div
+              role="dialog"
+              aria-modal="true"
+              aria-labelledby="purchase-log-title"
+              className="w-full max-w-sm rounded-2xl shadow-2xl"
+              style={{ background: "var(--bg-surface-1)", border: "1px solid var(--border-default)" }}
+              onClick={(event) => event.stopPropagation()}
+            >
+              <div className="flex items-center justify-between px-6 py-5" style={{ borderBottom: "1px solid var(--border-default)" }}>
+                <h2 id="purchase-log-title" className="text-lg font-bold" style={{ color: "var(--text-primary)" }}>
+                  {purchaseDone === "emptied" ? "Jar emptied" : "Spend my skips"}
+                </h2>
+                <button onClick={closePurchaseModal} aria-label="Close" className="text-2xl leading-none" style={{ color: "var(--text-muted)" }}>x</button>
+              </div>
+              <div className="px-6 py-5">
+                {purchaseDone === "logged" ? (
+                  <div className="text-center py-4">
+                    <p className="text-2xl mb-2">✓</p>
+                    <p className="font-semibold" style={{ color: "var(--text-primary)" }}>Purchase logged!</p>
+                  </div>
+                ) : purchaseDone === "emptied" ? (
+                  <div className="space-y-4">
+                    <div className="rounded-xl p-4 text-center" style={{ background: "rgba(139,92,246,0.1)", border: "1px solid rgba(139,92,246,0.25)" }}>
+                      <p className="text-2xl mb-2">✓</p>
+                      <p className="font-black" style={{ color: "var(--text-primary)" }}>Purchase logged.</p>
+                      <p className="mt-1 text-sm leading-relaxed" style={{ color: "var(--text-secondary)" }}>
+                        You used everything saved in {goal.label}.
+                      </p>
+                    </div>
+                    <p className="text-sm font-bold leading-relaxed" style={{ color: "var(--text-secondary)" }}>
+                      Keep this as your active jar for future skips?
+                    </p>
+                    <div className="space-y-2">
+                      <button
+                        type="button"
+                        onClick={closePurchaseModal}
+                        className="w-full rounded-xl py-3 text-sm font-black"
+                        style={{ background: "#8B5CF6", color: "white" }}
+                      >
+                        Keep this active
+                      </button>
+                      <button
+                        type="button"
+                        onClick={closePurchaseModal}
+                        className="w-full rounded-xl py-3 text-sm font-black"
+                        style={{ background: "rgba(237,245,240,0.05)", border: "1px solid rgba(237,245,240,0.1)", color: "var(--text-secondary)" }}
+                      >
+                        Pick a new jar
+                      </button>
+                    </div>
+                  </div>
+                ) : (
+                  <>
+                    <div className="mb-5 rounded-xl p-4" style={{ background: "rgba(139,92,246,0.09)", border: "1px solid rgba(139,92,246,0.22)" }}>
+                      <p className="text-xs font-black uppercase tracking-wide" style={{ color: "#C4B5FD" }}>Step 1</p>
+                      <p className="mt-1 text-sm font-black" style={{ color: "var(--text-primary)" }}>Buy {goal.label}</p>
+                      {goal.shoppingLink ? (
+                        <a
+                          href={goal.shoppingLink}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="mt-3 inline-flex w-full items-center justify-center rounded-xl py-3 text-sm font-black"
+                          style={{ background: "#8B5CF6", color: "white", textDecoration: "none" }}
+                        >
+                          Open purchase page
+                        </a>
+                      ) : (
+                        <p className="mt-2 text-sm leading-relaxed" style={{ color: "var(--text-secondary)" }}>
+                          Buy where intended, then log it here.
+                        </p>
+                      )}
+                      <p className="mt-3 text-[10px] font-bold leading-relaxed" style={{ color: "var(--text-muted)" }}>
+                        iSkipped does not process, verify, or manage outside purchases.
+                      </p>
+                    </div>
+                    <div className="mb-4">
+                      <p className="text-xs font-black uppercase tracking-wide" style={{ color: "var(--text-muted)" }}>Step 2</p>
+                      <p className="mt-1 text-sm" style={{ color: "var(--text-secondary)" }}>
+                        After buying, log the amount here.
+                      </p>
+                    </div>
+                    <div className="space-y-3 mb-5">
+                      <div>
+                        <label className="text-xs uppercase tracking-wide mb-1 block" style={{ color: "var(--text-muted)" }}>Amount</label>
+                        <div className="relative">
+                          <span className="absolute left-4 top-1/2 -translate-y-1/2 font-medium" style={{ color: "var(--text-secondary)" }}>$</span>
+                          <input
+                            type="number"
+                            min="1"
+                            max={totalAvailable || undefined}
+                            value={purchaseAmountStr}
+                            onChange={(event) => setPurchaseAmountStr(event.target.value)}
+                            placeholder="0"
+                            className="w-full rounded-xl pl-8 pr-4 py-3 text-lg font-semibold focus:outline-none"
+                            style={{ background: "var(--bg-surface-2)", border: "1px solid var(--border-default)", color: "var(--text-primary)" }}
+                            autoFocus
+                          />
+                        </div>
+                        <p className="mt-2 text-xs font-bold" style={{ color: "var(--text-muted)" }}>
+                          {formatCurrency(balance)} saved in this jar.
+                        </p>
+                        {amountOverAvailable && (
+                          <p className="mt-2 text-xs font-bold leading-relaxed" style={{ color: "#EF4444" }}>
+                            That is more than your saved skips. Lower the amount to {formatCurrency(totalAvailable)} or less.
+                          </p>
+                        )}
+                        {!amountOverAvailable && extraFromSkipBucks > 0 && cleanAmount > 0 && (
+                          <p className="mt-2 text-xs font-bold leading-relaxed" style={{ color: "#F59E0B" }}>
+                            You are spending more than this jar holds. {formatCurrency(extraFromSkipBucks)} will come from your saved Skip Bucks.
+                          </p>
+                        )}
+                      </div>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => handlePurchaseLog(goal, balance)}
+                      disabled={purchasing || !purchaseAmountStr || cleanAmount < 1 || amountOverAvailable}
+                      className="w-full font-bold py-3.5 rounded-xl transition-all disabled:opacity-60 disabled:cursor-not-allowed"
+                      style={{ background: "#8B5CF6", color: "white" }}
+                    >
+                      {purchasing ? "Logging..." : "I spent this amount"}
+                    </button>
+                  </>
+                )}
+              </div>
+            </div>
+          </div>
+        );
+      })()}
 
       {fundraiserSetup && (
         <div className="fixed inset-0 bg-black/60 z-50 flex items-end sm:items-center justify-center p-4" onClick={() => setFundraiserSetup(null)}>
@@ -2293,6 +2761,7 @@ function SplurgeTab({
                   setEditingGoalId(null);
                   if (activeGoalId) {
                     setPurchasingId(activeGoalId);
+                    setPurchaseDone(null);
                     setPurchaseAmountStr(String(spendingBalance));
                   }
                 }}
@@ -2515,7 +2984,7 @@ function SplurgeTab({
                       </div>
                     ) : (
                       <>
-                        <RewardProgress balance={balance} target={preset.amount} availableSkipBankBalance={availableSkipBankBalance} active={isActive} />
+                        <RewardProgress balance={balance} target={preset.amount} active={isActive} />
                         <button
                           type="button"
                           onClick={() => matchingGoal ? handleSkipFor({ type: "goal", id: matchingGoal.id }) : startAddPresetGoal(preset.label, preset.amount, preset.category, true)}
@@ -2593,25 +3062,41 @@ function SplurgeTab({
                     </div>
                   ) : (
                     <div className="p-3">
-                      <RewardProgress balance={balance} target={goal.targetAmount} availableSkipBankBalance={availableSkipBankBalance} active={isActiveGoal} />
-                      {isActiveGoal ? (
-                        <button
-                          type="button"
-                          onClick={() => handleSkipFor({ type: "goal", id: goal.id })}
-                          className="mt-3 w-full rounded-lg py-2 text-center text-[10px] font-black uppercase tracking-wide transition-colors hover:bg-[rgba(139,92,246,0.3)]"
-                          style={{ background: "rgba(139,92,246,0.23)", color: "#DDD6FE" }}
-                        >
-                          Active jar
-                        </button>
-                      ) : (
-                        <button
-                          onClick={() => handleSkipFor({ type: "goal", id: goal.id })}
-                          className="mt-3 w-full rounded-lg py-2 text-[10px] font-black uppercase tracking-wide transition-colors hover:bg-[rgba(139,92,246,0.26)]"
-                          style={{ background: "rgba(139,92,246,0.17)", color: "#C4B5FD" }}
-                        >
-                          Skip for this
-                        </button>
-                      )}
+                      <RewardProgress balance={balance} target={goal.targetAmount} active={isActiveGoal} />
+                      <div className="mt-3 flex gap-2">
+                        {isActiveGoal ? (
+                          <button
+                            type="button"
+                            onClick={() => handleSkipFor({ type: "goal", id: goal.id })}
+                            className="flex-1 rounded-lg py-2 text-center text-[10px] font-black uppercase tracking-wide transition-colors hover:bg-[rgba(139,92,246,0.3)]"
+                            style={{ background: "rgba(139,92,246,0.23)", color: "#DDD6FE" }}
+                          >
+                            Active jar
+                          </button>
+                        ) : (
+                          <button
+                            onClick={() => handleSkipFor({ type: "goal", id: goal.id })}
+                            className="flex-1 rounded-lg py-2 text-[10px] font-black uppercase tracking-wide transition-colors hover:bg-[rgba(139,92,246,0.26)]"
+                            style={{ background: "rgba(139,92,246,0.17)", color: "#C4B5FD" }}
+                          >
+                            Skip for this
+                          </button>
+                        )}
+                        {balance > 0 && (
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setPurchasingId(goal.id);
+                              setPurchaseDone(null);
+                              setPurchaseAmountStr(String(balance));
+                            }}
+                            className="flex-1 rounded-lg py-2 text-[10px] font-black uppercase tracking-wide"
+                            style={{ background: "rgba(237,245,240,0.06)", border: "1px solid rgba(139,92,246,0.38)", color: "#C4B5FD" }}
+                          >
+                            Spend my skips
+                          </button>
+                        )}
+                      </div>
                     </div>
                   )}
                 </div>
@@ -2628,7 +3113,8 @@ function SplurgeTab({
           <div className="mb-4 flex items-end justify-between gap-3">
             <p className="text-xs font-black uppercase tracking-[0.16em]" style={{ color: "#2ECC71" }}>Group Fundraisers</p>
             <button
-              onClick={() => router.push("/challenges?create=1")}
+              type="button"
+              onClick={() => setShowFundraiserForm(true)}
               className="shrink-0 rounded-full px-3 py-2 text-xs font-black"
               style={{ background: "white", color: "#0B1A14", border: "none" }}
             >
@@ -2718,7 +3204,11 @@ function SplurgeTab({
                         <div>
                           <div className="flex items-center justify-between gap-3 text-[10px] font-black uppercase tracking-wide" style={{ color: "#7DD3FC" }}>
                             <span>{formatCurrency(groupRaised)} saved</span>
-                            <span>{groupPct}%</span>
+                            <span>
+                              {groupGoal > 0
+                                ? `${formatCurrency(groupGoal)} goal`
+                                : `${groupPct}%`}
+                            </span>
                           </div>
                           <div className="mt-1 h-2 overflow-hidden rounded-full" style={{ background: "rgba(125,211,252,0.12)" }}>
                             <div className="h-full rounded-full" style={{ width: `${groupPct}%`, background: "#2BBAA4" }} />
@@ -2734,6 +3224,16 @@ function SplurgeTab({
                         >
                           {isActiveFundraiser ? "Active jar" : "Skip for this"}
                         </button>
+                        {ownJarBalance > 0 && (
+                          <button
+                            type="button"
+                            onClick={() => setDonatingProject(project)}
+                            className="flex-1 rounded-lg py-2 text-[10px] font-black uppercase tracking-wide"
+                            style={{ background: "rgba(237,245,240,0.06)", border: "1px solid rgba(46,204,113,0.32)", color: "#A7F3D0" }}
+                          >
+                            Donate my skips
+                          </button>
+                        )}
                         <button
                           onClick={() => router.push(`/challenges/${project.id}`)}
                           className="rounded-lg px-3 py-2 text-[10px] font-black uppercase tracking-wide"
@@ -2751,6 +3251,87 @@ function SplurgeTab({
         </div>
       )}
 
+      {shopView === "fundraisers" && showFundraiserForm && (
+        <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/60 p-4 sm:items-center" onClick={() => { setShowFundraiserForm(false); resetFundraiserForm(); }}>
+          <div className="w-full max-w-md overflow-hidden rounded-2xl shadow-2xl" style={{ background: "var(--bg-surface-1)", border: "1px solid rgba(46,204,113,0.34)" }} onClick={(event) => event.stopPropagation()}>
+            <div className="relative px-5 py-4 pr-12" style={{ borderBottom: "1px solid var(--border-default)" }}>
+              <p className="text-lg font-black leading-tight" style={{ color: "var(--text-primary)" }}>Create a fundraiser</p>
+              <p className="mt-1 text-xs font-bold leading-relaxed" style={{ color: "var(--text-muted)" }}>
+                Add the basics now. You can share or manage details after it is created.
+              </p>
+              <button
+                type="button"
+                onClick={() => { setShowFundraiserForm(false); resetFundraiserForm(); }}
+                className="absolute right-4 top-4 text-xl font-black leading-none"
+                style={{ color: "var(--text-muted)" }}
+                aria-label="Close create fundraiser"
+              >
+                x
+              </button>
+            </div>
+            <div className="space-y-3 p-5">
+              <input
+                type="text"
+                placeholder="Fundraiser name"
+                value={fundraiserTitle}
+                onChange={(event) => setFundraiserTitle(event.target.value)}
+                className="w-full rounded-xl px-4 py-3 text-sm focus:outline-none"
+                style={{ background: "var(--bg-surface-2)", border: "1px solid var(--border-default)", color: "var(--text-primary)" }}
+                autoFocus
+              />
+              <input
+                type="text"
+                placeholder="Organizer or charity"
+                value={fundraiserOrganizer}
+                onChange={(event) => setFundraiserOrganizer(event.target.value)}
+                className="w-full rounded-xl px-4 py-3 text-sm focus:outline-none"
+                style={{ background: "var(--bg-surface-2)", border: "1px solid var(--border-default)", color: "var(--text-primary)" }}
+              />
+              <div className="relative">
+                <span className="absolute left-4 top-1/2 -translate-y-1/2 text-sm" style={{ color: "var(--text-muted)" }}>$</span>
+                <input
+                  type="number"
+                  min="1"
+                  placeholder="Fundraiser goal"
+                  value={fundraiserGoalAmount}
+                  onChange={(event) => setFundraiserGoalAmount(event.target.value)}
+                  className="w-full rounded-xl py-3 pl-8 pr-4 text-sm focus:outline-none"
+                  style={{ background: "var(--bg-surface-2)", border: "1px solid var(--border-default)", color: "var(--text-primary)" }}
+                />
+              </div>
+              <input
+                type="url"
+                placeholder="Donation link (optional)"
+                value={fundraiserDonationLink}
+                onChange={(event) => setFundraiserDonationLink(event.target.value)}
+                className="w-full rounded-xl px-4 py-3 text-sm focus:outline-none"
+                style={{ background: "var(--bg-surface-2)", border: "1px solid var(--border-default)", color: "var(--text-primary)" }}
+              />
+              <textarea
+                placeholder="What will this support? (optional)"
+                value={fundraiserDescription}
+                onChange={(event) => setFundraiserDescription(event.target.value)}
+                rows={3}
+                className="w-full resize-none rounded-xl px-4 py-3 text-sm focus:outline-none"
+                style={{ background: "var(--bg-surface-2)", border: "1px solid var(--border-default)", color: "var(--text-primary)" }}
+              />
+              <p className="text-[10px] font-bold leading-relaxed" style={{ color: "var(--text-muted)" }}>
+                iSkipped helps track motivation and saved skips. Donations happen outside iSkipped.
+              </p>
+              <button
+                type="button"
+                onClick={() => void handleCreateFundraiser()}
+                disabled={creatingFundraiser || !fundraiserTitle.trim() || !fundraiserGoalAmount || parseFloat(fundraiserGoalAmount) <= 0}
+                className="w-full rounded-xl py-3 text-sm font-black disabled:opacity-50"
+                style={{ background: "#2ECC71", color: "#071B14" }}
+              >
+                {creatingFundraiser ? "Creating..." : "Create fundraiser"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Custom goal form */}
       {shopView === "rewards" && showAddForm && (
         <div className="overflow-hidden rounded-2xl" style={{ background: "var(--bg-surface-1)", border: "1px solid rgba(139,92,246,0.35)" }}>
@@ -2761,6 +3342,74 @@ function SplurgeTab({
             </p>
           </div>
           <div className="space-y-3 p-4">
+          <div>
+            <div className="flex gap-2">
+              <input
+                type="url"
+                placeholder="Paste product link"
+                value={addLink}
+                disabled={addNoShoppingLink}
+                onChange={(e) => {
+                  setAddLink(e.target.value);
+                  setProductPreviewStatus("idle");
+                  if (addImageSource === "product") {
+                    setAddImageURL("");
+                    setAddImageSource(null);
+                  }
+                }}
+                onBlur={() => void previewProductImage()}
+                className="min-w-0 flex-1 rounded-xl px-4 py-3 text-sm focus:outline-none disabled:opacity-50" style={{ background: "var(--bg-surface-2)", border: "1px solid rgba(139,92,246,0.4)", color: "var(--text-primary)" }}
+              />
+              <button
+                type="button"
+                onClick={() => void previewProductImage()}
+                disabled={addNoShoppingLink || !addLink.trim() || productPreviewStatus === "loading"}
+                className="rounded-xl px-4 py-3 text-sm font-black disabled:opacity-50"
+                style={{ background: "rgba(139,92,246,0.18)", border: "1px solid rgba(139,92,246,0.35)", color: "#DDD6FE" }}
+              >
+                {productPreviewStatus === "loading" ? "Checking..." : "Autofill"}
+              </button>
+            </div>
+            <button
+              type="button"
+              onClick={() => {
+                const next = !addNoShoppingLink;
+                setAddNoShoppingLink(next);
+                setProductPreviewStatus("idle");
+                if (next) {
+                  setAddLink("");
+                  if (addImageSource === "product") {
+                    setAddImageURL("");
+                    setAddImageSource(null);
+                  }
+                }
+              }}
+              className="mt-2 text-xs font-black"
+              style={{ color: addNoShoppingLink ? "#C4B5FD" : "var(--text-muted)" }}
+            >
+              {addNoShoppingLink ? "No shopping link selected" : "No shopping link"}
+            </button>
+            {productPreviewStatus === "loading" && (
+              <p className="mt-2 text-xs font-bold" style={{ color: "#C4B5FD" }}>
+                Product loading... we&apos;ll fill what we can.
+              </p>
+            )}
+            {productPreviewStatus === "filled" && (
+              <p className="mt-2 text-xs font-bold" style={{ color: "#A7F3D0" }}>
+                Autofilled from the link. You can edit anything before saving.
+              </p>
+            )}
+            {productPreviewStatus === "partial" && (
+              <p className="mt-2 text-xs font-bold" style={{ color: "#FBBF24" }}>
+                We found some details from this link. Add anything missing below.
+              </p>
+            )}
+            {productPreviewStatus === "failed" && (
+              <p className="mt-2 text-xs font-bold" style={{ color: "var(--text-muted)" }}>
+                We couldn&apos;t autofill this link. Fill in the reward details below.
+              </p>
+            )}
+          </div>
             <input
               type="text"
               placeholder="Reward name, e.g. headphones or a trip"
@@ -2786,23 +3435,16 @@ function SplurgeTab({
             />
           </div>
           <input
-            type="url"
-            placeholder="Shopping link"
-            value={addLink}
-            onChange={(e) => {
-              setAddLink(e.target.value);
-              if (addImageSource === "product") {
-                setAddImageURL("");
-                setAddImageSource(null);
-              }
-            }}
-            onBlur={() => void previewProductImage()}
-            className="w-full rounded-xl px-4 py-3 text-sm focus:outline-none" style={{ background: "var(--bg-surface-2)", border: "1px solid rgba(139,92,246,0.4)", color: "var(--text-primary)" }}
+            type="text"
+            placeholder="Merchant (optional), e.g. Target"
+            value={addMerchant}
+            onChange={(e) => setAddMerchant(e.target.value)}
+            className="w-full rounded-xl px-4 py-3 text-sm focus:outline-none" style={{ background: "var(--bg-surface-2)", border: "1px solid var(--border-default)", color: "var(--text-primary)" }}
           />
           <div>
             <p className="mb-2 text-xs font-black uppercase tracking-[0.14em]" style={{ color: "#C4B5FD" }}>Inspo pic</p>
             <div
-              className="relative flex h-36 select-none items-center justify-center overflow-hidden rounded-xl"
+              className="relative flex aspect-[1.35] w-full max-w-md select-none items-center justify-center overflow-hidden rounded-xl"
               style={{ background: "var(--bg-surface-2)", border: "1px dashed rgba(139,92,246,0.52)", cursor: addImageURL ? "grab" : "default" }}
               onPointerDown={(event) => {
                 if (!addImageURL) return;
@@ -2896,7 +3538,7 @@ function SplurgeTab({
               {saving ? "Saving..." : addAndSkipForThis ? "Save and skip for this" : "Save to wishlist"}
             </button>
             <button
-              onClick={() => { setShowAddForm(false); setAddLabel(""); setAddAmount(""); setAddCategory(""); setAddLink(""); setAddImageURL(""); setAddImagePosition({ x: 50, y: 50 }); setAddImageSource(null); setAddImageError(""); setAddAndSkipForThis(false); }}
+              onClick={() => { setShowAddForm(false); setAddLabel(""); setAddAmount(""); setAddCategory(""); setAddLink(""); setAddNoShoppingLink(false); setAddMerchant(""); setAddImageURL(""); setAddImagePosition({ x: 50, y: 50 }); setAddImageSource(null); setProductPreviewStatus("idle"); setAddImageError(""); setAddAndSkipForThis(false); }}
               className="px-5 py-3 text-[rgba(237,245,240,0.6)] font-semibold rounded-xl text-sm hover:text-[#EDF5F0] transition-colors"
               style={{ border: "1px solid rgba(139,92,246,0.12)" }}
             >
@@ -2906,86 +3548,6 @@ function SplurgeTab({
           </div>
         </div>
       )}
-
-      {/* Spending history */}
-      {shopView === "rewards" && <div className="pt-6">
-        <p className="text-xs font-semibold text-[rgba(237,245,240,0.85)] uppercase tracking-wide mb-2">Purchases</p>
-        {spendingHistory.length === 0 ? (
-          <div className="rounded-2xl px-4 py-3" style={{ background: "var(--bg-surface-1)", border: "1px dashed rgba(139,92,246,0.25)" }}>
-            <p className="text-sm font-semibold" style={{ color: "var(--text-primary)" }}>No purchases yet</p>
-            <p className="text-xs mt-1" style={{ color: "var(--text-muted)", lineHeight: 1.5 }}>
-              When you spend your skips, it will show up here as proof your skipped savings turned into something real.
-            </p>
-          </div>
-        ) : (
-          <div className="space-y-1">
-            {spendingHistory.map((event) => (
-              <div key={event.id}>
-                {editingHistoryId === event.id ? (
-                  <div className="flex gap-2 py-1.5">
-                    <div className="relative flex-1">
-                      <span className="absolute left-3 top-1/2 -translate-y-1/2 text-xs text-[rgba(237,245,240,0.6)]">$</span>
-                      <input
-                        type="number"
-                        value={editHistoryAmountStr}
-                        onChange={(e) => setEditHistoryAmountStr(e.target.value)}
-                        className="w-full pl-6 rounded-lg px-2 py-1.5 text-sm focus:outline-none" style={{ background: "var(--bg-surface-2)", border: "1px solid #8B5CF6", color: "var(--text-primary)" }}
-                        autoFocus
-                      />
-                    </div>
-                    <button
-                      onClick={async () => {
-                        const newAmount = parseFloat(editHistoryAmountStr);
-                        if (!newAmount || newAmount <= 0) return;
-                        setHistoryWorking(true);
-                        await onEditHistory(event, newAmount);
-                        setEditingHistoryId(null);
-                        setHistoryWorking(false);
-                      }}
-                      disabled={historyWorking}
-                      className="text-xs bg-[#8B5CF6] text-white px-3 py-1.5 rounded-lg disabled:opacity-50"
-                    >
-                      {historyWorking ? "…" : "Save"}
-                    </button>
-                    <button onClick={() => setEditingHistoryId(null)} className="text-xs border-[rgba(139,92,246,0.12)] text-[rgba(237,245,240,0.6)] px-3 py-1.5 rounded-lg">Cancel</button>
-                  </div>
-                ) : deletingHistoryId === event.id ? (
-                  <div className="flex items-center justify-between rounded-lg px-3 py-2 bg-red-500/10 border border-red-500/30">
-                    <p className="text-xs text-red-400">Delete {event.label}?</p>
-                    <div className="flex gap-2">
-                      <button
-                        onClick={async () => {
-                          setHistoryWorking(true);
-                          await onDeleteHistory(event);
-                          setDeletingHistoryId(null);
-                          setHistoryWorking(false);
-                        }}
-                        disabled={historyWorking}
-                        className="text-xs bg-red-500 text-white px-3 py-1 rounded-lg disabled:opacity-50"
-                      >
-                        {historyWorking ? "…" : "Delete"}
-                      </button>
-                      <button onClick={() => setDeletingHistoryId(null)} className="text-xs border-[rgba(139,92,246,0.12)] text-[rgba(237,245,240,0.6)] px-3 py-1 rounded-lg">Cancel</button>
-                    </div>
-                  </div>
-                ) : (
-                  <div className="flex items-center justify-between py-1.5">
-                    <div>
-                      <p className="text-sm" style={{ color: "var(--text-primary)" }}>{event.label}</p>
-                      <p className="text-xs" style={{ color: "var(--text-muted)" }}>goal: {formatCurrency(event.targetAmount)}</p>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <p className="text-sm font-semibold text-[#8B5CF6]">{formatCurrency(event.amountSaved)}</p>
-                      <button onClick={() => { setEditingHistoryId(event.id); setEditHistoryAmountStr(String(event.amountSaved)); }} className="text-[rgba(237,245,240,0.35)] hover:text-[#8B5CF6] text-base p-1">✏️</button>
-                      <button onClick={() => setDeletingHistoryId(event.id)} className="text-[rgba(237,245,240,0.35)] hover:text-red-400 text-base p-1">🗑️</button>
-                    </div>
-                  </div>
-                )}
-              </div>
-            ))}
-          </div>
-        )}
-      </div>}
     </div>
   );
 }
