@@ -1792,9 +1792,10 @@ export default function HomePage() {
           key="jar-carousel-create-reward"
           type="button"
           onClick={() => router.push("/jars?tab=live&add=reward")}
-          style={{ minHeight: 238, borderRadius: 18, padding: 0, textAlign: "left", background: "linear-gradient(180deg, rgba(139,92,246,0.18), rgba(13,19,23,0.92))", border: "1px solid rgba(139,92,246,0.34)", color: "var(--text-primary)", overflow: "hidden", display: "grid", gridTemplateColumns: "minmax(150px, 0.86fr) minmax(0, 1fr)" }}
+          className="home-jar-carousel-card"
+          style={{ borderRadius: 18, padding: 0, textAlign: "left", background: "linear-gradient(180deg, rgba(139,92,246,0.18), rgba(13,19,23,0.92))", border: "1px solid rgba(139,92,246,0.34)", color: "var(--text-primary)", overflow: "hidden" }}
         >
-          <div style={{ position: "relative", minHeight: 238, overflow: "hidden", background: "linear-gradient(135deg, rgba(76,29,149,0.85), rgba(46,204,113,0.22))", display: "flex", alignItems: "center", justifyContent: "center" }}>
+          <div className="home-jar-carousel-media" style={{ position: "relative", overflow: "hidden", background: "linear-gradient(135deg, rgba(76,29,149,0.85), rgba(46,204,113,0.22))", display: "flex", alignItems: "center", justifyContent: "center" }}>
             <div style={{ width: 82, height: 82, borderRadius: 24, background: "rgba(237,245,240,0.1)", border: "1px solid rgba(237,245,240,0.2)", display: "flex", alignItems: "center", justifyContent: "center", color: "#DDD6FE", fontSize: 48, fontWeight: 900, lineHeight: 1 }}>
               +
             </div>
@@ -1802,7 +1803,7 @@ export default function HomePage() {
               Custom reward
             </span>
           </div>
-          <div style={{ padding: 18, display: "flex", flexDirection: "column", justifyContent: "space-between", gap: 18 }}>
+          <div className="home-jar-carousel-copy" style={{ padding: 18, display: "flex", flexDirection: "column", justifyContent: "space-between", gap: 18 }}>
             <div>
               <p style={{ fontSize: 24, fontWeight: 950, lineHeight: 1.05 }}>
                 Create My Own Reward
@@ -1825,9 +1826,10 @@ export default function HomePage() {
           key={`jar-carousel-reward-${item.reward.id}`}
           type="button"
           onClick={() => void handleHomeCarouselSkipFor(item)}
-          style={{ minHeight: 238, borderRadius: 18, padding: 0, textAlign: "left", background: "linear-gradient(180deg, rgba(139,92,246,0.16), rgba(13,19,23,0.92))", border: "1px solid rgba(139,92,246,0.34)", color: "var(--text-primary)", overflow: "hidden", display: "grid", gridTemplateColumns: "minmax(150px, 0.86fr) minmax(0, 1fr)" }}
+          className="home-jar-carousel-card"
+          style={{ borderRadius: 18, padding: 0, textAlign: "left", background: "linear-gradient(180deg, rgba(139,92,246,0.16), rgba(13,19,23,0.92))", border: "1px solid rgba(139,92,246,0.34)", color: "var(--text-primary)", overflow: "hidden" }}
         >
-          <div style={{ position: "relative", minHeight: 238, overflow: "hidden", background: "rgba(139,92,246,0.14)" }}>
+          <div className="home-jar-carousel-media" style={{ position: "relative", overflow: "hidden", background: "rgba(139,92,246,0.14)" }}>
             <img
               src={item.reward.imageURL ?? "https://images.unsplash.com/photo-1436491865332-7a61a109cc05?auto=format&fit=crop&w=900&q=80"}
               alt=""
@@ -1838,7 +1840,7 @@ export default function HomePage() {
               {isStarterRewardIdea ? "Reward idea" : "Your reward"}
             </span>
           </div>
-          <div style={{ padding: 18, display: "flex", flexDirection: "column", justifyContent: "space-between", gap: 18 }}>
+          <div className="home-jar-carousel-copy" style={{ padding: 18, display: "flex", flexDirection: "column", justifyContent: "space-between", gap: 18 }}>
             <div>
               <p style={{ fontSize: 24, fontWeight: 950, lineHeight: 1.05 }}>
                 {item.reward.label}
@@ -1859,13 +1861,15 @@ export default function HomePage() {
     return (
       <div
         key={`jar-carousel-cause-${item.project.id}`}
-        style={{ minHeight: 238, borderRadius: 18, padding: 0, textAlign: "left", background: "linear-gradient(180deg, rgba(46,204,113,0.15), rgba(13,19,23,0.92))", border: "1px solid rgba(46,204,113,0.3)", color: "var(--text-primary)", overflow: "hidden", display: "grid", gridTemplateColumns: "minmax(150px, 0.86fr) minmax(0, 1fr)" }}
+        className="home-jar-carousel-card"
+        style={{ borderRadius: 18, padding: 0, textAlign: "left", background: "linear-gradient(180deg, rgba(46,204,113,0.15), rgba(13,19,23,0.92))", border: "1px solid rgba(46,204,113,0.3)", color: "var(--text-primary)", overflow: "hidden" }}
       >
         <button
           type="button"
           aria-label={`View details for ${item.project.groupName ?? item.project.title}`}
           onClick={() => router.push(`/challenges/${item.project.id}`)}
-          style={{ position: "relative", minHeight: 238, overflow: "hidden", background: "rgba(46,204,113,0.12)", border: "none", padding: 0, textAlign: "left", cursor: "pointer" }}
+          className="home-jar-carousel-media"
+          style={{ position: "relative", overflow: "hidden", background: "rgba(46,204,113,0.12)", border: "none", padding: 0, textAlign: "left", cursor: "pointer" }}
         >
           {item.project.imageURL ? (
             <img
@@ -1881,7 +1885,7 @@ export default function HomePage() {
             Group Fundraiser
           </span>
         </button>
-        <div style={{ padding: 18, display: "flex", flexDirection: "column", justifyContent: "space-between", gap: 18 }}>
+        <div className="home-jar-carousel-copy" style={{ padding: 18, display: "flex", flexDirection: "column", justifyContent: "space-between", gap: 18 }}>
           <button
             type="button"
             onClick={() => router.push(`/challenges/${item.project.id}`)}
@@ -2036,11 +2040,12 @@ export default function HomePage() {
               </div>
             </div>
 
-            <div style={{ display: "grid", gridTemplateColumns: "40px minmax(0, 1fr) 40px", alignItems: "center", gap: 10, marginTop: 22 }}>
+            <div className="home-jar-carousel-frame" style={{ display: "grid", gridTemplateColumns: "40px minmax(0, 1fr) 40px", alignItems: "center", gap: 10, marginTop: 22 }}>
               <button
                 type="button"
                 aria-label="Previous jar suggestion"
                 onClick={() => setJarCarouselIndex((current) => (current - 1 + jarCarouselItems.length) % jarCarouselItems.length)}
+                className="home-jar-carousel-arrow"
                 style={{ width: 40, height: 40, borderRadius: 999, background: "rgba(237,245,240,0.06)", border: "1px solid rgba(237,245,240,0.11)", color: "var(--text-primary)", fontSize: 22, fontWeight: 900 }}
               >
                 ‹
@@ -2052,6 +2057,7 @@ export default function HomePage() {
                 type="button"
                 aria-label="Next jar suggestion"
                 onClick={() => setJarCarouselIndex((current) => (current + 1) % jarCarouselItems.length)}
+                className="home-jar-carousel-arrow"
                 style={{ width: 40, height: 40, borderRadius: 999, background: "rgba(237,245,240,0.06)", border: "1px solid rgba(237,245,240,0.11)", color: "var(--text-primary)", fontSize: 22, fontWeight: 900 }}
               >
                 ›
