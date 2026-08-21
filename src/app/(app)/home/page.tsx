@@ -190,7 +190,7 @@ function DonationReminderModal({
         aria-modal="true"
         aria-labelledby="donation-reminder-title"
         tabIndex={-1}
-        className="iskip-pop-in rounded-2xl p-6 max-w-sm w-full shadow-2xl relative"
+        className="iskip-pop-in max-h-[calc(100dvh-2rem)] w-full max-w-sm overflow-y-auto rounded-2xl p-6 shadow-2xl relative"
         style={{ background: "var(--bg-surface-1)", border: "1px solid var(--border-default)", outline: "none" }}
         onClick={(event) => event.stopPropagation()}
       >
@@ -737,7 +737,7 @@ function FundraiserContributionModal({
         aria-modal="true"
         aria-labelledby="fundraiser-contribution-title"
         tabIndex={-1}
-        className="iskip-pop-in rounded-2xl p-6 max-w-sm w-full shadow-2xl relative"
+        className="iskip-pop-in max-h-[calc(100dvh-2rem)] w-full max-w-sm overflow-y-auto rounded-2xl p-6 shadow-2xl relative"
         style={{ background: "var(--bg-surface-1)", border: "1px solid var(--border-default)", outline: "none" }}
         onClick={(event) => event.stopPropagation()}
       >
@@ -981,7 +981,7 @@ function GoalSpendModal({
         aria-modal="true"
         aria-labelledby="goal-spend-title"
         tabIndex={-1}
-        className="iskip-pop-in rounded-2xl p-6 max-w-sm w-full shadow-2xl relative"
+        className="iskip-pop-in max-h-[calc(100dvh-2rem)] w-full max-w-sm overflow-y-auto rounded-2xl p-6 shadow-2xl relative"
         style={{ background: "var(--bg-surface-1)", border: "1px solid var(--border-default)", outline: "none" }}
         onClick={(event) => event.stopPropagation()}
       >

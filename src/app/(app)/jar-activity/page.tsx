@@ -416,7 +416,7 @@ function MoveBalanceModal({
   const validAmount = Number.isFinite(parsedAmount) && parsedAmount > 0 && parsedAmount <= cents(source.balance);
   return (
     <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/60 p-4 sm:items-center" onClick={onClose}>
-      <div className="w-full max-w-md rounded-2xl shadow-2xl" style={{ background: "var(--bg-surface-1)", border: "1px solid var(--border-default)" }} onClick={(event) => event.stopPropagation()}>
+      <div className="max-h-[calc(100dvh-2rem)] w-full max-w-md overflow-y-auto rounded-2xl shadow-2xl" style={{ background: "var(--bg-surface-1)", border: "1px solid var(--border-default)" }} onClick={(event) => event.stopPropagation()}>
         <div className="relative px-5 py-4" style={{ borderBottom: "1px solid var(--border-default)" }}>
           <button type="button" onClick={onClose} aria-label="Close" className="absolute right-4 top-4 text-xl leading-none" style={{ color: "var(--text-muted)" }}>x</button>
           <p className="text-lg font-black leading-tight pr-6" style={{ color: "var(--text-primary)" }}>Move balance?</p>
@@ -1082,7 +1082,7 @@ export default function JarActivityPage() {
               role="dialog"
               aria-modal="true"
               aria-labelledby="jar-activity-purchase-title"
-              className="w-full max-w-sm rounded-2xl shadow-2xl"
+              className="max-h-[calc(100dvh-2rem)] w-full max-w-sm overflow-y-auto rounded-2xl shadow-2xl"
               style={{ background: "var(--bg-surface-1)", border: "1px solid var(--border-default)" }}
               onClick={(event) => event.stopPropagation()}
             >
