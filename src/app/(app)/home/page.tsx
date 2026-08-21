@@ -1929,7 +1929,7 @@ export default function HomePage() {
         </p>
         <button
           onClick={() => setShowSkipPicker(true)}
-          className="home-skip-cta w-full rounded-full font-black hover:scale-[1.02] active:scale-[0.97] transition-all duration-200"
+          className="home-skip-cta w-full rounded-full py-4 text-lg font-black hover:scale-[1.02] active:scale-[0.97] transition-all duration-200"
           style={{
             background: "linear-gradient(135deg, var(--gold-cta), var(--gold-light))",
             color: "var(--bg-base)",
