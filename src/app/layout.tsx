@@ -52,8 +52,9 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         `}</Script>
         <AuthProvider>{children}</AuthProvider>
         <Toaster
-          position="bottom-center"
+          position="top-center"
           toastOptions={{
+            duration: 2600,
             style: {
               background: "var(--bg-surface-1)",
               border: "1px solid var(--border-emphasis)",

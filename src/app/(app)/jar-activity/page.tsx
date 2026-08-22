@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 import { useAuthStore } from "@/store/authStore";
@@ -511,6 +512,7 @@ function MoveBalanceModal({
 }
 
 export default function JarActivityPage() {
+  const router = useRouter();
   const { user, profile, updateProfile } = useAuthStore();
   const { projects } = useProjects();
   const [workingId, setWorkingId] = useState<string | null>(null);
@@ -647,7 +649,7 @@ export default function JarActivityPage() {
         ]);
         updateProfile({ activeSpendingGoalId: item.id, activeSkipTarget: { type: "goal", id: item.id } });
       }
-      toast.success("Future skips will go to this jar.");
+      router.push("/home");
     } catch {
       toast.error("Could not resume this jar. Try again.");
     } finally {

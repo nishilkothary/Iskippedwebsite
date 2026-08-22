@@ -10,7 +10,9 @@ import { useProjects } from "@/hooks/useProjects";
 import { isChallengeProject, isProjectEnded } from "@/lib/services/firebase/projects";
 import { setActiveProject } from "@/lib/services/firebase/users";
 import { formatCurrency } from "@/lib/utils/currency";
+import { getSkipBalanceSummary } from "@/lib/utils/skipBalances";
 import { Project } from "@/lib/types/models";
+import { SkipBucksBill } from "@/components/SkipBucksBill";
 
 const NAV_ITEMS = [
   { href: "/home",        label: "Home",       emoji: "🏠", tab: null },
@@ -212,6 +214,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const { user, profile, isLoading } = useAuthStore();
   const { showSkipPicker, setShowSkipPicker } = useUIStore();
+  const skipBalance = getSkipBalanceSummary(profile);
 
   useEffect(() => {
     if (!isLoading && !user) {
@@ -242,6 +245,14 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
         <ChallengeBanners />
         {children}
       </main>
+
+      <div className="app-skip-bucks-counter md:hidden" aria-label="Available Skip Bucks">
+        <SkipBucksBill
+          amount={skipBalance.availableFromSkips}
+          compact
+          paused={showSkipPicker}
+        />
+      </div>
 
       {showSkipPicker && <SkipModal onClose={() => setShowSkipPicker(false)} />}
 

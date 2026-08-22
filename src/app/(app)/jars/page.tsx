@@ -1837,7 +1837,7 @@ function JarBrowser({
       const project = projects.find((candidate) => candidate.id === target.id);
       if (project) {
         setFundraiserSetup(project);
-        setFundraiserGoalStr(String(causeGoalAmounts?.[project.id] ?? project.goalAmount ?? ""));
+        setFundraiserGoalStr("");
         setFundraiserBankStr("");
         setShowFundraiserBankDetails(false);
         setFundraiserShareEmail(profile?.challengeEmailConsents?.[project.id] ?? true);
@@ -1856,7 +1856,7 @@ function JarBrowser({
       setFundingAmountStr("");
       return;
     }
-    toast.success("Future skips will go to this jar.");
+    router.push("/home");
   }
 
   async function confirmFundraiserSetup() {
@@ -1889,7 +1889,7 @@ function JarBrowser({
       setFundraiserSetup(null);
       setFundraiserGoalStr("");
       setFundraiserBankStr("");
-      toast.success("Future skips will go to this fundraiser.");
+      router.push("/home");
     } catch {
       toast.error("Couldn't join this fundraiser. Please try again.");
     } finally {
@@ -1943,7 +1943,8 @@ function JarBrowser({
       await onSetSkipTarget(fundingTarget);
       const appliedAmount = await onApplySkipBank(fundingTarget, amount);
       setFundingTarget(null);
-      if (appliedAmount > 0) toast.success(`${formatCurrency(appliedAmount)} moved into the jar.`);
+      if (appliedAmount > 0) toast.success(`${formatCurrency(appliedAmount)} moved into the jar.`, { duration: 1800 });
+      router.push("/home");
     } catch (err) {
       console.error("apply Skip Bucks failed", err);
       toast.error("Couldn't activate this jar. Please try again.");
@@ -2767,7 +2768,7 @@ function JarBrowser({
                     try {
                       await onSetSkipTarget(fundingTarget);
                       setFundingTarget(null);
-                      toast.success("Future skips will go to this jar.");
+                      router.push("/home");
                     } catch (err) {
                       console.error("activate jar failed", err);
                       toast.error("Couldn't activate this jar. Please try again.");
@@ -3119,7 +3120,7 @@ function JarBrowser({
                           <button
                             type="button"
                             onClick={() => handleSkipFor({ type: "goal", id: goal.id })}
-                            className="flex-1 rounded-lg py-2 text-center text-[10px] font-black uppercase tracking-wide transition-colors hover:bg-[rgba(139,92,246,0.3)]"
+                            className="jars-card-action flex-1 rounded-lg py-2 text-center text-[10px] font-black uppercase tracking-wide transition-colors hover:bg-[rgba(139,92,246,0.3)]"
                             style={{ background: "rgba(139,92,246,0.23)", color: "#DDD6FE" }}
                           >
                             Active jar
@@ -3127,7 +3128,7 @@ function JarBrowser({
                         ) : (
                           <button
                             onClick={() => handleSkipFor({ type: "goal", id: goal.id })}
-                            className="flex-1 rounded-lg py-2 text-[10px] font-black uppercase tracking-wide transition-colors hover:bg-[rgba(139,92,246,0.26)]"
+                            className="jars-card-action flex-1 rounded-lg py-2 text-[10px] font-black uppercase tracking-wide transition-colors hover:bg-[rgba(139,92,246,0.26)]"
                             style={{ background: "rgba(139,92,246,0.17)", color: "#C4B5FD" }}
                           >
                             Skip for this
@@ -3141,7 +3142,7 @@ function JarBrowser({
                               setPurchaseDone(null);
                               setPurchaseAmountStr(String(balance));
                             }}
-                            className="flex-1 rounded-lg py-2 text-[10px] font-black uppercase tracking-wide"
+                            className="jars-card-action flex-1 rounded-lg py-2 text-[10px] font-black uppercase tracking-wide"
                             style={{ background: "rgba(237,245,240,0.06)", border: "1px solid rgba(139,92,246,0.38)", color: "#C4B5FD" }}
                           >
                             Spend my skips
@@ -3270,7 +3271,7 @@ function JarBrowser({
                       <div className="flex gap-2">
                         <button
                           onClick={() => handleSkipFor({ type: "fundraiser", id: project.id })}
-                          className="flex-1 rounded-lg py-2 text-[10px] font-black uppercase tracking-wide"
+                          className="jars-card-action flex-1 rounded-lg py-2 text-[10px] font-black uppercase tracking-wide"
                           style={{ background: isActiveFundraiser ? "#2ECC71" : "rgba(46,204,113,0.16)", color: isActiveFundraiser ? "#071B14" : "#A7F3D0" }}
                         >
                           {isActiveFundraiser ? "Active jar" : "Skip for this"}
@@ -3279,7 +3280,7 @@ function JarBrowser({
                           <button
                             type="button"
                             onClick={() => setDonatingProject(project)}
-                            className="flex-1 rounded-lg py-2 text-[10px] font-black uppercase tracking-wide"
+                            className="jars-card-action flex-1 rounded-lg py-2 text-[10px] font-black uppercase tracking-wide"
                             style={{ background: "rgba(237,245,240,0.06)", border: "1px solid rgba(46,204,113,0.32)", color: "#A7F3D0" }}
                           >
                             Donate my skips
@@ -3287,7 +3288,7 @@ function JarBrowser({
                         )}
                         <button
                           onClick={() => router.push(`/challenges/${project.id}`)}
-                          className="rounded-lg px-3 py-2 text-[10px] font-black uppercase tracking-wide"
+                          className="jars-card-action rounded-lg px-3 py-2 text-[10px] font-black uppercase tracking-wide"
                           style={{ border: "1px solid rgba(46,204,113,0.32)", color: "#A7F3D0" }}
                         >
                           Details

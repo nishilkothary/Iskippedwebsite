@@ -2,7 +2,6 @@
 
 import type { CSSProperties } from "react";
 import { useEffect, useState } from "react";
-import { createPortal } from "react-dom";
 
 const billStyle = (compact: boolean, open: boolean): CSSProperties => ({
   position: "relative",
@@ -55,9 +54,9 @@ const sealStyle: CSSProperties = {
 };
 
 const popoverStyle: CSSProperties = {
-  position: "fixed",
-  right: 20,
-  top: 20,
+  position: "absolute",
+  right: 0,
+  top: "calc(100% + 8px)",
   width: "min(236px, calc(100vw - 32px))",
   padding: 13,
   border: "1px solid rgba(46,204,113,0.28)",
@@ -65,11 +64,12 @@ const popoverStyle: CSSProperties = {
   background: "#10241b",
   boxShadow: "0 18px 48px rgba(0,0,0,0.38)",
   textAlign: "left",
+  zIndex: 2147483647,
 };
 
 const compactPopoverStyle: CSSProperties = {
   ...popoverStyle,
-  zIndex: 2147483647,
+  width: "min(248px, calc(100vw - 24px))",
 };
 
 export function SkipBucksBill({
@@ -198,7 +198,7 @@ export function SkipBucksBill({
         )}
       </button>
 
-      {open && typeof document !== "undefined" && createPortal(
+      {open && (
         <div
           className="skip-bucks-popover iskip-pop-in"
           style={compact ? compactPopoverStyle : popoverStyle}
@@ -227,8 +227,7 @@ export function SkipBucksBill({
           <p className="skip-bucks-popover-copy" style={{ marginTop: 6, color: "var(--text-secondary)", fontSize: 12, fontWeight: 400, letterSpacing: "normal", lineHeight: 1.45, textTransform: "none" }}>
             Skip Bucks are dollars available from your skipped expenses. They are your lifetime skipped savings minus purchases and donations you have logged.
           </p>
-        </div>,
-        document.body,
+        </div>
       )}
     </div>
   );

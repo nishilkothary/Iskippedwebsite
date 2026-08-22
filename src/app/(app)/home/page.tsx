@@ -1639,7 +1639,7 @@ export default function HomePage() {
 
     if (item.kind === "cause") {
       setHomeFundraiserSetup(item.project);
-      setHomeFundraiserGoalStr(String(profileData.causeGoalAmounts?.[item.project.id] ?? item.project.goalAmount ?? ""));
+      setHomeFundraiserGoalStr("");
       setHomeFundraiserBankStr("");
       setHomeFundraiserBankDetailsOpen(false);
       return;
@@ -1695,7 +1695,6 @@ export default function HomePage() {
       setHomeFundingDetailsOpen(false);
       return;
     }
-    toast.success("Future skips will go to this jar.");
   }
 
   async function confirmHomeFundraiserSetup() {
@@ -1734,7 +1733,6 @@ export default function HomePage() {
       setHomeFundraiserSetup(null);
       setHomeFundraiserGoalStr("");
       setHomeFundraiserBankStr("");
-      toast.success("Future skips will go to this fundraiser.");
     } catch (err) {
       console.error("home fundraiser setup failed", err);
       toast.error("Couldn't set that jar yet. Check your connection and try again.");
@@ -1799,20 +1797,20 @@ export default function HomePage() {
             <div style={{ width: 82, height: 82, borderRadius: 24, background: "rgba(237,245,240,0.1)", border: "1px solid rgba(237,245,240,0.2)", display: "flex", alignItems: "center", justifyContent: "center", color: "#DDD6FE", fontSize: 48, fontWeight: 900, lineHeight: 1 }}>
               +
             </div>
-            <span style={{ position: "absolute", left: 12, bottom: 12, borderRadius: 999, padding: "5px 10px", background: "rgba(139,92,246,0.92)", color: "white", fontSize: 10, fontWeight: 950, textTransform: "uppercase", letterSpacing: 0.7 }}>
+            <span className="home-jar-carousel-badge" style={{ position: "absolute", left: 12, bottom: 12, borderRadius: 999, padding: "5px 10px", background: "rgba(139,92,246,0.92)", color: "white", fontSize: 10, fontWeight: 950, textTransform: "uppercase", letterSpacing: 0.7 }}>
               Custom reward
             </span>
           </div>
           <div className="home-jar-carousel-copy" style={{ padding: 18, display: "flex", flexDirection: "column", justifyContent: "space-between", gap: 18 }}>
             <div>
-              <p style={{ fontSize: 24, fontWeight: 950, lineHeight: 1.05 }}>
+              <p className="home-jar-carousel-title" style={{ fontSize: 24, fontWeight: 950, lineHeight: 1.05 }}>
                 Create My Own Reward
               </p>
-              <p style={{ fontSize: 13, color: "var(--text-secondary)", lineHeight: 1.35, marginTop: 7 }}>
+              <p className="home-jar-carousel-meta" style={{ fontSize: 13, color: "var(--text-secondary)", lineHeight: 1.35, marginTop: 7 }}>
                 Add a goal, link, and inspo pic.
               </p>
             </div>
-            <span style={{ fontSize: 12, fontWeight: 950, color: "#C4B5FD", textTransform: "uppercase", letterSpacing: 0.8 }}>Build my jar</span>
+            <span className="home-jar-carousel-cta" style={{ fontSize: 12, fontWeight: 950, color: "#C4B5FD", textTransform: "uppercase", letterSpacing: 0.8 }}>Build my jar</span>
           </div>
         </button>
       );
@@ -1836,23 +1834,23 @@ export default function HomePage() {
               style={{ width: "100%", height: "100%", objectFit: "cover", objectPosition: item.reward.imagePosition }}
             />
             <div style={{ position: "absolute", inset: 0, background: "linear-gradient(180deg, transparent 30%, rgba(7,13,16,0.76))" }} />
-            <span style={{ position: "absolute", left: 12, bottom: 12, borderRadius: 999, padding: "5px 10px", background: "rgba(139,92,246,0.92)", color: "white", fontSize: 10, fontWeight: 950, textTransform: "uppercase", letterSpacing: 0.7 }}>
+            <span className="home-jar-carousel-badge" style={{ position: "absolute", left: 12, bottom: 12, borderRadius: 999, padding: "5px 10px", background: "rgba(139,92,246,0.92)", color: "white", fontSize: 10, fontWeight: 950, textTransform: "uppercase", letterSpacing: 0.7 }}>
               {isStarterRewardIdea ? "Reward idea" : "Your reward"}
             </span>
           </div>
           <div className="home-jar-carousel-copy" style={{ padding: 18, display: "flex", flexDirection: "column", justifyContent: "space-between", gap: 18 }}>
             <div>
-              <p style={{ fontSize: 24, fontWeight: 950, lineHeight: 1.05 }}>
+              <p className="home-jar-carousel-title" style={{ fontSize: 24, fontWeight: 950, lineHeight: 1.05 }}>
                 {item.reward.label}
               </p>
-              <p style={{ fontSize: 13, color: "var(--text-secondary)", lineHeight: 1.35, marginTop: 7 }}>
+              <p className="home-jar-carousel-meta" style={{ fontSize: 13, color: "var(--text-secondary)", lineHeight: 1.35, marginTop: 7 }}>
                 Goal: {formatCurrencyRounded(item.reward.amount)} in jar
               </p>
-              <p style={{ fontSize: 12, color: "#C4B5FD", lineHeight: 1.35, marginTop: 5, fontWeight: 850 }}>
+              <p className="home-jar-carousel-detail" style={{ fontSize: 12, color: "#C4B5FD", lineHeight: 1.35, marginTop: 5, fontWeight: 850 }}>
                 {rewardSkipEquivalentLine(rewardBalance, item.reward.amount)}
               </p>
             </div>
-            <span style={{ fontSize: 12, fontWeight: 950, color: "#C4B5FD", textTransform: "uppercase", letterSpacing: 0.8 }}>Skip for this</span>
+            <span className="home-jar-carousel-cta" style={{ fontSize: 12, fontWeight: 950, color: "#C4B5FD", textTransform: "uppercase", letterSpacing: 0.8 }}>Skip for this</span>
           </div>
         </button>
       );
@@ -1881,7 +1879,7 @@ export default function HomePage() {
             <div style={{ width: "100%", height: "100%", background: "linear-gradient(135deg, #064E3B, #2ECC71)" }} />
           )}
           <div style={{ position: "absolute", inset: 0, background: "linear-gradient(180deg, transparent 30%, rgba(7,13,16,0.78))" }} />
-          <span style={{ position: "absolute", left: 12, bottom: 12, borderRadius: 999, padding: "5px 10px", background: "rgba(46,204,113,0.92)", color: "#071B14", fontSize: 10, fontWeight: 950, textTransform: "uppercase", letterSpacing: 0.7 }}>
+          <span className="home-jar-carousel-badge" style={{ position: "absolute", left: 12, bottom: 12, borderRadius: 999, padding: "5px 10px", background: "rgba(46,204,113,0.92)", color: "#071B14", fontSize: 10, fontWeight: 950, textTransform: "uppercase", letterSpacing: 0.7 }}>
             Group Fundraiser
           </span>
         </button>
@@ -1891,14 +1889,14 @@ export default function HomePage() {
             onClick={() => router.push(`/challenges/${item.project.id}`)}
             style={{ border: "none", background: "transparent", color: "inherit", padding: 0, textAlign: "left", cursor: "pointer" }}
           >
-            <p style={{ fontSize: 24, fontWeight: 950, lineHeight: 1.05, display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", overflow: "hidden" }}>
+            <p className="home-jar-carousel-title" style={{ fontSize: 24, fontWeight: 950, lineHeight: 1.05, display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", overflow: "hidden" }}>
               {item.project.groupName ?? item.project.title}
             </p>
-            <p style={{ fontSize: 13, color: "var(--text-secondary)", lineHeight: 1.35, marginTop: 7 }}>
+            <p className="home-jar-carousel-meta" style={{ fontSize: 13, color: "var(--text-secondary)", lineHeight: 1.35, marginTop: 7 }}>
               Goal: {formatCurrencyRounded(item.project.goalAmount ?? 0)} in jar
             </p>
             {item.project.unitCost && item.project.unitName && (
-              <p style={{ fontSize: 12, color: "#A7F3D0", lineHeight: 1.35, marginTop: 5, fontWeight: 850 }}>
+              <p className="home-jar-carousel-detail" style={{ fontSize: 12, color: "#A7F3D0", lineHeight: 1.35, marginTop: 5, fontWeight: 850 }}>
                 {formatCurrency(item.project.unitCost)} = 1 {item.project.unitName}
               </p>
             )}
@@ -1906,6 +1904,7 @@ export default function HomePage() {
           <button
             type="button"
             onClick={() => void handleHomeCarouselSkipFor(item)}
+            className="home-jar-carousel-cta"
             style={{ justifySelf: "start", border: "none", background: "transparent", padding: 0, textAlign: "left", cursor: "pointer", fontSize: 12, fontWeight: 950, color: "#A7F3D0", textTransform: "uppercase", letterSpacing: 0.8 }}
           >
             Skip for cause
@@ -1917,7 +1916,6 @@ export default function HomePage() {
 
   return (
     <div className="p-4 md:p-8 max-w-3xl mx-auto pb-24 md:pb-8">
-
       {/* Mobile logo — hidden on desktop (sidebar has it) */}
       <div className="flex md:hidden justify-center mb-5">
         <p className="text-3xl font-black tracking-tight" style={{ color: "var(--text-primary)" }}>
@@ -1992,7 +1990,7 @@ export default function HomePage() {
       <div className="iskip-scoreboard" style={{ marginBottom: 32 }}>
         <div className="iskip-scoreboard-header" style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 12 }}>
           <span>YOUR SKIP SCOREBOARD</span>
-          <div className="home-scoreboard-skip-bucks" style={{ position: "absolute", right: 0, top: "50%", transform: "translateY(-50%)" }}>
+          <div className="home-scoreboard-skip-bucks hidden md:block" style={{ position: "absolute", right: 0, top: "50%", transform: "translateY(-50%)" }}>
             <SkipBucksBill
               amount={skipBalance.availableFromSkips}
               compact
@@ -2199,7 +2197,7 @@ export default function HomePage() {
             </div>
             {activeProject ? (
               <>
-              <div style={{ display: "grid", gridTemplateColumns: "minmax(0, 1fr) minmax(0, 1fr)", gap: 4, alignItems: "end", width: "min(100%, 430px)", margin: "0 auto 14px" }}>
+              <div className="home-fundraiser-jars" style={{ display: "grid", gridTemplateColumns: "minmax(0, 1fr) minmax(0, 1fr)", gap: 4, alignItems: "end", width: "min(100%, 430px)", margin: "0 auto 14px" }}>
               <div>
                   <Jar
                     fillPercent={hasPersonalGivingGoal ? Math.min(100, (givingBalance / personalGoal) * 100) : (givingBalance > 0 ? 18 : 0)}
@@ -3016,7 +3014,6 @@ export default function HomePage() {
               <button
                 onClick={() => {
                   setHomeFundingTarget(null);
-                  toast.success("Future skips will go to this jar.");
                 }}
                 className="w-full rounded-xl py-3 text-sm font-black"
                 style={{ background: "#8B5CF6", color: "white" }}
