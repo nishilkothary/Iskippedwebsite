@@ -935,18 +935,20 @@ export default function JarActivityPage() {
   }
 
   return (
-    <div className="p-4 md:p-8 max-w-4xl mx-auto pb-24 md:pb-8">
-      <div className="mb-6 flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+    <div className="jar-activity-page-shell p-4 md:p-8 max-w-4xl mx-auto pb-24 md:pb-8">
+      <div className="jar-activity-page-header mb-6 flex items-center justify-between gap-3 sm:flex-row sm:items-end">
         <div>
-          <p className="text-xs uppercase tracking-[0.14em] font-black" style={{ color: "var(--green-primary)" }}>Jar Activity</p>
-          <h1 className="mt-1 text-3xl font-black tracking-tight" style={{ color: "var(--text-primary)" }}>Where your skips are saved</h1>
+          <p className="jar-activity-kicker hidden text-xs uppercase tracking-[0.14em] font-black sm:block" style={{ color: "var(--green-primary)" }}>Jar Activity</p>
+          <h1 className="jar-activity-title mt-1 hidden text-3xl font-black tracking-tight sm:block" style={{ color: "var(--text-primary)" }}>Where your skips are saved</h1>
         </div>
         <Link
           href="/jars"
-          className="inline-flex items-center justify-center rounded-full px-4 py-2 text-sm font-black"
+          className="jar-activity-back-link inline-flex items-center justify-center rounded-full px-4 py-2 text-sm font-black"
           style={{ border: "1px solid var(--border-emphasis)", color: "var(--green-primary)", textDecoration: "none" }}
         >
-          Browse jars
+          <span className="sm:hidden" aria-hidden="true">←</span>
+          <span className="sr-only sm:hidden">Back to jars</span>
+          <span className="hidden sm:inline">Jars</span>
         </Link>
       </div>
 

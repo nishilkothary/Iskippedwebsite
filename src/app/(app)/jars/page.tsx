@@ -663,20 +663,20 @@ function JarsPageInner() {
   };
 
   return (
-    <div className="p-4 md:p-8 max-w-3xl mx-auto pb-20 md:pb-8">
-      <div className="mb-5 flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+    <div className="jars-page-shell p-4 md:p-8 max-w-3xl mx-auto pb-20 md:pb-8">
+      <div className="jars-page-header mb-5 flex items-center justify-between gap-3 sm:flex-row sm:items-end">
         <div>
-          <h1 className="text-3xl font-black tracking-tight" style={{ color: "var(--text-primary)" }}>Skip for something</h1>
-          <p className="text-sm mt-2" style={{ color: "var(--text-secondary)" }}>
+          <h1 className="jars-page-title hidden text-3xl font-black tracking-tight sm:block" style={{ color: "var(--text-primary)" }}>Skip for something</h1>
+          <p className="jars-page-subtitle mt-2 hidden text-sm sm:block" style={{ color: "var(--text-secondary)" }}>
             Pick a personal goal, or a group fundraiser, and make your skips count.
           </p>
         </div>
         <Link
           href="/jar-activity"
-          className="inline-flex items-center justify-center rounded-full px-4 py-2 text-sm font-black"
+          className="jars-activity-link inline-flex items-center justify-center rounded-full px-4 py-2 text-sm font-black"
           style={{ border: "1px solid var(--border-emphasis)", color: "var(--green-primary)", textDecoration: "none" }}
         >
-          Jar Activity
+          Activity
         </Link>
       </div>
       <JarBrowser {...jarBrowserProps} />
@@ -2883,7 +2883,7 @@ function JarBrowser({
         </div>
       )}
 
-      <div className="grid grid-cols-2 gap-1 rounded-full p-1" style={{ background: "var(--bg-surface-1)", border: "1px solid var(--border-default)" }}>
+      <div className="jars-shop-tabs grid grid-cols-2 gap-1 rounded-full p-1" style={{ background: "var(--bg-surface-1)", border: "1px solid var(--border-default)" }}>
         <button
           type="button"
           onClick={() => {
