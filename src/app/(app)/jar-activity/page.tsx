@@ -141,18 +141,22 @@ function JarActivityCard({
 
   return (
     <article
-      className="w-[172px] p-0"
+      className="jar-activity-card w-[172px] p-0"
       style={{
         background: "transparent",
       }}
     >
-      <div className="text-center">
+      <div className="jar-activity-card-heading text-center">
+        <p className="jar-activity-card-meta text-[10px] font-black uppercase tracking-[0.14em]" style={{ color: item.active ? accent : "var(--text-muted)" }}>
+          {item.type === "fundraiser" ? "Fundraiser" : "Reward"}
+        </p>
         <div className="min-w-0">
-          <h2 className="truncate text-sm font-black leading-tight" style={{ color: accent }}>{item.title}</h2>
+          <h2 className="jar-activity-card-title truncate text-sm font-black leading-tight" style={{ color: accent }}>{item.title}</h2>
+          <p className="jar-activity-card-subtitle mt-1 hidden text-xs" style={{ color: "var(--text-muted)" }}>{goalLine(item)}</p>
         </div>
       </div>
 
-      <div className="mt-4 flex justify-center">
+      <div className="jar-activity-card-visual mt-4 flex justify-center">
         <svg width="108" height="170" viewBox="0 0 120 190" role="img" aria-label={`${formatCurrency(item.balance)} saved`}>
           <defs>
             <linearGradient id={`jar-fill-${jarUid}`} x1="0" y1="1" x2="0" y2="0">
@@ -192,7 +196,7 @@ function JarActivityCard({
         </svg>
       </div>
 
-      <div className="mt-3 grid gap-1.5">
+      <div className="jar-activity-card-actions mt-3 grid gap-1.5">
         {item.type === "fundraiser" && item.project ? (
           <button
             type="button"
@@ -249,11 +253,21 @@ function SectionHeader({ title, subtitle }: { title: string; subtitle?: string }
   );
 }
 
-function JarShelfLabel({ label }: { label: string }) {
+function JarShelfLabel({ label, count, helper }: { label: string; count?: number; helper?: string }) {
   return (
-    <h2 className="text-lg font-black" style={{ color: "var(--text-primary)" }}>
-      {label}
-    </h2>
+    <div className="jar-shelf-heading flex items-center justify-between gap-3">
+      <div>
+        <h2 className="jar-shelf-title text-lg font-black" style={{ color: "var(--text-primary)" }}>
+          {label}
+        </h2>
+        {helper && <p className="jar-shelf-helper mt-1 text-xs" style={{ color: "var(--text-muted)" }}>{helper}</p>}
+      </div>
+      {typeof count === "number" && count > 0 && (
+        <span className="jar-shelf-count rounded-full px-2.5 py-1 text-[11px] font-black" style={{ background: "rgba(46,204,113,0.1)", color: "var(--green-primary)" }}>
+          {count}
+        </span>
+      )}
+    </div>
   );
 }
 
@@ -552,8 +566,9 @@ export default function JarActivityPage() {
     if (!profile) return [];
     const fundraiserIds = new Set([
       ...Object.entries(profile.causeJarBalances ?? {}).filter(([, balance]) => Math.max(0, balance) > 0).map(([id]) => id),
-      ...(profile.parkedSkipTargets ?? []).filter((target) => target.type === "fundraiser").map((target) => target.id),
-      ...(profile.activeProjectId ? [profile.activeProjectId] : []),
+      ...(profile.parkedSkipTargets ?? [])
+        .filter((target) => target.type === "fundraiser" && Math.max(0, profile.causeJarBalances?.[target.id] ?? 0) > 0)
+        .map((target) => target.id),
       ...(activeTarget?.type === "fundraiser" ? [activeTarget.id] : []),
     ]);
     const fundraiserItems: JarActivityItem[] = Array.from(fundraiserIds).map((id) => {
@@ -575,7 +590,11 @@ export default function JarActivityPage() {
       .filter((goal) =>
         Math.max(0, profile.goalJarBalances?.[goal.id] ?? 0) > 0
         || activeTarget?.type === "goal" && activeTarget.id === goal.id
-        || (profile.parkedSkipTargets ?? []).some((target) => target.type === "goal" && target.id === goal.id)
+        || (profile.parkedSkipTargets ?? []).some((target) =>
+          target.type === "goal"
+          && target.id === goal.id
+          && Math.max(0, profile.goalJarBalances?.[goal.id] ?? 0) > 0
+        )
       )
       .map((goal) => ({
         type: "goal",
@@ -985,13 +1004,13 @@ export default function JarActivityPage() {
       <section className="mb-6">
         <div className="space-y-4">
           <div>
-            <JarShelfLabel label="Current Jar" />
+            <JarShelfLabel label="Current jar" count={activeItems.length} helper="Future skips go here." />
             {activeItems.length === 0 ? (
               <p className="mt-2 text-sm" style={{ color: "var(--text-muted)" }}>
                 No current jar. Make a parked jar active when you want future skips to go there.
               </p>
             ) : (
-              <div className="mt-3 flex flex-wrap gap-x-8 gap-y-6">
+              <div className="jar-shelf-grid mt-3 flex flex-wrap gap-x-8 gap-y-6">
                 {activeItems.map((item) => (
                   <JarActivityCard
                     key={`${item.type}-${item.id}`}
@@ -1009,8 +1028,8 @@ export default function JarActivityPage() {
 
           {inactiveItems.length > 0 && (
             <div>
-              <JarShelfLabel label="Parked Jars" />
-              <div className="mt-3 flex flex-wrap gap-x-8 gap-y-6">
+              <JarShelfLabel label="Parked jars" count={inactiveItems.length} helper="Saved for later." />
+              <div className="jar-shelf-grid mt-3 flex flex-wrap gap-x-8 gap-y-6">
                 {inactiveItems.map((item) => (
                   <JarActivityCard
                     key={`${item.type}-${item.id}`}
