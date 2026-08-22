@@ -556,11 +556,21 @@ function JarsPageInner() {
     },
     onSetSkipTarget: async (target: SkipAllocationTarget | null) => {
       if (!target) {
-        if (activeSkipTarget) await parkSkipTarget(user.uid, activeSkipTarget);
-        else await setActiveSkipTarget(user.uid, null);
+        const activeBalance = activeSkipTarget
+          ? activeSkipTarget.type === "goal"
+            ? Math.max(0, profile.goalJarBalances?.[activeSkipTarget.id] ?? 0)
+            : Math.max(0, profile.causeJarBalances?.[activeSkipTarget.id] ?? 0)
+          : 0;
+        if (activeSkipTarget && activeBalance > 0) {
+          await parkSkipTarget(user.uid, activeSkipTarget);
+        } else {
+          await setActiveSkipTarget(user.uid, null);
+          if (activeSkipTarget?.type === "goal") await updateSpendingGoals(user.uid, spendingGoals, null);
+          if (activeSkipTarget?.type === "fundraiser") await setActiveProject(user.uid, null);
+        }
         updateProfile({
           activeSkipTarget: null,
-          parkedSkipTargets: activeSkipTarget
+          parkedSkipTargets: activeSkipTarget && activeBalance > 0
             ? [...(profile.parkedSkipTargets ?? []).filter((parked) => parked.type !== activeSkipTarget.type || parked.id !== activeSkipTarget.id), activeSkipTarget]
             : profile.parkedSkipTargets,
           ...(activeSkipTarget?.type === "goal" ? { activeSpendingGoalId: null, spendingGoal: null } : {}),
@@ -2387,10 +2397,14 @@ function JarBrowser({
                 style={{ background: "#2ECC71", color: "#071B14" }}
               >
                 <span className="block text-sm font-black">
-                  {jarDecisionWorking === "deactivate-park" ? "Pausing jar..." : "Pause jar, keep balance parked"}
+                  {jarDecisionWorking === "deactivate-park"
+                    ? "Pausing jar..."
+                    : deactivatePrompt.balance > 0 ? "Pause jar, keep balance parked" : "Pause jar"}
                 </span>
                 <span className="mt-0.5 block text-xs font-bold opacity-80">
-                  Your saved money stays in this jar for later.
+                  {deactivatePrompt.balance > 0
+                    ? "Your saved money stays in this jar for later."
+                    : "Future skips will go to Skip Bucks until you pick a jar."}
                 </span>
               </button>
               {deactivatePrompt.balance > 0 && (

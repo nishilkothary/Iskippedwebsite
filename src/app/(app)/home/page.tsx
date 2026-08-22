@@ -1820,10 +1820,8 @@ export default function HomePage() {
       const rewardBalance = item.reward.isSaved ? Math.max(0, profileData.goalJarBalances?.[item.reward.id] ?? 0) : 0;
       const isStarterRewardIdea = starterJarRewardKeys.has(starterJarRewardKey(item.reward.label, item.reward.amount));
       return (
-        <button
+        <div
           key={`jar-carousel-reward-${item.reward.id}`}
-          type="button"
-          onClick={() => void handleHomeCarouselSkipFor(item)}
           className="home-jar-carousel-card"
           style={{ borderRadius: 18, padding: 0, textAlign: "left", background: "linear-gradient(180deg, rgba(139,92,246,0.16), rgba(13,19,23,0.92))", border: "1px solid rgba(139,92,246,0.34)", color: "var(--text-primary)", overflow: "hidden" }}
         >
@@ -1850,9 +1848,16 @@ export default function HomePage() {
                 {rewardSkipEquivalentLine(rewardBalance, item.reward.amount)}
               </p>
             </div>
-            <span className="home-jar-carousel-cta" style={{ fontSize: 12, fontWeight: 950, color: "#C4B5FD", textTransform: "uppercase", letterSpacing: 0.8 }}>Skip for this</span>
+            <button
+              type="button"
+              onClick={() => void handleHomeCarouselSkipFor(item)}
+              className="home-jar-carousel-cta"
+              style={{ border: "none", cursor: "pointer", fontSize: 12, fontWeight: 950, color: "#C4B5FD", textTransform: "uppercase", letterSpacing: 0.8 }}
+            >
+              Skip for this
+            </button>
           </div>
-        </button>
+        </div>
       );
     }
 

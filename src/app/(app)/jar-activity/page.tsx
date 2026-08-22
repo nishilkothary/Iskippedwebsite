@@ -717,13 +717,21 @@ export default function JarActivityPage() {
     setWorkingId(item.id);
     try {
       const target = { type: item.type, id: item.id } as const;
-      await parkSkipTarget(user.uid, target);
+      if (item.balance > 0) {
+        await parkSkipTarget(user.uid, target);
+      } else {
+        await setActiveSkipTarget(user.uid, null);
+        if (item.type === "fundraiser") await setActiveProject(user.uid, null);
+        else await updateSpendingGoals(user.uid, spendingGoals, null);
+      }
       updateProfile({
         activeSkipTarget: null,
-        parkedSkipTargets: [
-          ...(profileData.parkedSkipTargets ?? []).filter((parked) => parked.type !== target.type || parked.id !== target.id),
-          target,
-        ],
+        parkedSkipTargets: item.balance > 0
+          ? [
+              ...(profileData.parkedSkipTargets ?? []).filter((parked) => parked.type !== target.type || parked.id !== target.id),
+              target,
+            ]
+          : profileData.parkedSkipTargets,
         ...(item.type === "fundraiser"
           ? { activeProjectId: null }
           : { activeSpendingGoalId: null, spendingGoal: null }),
