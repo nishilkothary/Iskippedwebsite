@@ -324,33 +324,37 @@ body {
   }
   .jars-page-shell { padding-top: 18px !important; }
   .jars-page-header {
-    margin-bottom: 12px !important;
+    margin-bottom: 14px !important;
+    padding-right: 92px;
     display: flex !important;
-    flex-direction: row !important;
-    align-items: center !important;
-    justify-content: flex-end !important;
+    flex-direction: column !important;
+    align-items: flex-start !important;
+    justify-content: flex-start !important;
+    gap: 2px !important;
   }
-  .jars-page-title,
   .jars-page-subtitle {
     display: none !important;
+  }
+  .jars-page-title {
+    display: block !important;
+    font-size: 25px !important;
+    line-height: 1.05 !important;
+    letter-spacing: 0 !important;
   }
   .jars-activity-link {
     min-height: 32px;
     padding: 0 !important;
     border: none !important;
     background: transparent !important;
-    color: var(--text-secondary) !important;
+    color: var(--green-primary) !important;
     font-size: 13px !important;
-    font-weight: 850 !important;
+    font-weight: 900 !important;
   }
-  .jars-activity-link::before {
-    content: "";
-    width: 6px;
-    height: 6px;
-    border-radius: 999px;
-    background: var(--green-primary);
-    margin-right: 6px;
-    box-shadow: 0 0 0 3px rgba(46,204,113,0.1);
+  .jars-activity-link::after {
+    content: "→";
+    margin-left: 5px;
+    color: var(--green-primary);
+    font-weight: 950;
   }
   .jars-shop-tabs {
     margin-bottom: 18px;
