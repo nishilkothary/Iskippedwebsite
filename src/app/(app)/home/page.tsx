@@ -1678,23 +1678,13 @@ export default function HomePage() {
       };
       targetGoalId = newGoal.id;
       nextGoals = [...spendingGoals, newGoal];
-      await updateSpendingGoals(user.uid, nextGoals, targetGoalId);
-      updateProfile({ spendingGoals: nextGoals, activeSpendingGoalId: targetGoalId, spendingGoal: null });
+      await updateSpendingGoals(user.uid, nextGoals, activeSpendingGoalId);
+      updateProfile({ spendingGoals: nextGoals, spendingGoal: null });
     }
 
-    const target: SkipAllocationTarget = { type: "goal", id: targetGoalId };
-    await setActiveSkipTarget(user.uid, target);
-    if (nextGoals === spendingGoals) {
-      await updateSpendingGoals(user.uid, nextGoals, targetGoalId);
-    }
-    updateProfile({ activeSkipTarget: target, activeSpendingGoalId: targetGoalId, spendingGoals: nextGoals, spendingGoal: null });
-
-    if (availableHomeSkipBankBalance > 0) {
-      setHomeFundingTarget(target);
-      setHomeFundingAmountStr("");
-      setHomeFundingDetailsOpen(false);
-      return;
-    }
+    setHomeFundingTarget({ type: "goal", id: targetGoalId });
+    setHomeFundingAmountStr("");
+    setHomeFundingDetailsOpen(false);
   }
 
   async function confirmHomeFundraiserSetup() {
@@ -1704,7 +1694,7 @@ export default function HomePage() {
     const bankAmount = parseFloat(homeFundraiserBankStr);
     if (!goalAmount || goalAmount <= 0) return;
     if (bankAmount > availableHomeSkipBankBalance) {
-      toast.error(`You only have ${formatCurrency(availableHomeSkipBankBalance)} in available Skip Bucks.`);
+      toast.error(`You only have ${formatCurrency(availableHomeSkipBankBalance)} in Unassigned Skip Bucks.`);
       return;
     }
 
@@ -1741,25 +1731,46 @@ export default function HomePage() {
     }
   }
 
-  async function confirmHomeSkipBankFunding() {
+  async function activateHomeFundingTarget(bankAmount = 0) {
     if (!user || !homeFundingTarget) return;
-    const amount = parseFloat(homeFundingAmountStr);
-    if (!amount || amount <= 0) return;
-    if (amount > availableHomeSkipBankBalance) {
-      toast.error(`You only have ${formatCurrency(availableHomeSkipBankBalance)} in available Skip Bucks.`);
+    if (bankAmount > availableHomeSkipBankBalance) {
+      toast.error(`You only have ${formatCurrency(availableHomeSkipBankBalance)} in Unassigned Skip Bucks.`);
       return;
     }
 
     setHomeFundingWorking(true);
     try {
-      const appliedAmount = await allocateSkipBankToJar(user.uid, homeFundingTarget, amount);
+      if (homeFundingTarget.type === "goal") {
+        await Promise.all([
+          updateSpendingGoals(user.uid, spendingGoals, homeFundingTarget.id),
+          setActiveSkipTarget(user.uid, homeFundingTarget),
+        ]);
+        updateProfile({
+          activeSkipTarget: homeFundingTarget,
+          activeSpendingGoalId: homeFundingTarget.id,
+          spendingGoals,
+          spendingGoal: null,
+        });
+      } else {
+        await pinProjectToHome(user.uid, homeFundingTarget.id);
+        updateProfile({
+          activeSkipTarget: homeFundingTarget,
+          activeProjectId: homeFundingTarget.id,
+          joinedProjectIds: Array.from(new Set([...(profileData.joinedProjectIds ?? []), homeFundingTarget.id])),
+        });
+      }
+
+      const appliedAmount = bankAmount > 0
+        ? await allocateSkipBankToJar(user.uid, homeFundingTarget, bankAmount)
+        : 0;
       if (appliedAmount > 0) {
         if (homeFundingTarget.type === "goal") {
           updateProfile({
             activeSkipTarget: homeFundingTarget,
+            activeSpendingGoalId: homeFundingTarget.id,
             goalJarBalances: {
               ...(profileData.goalJarBalances ?? {}),
-              [homeFundingTarget.id]: appliedAmount,
+              [homeFundingTarget.id]: Math.max(0, profileData.goalJarBalances?.[homeFundingTarget.id] ?? 0) + appliedAmount,
             },
           });
         } else {
@@ -1767,20 +1778,26 @@ export default function HomePage() {
             activeSkipTarget: homeFundingTarget,
             causeJarBalances: {
               ...(profileData.causeJarBalances ?? {}),
-              [homeFundingTarget.id]: appliedAmount,
+              [homeFundingTarget.id]: Math.max(0, profileData.causeJarBalances?.[homeFundingTarget.id] ?? 0) + appliedAmount,
             },
           });
         }
-        toast.success(`${formatCurrency(appliedAmount)} moved into the jar.`);
+        toast.success(`${formatCurrency(appliedAmount)} moved from Unassigned Skip Bucks into the jar.`);
       }
       setHomeFundingTarget(null);
       setHomeFundingAmountStr("");
     } catch (err) {
-      console.error("home skip bank funding failed", err);
-      toast.error("Couldn't move those Skip Bucks yet. Check your connection and try again.");
+      console.error("home funding activation failed", err);
+      toast.error("Couldn't activate this jar yet. Check your connection and try again.");
     } finally {
       setHomeFundingWorking(false);
     }
+  }
+
+  async function confirmHomeSkipBankFunding() {
+    const amount = parseFloat(homeFundingAmountStr);
+    if (!amount || amount <= 0) return;
+    await activateHomeFundingTarget(amount);
   }
 
   function renderJarCarouselCard(item: JarCarouselItem) {
@@ -2960,13 +2977,13 @@ export default function HomePage() {
                 style={{ background: "transparent", border: "none", color: "var(--text-muted)" }}
                 aria-expanded={homeFundraiserBankDetailsOpen}
               >
-                <span>{homeFundraiserBankDetailsOpen ? "Hide Skip Bucks" : "Use existing Skip Bucks"}</span>
+                <span>{homeFundraiserBankDetailsOpen ? "Hide Unassigned Skip Bucks" : "Move Unassigned Skip Bucks"}</span>
                 <span aria-hidden="true">{homeFundraiserBankDetailsOpen ? "▲" : "▼"}</span>
               </button>
               {homeFundraiserBankDetailsOpen && (
                 <div className="rounded-xl p-4" style={{ background: "rgba(237,245,240,0.045)", border: "1px solid rgba(237,245,240,0.08)" }}>
                   <p className="mb-3 text-xs font-bold leading-snug" style={{ color: "var(--text-muted)" }}>
-                    You have {formatCurrency(availableHomeSkipBankBalance)}{" "}in Skip Bucks you have already saved, but haven&apos;t used. Do you want to move some into this jar?
+                    You have {formatCurrency(availableHomeSkipBankBalance)} in Unassigned Skip Bucks. Move some into this jar if you want these saved skips earmarked for this fundraiser.
                   </p>
                   <div className="relative">
                     <span className="absolute left-4 top-1/2 -translate-y-1/2 text-sm" style={{ color: "var(--text-muted)" }}>$</span>
@@ -2988,7 +3005,7 @@ export default function HomePage() {
                   )}
                   {parseFloat(homeFundraiserBankStr) > availableHomeSkipBankBalance && (
                     <p className="mt-2 text-xs font-bold leading-relaxed" style={{ color: "#EF4444" }}>
-                      That is more than your available Skip Bucks. Lower the amount to {formatCurrency(availableHomeSkipBankBalance)} or less.
+                      That is more than your Unassigned Skip Bucks. Lower the amount to {formatCurrency(availableHomeSkipBankBalance)} or less.
                     </p>
                   )}
                 </div>
@@ -3006,7 +3023,11 @@ export default function HomePage() {
         </div>
       )}
 
-      {homeFundingTarget && (
+      {homeFundingTarget && (() => {
+        const homeFundingGoal = homeFundingTarget.type === "goal"
+          ? spendingGoals.find((goal) => goal.id === homeFundingTarget.id) ?? null
+          : null;
+        return (
         <div className="fixed inset-0 bg-black/60 z-50 flex items-end sm:items-center justify-center p-4" onClick={() => setHomeFundingTarget(null)}>
           <div className="rounded-2xl w-full max-w-sm shadow-2xl" style={{ background: "var(--bg-surface-1)", border: "1px solid var(--border-default)" }} onClick={(event) => event.stopPropagation()}>
             <div className="px-5 pt-5 pb-4 relative" style={{ borderBottom: "1px solid var(--border-default)" }}>
@@ -3016,28 +3037,30 @@ export default function HomePage() {
               </p>
             </div>
             <div className="space-y-3 p-5">
-              <button
-                onClick={() => {
-                  setHomeFundingTarget(null);
-                }}
-                className="w-full rounded-xl py-3 text-sm font-black"
-                style={{ background: "#8B5CF6", color: "white" }}
-              >
-                Start skipping for this
-              </button>
-              <button
-                type="button"
-                onClick={() => setHomeFundingDetailsOpen((value) => !value)}
-                className="w-full py-1 text-sm font-bold"
-                style={{ background: "transparent", border: "none", color: "var(--text-muted)" }}
-                aria-expanded={homeFundingDetailsOpen}
-              >
-                {homeFundingDetailsOpen ? "Hide Skip Bucks" : "Use existing Skip Bucks"}
-              </button>
+              {homeFundingGoal && (
+                <div className="rounded-xl px-4 py-3" style={{ background: "rgba(139,92,246,0.09)", border: "1px solid rgba(139,92,246,0.22)" }}>
+                  <p className="text-[10px] font-black uppercase tracking-wide" style={{ color: "#C4B5FD" }}>Reward goal</p>
+                  <p className="mt-1 text-sm font-black" style={{ color: "var(--text-primary)" }}>
+                    {formatCurrency(homeFundingGoal.targetAmount)} in jar
+                  </p>
+                </div>
+              )}
+              {availableHomeSkipBankBalance > 0 && (
+                <button
+                  type="button"
+                  onClick={() => setHomeFundingDetailsOpen((value) => !value)}
+                  className="flex w-full items-center justify-between py-1 text-sm font-bold"
+                  style={{ background: "transparent", border: "none", color: "var(--text-muted)" }}
+                  aria-expanded={homeFundingDetailsOpen}
+                >
+                  <span>{homeFundingDetailsOpen ? "Hide Unassigned Skip Bucks" : "Move Unassigned Skip Bucks"}</span>
+                  <span aria-hidden="true">{homeFundingDetailsOpen ? "▲" : "▼"}</span>
+                </button>
+              )}
               {homeFundingDetailsOpen && (
                 <div className="rounded-xl p-4" style={{ background: "rgba(237,245,240,0.045)", border: "1px solid rgba(237,245,240,0.08)" }}>
                   <p className="mb-3 text-xs font-bold" style={{ color: "var(--text-secondary)" }}>
-                    {formatCurrency(availableHomeSkipBankBalance)} available
+                    You have {formatCurrency(availableHomeSkipBankBalance)} in Unassigned Skip Bucks. Move some into this jar if you want these saved skips earmarked for this reward.
                   </p>
                   <div className="relative">
                     <span className="absolute left-4 top-1/2 -translate-y-1/2 text-sm" style={{ color: "var(--text-muted)" }}>$</span>
@@ -3060,7 +3083,7 @@ export default function HomePage() {
                   )}
                   {parseFloat(homeFundingAmountStr) > availableHomeSkipBankBalance && (
                     <p className="text-xs font-bold leading-relaxed mt-3" style={{ color: "#EF4444" }}>
-                      That is more than your available Skip Bucks. Lower the amount to {formatCurrency(availableHomeSkipBankBalance)} or less.
+                      That is more than your Unassigned Skip Bucks. Lower the amount to {formatCurrency(availableHomeSkipBankBalance)} or less.
                     </p>
                   )}
                   <button
@@ -3069,14 +3092,23 @@ export default function HomePage() {
                     className="mt-3 w-full rounded-xl py-3 text-sm font-black disabled:opacity-50"
                     style={{ background: "rgba(139,92,246,0.2)", color: "#DDD6FE" }}
                   >
-                    {homeFundingWorking ? "Applying..." : "Apply Skip Bucks"}
+                    {homeFundingWorking ? "Moving..." : "Move into jar"}
                   </button>
                 </div>
               )}
+              <button
+                onClick={() => void activateHomeFundingTarget(0)}
+                disabled={homeFundingWorking}
+                className="w-full rounded-xl py-3 text-sm font-black disabled:opacity-50"
+                style={{ background: homeFundingTarget.type === "goal" ? "#8B5CF6" : "#2ECC71", color: homeFundingTarget.type === "goal" ? "white" : "#071B14" }}
+              >
+                {homeFundingWorking ? "Activating..." : homeFundingGoal ? "Skip for this reward" : "Start skipping for this"}
+              </button>
             </div>
           </div>
         </div>
-      )}
+        );
+      })()}
 
       {editingSkip && (
         <EditSkipModal

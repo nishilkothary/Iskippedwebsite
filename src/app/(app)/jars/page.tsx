@@ -1879,7 +1879,7 @@ function JarBrowser({
     const bankAmount = parseFloat(fundraiserBankStr);
     if (!goalAmount || goalAmount <= 0) return;
     if (bankAmount > availableSkipBankBalance) {
-      toast.error(`You only have ${formatCurrency(availableSkipBankBalance)} in available Skip Bucks.`);
+      toast.error(`You only have ${formatCurrency(availableSkipBankBalance)} in Unassigned Skip Bucks.`);
       return;
     }
     setFundraiserSetupWorking(true);
@@ -1897,7 +1897,7 @@ function JarBrowser({
       await onSetSkipTarget(target);
       if (bankAmount > 0 && availableSkipBankBalance > 0) {
         const appliedAmount = await onApplySkipBank(target, bankAmount);
-        if (appliedAmount > 0) toast.success(`${formatCurrency(appliedAmount)} moved into the fundraiser jar.`);
+        if (appliedAmount > 0) toast.success(`${formatCurrency(appliedAmount)} moved from Unassigned Skip Bucks into the fundraiser jar.`);
       }
       setFundraiserSetup(null);
       setFundraiserGoalStr("");
@@ -1948,7 +1948,7 @@ function JarBrowser({
     const amount = parseFloat(fundingAmountStr);
     if (!amount || amount <= 0) return;
     if (amount > availableSkipBankBalance) {
-      toast.error(`You only have ${formatCurrency(availableSkipBankBalance)} in available Skip Bucks.`);
+      toast.error(`You only have ${formatCurrency(availableSkipBankBalance)} in Unassigned Skip Bucks.`);
       return;
     }
     setFundingWorking(true);
@@ -1956,7 +1956,7 @@ function JarBrowser({
       await onSetSkipTarget(fundingTarget);
       const appliedAmount = await onApplySkipBank(fundingTarget, amount);
       setFundingTarget(null);
-      if (appliedAmount > 0) toast.success(`${formatCurrency(appliedAmount)} moved into the jar.`, { duration: 1800 });
+      if (appliedAmount > 0) toast.success(`${formatCurrency(appliedAmount)} moved from Unassigned Skip Bucks into the jar.`, { duration: 1800 });
       router.push("/home");
     } catch (err) {
       console.error("apply Skip Bucks failed", err);
@@ -2645,13 +2645,13 @@ function JarBrowser({
                 style={{ background: "transparent", border: "none", color: "var(--text-muted)" }}
                 aria-expanded={showFundraiserBankDetails}
               >
-                <span>{showFundraiserBankDetails ? "Hide Skip Bucks" : "Use existing Skip Bucks"}</span>
+                <span>{showFundraiserBankDetails ? "Hide Unassigned Skip Bucks" : "Move Unassigned Skip Bucks"}</span>
                 <span aria-hidden="true">{showFundraiserBankDetails ? "▲" : "▼"}</span>
               </button>
               {showFundraiserBankDetails && (
                 <div className="rounded-xl p-4" style={{ background: "rgba(237,245,240,0.045)", border: "1px solid rgba(237,245,240,0.08)" }}>
                   <p className="mb-3 text-xs font-bold leading-snug" style={{ color: "var(--text-muted)" }}>
-                    You have {formatCurrency(availableSkipBankBalance)}{" "}in Skip Bucks you have already saved, but haven't used. Do you want to contribute some of that to this goal?
+                    You have {formatCurrency(availableSkipBankBalance)} in Unassigned Skip Bucks. Move some into this jar if you want these saved skips earmarked for this goal.
                   </p>
                   <div className="relative">
                     <span className="absolute left-4 top-1/2 -translate-y-1/2 text-sm" style={{ color: "var(--text-muted)" }}>$</span>
@@ -2673,7 +2673,7 @@ function JarBrowser({
                   )}
                   {parseFloat(fundraiserBankStr) > availableSkipBankBalance && (
                     <p className="mt-2 text-xs font-bold leading-relaxed" style={{ color: "#EF4444" }}>
-                      That is more than your available Skip Bucks. Lower the amount to {formatCurrency(availableSkipBankBalance)} or less.
+                      That is more than your Unassigned Skip Bucks. Lower the amount to {formatCurrency(availableSkipBankBalance)} or less.
                     </p>
                   )}
                 </div>
@@ -2735,14 +2735,14 @@ function JarBrowser({
                   style={{ background: "transparent", border: "none", color: "var(--text-muted)" }}
                   aria-expanded={showFundingDetails}
                 >
-                  <span>{showFundingDetails ? "Hide Skip Bucks" : "Use existing Skip Bucks"}</span>
+                  <span>{showFundingDetails ? "Hide Unassigned Skip Bucks" : "Move Unassigned Skip Bucks"}</span>
                   <span aria-hidden="true">{showFundingDetails ? "▲" : "▼"}</span>
                 </button>
               )}
               {availableSkipBankBalance > 0 && showFundingDetails && (
                 <div className="rounded-xl p-4" style={{ background: "rgba(237,245,240,0.045)", border: "1px solid rgba(237,245,240,0.08)" }}>
                   <p className="mb-3 text-xs font-bold leading-snug" style={{ color: "var(--text-muted)" }}>
-                    You have {formatCurrency(availableSkipBankBalance)} in Skip Bucks you have already saved, but have not used. Do you want to add some to this jar?
+                    You have {formatCurrency(availableSkipBankBalance)} in Unassigned Skip Bucks. Move some into this jar if you want these saved skips earmarked for this reward.
                   </p>
                   <div className="relative">
                     <span className="absolute left-4 top-1/2 -translate-y-1/2 text-sm" style={{ color: "var(--text-muted)" }}>$</span>
@@ -2765,7 +2765,7 @@ function JarBrowser({
                   )}
                   {parseFloat(fundingAmountStr) > availableSkipBankBalance && (
                     <p className="text-xs font-bold leading-relaxed mt-3" style={{ color: "#EF4444" }}>
-                      That is more than your available Skip Bucks. Lower the amount to {formatCurrency(availableSkipBankBalance)} or less.
+                      That is more than your Unassigned Skip Bucks. Lower the amount to {formatCurrency(availableSkipBankBalance)} or less.
                     </p>
                   )}
                   <button
@@ -2774,7 +2774,7 @@ function JarBrowser({
                     className="mt-3 w-full rounded-xl py-3 text-sm font-black disabled:opacity-50"
                     style={{ background: fundingTarget.type === "fundraiser" ? "rgba(46,204,113,0.18)" : "rgba(139,92,246,0.2)", color: fundingMutedColor }}
                   >
-                    {fundingWorking ? "Applying..." : "Apply Skip Bucks"}
+                    {fundingWorking ? "Moving..." : "Move into jar"}
                   </button>
                 </div>
               )}
