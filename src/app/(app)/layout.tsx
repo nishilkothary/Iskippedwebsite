@@ -16,7 +16,7 @@ import { SkipBucksBill } from "@/components/SkipBucksBill";
 
 const NAV_ITEMS = [
   { href: "/home",        label: "Home",       emoji: "🏠", tab: null },
-  { href: "/jars",        label: "Skip Jars",  emoji: "🎯", tab: null },
+  { href: "/jars",        label: "Skip Jars",  emoji: "🫙", tab: null },
   { href: "/about",       label: "About",      emoji: "💡", tab: null },
   { href: "/profile",     label: "Profile",    emoji: "👤", tab: null },
 ];
@@ -100,9 +100,28 @@ function SidebarNav({ onLogSkip }: { onLogSkip: () => void }) {
   );
 }
 
-function MobileBottomNav() {
+function MobileBottomNav({ onLogSkip }: { onLogSkip: () => void }) {
   const pathname = usePathname();
   const searchParams = useSearchParams();
+  const firstItems = NAV_ITEMS.slice(0, 2);
+  const lastItems = NAV_ITEMS.slice(2);
+  const renderNavItem = (item: (typeof NAV_ITEMS)[number]) => {
+    const active = isNavActive(item, pathname, searchParams);
+    return (
+      <Link
+        key={item.href}
+        href={item.href}
+        className="flex-1 flex flex-col items-center justify-center py-3 gap-1 transition-colors"
+        style={{ color: active ? "var(--gold-cta)" : "rgba(237,245,240,0.55)" }}
+      >
+        <span className="text-lg leading-none">{item.emoji}</span>
+        <span className="text-[10px] font-bold leading-tight"
+          style={{ color: active ? "var(--gold-cta)" : "rgba(237,245,240,0.7)" }}>
+          {item.label}
+        </span>
+      </Link>
+    );
+  };
 
   return (
     <nav
@@ -114,23 +133,32 @@ function MobileBottomNav() {
         paddingBottom: "env(safe-area-inset-bottom)",
       }}
     >
-      {NAV_ITEMS.map((item) => {
-        const active = isNavActive(item, pathname, searchParams);
-        return (
-          <Link
-            key={item.href}
-            href={item.href}
-            className="flex-1 flex flex-col items-center justify-center py-3 gap-1 transition-colors"
-            style={{ color: active ? "var(--gold-cta)" : "rgba(237,245,240,0.55)" }}
-          >
-            <span className="text-lg leading-none">{item.emoji}</span>
-            <span className="text-[10px] font-bold leading-tight"
-              style={{ color: active ? "var(--gold-cta)" : "rgba(237,245,240,0.7)" }}>
-              {item.label}
-            </span>
-          </Link>
-        );
-      })}
+      {firstItems.map(renderNavItem)}
+      <button
+        type="button"
+        onClick={onLogSkip}
+        aria-label="Log a skip"
+        className="flex-1 flex flex-col items-center justify-center gap-1 transition-transform active:scale-95"
+        style={{ color: "var(--bg-base)", background: "transparent", border: "none", padding: "0 0 8px" }}
+      >
+        <span
+          className="grid place-items-center text-2xl font-black leading-none"
+          style={{
+            width: 54,
+            height: 54,
+            borderRadius: 999,
+            background: "linear-gradient(135deg, var(--gold-cta), var(--gold-light))",
+            boxShadow: "0 8px 24px var(--gold-glow)",
+            transform: "translateY(-18px)",
+          }}
+        >
+          +
+        </span>
+        <span className="text-[10px] font-bold leading-tight" style={{ color: "var(--gold-cta)", marginTop: -16 }}>
+          Skip
+        </span>
+      </button>
+      {lastItems.map(renderNavItem)}
     </nav>
   );
 }
@@ -256,24 +284,8 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
 
       {showSkipPicker && <SkipModal onClose={() => setShowSkipPicker(false)} />}
 
-      {/* Keep the quick action on Home, where it complements the primary log-skip flow without covering jar controls. */}
-      {pathname === "/home" && (
-        <button
-          onClick={() => setShowSkipPicker(true)}
-          aria-label="Log a skip"
-          className="mobile-skip-fab md:hidden fixed bottom-24 right-4 z-20 flex h-11 items-center justify-center gap-1.5 rounded-full px-3 text-sm font-bold shadow-lg transition-transform active:scale-95"
-          style={{
-            background: "linear-gradient(135deg, var(--gold-cta), var(--gold-light))",
-            color: "var(--bg-base)",
-            boxShadow: "0 4px 20px var(--gold-glow)",
-          }}
-        >
-          <span className="text-base leading-none">✨</span><span className="mobile-skip-fab-label">Skip</span>
-        </button>
-      )}
-
       <Suspense fallback={null}>
-        <MobileBottomNav />
+        <MobileBottomNav onLogSkip={() => setShowSkipPicker(true)} />
       </Suspense>
     </div>
   );
