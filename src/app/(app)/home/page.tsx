@@ -1592,6 +1592,18 @@ export default function HomePage() {
     return "this jar";
   }
 
+  function homeFundingGoalAmount(target: SkipAllocationTarget | null) {
+    if (target?.type === "goal") {
+      return spendingGoals.find((goal) => goal.id === target.id)?.targetAmount ?? null;
+    }
+    if (target?.type === "fundraiser") {
+      return profileData.causeGoalAmounts?.[target.id]
+        ?? projects.find((project) => project.id === target.id)?.goalAmount
+        ?? null;
+    }
+    return null;
+  }
+
   function homeFundingPreview(target: SkipAllocationTarget | null, amountStr: string) {
     const amount = parseFloat(amountStr);
     if (!target || !amount || amount <= 0) return null;
@@ -2957,6 +2969,7 @@ export default function HomePage() {
           ? spendingGoals.find((goal) => goal.id === homeFundingTarget.id) ?? null
           : null;
         const hasHomeSkipBank = availableHomeSkipBankBalance > 0;
+        const homeFundingGoalAmountValue = homeFundingGoalAmount(homeFundingTarget);
         return (
         <div className="fixed inset-0 bg-black/60 z-50 flex items-end sm:items-center justify-center p-4" onClick={() => setHomeFundingTarget(null)}>
           <div className="rounded-2xl w-full max-w-sm shadow-2xl" style={{ background: "var(--bg-surface-1)", border: "1px solid var(--border-default)" }} onClick={(event) => event.stopPropagation()}>
@@ -2967,12 +2980,12 @@ export default function HomePage() {
               </p>
               {hasHomeSkipBank && (
                 <p className="mt-1 text-xs font-bold leading-snug" style={{ color: "var(--text-muted)" }}>
-                  Future skips will go to {homeFundingPromptLabel(homeFundingTarget)}. You also have {formatCurrency(availableHomeSkipBankBalance)} from earlier skips.
+                  You have {formatCurrency(availableHomeSkipBankBalance)} in unassigned Skip Bucks. Do you want to use any to help fill {homeFundingGoalAmountValue ? `this goal of ${formatCurrency(homeFundingGoalAmountValue)}` : homeFundingPromptLabel(homeFundingTarget)}?
                 </p>
               )}
             </div>
             <div className="space-y-3 p-5">
-              {homeFundingGoal && (
+              {homeFundingGoal && !hasHomeSkipBank && (
                 <div className="rounded-xl px-4 py-3" style={{ background: "rgba(139,92,246,0.09)", border: "1px solid rgba(139,92,246,0.22)" }}>
                   <p className="text-[10px] font-black uppercase tracking-wide" style={{ color: "#C4B5FD" }}>Reward goal</p>
                   <p className="mt-1 text-sm font-black" style={{ color: "var(--text-primary)" }}>
@@ -2983,7 +2996,7 @@ export default function HomePage() {
               {hasHomeSkipBank && (
                 <div className="rounded-xl p-4" style={{ background: "rgba(237,245,240,0.045)", border: "1px solid rgba(237,245,240,0.08)" }}>
                   <p className="mb-3 text-xs font-bold" style={{ color: "var(--text-secondary)" }}>
-                    Type how much to move into this jar now.
+                    Enter an amount to use.
                   </p>
                   <div className="relative">
                     <span className="absolute left-4 top-1/2 -translate-y-1/2 text-sm" style={{ color: "var(--text-muted)" }}>$</span>
@@ -3015,7 +3028,7 @@ export default function HomePage() {
                     className="mt-3 w-full rounded-xl py-3 text-sm font-black disabled:opacity-50"
                     style={{ background: "rgba(139,92,246,0.2)", color: "#DDD6FE" }}
                   >
-                    {homeFundingWorking ? "Moving..." : "Use these skips"}
+                    {homeFundingWorking ? "Moving..." : "Use"}
                   </button>
                 </div>
               )}
@@ -3027,7 +3040,7 @@ export default function HomePage() {
                   ? { background: "var(--bg-surface-3)", color: "var(--text-primary)", border: "1px solid var(--border-default)" }
                   : { background: homeFundingTarget.type === "goal" ? "#8B5CF6" : "#2ECC71", color: homeFundingTarget.type === "goal" ? "white" : "#071B14" }}
               >
-                {homeFundingWorking ? "Activating..." : hasHomeSkipBank ? "Don't use these skips" : homeFundingGoal ? "Skip for this reward" : "Start skipping for this"}
+                {homeFundingWorking ? "Activating..." : hasHomeSkipBank ? "Don't use old skips" : homeFundingGoal ? "Skip for this reward" : "Start skipping for this"}
               </button>
             </div>
           </div>
