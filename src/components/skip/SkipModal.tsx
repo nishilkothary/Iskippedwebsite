@@ -329,7 +329,7 @@ export function SkipModal({ onClose }: Props) {
           >
             <button onClick={dismissSuccess} aria-label="Close" className="absolute top-4 right-4 text-2xl leading-none" style={{ color: "var(--text-muted)" }}>×</button>
             <div className="text-6xl mb-3">🌍</div>
-            <p id="skip-nudge-title" className="text-2xl font-bold" style={{ color: "var(--text-primary)" }}>Your skips can change lives</p>
+            <p id="skip-nudge-title" className="text-2xl font-bold" style={{ color: "var(--text-primary)" }}>Your skip can go toward something that matters</p>
             <p className="font-bold text-lg mt-1" style={{ color: "var(--green-primary)" }}>{formatCurrency(amount)} saved</p>
             <p className="text-sm mt-3" style={{ color: "var(--text-secondary)" }}>
               You could pledge {formatCurrency(amount)} from this skip toward:

@@ -4,8 +4,7 @@ export default function manifest(): MetadataRoute.Manifest {
   return {
     name: "iSkipped",
     short_name: "iSkipped",
-    description:
-      "Track what you skip and donate your savings to causes you care about.",
+    description: "Skip what you don't need. Save for what matters.",
     start_url: "/home",
     display: "standalone",
     background_color: "#0B1A14",

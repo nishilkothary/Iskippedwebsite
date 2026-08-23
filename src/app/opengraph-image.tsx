@@ -23,7 +23,7 @@ export default function OgImage() {
           <span style={{ color: "#2ECC71" }}>skipped</span>
         </p>
         <p style={{ fontSize: 32, color: "rgba(237,245,240,0.55)", margin: "16px 0 0", fontWeight: 600 }}>
-          Save money. Change lives.
+          Skip what you don&apos;t need. Save for what matters.
         </p>
       </div>
     ),

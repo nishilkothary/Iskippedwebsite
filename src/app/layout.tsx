@@ -23,11 +23,11 @@ function getMetadataBase() {
 
 export const metadata: Metadata = {
   metadataBase: getMetadataBase(),
-  title: "Iskipped - Save money, change lives",
-  description: "Track what you skip and donate your savings to causes you care about.",
+  title: "iSkipped",
+  description: "Skip what you don't need. Save for what matters.",
   openGraph: {
-    title: "Iskipped - Save money, change lives",
-    description: "Track what you skip and donate your savings to causes you care about.",
+    title: "iSkipped",
+    description: "Skip what you don't need. Save for what matters.",
   },
   other: {
     "apple-mobile-web-app-title": "iSkipped",
