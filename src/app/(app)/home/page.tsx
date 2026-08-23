@@ -1187,12 +1187,9 @@ export default function HomePage() {
   const [homeFundingTarget, setHomeFundingTarget] = useState<SkipAllocationTarget | null>(null);
   const [homeFundingAmountStr, setHomeFundingAmountStr] = useState("");
   const [homeFundingWorking, setHomeFundingWorking] = useState(false);
-  const [homeFundingDetailsOpen, setHomeFundingDetailsOpen] = useState(false);
   const [homeFundraiserSetup, setHomeFundraiserSetup] = useState<Project | null>(null);
   const [homeFundraiserGoalStr, setHomeFundraiserGoalStr] = useState("");
-  const [homeFundraiserBankStr, setHomeFundraiserBankStr] = useState("");
   const [homeFundraiserWorking, setHomeFundraiserWorking] = useState(false);
-  const [homeFundraiserBankDetailsOpen, setHomeFundraiserBankDetailsOpen] = useState(false);
   const handledContributionQuery = useRef<string | null>(null);
 
   useEffect(() => {
@@ -1573,19 +1570,9 @@ export default function HomePage() {
 
   const availableHomeSkipBankBalance = skipBalance.unassignedSkipBank;
   const homeFundraiserGoalAmountPreview = parseFloat(homeFundraiserGoalStr) || 0;
-  const homeFundraiserBankAmountPreview = parseFloat(homeFundraiserBankStr) || 0;
   const homeFundraiserGoalUnitPreview = homeFundraiserSetup?.unitCost && homeFundraiserGoalAmountPreview > 0
     ? formatAggregateImpactUnitsDecimal(
         homeFundraiserGoalAmountPreview,
-        homeFundraiserSetup.unitCost,
-        homeFundraiserSetup.unitName ?? homeFundraiserSetup.unitDisplay ?? "unit",
-        homeFundraiserSetup.unitDisplay,
-        homeFundraiserSetup.unitIsGoal,
-      )
-    : null;
-  const homeFundraiserBankUnitPreview = homeFundraiserSetup?.unitCost && homeFundraiserBankAmountPreview > 0
-    ? formatAggregateImpactUnitsDecimal(
-        Math.min(homeFundraiserBankAmountPreview, availableHomeSkipBankBalance),
         homeFundraiserSetup.unitCost,
         homeFundraiserSetup.unitName ?? homeFundraiserSetup.unitDisplay ?? "unit",
         homeFundraiserSetup.unitDisplay,
@@ -1640,8 +1627,6 @@ export default function HomePage() {
     if (item.kind === "cause") {
       setHomeFundraiserSetup(item.project);
       setHomeFundraiserGoalStr("");
-      setHomeFundraiserBankStr("");
-      setHomeFundraiserBankDetailsOpen(false);
       return;
     }
 
@@ -1684,45 +1669,29 @@ export default function HomePage() {
 
     setHomeFundingTarget({ type: "goal", id: targetGoalId });
     setHomeFundingAmountStr("");
-    setHomeFundingDetailsOpen(false);
   }
 
   async function confirmHomeFundraiserSetup() {
     if (!user || !homeFundraiserSetup) return;
     const target: SkipAllocationTarget = { type: "fundraiser", id: homeFundraiserSetup.id };
     const goalAmount = parseFloat(homeFundraiserGoalStr);
-    const bankAmount = parseFloat(homeFundraiserBankStr);
     if (!goalAmount || goalAmount <= 0) return;
-    if (bankAmount > availableHomeSkipBankBalance) {
-      toast.error(`You only have ${formatCurrency(availableHomeSkipBankBalance)} in Unassigned Skip Bucks.`);
-      return;
-    }
 
     setHomeFundraiserWorking(true);
     try {
       await setUserCauseGoal(user.uid, homeFundraiserSetup.id, goalAmount);
       await pinProjectToHome(user.uid, homeFundraiserSetup.id);
-      let appliedAmount = 0;
-      if (bankAmount > 0 && availableHomeSkipBankBalance > 0) {
-        appliedAmount = await allocateSkipBankToJar(user.uid, target, bankAmount);
-      }
       updateProfile({
         activeProjectId: homeFundraiserSetup.id,
         activeSkipTarget: target,
         joinedProjectIds: Array.from(new Set([...(profileData.joinedProjectIds ?? []), homeFundraiserSetup.id])),
         causeGoalAmounts: { ...(profileData.causeGoalAmounts ?? {}), [homeFundraiserSetup.id]: goalAmount },
-        ...(appliedAmount > 0
-          ? {
-              causeJarBalances: {
-                ...(profileData.causeJarBalances ?? {}),
-                [homeFundraiserSetup.id]: appliedAmount,
-              },
-            }
-          : {}),
       });
       setHomeFundraiserSetup(null);
       setHomeFundraiserGoalStr("");
-      setHomeFundraiserBankStr("");
+      if (availableHomeSkipBankBalance > 0) {
+        setHomeFundingTarget(target);
+      }
     } catch (err) {
       console.error("home fundraiser setup failed", err);
       toast.error("Couldn't set that jar yet. Check your connection and try again.");
@@ -2971,48 +2940,8 @@ export default function HomePage() {
               </div>
 
               <button
-                type="button"
-                onClick={() => setHomeFundraiserBankDetailsOpen((value) => !value)}
-                className="flex w-full items-center justify-between py-1 text-sm font-bold"
-                style={{ background: "transparent", border: "none", color: "var(--text-muted)" }}
-                aria-expanded={homeFundraiserBankDetailsOpen}
-              >
-                <span>{homeFundraiserBankDetailsOpen ? "Hide Unassigned Skip Bucks" : "Move Unassigned Skip Bucks"}</span>
-                <span aria-hidden="true">{homeFundraiserBankDetailsOpen ? "▲" : "▼"}</span>
-              </button>
-              {homeFundraiserBankDetailsOpen && (
-                <div className="rounded-xl p-4" style={{ background: "rgba(237,245,240,0.045)", border: "1px solid rgba(237,245,240,0.08)" }}>
-                  <p className="mb-3 text-xs font-bold leading-snug" style={{ color: "var(--text-muted)" }}>
-                    You have {formatCurrency(availableHomeSkipBankBalance)} in Unassigned Skip Bucks. Move some into this jar if you want these saved skips earmarked for this fundraiser.
-                  </p>
-                  <div className="relative">
-                    <span className="absolute left-4 top-1/2 -translate-y-1/2 text-sm" style={{ color: "var(--text-muted)" }}>$</span>
-                    <input
-                      type="number"
-                      min="0"
-                      max={availableHomeSkipBankBalance}
-                      value={homeFundraiserBankStr}
-                      onChange={(event) => setHomeFundraiserBankStr(event.target.value)}
-                      placeholder="0.00"
-                      className="w-full pl-8 rounded-xl px-4 py-3 text-sm focus:outline-none"
-                      style={{ background: "var(--bg-surface-2)", border: "1px solid var(--border-default)", color: "var(--text-primary)" }}
-                    />
-                  </div>
-                  {homeFundraiserSetup.unitCost && homeFundraiserBankUnitPreview && (
-                    <p className="mt-2 text-xs font-bold" style={{ color: "#A7F3D0" }}>
-                      Covers about {homeFundraiserBankUnitPreview}.
-                    </p>
-                  )}
-                  {parseFloat(homeFundraiserBankStr) > availableHomeSkipBankBalance && (
-                    <p className="mt-2 text-xs font-bold leading-relaxed" style={{ color: "#EF4444" }}>
-                      That is more than your Unassigned Skip Bucks. Lower the amount to {formatCurrency(availableHomeSkipBankBalance)} or less.
-                    </p>
-                  )}
-                </div>
-              )}
-              <button
                 onClick={() => void confirmHomeFundraiserSetup()}
-                disabled={homeFundraiserWorking || !homeFundraiserGoalStr || parseFloat(homeFundraiserGoalStr) <= 0 || parseFloat(homeFundraiserBankStr) > availableHomeSkipBankBalance}
+                disabled={homeFundraiserWorking || !homeFundraiserGoalStr || parseFloat(homeFundraiserGoalStr) <= 0}
                 className="w-full rounded-xl py-3 text-sm font-black disabled:opacity-50"
                 style={{ background: "#2ECC71", color: "#071B14" }}
               >
@@ -3027,14 +2956,20 @@ export default function HomePage() {
         const homeFundingGoal = homeFundingTarget.type === "goal"
           ? spendingGoals.find((goal) => goal.id === homeFundingTarget.id) ?? null
           : null;
+        const hasHomeSkipBank = availableHomeSkipBankBalance > 0;
         return (
         <div className="fixed inset-0 bg-black/60 z-50 flex items-end sm:items-center justify-center p-4" onClick={() => setHomeFundingTarget(null)}>
           <div className="rounded-2xl w-full max-w-sm shadow-2xl" style={{ background: "var(--bg-surface-1)", border: "1px solid var(--border-default)" }} onClick={(event) => event.stopPropagation()}>
             <div className="px-5 pt-5 pb-4 relative" style={{ borderBottom: "1px solid var(--border-default)" }}>
               <button onClick={() => setHomeFundingTarget(null)} aria-label="Close" className="absolute top-4 right-4 text-xl leading-none" style={{ color: "var(--text-muted)" }}>x</button>
               <p className="text-lg font-black leading-tight pr-6" style={{ color: "var(--text-primary)" }}>
-                Start skipping for {homeFundingPromptLabel(homeFundingTarget)}?
+                {hasHomeSkipBank ? "Use existing Skip Bucks?" : `Start skipping for ${homeFundingPromptLabel(homeFundingTarget)}?`}
               </p>
+              {hasHomeSkipBank && (
+                <p className="mt-1 text-xs font-bold leading-snug" style={{ color: "var(--text-muted)" }}>
+                  Future skips will go to {homeFundingPromptLabel(homeFundingTarget)}. You also have {formatCurrency(availableHomeSkipBankBalance)} from earlier skips.
+                </p>
+              )}
             </div>
             <div className="space-y-3 p-5">
               {homeFundingGoal && (
@@ -3045,22 +2980,10 @@ export default function HomePage() {
                   </p>
                 </div>
               )}
-              {availableHomeSkipBankBalance > 0 && (
-                <button
-                  type="button"
-                  onClick={() => setHomeFundingDetailsOpen((value) => !value)}
-                  className="flex w-full items-center justify-between py-1 text-sm font-bold"
-                  style={{ background: "transparent", border: "none", color: "var(--text-muted)" }}
-                  aria-expanded={homeFundingDetailsOpen}
-                >
-                  <span>{homeFundingDetailsOpen ? "Hide Unassigned Skip Bucks" : "Move Unassigned Skip Bucks"}</span>
-                  <span aria-hidden="true">{homeFundingDetailsOpen ? "▲" : "▼"}</span>
-                </button>
-              )}
-              {homeFundingDetailsOpen && (
+              {hasHomeSkipBank && (
                 <div className="rounded-xl p-4" style={{ background: "rgba(237,245,240,0.045)", border: "1px solid rgba(237,245,240,0.08)" }}>
                   <p className="mb-3 text-xs font-bold" style={{ color: "var(--text-secondary)" }}>
-                    You have {formatCurrency(availableHomeSkipBankBalance)} in Unassigned Skip Bucks. Move some into this jar if you want these saved skips earmarked for this reward.
+                    Type how much to move into this jar now.
                   </p>
                   <div className="relative">
                     <span className="absolute left-4 top-1/2 -translate-y-1/2 text-sm" style={{ color: "var(--text-muted)" }}>$</span>
@@ -3092,7 +3015,7 @@ export default function HomePage() {
                     className="mt-3 w-full rounded-xl py-3 text-sm font-black disabled:opacity-50"
                     style={{ background: "rgba(139,92,246,0.2)", color: "#DDD6FE" }}
                   >
-                    {homeFundingWorking ? "Moving..." : "Move into jar"}
+                    {homeFundingWorking ? "Moving..." : "Use these skips"}
                   </button>
                 </div>
               )}
@@ -3100,9 +3023,11 @@ export default function HomePage() {
                 onClick={() => void activateHomeFundingTarget(0)}
                 disabled={homeFundingWorking}
                 className="w-full rounded-xl py-3 text-sm font-black disabled:opacity-50"
-                style={{ background: homeFundingTarget.type === "goal" ? "#8B5CF6" : "#2ECC71", color: homeFundingTarget.type === "goal" ? "white" : "#071B14" }}
+                style={hasHomeSkipBank
+                  ? { background: "var(--bg-surface-3)", color: "var(--text-primary)", border: "1px solid var(--border-default)" }
+                  : { background: homeFundingTarget.type === "goal" ? "#8B5CF6" : "#2ECC71", color: homeFundingTarget.type === "goal" ? "white" : "#071B14" }}
               >
-                {homeFundingWorking ? "Activating..." : homeFundingGoal ? "Skip for this reward" : "Start skipping for this"}
+                {homeFundingWorking ? "Activating..." : hasHomeSkipBank ? "Don't use these skips" : homeFundingGoal ? "Skip for this reward" : "Start skipping for this"}
               </button>
             </div>
           </div>

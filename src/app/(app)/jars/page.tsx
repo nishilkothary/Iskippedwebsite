@@ -1582,7 +1582,6 @@ function JarBrowser({
   const [fundraiserDonationLink, setFundraiserDonationLink] = useState("");
   const [fundraiserDescription, setFundraiserDescription] = useState("");
   const [creatingFundraiser, setCreatingFundraiser] = useState(false);
-  const [showFundingDetails, setShowFundingDetails] = useState(false);
   const [switchPrompt, setSwitchPrompt] = useState<{ previous: SkipAllocationTarget; next: SkipAllocationTarget; balance: number } | null>(null);
   const [deactivatePrompt, setDeactivatePrompt] = useState<{ target: SkipAllocationTarget; balance: number } | null>(null);
   const [showSwitchMoreOptions, setShowSwitchMoreOptions] = useState(false);
@@ -1591,9 +1590,7 @@ function JarBrowser({
   const [fundraiserSetup, setFundraiserSetup] = useState<Project | null>(null);
   const [donatingProject, setDonatingProject] = useState<Project | null>(null);
   const [fundraiserGoalStr, setFundraiserGoalStr] = useState("");
-  const [fundraiserBankStr, setFundraiserBankStr] = useState("");
   const [fundraiserSetupWorking, setFundraiserSetupWorking] = useState(false);
-  const [showFundraiserBankDetails, setShowFundraiserBankDetails] = useState(false);
   const [fundraiserShareEmail, setFundraiserShareEmail] = useState(true);
   const fundraiserGoalAmountPreview = parseFloat(fundraiserGoalStr);
   const fundraiserGoalUnitPreview = fundraiserSetup?.unitCost && fundraiserGoalAmountPreview > 0
@@ -1605,17 +1602,6 @@ function JarBrowser({
         fundraiserSetup.unitIsGoal,
       )
     : null;
-  const fundraiserBankAmountPreview = parseFloat(fundraiserBankStr);
-  const fundraiserBankUnitPreview = fundraiserSetup?.unitCost && fundraiserBankAmountPreview > 0
-    ? formatAggregateImpactUnitsDecimal(
-        fundraiserBankAmountPreview,
-        fundraiserSetup.unitCost,
-        fundraiserSetup.unitName ?? fundraiserSetup.unitDisplay ?? "unit",
-        fundraiserSetup.unitDisplay,
-        fundraiserSetup.unitIsGoal,
-      )
-    : null;
-
   useEffect(() => {
     try {
       const stored = window.localStorage.getItem("iskipped.dismissedRewardStarters");
@@ -1628,14 +1614,12 @@ function JarBrowser({
   useEffect(() => {
     if (!fundingTarget) {
       setFundingAmountStr("");
-      setShowFundingDetails(false);
     }
   }, [fundingTarget]);
 
   useEffect(() => {
     if (!fundraiserSetup) {
-      setFundraiserBankStr("");
-      setShowFundraiserBankDetails(false);
+      setFundraiserGoalStr("");
     }
   }, [fundraiserSetup]);
 
@@ -1851,37 +1835,19 @@ function JarBrowser({
       if (project) {
         setFundraiserSetup(project);
         setFundraiserGoalStr("");
-        setFundraiserBankStr("");
-        setShowFundraiserBankDetails(false);
         setFundraiserShareEmail(profile?.challengeEmailConsents?.[project.id] ?? true);
         return;
       }
     }
     setFundingTarget(target);
     setFundingAmountStr("");
-    setShowFundingDetails(false);
-  }
-
-  async function activateSkipTarget(target: SkipAllocationTarget) {
-    await onSetSkipTarget(target);
-    if (availableSkipBankBalance > 0) {
-      setFundingTarget(target);
-      setFundingAmountStr("");
-      return;
-    }
-    router.push("/home");
   }
 
   async function confirmFundraiserSetup() {
     if (!fundraiserSetup) return;
     const target: SkipAllocationTarget = { type: "fundraiser", id: fundraiserSetup.id };
     const goalAmount = parseFloat(fundraiserGoalStr);
-    const bankAmount = parseFloat(fundraiserBankStr);
     if (!goalAmount || goalAmount <= 0) return;
-    if (bankAmount > availableSkipBankBalance) {
-      toast.error(`You only have ${formatCurrency(availableSkipBankBalance)} in Unassigned Skip Bucks.`);
-      return;
-    }
     setFundraiserSetupWorking(true);
     try {
       if (user && profile?.challengeEmailConsents?.[fundraiserSetup.id] !== fundraiserShareEmail) {
@@ -1895,14 +1861,12 @@ function JarBrowser({
       }
       await onSetFundraiserGoal(fundraiserSetup.id, goalAmount);
       await onSetSkipTarget(target);
-      if (bankAmount > 0 && availableSkipBankBalance > 0) {
-        const appliedAmount = await onApplySkipBank(target, bankAmount);
-        if (appliedAmount > 0) toast.success(`${formatCurrency(appliedAmount)} moved from Unassigned Skip Bucks into the fundraiser jar.`);
-      }
       setFundraiserSetup(null);
-      setFundraiserGoalStr("");
-      setFundraiserBankStr("");
-      router.push("/home");
+      if (availableSkipBankBalance > 0) {
+        setFundingTarget(target);
+      } else {
+        router.push("/home");
+      }
     } catch {
       toast.error("Couldn't join this fundraiser. Please try again.");
     } finally {
@@ -1960,6 +1924,21 @@ function JarBrowser({
       router.push("/home");
     } catch (err) {
       console.error("apply Skip Bucks failed", err);
+      toast.error("Couldn't activate this jar. Please try again.");
+    } finally {
+      setFundingWorking(false);
+    }
+  }
+
+  async function confirmSkipBankDecline() {
+    if (!fundingTarget) return;
+    setFundingWorking(true);
+    try {
+      await onSetSkipTarget(fundingTarget);
+      setFundingTarget(null);
+      router.push("/home");
+    } catch (err) {
+      console.error("activate jar failed", err);
       toast.error("Couldn't activate this jar. Please try again.");
     } finally {
       setFundingWorking(false);
@@ -2638,46 +2617,6 @@ function JarBrowser({
                 )}
               </div>
 
-              <button
-                type="button"
-                onClick={() => setShowFundraiserBankDetails((value) => !value)}
-                className="flex w-full items-center justify-between py-1 text-sm font-bold"
-                style={{ background: "transparent", border: "none", color: "var(--text-muted)" }}
-                aria-expanded={showFundraiserBankDetails}
-              >
-                <span>{showFundraiserBankDetails ? "Hide Unassigned Skip Bucks" : "Move Unassigned Skip Bucks"}</span>
-                <span aria-hidden="true">{showFundraiserBankDetails ? "▲" : "▼"}</span>
-              </button>
-              {showFundraiserBankDetails && (
-                <div className="rounded-xl p-4" style={{ background: "rgba(237,245,240,0.045)", border: "1px solid rgba(237,245,240,0.08)" }}>
-                  <p className="mb-3 text-xs font-bold leading-snug" style={{ color: "var(--text-muted)" }}>
-                    You have {formatCurrency(availableSkipBankBalance)} in Unassigned Skip Bucks. Move some into this jar if you want these saved skips earmarked for this goal.
-                  </p>
-                  <div className="relative">
-                    <span className="absolute left-4 top-1/2 -translate-y-1/2 text-sm" style={{ color: "var(--text-muted)" }}>$</span>
-                    <input
-                      type="number"
-                      min="0"
-                      max={availableSkipBankBalance}
-                      value={fundraiserBankStr}
-                      onChange={(event) => setFundraiserBankStr(event.target.value)}
-                      placeholder="0.00"
-                      className="w-full pl-8 rounded-xl px-4 py-3 text-sm focus:outline-none"
-                      style={{ background: "var(--bg-surface-2)", border: "1px solid var(--border-default)", color: "var(--text-primary)" }}
-                    />
-                  </div>
-                  {fundraiserSetup?.unitCost && fundraiserBankUnitPreview && (
-                    <p className="mt-2 text-xs font-bold" style={{ color: "#A7F3D0" }}>
-                      Covers about {fundraiserBankUnitPreview}.
-                    </p>
-                  )}
-                  {parseFloat(fundraiserBankStr) > availableSkipBankBalance && (
-                    <p className="mt-2 text-xs font-bold leading-relaxed" style={{ color: "#EF4444" }}>
-                      That is more than your Unassigned Skip Bucks. Lower the amount to {formatCurrency(availableSkipBankBalance)} or less.
-                    </p>
-                  )}
-                </div>
-              )}
               <label className="flex items-start gap-2 cursor-pointer pt-1">
                 <input
                   type="checkbox"
@@ -2691,7 +2630,7 @@ function JarBrowser({
               </label>
               <button
                 onClick={confirmFundraiserSetup}
-                disabled={fundraiserSetupWorking || !fundraiserGoalStr || parseFloat(fundraiserGoalStr) <= 0 || parseFloat(fundraiserBankStr) > availableSkipBankBalance}
+                disabled={fundraiserSetupWorking || !fundraiserGoalStr || parseFloat(fundraiserGoalStr) <= 0}
                 className="w-full rounded-xl py-3 text-sm font-black disabled:opacity-50"
                 style={{ background: "#2ECC71", color: "#071B14" }}
               >
@@ -2706,6 +2645,7 @@ function JarBrowser({
         const fundingAccent = fundingTarget.type === "fundraiser" ? "#2ECC71" : "#8B5CF6";
         const fundingTextColor = fundingTarget.type === "fundraiser" ? "#071B14" : "white";
         const fundingMutedColor = fundingTarget.type === "fundraiser" ? "var(--green-primary)" : "#C4B5FD";
+        const hasSkipBank = availableSkipBankBalance > 0;
         const fundingGoal = fundingTarget.type === "goal"
           ? goals.find((goal) => goal.id === fundingTarget.id) ?? null
           : null;
@@ -2715,8 +2655,13 @@ function JarBrowser({
             <div className="px-5 pt-5 pb-4 relative" style={{ borderBottom: "1px solid var(--border-default)" }}>
               <button onClick={() => setFundingTarget(null)} aria-label="Close" className="absolute top-4 right-4 text-xl leading-none" style={{ color: "var(--text-muted)" }}>x</button>
               <p className="text-lg font-black leading-tight pr-6" style={{ color: "var(--text-primary)" }}>
-                {fundingGoal ? `Skip for ${fundingGoal.label}?` : `Start skipping for ${skipFundingPromptLabel(fundingTarget)}?`}
+                {hasSkipBank ? "Use existing Skip Bucks?" : fundingGoal ? `Skip for ${fundingGoal.label}?` : `Start skipping for ${skipFundingPromptLabel(fundingTarget)}?`}
               </p>
+              {hasSkipBank && (
+                <p className="mt-1 text-xs font-bold leading-snug" style={{ color: "var(--text-muted)" }}>
+                  Future skips will go to {skipFundingPromptLabel(fundingTarget)}. You also have {formatCurrency(availableSkipBankBalance)} from earlier skips.
+                </p>
+              )}
             </div>
             <div className="space-y-3 p-5">
               {fundingGoal && (
@@ -2727,22 +2672,10 @@ function JarBrowser({
                   </p>
                 </div>
               )}
-              {availableSkipBankBalance > 0 && (
-                <button
-                  type="button"
-                  onClick={() => setShowFundingDetails((value) => !value)}
-                  className="flex w-full items-center justify-between py-1 text-sm font-bold"
-                  style={{ background: "transparent", border: "none", color: "var(--text-muted)" }}
-                  aria-expanded={showFundingDetails}
-                >
-                  <span>{showFundingDetails ? "Hide Unassigned Skip Bucks" : "Move Unassigned Skip Bucks"}</span>
-                  <span aria-hidden="true">{showFundingDetails ? "▲" : "▼"}</span>
-                </button>
-              )}
-              {availableSkipBankBalance > 0 && showFundingDetails && (
+              {hasSkipBank && (
                 <div className="rounded-xl p-4" style={{ background: "rgba(237,245,240,0.045)", border: "1px solid rgba(237,245,240,0.08)" }}>
                   <p className="mb-3 text-xs font-bold leading-snug" style={{ color: "var(--text-muted)" }}>
-                    You have {formatCurrency(availableSkipBankBalance)} in Unassigned Skip Bucks. Move some into this jar if you want these saved skips earmarked for this reward.
+                    Type how much to move into this jar now.
                   </p>
                   <div className="relative">
                     <span className="absolute left-4 top-1/2 -translate-y-1/2 text-sm" style={{ color: "var(--text-muted)" }}>$</span>
@@ -2774,31 +2707,19 @@ function JarBrowser({
                     className="mt-3 w-full rounded-xl py-3 text-sm font-black disabled:opacity-50"
                     style={{ background: fundingTarget.type === "fundraiser" ? "rgba(46,204,113,0.18)" : "rgba(139,92,246,0.2)", color: fundingMutedColor }}
                   >
-                    {fundingWorking ? "Moving..." : "Move into jar"}
+                    {fundingWorking ? "Moving..." : "Use these skips"}
                   </button>
                 </div>
               )}
               <button
-                onClick={() => {
-                  void (async () => {
-                    setFundingWorking(true);
-                    try {
-                      await onSetSkipTarget(fundingTarget);
-                      setFundingTarget(null);
-                      router.push("/home");
-                    } catch (err) {
-                      console.error("activate jar failed", err);
-                      toast.error("Couldn't activate this jar. Please try again.");
-                    } finally {
-                      setFundingWorking(false);
-                    }
-                  })();
-                }}
+                onClick={confirmSkipBankDecline}
                 disabled={fundingWorking}
                 className="w-full rounded-xl py-3 text-sm font-black disabled:opacity-50"
-                style={{ background: fundingAccent, color: fundingTextColor }}
+                style={hasSkipBank
+                  ? { background: "var(--bg-surface-3)", color: "var(--text-primary)", border: "1px solid var(--border-default)" }
+                  : { background: fundingAccent, color: fundingTextColor }}
               >
-                {fundingWorking ? "Activating..." : fundingGoal ? "Skip for this reward" : "Start skipping for this"}
+                {fundingWorking ? "Activating..." : hasSkipBank ? "Don't use these skips" : fundingGoal ? "Skip for this reward" : "Start skipping for this"}
               </button>
             </div>
           </div>
