@@ -124,7 +124,7 @@ export default function ProfilePage() {
 
   return (
     <div className="p-4 md:p-10 max-w-3xl mx-auto pb-28 md:pb-10">
-      <h1 className="text-2xl font-bold mb-10" style={{ color: "var(--text-primary)" }}>Profile</h1>
+      <h1 className="hidden text-2xl font-bold mb-10 md:block" style={{ color: "var(--text-primary)" }}>Profile</h1>
 
       <div
         className="mb-5 overflow-hidden"

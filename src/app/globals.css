@@ -300,10 +300,6 @@ body {
   .mobile-app-wordmark span {
     color: var(--green-primary);
   }
-  .home-greeting {
-    max-width: 22rem;
-    letter-spacing: 0;
-  }
   .app-skip-bucks-counter {
     display: inline-flex;
     flex-shrink: 0;
@@ -353,29 +349,34 @@ body {
   }
 }
 
+@media (max-width: 767px) {
+  .jars-page-header {
+    margin-bottom: 10px !important;
+    padding-right: 0;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: flex-end !important;
+  }
+}
+
 @media (max-width: 520px) {
   .jars-page-shell { padding-top: 18px !important; }
   .jars-page-header {
-    margin-bottom: 14px !important;
-    padding-right: 92px;
+    margin-bottom: 10px !important;
+    padding-right: 0;
     display: flex !important;
-    flex-direction: column !important;
-    align-items: flex-start !important;
-    justify-content: flex-start !important;
-    gap: 2px !important;
+    align-items: center !important;
+    justify-content: flex-end !important;
   }
   .jars-page-subtitle {
     display: none !important;
   }
   .jars-page-title {
-    display: block !important;
-    font-size: 25px !important;
-    line-height: 1.05 !important;
-    letter-spacing: 0 !important;
+    display: none !important;
   }
   .jars-activity-link {
     min-height: 32px;
-    padding: 0 !important;
+    padding: 0 2px !important;
     border: none !important;
     background: transparent !important;
     color: var(--green-primary) !important;

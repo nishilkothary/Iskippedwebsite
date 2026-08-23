@@ -1964,11 +1964,8 @@ export default function HomePage() {
 
   return (
     <div className="p-4 md:p-8 max-w-3xl mx-auto pb-24 md:pb-8">
-      {/* Greeting + CTA */}
+      {/* CTA */}
       <div style={{ textAlign: "left", marginBottom: 24 }}>
-        <h1 className="home-greeting mb-4 text-lg font-bold leading-snug md:text-xl md:font-black md:leading-tight" style={{ color: "var(--text-primary)" }}>
-          Hey {firstName}
-        </h1>
         <button
           onClick={() => setShowSkipPicker(true)}
           className="home-skip-cta w-full rounded-full py-4 text-lg font-black hover:scale-[1.02] active:scale-[0.97] transition-all duration-200"

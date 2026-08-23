@@ -666,11 +666,10 @@ function JarsPageInner() {
     <div className="jars-page-shell p-4 md:p-8 max-w-3xl mx-auto pb-20 md:pb-8">
       <div className="jars-page-header mb-5 flex items-start justify-between gap-3 sm:flex-row sm:items-end">
         <div>
-          <h1 className="jars-page-title text-2xl font-black tracking-tight sm:text-3xl" style={{ color: "var(--text-primary)" }}>
-            <span className="sm:hidden">Skip Jars</span>
-            <span className="hidden sm:inline">Skip for something</span>
+          <h1 className="jars-page-title hidden text-2xl font-black tracking-tight md:block md:text-3xl" style={{ color: "var(--text-primary)" }}>
+            Skip for something
           </h1>
-          <p className="jars-page-subtitle mt-2 hidden text-sm sm:block" style={{ color: "var(--text-secondary)" }}>
+          <p className="jars-page-subtitle mt-2 hidden text-sm md:block" style={{ color: "var(--text-secondary)" }}>
             Pick a personal goal, or a group fundraiser, and make your skips count.
           </p>
         </div>
