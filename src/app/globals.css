@@ -529,25 +529,26 @@ body {
     text-align: center !important;
   }
   .home-jar-carousel-badge { left: 12px !important; bottom: 12px !important; padding: 6px 10px !important; font-size: 10px !important; letter-spacing: 0.55px !important; }
-  .home-active-fundraiser { padding: 16px !important; border-radius: 20px !important; }
-  .home-fundraiser-header { display: block !important; }
+  .home-active-fundraiser { padding: 14px !important; border-radius: 20px !important; }
+  .home-fundraiser-header { gap: 10px !important; }
   .home-fundraiser-identity {
+    flex: 1 1 auto;
     display: grid !important;
-    grid-template-columns: minmax(0, 1fr) !important;
-    gap: 12px !important;
+    grid-template-columns: 54px minmax(0, 1fr) !important;
+    gap: 10px !important;
     align-items: start !important;
   }
-  .home-fundraiser-avatar { width: 100%; }
-  .home-fundraiser-image { width: 100% !important; height: 142px !important; border-radius: 16px !important; }
-  .home-fundraiser-live { display: inline-flex; align-items: center; gap: 4px; color: #A7F3D0; font-size: 9px; font-weight: 900; letter-spacing: 0.55px; text-transform: uppercase; white-space: nowrap; }
+  .home-fundraiser-avatar { width: 54px; }
+  .home-fundraiser-image { width: 54px !important; height: 54px !important; border-radius: 14px !important; }
+  .home-fundraiser-live { display: inline-flex; align-items: center; gap: 3px; color: #A7F3D0; font-size: 8px; font-weight: 900; letter-spacing: 0.55px; text-transform: uppercase; white-space: nowrap; }
   .home-fundraiser-live i { width: 4px; height: 4px; border-radius: 50%; background: var(--green-primary); }
-  .home-fundraiser-meta { gap: 7px !important; }
-  .home-fundraiser-meta > p { font-size: 11px !important; letter-spacing: 0.95px !important; }
-  .home-fundraiser-title { margin-top: 6px !important; font-size: 24px !important; line-height: 1.08 !important; }
-  .home-fundraiser-share { position: absolute; right: 14px; top: 14px; }
+  .home-fundraiser-meta { gap: 5px !important; }
+  .home-fundraiser-meta > p { font-size: 10px !important; letter-spacing: 0.85px !important; }
+  .home-fundraiser-title { margin-top: 4px !important; font-size: 18px !important; line-height: 1.08 !important; }
+  .home-fundraiser-share { flex: 0 0 auto; }
   .home-fundraiser-share-desktop { display: none; }
   .home-fundraiser-share-mobile { display: inline-block !important; }
-  .home-fundraiser-share button { display: grid !important; place-items: center; width: 34px !important; height: 34px !important; min-width: 0 !important; padding: 0 !important; background: rgba(7,27,20,0.62) !important; border-color: rgba(237,245,240,0.16) !important; color: var(--green-primary) !important; font-size: 19px !important; line-height: 1 !important; backdrop-filter: blur(8px); }
+  .home-fundraiser-share button { display: grid !important; place-items: center; width: 30px !important; height: 30px !important; min-width: 0 !important; padding: 0 !important; background: transparent !important; border-color: transparent !important; color: var(--green-primary) !important; font-size: 19px !important; line-height: 1 !important; }
   .home-fundraiser-jars { gap: 10px !important; margin-top: 10px !important; }
   .home-fundraiser-jars svg { max-width: 100%; height: auto; }
   .jars-card-action {
@@ -575,7 +576,7 @@ body {
   .home-jar-carousel-card { grid-template-rows: 136px minmax(168px, auto); }
   .home-jar-carousel-media { min-height: 136px; }
   .home-jar-carousel-title { font-size: 21px !important; }
-  .home-fundraiser-title { font-size: 22px !important; }
+  .home-fundraiser-title { font-size: 18px !important; }
 }
 
 /* Scrollbar */
