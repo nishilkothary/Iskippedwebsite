@@ -1183,6 +1183,8 @@ export default function HomePage() {
   const [contributionMode, setContributionMode] = useState<"contribute" | "log">("contribute");
   const [showSpendModal, setShowSpendModal] = useState(false);
   const [jarCarouselIndex, setJarCarouselIndex] = useState(0);
+  const jarCarouselSwipe = useRef<{ x: number; y: number; pointerId: number } | null>(null);
+  const suppressCarouselClick = useRef(false);
   const [dismissedJarCarousel, setDismissedJarCarousel] = useState(false);
   const [homeFundingTarget, setHomeFundingTarget] = useState<SkipAllocationTarget | null>(null);
   const [homeFundingAmountStr, setHomeFundingAmountStr] = useState("");
@@ -1549,6 +1551,41 @@ export default function HomePage() {
     ? jarCarouselIndex % jarCarouselItems.length
     : 0;
   const activeJarCarouselItem = jarCarouselItems[activeJarCarouselIndex] ?? null;
+
+  function moveJarCarousel(direction: 1 | -1) {
+    if (jarCarouselItems.length < 2) return;
+    setJarCarouselIndex((current) => (current + direction + jarCarouselItems.length) % jarCarouselItems.length);
+  }
+
+  function handleJarCarouselPointerDown(event: React.PointerEvent<HTMLDivElement>) {
+    if (jarCarouselItems.length < 2 || event.pointerType === "mouse") return;
+    jarCarouselSwipe.current = { x: event.clientX, y: event.clientY, pointerId: event.pointerId };
+    suppressCarouselClick.current = false;
+    event.currentTarget.setPointerCapture?.(event.pointerId);
+  }
+
+  function handleJarCarouselPointerUp(event: React.PointerEvent<HTMLDivElement>) {
+    const start = jarCarouselSwipe.current;
+    if (!start || start.pointerId !== event.pointerId) return;
+    jarCarouselSwipe.current = null;
+    event.currentTarget.releasePointerCapture?.(event.pointerId);
+
+    const deltaX = event.clientX - start.x;
+    const deltaY = event.clientY - start.y;
+    if (Math.abs(deltaX) < 46 || Math.abs(deltaX) < Math.abs(deltaY) * 1.25) return;
+
+    suppressCarouselClick.current = true;
+    moveJarCarousel(deltaX < 0 ? 1 : -1);
+    window.setTimeout(() => {
+      suppressCarouselClick.current = false;
+    }, 0);
+  }
+
+  function handleJarCarouselClickCapture(event: React.MouseEvent<HTMLDivElement>) {
+    if (!suppressCarouselClick.current) return;
+    event.preventDefault();
+    event.stopPropagation();
+  }
 
   useEffect(() => {
     if (activeGoal || activeProject || dismissedJarCarousel || jarCarouselItems.length < 2) return;
@@ -2048,11 +2085,18 @@ export default function HomePage() {
               </div>
             </div>
 
-            <div className="home-jar-carousel-frame" style={{ display: "grid", gridTemplateColumns: "40px minmax(0, 1fr) 40px", alignItems: "center", gap: 10, marginTop: 22 }}>
+            <div
+              className="home-jar-carousel-frame"
+              onPointerDown={handleJarCarouselPointerDown}
+              onPointerUp={handleJarCarouselPointerUp}
+              onPointerCancel={() => { jarCarouselSwipe.current = null; }}
+              onClickCapture={handleJarCarouselClickCapture}
+              style={{ display: "grid", gridTemplateColumns: "40px minmax(0, 1fr) 40px", alignItems: "center", gap: 10, marginTop: 22, touchAction: "pan-y" }}
+            >
               <button
                 type="button"
                 aria-label="Previous jar suggestion"
-                onClick={() => setJarCarouselIndex((current) => (current - 1 + jarCarouselItems.length) % jarCarouselItems.length)}
+                onClick={() => moveJarCarousel(-1)}
                 className="home-jar-carousel-arrow"
                 style={{ width: 40, height: 40, borderRadius: 999, background: "rgba(237,245,240,0.06)", border: "1px solid rgba(237,245,240,0.11)", color: "var(--text-primary)", fontSize: 22, fontWeight: 900 }}
               >
@@ -2064,7 +2108,7 @@ export default function HomePage() {
               <button
                 type="button"
                 aria-label="Next jar suggestion"
-                onClick={() => setJarCarouselIndex((current) => (current + 1) % jarCarouselItems.length)}
+                onClick={() => moveJarCarousel(1)}
                 className="home-jar-carousel-arrow"
                 style={{ width: 40, height: 40, borderRadius: 999, background: "rgba(237,245,240,0.06)", border: "1px solid rgba(237,245,240,0.11)", color: "var(--text-primary)", fontSize: 22, fontWeight: 900 }}
               >
