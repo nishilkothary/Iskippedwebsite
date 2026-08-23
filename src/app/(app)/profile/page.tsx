@@ -261,6 +261,19 @@ export default function ProfilePage() {
           </div>
           <span className="text-lg font-black" style={{ color: "var(--green-primary)" }} aria-hidden="true">→</span>
         </Link>
+        <Link
+          href="/jar-activity"
+          className="mt-3 flex items-center justify-between gap-4 p-4 transition-colors"
+          style={{ ...cardStyle, borderRadius: 18, textDecoration: "none" }}
+        >
+          <div>
+            <p className="text-sm font-black" style={{ color: "var(--text-primary)" }}>Manage jars</p>
+            <p className="mt-1 text-xs" style={{ color: "var(--text-muted)" }}>
+              Review jar balances, purchases, and donations.
+            </p>
+          </div>
+          <span className="text-lg font-black" style={{ color: "var(--green-primary)" }} aria-hidden="true">→</span>
+        </Link>
       </div>
 
       {/* Settings */}
