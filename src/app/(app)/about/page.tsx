@@ -123,11 +123,11 @@ export default function AboutPage() {
             <p>
               Amazed by his sacrifice, I asked how much his tuition would cost, expecting a relatively large number. His answer shocked me: &quot;$170,&quot; he said.
             </p>
-            <p>
-              That number stayed with me. Back home, $170 could disappear into a few dinners out or some drinks with friends. For him, it meant a year of education and a lifetime of opportunity.
-            </p>
             {storyExpanded ? (
               <>
+                <p>
+                  That number stayed with me. Back home, $170 could disappear into a few dinners out or some drinks with friends. For him, it meant a year of education and a lifetime of opportunity.
+                </p>
                 <p>
                   For the rest of my trip, I started looking at every purchase through that frame of reference: if I did not buy this, how much closer could I get to funding his tuition? Eventually, that way of thinking, and a few skipped expenses later, helped me cover that $170 tuition.
                 </p>
@@ -148,7 +148,7 @@ export default function AboutPage() {
                 </p>
                 <p className="pt-2" style={{ color: "var(--text-primary)" }}>
                   <span className="block text-base" style={{ fontFamily: "Georgia, serif", fontStyle: "italic" }}>Nishil Kothary</span>
-                  <span className="mt-1 block text-xs font-black uppercase tracking-[0.18em]" style={{ color: "var(--green-primary)" }}>Founder of iSkipped</span>
+                  <span className="mt-1 block text-xs font-black uppercase tracking-[0.18em]" style={{ color: "var(--text-muted)" }}>Founder of iSkipped</span>
                 </p>
               </>
             ) : (
