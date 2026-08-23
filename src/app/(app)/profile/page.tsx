@@ -123,7 +123,7 @@ export default function ProfilePage() {
   }
 
   return (
-    <div className="p-5 md:p-10 max-w-3xl mx-auto pb-24 md:pb-10">
+    <div className="p-4 md:p-10 max-w-3xl mx-auto pb-28 md:pb-10">
       <h1 className="text-2xl font-bold mb-10" style={{ color: "var(--text-primary)" }}>Profile</h1>
 
       <div
@@ -188,15 +188,15 @@ export default function ProfilePage() {
 
       {/* Lifetime stats */}
       <div className="mb-8">
-        <div className="grid grid-cols-3 gap-2 sm:gap-3 mb-4">
+        <div className="grid grid-cols-2 gap-2 sm:gap-3 md:grid-cols-3 mb-4">
           {[
             { label: "Skipped", value: formatCurrency(skipBalance.lifetimeSaved), note: `${profile.totalSkips} no-thanks`, color: "var(--text-primary)" },
             { label: "Spent", value: formatCurrency(skipBalance.spentFromSkips), note: "on goals", color: "#A78BFA" },
             { label: "Donated", value: formatCurrency(skipBalance.donatedFromSkips), note: "to fundraisers", color: "var(--green-primary)" },
           ].map((s, i) => (
-            <div key={s.label} className="px-3 py-3 sm:px-4 sm:py-4" style={{ ...cardStyle, borderRadius: 16 }}>
+            <div key={s.label} className={i === 0 ? "col-span-2 px-4 py-4 md:col-span-1" : "px-4 py-4"} style={{ ...cardStyle, borderRadius: 16 }}>
               <p className="text-[10px] font-black uppercase tracking-[0.12em]" style={{ color: "var(--text-secondary)" }}>{s.label}</p>
-              <p className="mt-1 text-base font-black sm:text-xl" style={{ color: s.color }}>{s.value}</p>
+              <p className={i === 0 ? "mt-1 text-2xl font-black md:text-xl" : "mt-1 text-lg font-black sm:text-xl"} style={{ color: s.color }}>{s.value}</p>
               <p className="mt-0.5 text-[10px] sm:text-xs" style={{ color: "var(--text-muted)" }}>{s.note}</p>
             </div>
           ))}
