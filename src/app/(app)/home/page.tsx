@@ -1966,8 +1966,9 @@ export default function HomePage() {
     <div className="p-4 md:p-8 max-w-3xl mx-auto pb-24 md:pb-8">
       {/* Greeting + CTA */}
       <div style={{ textAlign: "left", marginBottom: 24 }}>
-        <h1 className="mb-4 text-xl font-black leading-snug sm:text-2xl sm:leading-tight" style={{ color: "var(--text-primary)" }}>
-          Hey {firstName}, is there anything you skipped this week?
+        <h1 className="home-greeting mb-4 text-lg font-bold leading-snug md:text-xl md:font-black md:leading-tight" style={{ color: "var(--text-primary)" }}>
+          <span>Hey {firstName},</span>{" "}
+          <span className="home-greeting-question">anything you skipped this week?</span>
         </h1>
         <button
           onClick={() => setShowSkipPicker(true)}

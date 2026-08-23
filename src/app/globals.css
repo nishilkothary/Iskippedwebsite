@@ -283,9 +283,9 @@ body {
     gap: 12px;
     min-height: calc(58px + env(safe-area-inset-top));
     padding: calc(8px + env(safe-area-inset-top)) 14px 8px;
-    background: linear-gradient(180deg, rgba(16,36,27,0.98), rgba(11,26,20,0.94));
-    border-bottom: 1px solid var(--border-default);
-    box-shadow: 0 10px 24px rgba(0,0,0,0.18);
+    background: linear-gradient(180deg, rgba(18,43,32,0.98), rgba(12,31,24,0.96));
+    border-bottom: 1px solid rgba(237,245,240,0.1);
+    box-shadow: 0 10px 24px rgba(0,0,0,0.16);
     backdrop-filter: blur(14px);
   }
   .mobile-app-wordmark {
@@ -299,6 +299,14 @@ body {
   }
   .mobile-app-wordmark span {
     color: var(--green-primary);
+  }
+  .home-greeting {
+    max-width: 22rem;
+    letter-spacing: 0;
+  }
+  .home-greeting-question {
+    color: var(--text-secondary);
+    font-weight: 700;
   }
   .app-skip-bucks-counter {
     display: inline-flex;
