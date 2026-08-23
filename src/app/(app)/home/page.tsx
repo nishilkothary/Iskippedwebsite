@@ -1928,18 +1928,17 @@ export default function HomePage() {
   return (
     <div className="p-4 md:p-8 max-w-3xl mx-auto pb-24 md:pb-8">
       {/* Mobile logo — hidden on desktop (sidebar has it) */}
-      <div className="flex md:hidden justify-center mb-5">
-        <p className="text-3xl font-black tracking-tight" style={{ color: "var(--text-primary)" }}>
+      <div className="flex md:hidden justify-start mb-4">
+        <p className="text-2xl font-black tracking-tight" style={{ color: "var(--text-primary)" }}>
           i<span style={{ color: "var(--green-primary)" }}>skipped</span>
         </p>
       </div>
 
       {/* Greeting + CTA */}
-      <div style={{ textAlign: "center", marginBottom: 24 }}>
-        <h1 className="text-2xl font-black" style={{ color: "var(--text-primary)" }}>Hey {firstName}.</h1>
-        <p className="mt-1 mb-5 text-sm" style={{ color: "var(--text-muted)" }}>
-          Is there an expense you can skip this week?
-        </p>
+      <div style={{ textAlign: "left", marginBottom: 24 }}>
+        <h1 className="mb-5 text-2xl font-black leading-tight" style={{ color: "var(--text-primary)" }}>
+          Hey {firstName}, is there anything you skipped this week?
+        </h1>
         <button
           onClick={() => setShowSkipPicker(true)}
           className="home-skip-cta w-full rounded-full py-4 text-lg font-black hover:scale-[1.02] active:scale-[0.97] transition-all duration-200"
