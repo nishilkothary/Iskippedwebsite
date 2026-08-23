@@ -304,10 +304,6 @@ body {
     max-width: 22rem;
     letter-spacing: 0;
   }
-  .home-greeting-question {
-    color: var(--text-secondary);
-    font-weight: 700;
-  }
   .app-skip-bucks-counter {
     display: inline-flex;
     flex-shrink: 0;
