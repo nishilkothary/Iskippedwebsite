@@ -35,6 +35,7 @@ export async function POST(req: NextRequest) {
     const notes: string | undefined = typeof body.notes === "string" ? body.notes : undefined;
     const displayName: string | undefined = typeof body.displayName === "string" ? body.displayName : undefined;
     const photoURL: string | null | undefined = typeof body.photoURL === "string" ? body.photoURL : undefined;
+    const hasRequestedAllocationTarget = Object.prototype.hasOwnProperty.call(body, "allocationTarget");
     const requestedAllocationTarget = parseAllocationTarget(body.allocationTarget);
 
     const db = getAdminDb();
@@ -78,10 +79,11 @@ export async function POST(req: NextRequest) {
 
       const impactMessage = getImpactMessage(amount);
       const message = `skipped ${whatSkipped || categoryLabel}${causeSuffix}`;
-      const allocationTarget = requestedAllocationTarget
-        ?? getActiveSkipTarget(profile)
-        ?? (projectId ? { type: "fundraiser" as const, id: projectId } : null)
-        ?? (profile.activeProjectId ? { type: "fundraiser" as const, id: profile.activeProjectId } : null);
+      const allocationTarget = hasRequestedAllocationTarget
+        ? requestedAllocationTarget
+        : getActiveSkipTarget(profile)
+          ?? (projectId ? { type: "fundraiser" as const, id: projectId } : null)
+          ?? (profile.activeProjectId ? { type: "fundraiser" as const, id: profile.activeProjectId } : null);
       const resolvedProjectId = projectId
         ?? (allocationTarget?.type === "fundraiser" ? allocationTarget.id : null);
 

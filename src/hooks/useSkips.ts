@@ -31,10 +31,11 @@ export function useSkips() {
   async function log(params: Omit<LogSkipParams, "uid" | "currentTotalSaved" | "currentTotalSkips" | "currentXp" | "currentStreak" | "currentLongestStreak" | "lastSkipDate" | "savedTowardActiveCause" | "activeGoalId" | "causeJarBalance" | "causeJarOverflowCount">) {
     if (!user || !profile) return null;
     setLogging(true);
-    const allocationTarget = params.allocationTarget
-      ?? getActiveSkipTarget(profile)
-      ?? (params.projectId ? { type: "fundraiser" as const, id: params.projectId } : null)
-      ?? (profile.activeProjectId ? { type: "fundraiser" as const, id: profile.activeProjectId } : null);
+    const allocationTarget = params.allocationTarget !== undefined
+      ? params.allocationTarget
+      : getActiveSkipTarget(profile)
+        ?? (params.projectId ? { type: "fundraiser" as const, id: params.projectId } : null)
+        ?? (profile.activeProjectId ? { type: "fundraiser" as const, id: profile.activeProjectId } : null);
     const causeJarId = allocationTarget?.type === "fundraiser" ? allocationTarget.id : params.projectId ?? "";
     const causeJarBalance = Math.max(0, profile.causeJarBalances?.[causeJarId] ?? 0);
     const causeJarOverflowCount = profile.causeJarOverflowCounts?.[causeJarId] ?? 0;

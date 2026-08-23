@@ -15,7 +15,7 @@ import { appendRefParam, getChallengeSharePath } from "@/lib/utils/share";
 import { getChallengeCausePhrase, getPostSkipShareText } from "@/lib/utils/challengeShareCopy";
 import { ShareButton } from "@/components/share/ShareButton";
 import { SkipSetupPrompt } from "@/components/setup/SkipSetupPrompt";
-import type { Project } from "@/lib/types/models";
+import type { Project, SkipAllocationTarget } from "@/lib/types/models";
 
 interface Props {
   onClose: () => void;
@@ -43,6 +43,10 @@ type VariableReward = {
   effect?: "confetti" | "fireworks";
 };
 
+function targetKey(target: SkipAllocationTarget | null): string {
+  return target ? `${target.type}:${target.id}` : "skip-bucks";
+}
+
 function formatSuccessImpactUnits(
   amount: number,
   unitCost: number,
@@ -69,11 +73,12 @@ export function SkipModal({ onClose }: Props) {
   const [shareWithCommunity, setShareWithCommunity] = useState(profile?.shareSkipsByDefault !== false);
   const shareToggleTouchedRef = useRef(false);
   const resolvedActiveTarget = profile ? getActiveSkipTarget(profile) : null;
-  const selectedFundraiserId = resolvedActiveTarget?.type === "fundraiser"
-    ? resolvedActiveTarget.id
-    : resolvedActiveTarget?.type === "goal"
-      ? null
-      : profile?.activeProjectId ?? null;
+  const defaultSkipTarget = resolvedActiveTarget
+    ?? (profile?.activeProjectId ? { type: "fundraiser" as const, id: profile.activeProjectId } : null);
+  const [selectedSkipTarget, setSelectedSkipTarget] = useState<SkipAllocationTarget | null>(defaultSkipTarget);
+  const [showTargetPicker, setShowTargetPicker] = useState(false);
+  const targetPickerTouchedRef = useRef(false);
+  const selectedFundraiserId = selectedSkipTarget?.type === "fundraiser" ? selectedSkipTarget.id : null;
   const projectId = selectedFundraiserId;
   const [success, setSuccess] = useState(false);
   const [successProject, setSuccessProject] = useState<Project | null>(null);
@@ -93,7 +98,7 @@ export function SkipModal({ onClose }: Props) {
   const dialogRef = useModalA11y(onClose);
   const selectedVariableRewardRef = useRef<{ skipCount: number; reward: VariableReward } | null>(null);
   const activeProjectForSkip = projects.find((p) => p.id === projectId) ?? null;
-  const skipAllocationTarget = resolvedActiveTarget
+  const skipAllocationTarget = selectedSkipTarget
     ?? (activeProjectForSkip ? { type: "fundraiser" as const, id: activeProjectForSkip.id } : null);
   const isFundraiserSkip = skipAllocationTarget?.type === "fundraiser" && !!activeProjectForSkip;
   // If the active project has expired, don't credit this skip to its jar
@@ -107,6 +112,69 @@ export function SkipModal({ onClose }: Props) {
     }
   }, [profile?.shareSkipsByDefault]);
 
+  useEffect(() => {
+    if (!targetPickerTouchedRef.current) {
+      setSelectedSkipTarget(defaultSkipTarget);
+    }
+  }, [targetKey(defaultSkipTarget)]);
+
+  const { goals: spendingGoals } = normalizeSpendingGoals(profile ?? {} as any);
+  const fundraiserJarIds = new Set<string>();
+  if (profile?.activeProjectId) fundraiserJarIds.add(profile.activeProjectId);
+  if (resolvedActiveTarget?.type === "fundraiser") fundraiserJarIds.add(resolvedActiveTarget.id);
+  (profile?.joinedProjectIds ?? []).forEach((id) => fundraiserJarIds.add(id));
+  (profile?.parkedSkipTargets ?? [])
+    .filter((target) => target.type === "fundraiser")
+    .forEach((target) => fundraiserJarIds.add(target.id));
+  Object.entries(profile?.causeJarBalances ?? {})
+    .filter(([, balance]) => Math.max(0, balance ?? 0) > 0)
+    .forEach(([id]) => fundraiserJarIds.add(id));
+
+  const fundraiserJarOptions = projects.filter((project) => fundraiserJarIds.has(project.id));
+  const skipTargetOptions: Array<{
+    key: string;
+    target: SkipAllocationTarget | null;
+    label: string;
+    detail: string;
+    accent: string;
+  }> = [
+    ...spendingGoals.map((goal): {
+      key: string;
+      target: SkipAllocationTarget;
+      label: string;
+      detail: string;
+      accent: string;
+    } => ({
+      key: targetKey({ type: "goal", id: goal.id }),
+      target: { type: "goal", id: goal.id },
+      label: goal.label,
+      detail: `${targetKey(defaultSkipTarget) === targetKey({ type: "goal", id: goal.id }) ? "Active reward jar" : "Reward jar"} · ${formatCurrency(Math.max(0, profile?.goalJarBalances?.[goal.id] ?? 0))} saved`,
+      accent: "#A78BFA",
+    })),
+    ...fundraiserJarOptions.map((project): {
+      key: string;
+      target: SkipAllocationTarget;
+      label: string;
+      detail: string;
+      accent: string;
+    } => ({
+      key: targetKey({ type: "fundraiser", id: project.id }),
+      target: { type: "fundraiser", id: project.id },
+      label: project.groupName ?? project.title,
+      detail: `${targetKey(defaultSkipTarget) === targetKey({ type: "fundraiser", id: project.id }) ? "Active fundraiser" : "Fundraiser"} · ${formatCurrency(Math.max(0, profile?.causeJarBalances?.[project.id] ?? 0))} saved`,
+      accent: "var(--green-primary)",
+    })),
+    {
+      key: targetKey(null),
+      target: null,
+      label: "Skip Bucks",
+      detail: "Keep this skip unassigned for now",
+      accent: "var(--gold-cta)",
+    },
+  ];
+  const selectedTargetOption = skipTargetOptions.find((option) => option.key === targetKey(skipAllocationTarget))
+    ?? skipTargetOptions[skipTargetOptions.length - 1];
+
   function handleCatSelect(cat: typeof defaultCat) {
     setSelectedCat(cat);
     setCustomLabel("");
@@ -114,8 +182,9 @@ export function SkipModal({ onClose }: Props) {
 
   async function handleSubmit() {
     const selectedProject = projects.find((p) => p.id === projectId);
-    const { goals: availableGoals, activeId: activeGoalId } = normalizeSpendingGoals(profile ?? {} as any);
-    const activeGoal = availableGoals.find((goal) => goal.id === activeGoalId) ?? null;
+    const activeGoal = skipAllocationTarget?.type === "goal"
+      ? spendingGoals.find((goal) => goal.id === skipAllocationTarget.id) ?? null
+      : null;
     const skipBankBefore = Math.max(
       0,
       (profile?.totalSaved ?? 0) - (profile?.totalSpent ?? 0) - (profile?.totalDonated ?? 0)
@@ -128,7 +197,7 @@ export function SkipModal({ onClose }: Props) {
     // Pre-compute jar-full state synchronously using same formula as jars page
     const activeTarget = skipAllocationTarget;
     const personalGoal = activeTarget?.type === "goal"
-      ? availableGoals.find((goal) => goal.id === activeTarget.id)?.targetAmount ?? 0
+      ? spendingGoals.find((goal) => goal.id === activeTarget.id)?.targetAmount ?? 0
       : 0;
     const currentJarBal = activeTarget?.type === "fundraiser"
       ? profile?.causeJarBalances?.[activeTarget.id] ?? 0
@@ -181,10 +250,10 @@ export function SkipModal({ onClose }: Props) {
       setSuccessSkipCount(nextSkipCount);
       const goalTarget = activeGoal?.targetAmount ?? 0;
       const goalJustReached = goalTarget > 0
-        && skipBankBefore < goalTarget
-        && projectedSkipBank >= goalTarget;
-      const goalCoverageBefore = goalTarget > 0 ? (skipBankBefore / goalTarget) * 100 : 0;
-      const goalCoverageAfter = goalTarget > 0 ? (projectedSkipBank / goalTarget) * 100 : 0;
+        && currentJarBal < goalTarget
+        && expectedJarBal >= goalTarget;
+      const goalCoverageBefore = goalTarget > 0 ? (Math.max(0, currentJarBal) / goalTarget) * 100 : 0;
+      const goalCoverageAfter = goalTarget > 0 ? (expectedJarBal / goalTarget) * 100 : 0;
       const goalProgressMilestoneHit = [25, 50, 75].some((threshold) =>
         goalCoverageBefore < threshold && goalCoverageAfter >= threshold
       );
@@ -244,8 +313,9 @@ export function SkipModal({ onClose }: Props) {
 
     // Build the success hero around the concrete transformation this skip becomes.
     const itemLabel = whatSkipped || customLabel || selectedCat.label.toLowerCase();
-    const { goals: successGoals, activeId: successActiveGoalId } = normalizeSpendingGoals(profile ?? {} as any);
-    const activeGoal = successGoals.find((goal) => goal.id === successActiveGoalId) ?? null;
+    const activeGoal = skipAllocationTarget?.type === "goal"
+      ? spendingGoals.find((goal) => goal.id === skipAllocationTarget.id) ?? null
+      : null;
     const recentLargestSkip = Math.max(
       0,
       ...recentSkips.filter((skip) => skip.projectId === (successActiveProject?.id ?? null)).map((skip) => skip.amount)
@@ -1040,18 +1110,13 @@ export function SkipModal({ onClose }: Props) {
   }
 
   const skipAmountLive = amount;
-  const activeTargetLive = profile ? getActiveSkipTarget(profile) : null;
-  const { goals: spendingGoals, activeId: activeSpendingGoalId } = normalizeSpendingGoals(profile ?? {} as any);
+  const activeTargetLive = skipAllocationTarget;
   const activeProjectLive = activeTargetLive?.type === "fundraiser"
     ? projects.find((p) => p.id === activeTargetLive.id) ?? null
-    : activeTargetLive
-      ? null
-      : projects.find((p) => p.id === profile?.activeProjectId) ?? null;
+    : null;
   const activeGoalLive = activeTargetLive?.type === "goal"
     ? spendingGoals.find((g) => g.id === activeTargetLive.id) ?? null
-    : activeTargetLive
-      ? null
-      : spendingGoals.find((g) => g.id === activeSpendingGoalId) ?? null;
+    : null;
   const spendingGoalLabelLive = activeGoalLive?.label ?? "Reward Jar";
   const fundraiserGoalAmountLive = activeProjectLive?.goalAmount ?? 0;
   const fundraiserContributionPctLive = fundraiserGoalAmountLive > 0 ? (skipAmountLive / fundraiserGoalAmountLive) * 100 : 0;
@@ -1153,6 +1218,76 @@ export function SkipModal({ onClose }: Props) {
               </div>
             </div>
           )}
+
+          {/* Destination */}
+          <div
+            className="rounded-2xl p-3"
+            style={{ background: "var(--bg-surface-2)", border: "1px solid var(--border-default)" }}
+          >
+            <div className="flex items-start justify-between gap-3">
+              <div className="min-w-0">
+                <p className="text-[11px] font-black uppercase tracking-widest" style={{ color: "var(--text-muted)" }}>
+                  Skipping for
+                </p>
+                <p className="mt-1 truncate text-sm font-black" style={{ color: "var(--text-primary)" }}>
+                  {selectedTargetOption.label}
+                </p>
+                <p className="mt-0.5 text-xs" style={{ color: "var(--text-muted)" }}>
+                  {selectedTargetOption.detail}
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowTargetPicker((value) => !value)}
+                className="shrink-0 rounded-full px-3 py-1.5 text-xs font-black"
+                style={{
+                  background: "rgba(237,245,240,0.08)",
+                  border: "1px solid rgba(237,245,240,0.12)",
+                  color: "var(--green-primary)",
+                }}
+                aria-expanded={showTargetPicker}
+              >
+                Change
+              </button>
+            </div>
+            {showTargetPicker && (
+              <div className="mt-3 grid gap-2">
+                {skipTargetOptions.map((option) => {
+                  const selected = option.key === selectedTargetOption.key;
+                  return (
+                    <button
+                      key={option.key}
+                      type="button"
+                      onClick={() => {
+                        targetPickerTouchedRef.current = true;
+                        setSelectedSkipTarget(option.target);
+                        setShowTargetPicker(false);
+                      }}
+                      className="flex items-center justify-between gap-3 rounded-xl px-3 py-2 text-left"
+                      style={{
+                        background: selected ? "rgba(237,245,240,0.08)" : "transparent",
+                        border: selected ? `1px solid ${option.accent}` : "1px solid var(--border-default)",
+                      }}
+                    >
+                      <span className="min-w-0">
+                        <span className="block truncate text-sm font-bold" style={{ color: "var(--text-primary)" }}>
+                          {option.label}
+                        </span>
+                        <span className="block text-xs" style={{ color: "var(--text-muted)" }}>
+                          {option.detail}
+                        </span>
+                      </span>
+                      <span
+                        className="h-2.5 w-2.5 shrink-0 rounded-full"
+                        style={{ background: selected ? option.accent : "rgba(237,245,240,0.18)" }}
+                        aria-hidden="true"
+                      />
+                    </button>
+                  );
+                })}
+              </div>
+            )}
+          </div>
 
           {/* Categories */}
           <div>
