@@ -125,12 +125,15 @@ function MobileBottomNav({ onLogSkip }: { onLogSkip: () => void }) {
 
   return (
     <nav
-      className="flex md:hidden fixed bottom-0 left-0 right-0 z-10"
+      className="flex md:hidden fixed bottom-0 left-0 right-0 z-40"
       style={{
         background: "linear-gradient(180deg, #10241B, #0B1A14)",
         borderTop: "1px solid var(--border-default)",
         backdropFilter: "blur(12px)",
-        paddingBottom: "env(safe-area-inset-bottom)",
+        boxShadow: "0 -10px 28px rgba(0,0,0,0.28)",
+        minHeight: "calc(68px + env(safe-area-inset-bottom))",
+        paddingTop: 6,
+        paddingBottom: "calc(env(safe-area-inset-bottom) + 8px)",
       }}
     >
       {firstItems.map(renderNavItem)}
@@ -268,7 +271,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
         <SidebarNav onLogSkip={() => setShowSkipPicker(true)} />
       </Suspense>
 
-      <main className="flex-1 overflow-y-auto pb-24 md:pb-0">
+      <main className="flex-1 overflow-y-auto pb-28 md:pb-0">
         <EmailVerificationBanner />
         <ChallengeBanners />
         {children}
