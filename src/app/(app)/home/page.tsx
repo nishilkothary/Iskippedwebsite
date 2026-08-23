@@ -1973,7 +1973,7 @@ export default function HomePage() {
 
       {/* Greeting + CTA */}
       <div style={{ textAlign: "left", marginBottom: 24 }}>
-        <h1 className="mb-5 text-2xl font-black leading-tight" style={{ color: "var(--text-primary)" }}>
+        <h1 className="mb-4 text-xl font-black leading-snug sm:text-2xl sm:leading-tight" style={{ color: "var(--text-primary)" }}>
           Hey {firstName}, is there anything you skipped this week?
         </h1>
         <button
