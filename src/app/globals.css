@@ -530,22 +530,21 @@ body {
   }
   .home-jar-carousel-badge { left: 12px !important; bottom: 12px !important; padding: 6px 10px !important; font-size: 10px !important; letter-spacing: 0.55px !important; }
   .home-active-fundraiser { padding: 16px !important; border-radius: 20px !important; }
-  .home-fundraiser-header { display: flex !important; align-items: flex-start !important; justify-content: space-between !important; gap: 10px !important; }
+  .home-fundraiser-header { display: block !important; }
   .home-fundraiser-identity {
     display: grid !important;
-    grid-template-columns: 72px minmax(0, 1fr) !important;
+    grid-template-columns: minmax(0, 1fr) !important;
     gap: 12px !important;
-    align-items: center !important;
-    padding-right: 0 !important;
+    align-items: start !important;
   }
-  .home-fundraiser-avatar { width: 72px; flex-shrink: 0; }
-  .home-fundraiser-image { width: 72px !important; height: 72px !important; border-radius: 16px !important; }
+  .home-fundraiser-avatar { width: 100%; }
+  .home-fundraiser-image { width: 100% !important; height: 142px !important; border-radius: 16px !important; }
   .home-fundraiser-live { display: inline-flex; align-items: center; gap: 4px; color: #A7F3D0; font-size: 9px; font-weight: 900; letter-spacing: 0.55px; text-transform: uppercase; white-space: nowrap; }
   .home-fundraiser-live i { width: 4px; height: 4px; border-radius: 50%; background: var(--green-primary); }
   .home-fundraiser-meta { gap: 7px !important; }
   .home-fundraiser-meta > p { font-size: 11px !important; letter-spacing: 0.95px !important; }
   .home-fundraiser-title { margin-top: 6px !important; font-size: 24px !important; line-height: 1.08 !important; }
-  .home-fundraiser-share { position: static; flex-shrink: 0; }
+  .home-fundraiser-share { position: absolute; right: 14px; top: 14px; }
   .home-fundraiser-share-desktop { display: none; }
   .home-fundraiser-share-mobile { display: inline-block !important; }
   .home-fundraiser-share button { display: grid !important; place-items: center; width: 34px !important; height: 34px !important; min-width: 0 !important; padding: 0 !important; background: rgba(7,27,20,0.62) !important; border-color: rgba(237,245,240,0.16) !important; color: var(--green-primary) !important; font-size: 19px !important; line-height: 1 !important; backdrop-filter: blur(8px); }
