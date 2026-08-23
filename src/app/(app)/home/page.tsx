@@ -1853,7 +1853,7 @@ export default function HomePage() {
                 Add a goal, link, and inspo pic.
               </p>
             </div>
-            <span className="home-jar-carousel-cta" style={{ fontSize: 12, fontWeight: 950, color: "#C4B5FD", textTransform: "uppercase", letterSpacing: 0.8 }}>Build my jar</span>
+            <span className="home-jar-carousel-cta" style={{ fontSize: 12, fontWeight: 950, color: "#C4B5FD", textTransform: "uppercase", letterSpacing: 0.8 }}>+ Create</span>
           </div>
         </button>
       );

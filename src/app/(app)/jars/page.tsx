@@ -2933,7 +2933,7 @@ function JarBrowser({
               className="shrink-0 rounded-full px-3 py-2 text-xs font-black"
               style={{ background: "white", color: "#0B1A14", border: "none" }}
             >
-              Create My Own
+              + Create
             </button>
           </div>
 
