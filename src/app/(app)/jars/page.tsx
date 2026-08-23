@@ -1970,17 +1970,26 @@ function JarBrowser({
   function skipFundingPreview(target: SkipAllocationTarget | null, amountStr: string) {
     const amount = parseFloat(amountStr);
     if (!target || !amount || amount <= 0) return null;
+    const appliedAmount = Math.min(amount, availableSkipBankBalance);
     if (target.type === "goal") {
       const goal = goals.find((candidate) => candidate.id === target.id);
       if (!goal?.targetAmount) return null;
       const currentBalance = Math.max(0, goalJarBalances?.[goal.id] ?? 0);
-      const percent = Math.min(100, Math.round(((currentBalance + Math.min(amount, availableSkipBankBalance)) / goal.targetAmount) * 100));
-      return `This would fund ${percent}% of ${goal.label}.`;
+      const nextBalance = currentBalance + appliedAmount;
+      const percent = Math.min(100, Math.round((nextBalance / goal.targetAmount) * 100));
+      return `${formatCurrency(nextBalance)} in this jar - about ${percent}% of your ${formatCurrency(goal.targetAmount)} goal.`;
     }
     const project = projects.find((candidate) => candidate.id === target.id);
+    const goalAmount = skipFundingGoalAmount(target);
+    if (goalAmount && goalAmount > 0) {
+      const currentBalance = Math.max(0, causeJarBalances?.[target.id] ?? 0);
+      const nextBalance = currentBalance + appliedAmount;
+      const percent = Math.min(100, Math.round((nextBalance / goalAmount) * 100));
+      return `${formatCurrency(nextBalance)} in this jar - about ${percent}% of your ${formatCurrency(goalAmount)} goal.`;
+    }
     if (project?.unitCost && project.unitCost > 0) {
       return `That is about ${formatAggregateImpactUnitsDecimal(
-        Math.min(amount, availableSkipBankBalance),
+        appliedAmount,
         project.unitCost,
         project.unitName ?? project.unitDisplay ?? "unit",
         project.unitDisplay,

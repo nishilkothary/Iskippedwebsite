@@ -1612,10 +1612,18 @@ export default function HomePage() {
       const goal = spendingGoals.find((candidate) => candidate.id === target.id);
       if (!goal?.targetAmount) return null;
       const currentBalance = Math.max(0, profileData.goalJarBalances?.[goal.id] ?? 0);
-      const percent = Math.min(100, Math.round(((currentBalance + appliedAmount) / goal.targetAmount) * 100));
-      return `This would fund ${percent}% of ${goal.label}.`;
+      const nextBalance = currentBalance + appliedAmount;
+      const percent = Math.min(100, Math.round((nextBalance / goal.targetAmount) * 100));
+      return `${formatCurrency(nextBalance)} in this jar - about ${percent}% of your ${formatCurrency(goal.targetAmount)} goal.`;
     }
     const project = projects.find((candidate) => candidate.id === target.id);
+    const goalAmount = homeFundingGoalAmount(target);
+    if (goalAmount && goalAmount > 0) {
+      const currentBalance = Math.max(0, profileData.causeJarBalances?.[target.id] ?? 0);
+      const nextBalance = currentBalance + appliedAmount;
+      const percent = Math.min(100, Math.round((nextBalance / goalAmount) * 100));
+      return `${formatCurrency(nextBalance)} in this jar - about ${percent}% of your ${formatCurrency(goalAmount)} goal.`;
+    }
     if (project?.unitCost && project.unitCost > 0) {
       return `That is about ${formatAggregateImpactUnitsDecimal(
         appliedAmount,
