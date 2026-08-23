@@ -1,4 +1,5 @@
 "use client";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
@@ -247,6 +248,19 @@ export default function ProfilePage() {
             </div>
           ))}
         </div>
+        <Link
+          href="/dashboard"
+          className="mt-3 flex items-center justify-between gap-4 p-4 transition-colors"
+          style={{ ...cardStyle, borderRadius: 18, textDecoration: "none" }}
+        >
+          <div>
+            <p className="text-sm font-black" style={{ color: "var(--text-primary)" }}>See skip history</p>
+            <p className="mt-1 text-xs" style={{ color: "var(--text-muted)" }}>
+              Review and edit your logged skips.
+            </p>
+          </div>
+          <span className="text-lg font-black" style={{ color: "var(--green-primary)" }} aria-hidden="true">→</span>
+        </Link>
       </div>
 
       {/* Settings */}
