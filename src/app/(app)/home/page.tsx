@@ -2036,7 +2036,7 @@ export default function HomePage() {
       {/* Scoreboard */}
       <div className="iskip-scoreboard" style={{ marginBottom: 32 }}>
         <div className="iskip-scoreboard-header" style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 12 }}>
-          <span>YOUR SKIP SCOREBOARD</span>
+          <span>SKIP SCOREBOARD</span>
           <div className="home-scoreboard-skip-bucks hidden md:block" style={{ position: "absolute", right: 0, top: "50%", transform: "translateY(-50%)" }}>
             <SkipBucksBill
               amount={skipBalance.availableFromSkips}
