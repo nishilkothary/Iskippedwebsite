@@ -198,6 +198,7 @@ body {
 .home-fundraiser-live { display: inline-flex; align-items: center; gap: 4px; color: #A7F3D0; font-size: 8px; font-weight: 900; letter-spacing: 0.6px; text-transform: uppercase; white-space: nowrap; }
 .home-fundraiser-live i { width: 5px; height: 5px; border-radius: 50%; background: var(--green-primary); box-shadow: 0 0 8px rgba(46,204,113,0.85); }
 .home-fundraiser-share-mobile { display: none; }
+.mobile-app-header { display: none; }
 .app-skip-bucks-counter { display: none; }
 
 .iskip-pop-in       { animation: iskip-pop-in 0.42s cubic-bezier(0.2, 0.8, 0.3, 1.1) both; }
@@ -271,13 +272,37 @@ body {
   .iskip-week-dot.is-current { transform: none; }
 }
 
-@media (max-width: 520px) {
+@media (max-width: 767px) {
+  .mobile-app-header {
+    position: sticky;
+    top: 0;
+    z-index: 42;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    min-height: calc(58px + env(safe-area-inset-top));
+    padding: calc(8px + env(safe-area-inset-top)) 14px 8px;
+    background: linear-gradient(180deg, rgba(16,36,27,0.98), rgba(11,26,20,0.94));
+    border-bottom: 1px solid var(--border-default);
+    box-shadow: 0 10px 24px rgba(0,0,0,0.18);
+    backdrop-filter: blur(14px);
+  }
+  .mobile-app-wordmark {
+    min-width: 0;
+    color: var(--text-primary);
+    font-size: 24px;
+    font-weight: 950;
+    line-height: 1;
+    letter-spacing: 0;
+    text-decoration: none;
+  }
+  .mobile-app-wordmark span {
+    color: var(--green-primary);
+  }
   .app-skip-bucks-counter {
-    position: fixed;
-    top: calc(10px + env(safe-area-inset-top));
-    right: 12px;
-    z-index: 45;
     display: inline-flex;
+    flex-shrink: 0;
     width: max-content;
     height: max-content;
     line-height: 1;
@@ -322,6 +347,9 @@ body {
     line-height: 24px !important;
     font-weight: 950 !important;
   }
+}
+
+@media (max-width: 520px) {
   .jars-page-shell { padding-top: 18px !important; }
   .jars-page-header {
     margin-bottom: 14px !important;

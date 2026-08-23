@@ -1964,13 +1964,6 @@ export default function HomePage() {
 
   return (
     <div className="p-4 md:p-8 max-w-3xl mx-auto pb-24 md:pb-8">
-      {/* Mobile logo — hidden on desktop (sidebar has it) */}
-      <div className="flex md:hidden justify-start mb-4">
-        <p className="text-2xl font-black tracking-tight" style={{ color: "var(--text-primary)" }}>
-          i<span style={{ color: "var(--green-primary)" }}>skipped</span>
-        </p>
-      </div>
-
       {/* Greeting + CTA */}
       <div style={{ textAlign: "left", marginBottom: 24 }}>
         <h1 className="mb-4 text-xl font-black leading-snug sm:text-2xl sm:leading-tight" style={{ color: "var(--text-primary)" }}>

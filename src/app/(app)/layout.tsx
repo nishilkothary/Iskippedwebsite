@@ -166,6 +166,23 @@ function MobileBottomNav({ onLogSkip }: { onLogSkip: () => void }) {
   );
 }
 
+function MobileAppHeader({ skipBucks, paused }: { skipBucks: number; paused: boolean }) {
+  return (
+    <header className="mobile-app-header md:hidden">
+      <Link href="/home" className="mobile-app-wordmark" aria-label="iSkipped home">
+        i<span>skipped</span>
+      </Link>
+      <div className="app-skip-bucks-counter" aria-label="Available Skip Bucks">
+        <SkipBucksBill
+          amount={skipBucks}
+          compact
+          paused={paused}
+        />
+      </div>
+    </header>
+  );
+}
+
 function ChallengeBanners() {
   const { profile, updateProfile } = useAuthStore();
   const { projects, loading: projectsLoading } = useProjects();
@@ -272,18 +289,11 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
       </Suspense>
 
       <main className="flex-1 overflow-y-auto pb-28 md:pb-0">
+        <MobileAppHeader skipBucks={skipBalance.availableFromSkips} paused={showSkipPicker} />
         <EmailVerificationBanner />
         <ChallengeBanners />
         {children}
       </main>
-
-      <div className="app-skip-bucks-counter md:hidden" aria-label="Available Skip Bucks">
-        <SkipBucksBill
-          amount={skipBalance.availableFromSkips}
-          compact
-          paused={showSkipPicker}
-        />
-      </div>
 
       {showSkipPicker && <SkipModal onClose={() => setShowSkipPicker(false)} />}
 
