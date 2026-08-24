@@ -41,8 +41,8 @@ const FAQ_ITEMS = [
     a: "No. iSkipped helps you track the amount you chose not to spend. No money moves automatically into or through iSkipped.",
   },
   {
-    q: "How do I use my saved Skip Bucks?",
-    a: "Choose a reward or fundraiser and make it your active jar. Future skips go there. When you are ready, choose Spend my skips or Donate my skips. Parked jars keep their saved balance for later.",
+    q: "What are unused Skip Bucks, and how do I use them?",
+    a: "Unused Skip Bucks are savings that are not assigned to a jar yet. Choose a reward or fundraiser, then use the existing Skip Bucks option to move as much of that available balance as you want into it. You can also leave Skip Bucks unassigned until you are ready to choose a purpose for them.",
   },
   {
     q: "Can I skip for more than one reason?",
