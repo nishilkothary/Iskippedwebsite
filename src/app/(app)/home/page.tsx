@@ -2242,6 +2242,9 @@ export default function HomePage() {
             </div>
             {activeProject ? (
               <>
+              <p style={{ margin: "2px auto 0", maxWidth: 430, padding: "0 14px", textAlign: "center", color: "var(--text-secondary)", fontSize: 12, lineHeight: 1.35 }}>
+                Your saved skips are part of the group&apos;s shared progress.
+              </p>
               <div className="home-fundraiser-jars" style={{ display: "grid", gridTemplateColumns: "minmax(0, 1fr) minmax(0, 1fr)", gap: 4, alignItems: "end", width: "min(100%, 430px)", margin: "0 auto 14px" }}>
               <div>
                   <Jar
@@ -2249,21 +2252,21 @@ export default function HomePage() {
                     paused={showSkipPicker}
                     color="#2ECC71"
                     gradEnd="#1E9485"
-                    label="My jar"
+                    label="Your contribution"
                     amount={formatCurrency(givingBalance)}
                     emoji=""
                     causeLabel={activeProject.title}
                     goalAmount={hasPersonalGivingGoal ? personalGoal : undefined}
                     centerValueOverride={`${personalFundraiserPercent}%`}
                     centerLabelOverride="to goal"
-                    topLabel="My jar"
+                    topLabel="Your contribution"
                     topLabelColor="#A7F3D0"
                     hideBottomLabel
                     href="/jar-activity"
                   />
                   <p style={{ marginTop: 6, textAlign: "center", fontSize: 12, fontWeight: 900, color: "#A7F3D0", lineHeight: 1.25 }}>
                     {hasCommunityUnit && personalUnitCountDisplay !== null
-                      ? `~ ${personalUnitCountDisplay} ${communityUnitLabel}`
+                      ? `~ ${personalUnitCountDisplay} ${communityUnitLabel} from you`
                       : `${formatCurrencyRounded(givingBalance)} pledged`}
                   </p>
                 </div>
@@ -2273,21 +2276,21 @@ export default function HomePage() {
                     paused={showSkipPicker}
                     color="#00F0D0"
                     gradEnd="#009C8B"
-                    label="Group jar"
+                    label="Group total"
                     amount={formatCurrency(displayedGroupTotal)}
                     emoji=""
                     causeLabel={activeProject.title}
                     goalAmount={fundraiserGoalAmount > 0 ? fundraiserGoalAmount : undefined}
                     centerValueOverride={`${groupFundraiserPercent}%`}
                     centerLabelOverride="to goal"
-                    topLabel="Group jar"
+                    topLabel="Group total"
                     topLabelColor="#A7FFF0"
                     hideBottomLabel
                     href="/jar-activity"
                   />
                   <p style={{ marginTop: 6, textAlign: "center", fontSize: 12, fontWeight: 900, color: "#A7FFF0", lineHeight: 1.25 }}>
                     {hasCommunityUnit && communityUnitCountDisplay !== null
-                      ? `~ ${communityUnitCountDisplay} ${communityUnitLabel}`
+                      ? `~ ${communityUnitCountDisplay} ${communityUnitLabel} together`
                       : `${formatCurrencyRounded(displayedGroupTotal)} raised`}
                   </p>
                 </div>
