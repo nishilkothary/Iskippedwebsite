@@ -2236,7 +2236,7 @@ export default function HomePage() {
                       {activeProject && (
                         <p className="home-fundraiser-participants" style={{ marginTop: 5, color: "var(--text-secondary)", fontSize: 12, lineHeight: 1.35 }}>
                           {groupContributorCount <= 1
-                            ? "You're the only one skipping for this fundraiser."
+                            ? "You're the first one skipping for this fundraiser."
                             : `You and ${groupContributorCount - 1} ${groupContributorCount === 2 ? "other" : "others"} are skipping for this fundraiser.`}
                         </p>
                       )}
