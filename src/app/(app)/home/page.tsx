@@ -1752,6 +1752,8 @@ export default function HomePage() {
       });
       setHomeFundraiserSetup(null);
       setHomeFundraiserGoalStr("");
+      // A balance transfer is always an explicit choice; never carry a prior amount into this prompt.
+      setHomeFundingAmountStr("");
       if (availableHomeSkipBankBalance > 0) {
         setHomeFundingTarget(target);
       }

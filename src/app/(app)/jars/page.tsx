@@ -1858,6 +1858,8 @@ function JarBrowser({
       await onSetFundraiserGoal(fundraiserSetup.id, goalAmount);
       await onSetSkipTarget(target);
       setFundraiserSetup(null);
+      // A balance transfer is always an explicit choice; never carry a prior amount into this prompt.
+      setFundingAmountStr("");
       if (availableSkipBankBalance > 0) {
         setFundingTarget(target);
       } else {
