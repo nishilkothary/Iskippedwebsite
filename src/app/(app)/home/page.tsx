@@ -715,7 +715,7 @@ function FundraiserContributionModal({
     const ok = await onComplete(coveredAmount);
     setSaving(false);
     if (!ok) return;
-    toast.success("Donation logged from your Skip Bank.");
+    toast.success("Donation logged from your skipped savings.");
     onClose();
   }
 
@@ -764,16 +764,16 @@ function FundraiserContributionModal({
         <p className="text-sm leading-relaxed mt-3" style={{ color: "var(--text-secondary)" }}>
           {step === "confirm"
             ? project.donationURL
-              ? "When you come back, confirm the outside donation so your Skip Bank and fundraiser impact stay accurate."
+              ? "When you come back, confirm the outside donation so your skipped savings and fundraiser impact stay accurate."
               : "No donation link is attached to this fundraiser yet. Please donate directly through the organization, then log it here once complete."
             : step === "coverage"
               ? uncoveredAmount > 0
-                ? `You are planning to donate ${formatCurrencyRounded(cleanAmount)}, which is more than you have saved for this cause. ${formatCurrencyRounded(coveredFromUnassigned)} will be covered by Unassigned Skip Bucks. The remaining ${formatCurrencyRounded(uncoveredAmount)} will not come from skipped savings.`
-                : `You are planning to donate ${formatCurrencyRounded(cleanAmount)}, which is more than you have saved for this cause. Your Unassigned Skip Bucks can cover the extra ${formatCurrencyRounded(coveredFromUnassigned)}.`
+                ? `You are planning to donate ${formatCurrencyRounded(cleanAmount)}, which is more than you have saved for this cause. ${formatCurrencyRounded(coveredFromUnassigned)} will be covered by Skip Bucks. The remaining ${formatCurrencyRounded(uncoveredAmount)} will not come from skipped savings.`
+                : `You are planning to donate ${formatCurrencyRounded(cleanAmount)}, which is more than you have saved for this cause. Your Skip Bucks can cover the extra ${formatCurrencyRounded(coveredFromUnassigned)}.`
             : step === "ready"
               ? project.donationURL
-                ? `${formatCurrencyRounded(coveredAmount)} is ready from your Skip Bank${impactText ? `, about ${impactText}` : ""}.`
-                : `${formatCurrencyRounded(coveredAmount)} is ready from your Skip Bank. No donation link is attached to this fundraiser yet. Please donate directly through the organization, then log it here so your fundraiser jar stays accurate.`
+                ? `${formatCurrencyRounded(coveredAmount)} is ready from your skipped savings${impactText ? `, about ${impactText}` : ""}.`
+                : `${formatCurrencyRounded(coveredAmount)} is ready from your skipped savings. No donation link is attached to this fundraiser yet. Please donate directly through the organization, then log it here so your fundraiser jar stays accurate.`
               : mode === "log"
                 ? "How much did you donate outside iSkipped?"
                 : "Enter the donation amount. It is prefilled with this jar's saved balance."}
@@ -821,7 +821,7 @@ function FundraiserContributionModal({
           <div className="mt-5 grid gap-3">
             <div className="rounded-xl p-3" style={{ background: uncoveredAmount > 0 ? "rgba(239,68,68,0.08)" : "rgba(46,204,113,0.08)", border: uncoveredAmount > 0 ? "1px solid rgba(239,68,68,0.2)" : "1px solid rgba(46,204,113,0.18)" }}>
               <p className="text-xs font-bold leading-relaxed" style={{ color: uncoveredAmount > 0 ? "#FCA5A5" : "var(--green-primary)" }}>
-                {formatCurrencyRounded(Math.min(cleanAmount, safeJarBalance))} from this jar · {formatCurrencyRounded(coveredFromUnassigned)} from Unassigned Skip Bucks{uncoveredAmount > 0 ? ` · ${formatCurrencyRounded(uncoveredAmount)} not from skipped savings` : ""}
+                {formatCurrencyRounded(Math.min(cleanAmount, safeJarBalance))} from this jar · {formatCurrencyRounded(coveredFromUnassigned)} from Skip Bucks{uncoveredAmount > 0 ? ` · ${formatCurrencyRounded(uncoveredAmount)} not from skipped savings` : ""}
               </p>
             </div>
             <button
@@ -959,7 +959,7 @@ function GoalSpendModal({
     const ok = await onComplete(coveredAmount);
     setSaving(false);
     if (!ok) return;
-    toast.success("Goal spend logged from your Skip Bank.");
+    toast.success("Goal spend logged from your skipped savings.");
     onClose();
   }
 
@@ -1006,16 +1006,16 @@ function GoalSpendModal({
         {step !== "amount" && <p className="text-sm leading-relaxed mt-3" style={{ color: "var(--text-secondary)" }}>
           {step === "confirm"
             ? goal.shoppingLink
-              ? "When you come back, confirm the purchase so your Skip Bank and goal progress stay accurate."
+              ? "When you come back, confirm the purchase so your skipped savings and goal progress stay accurate."
               : "No purchase link is attached to this reward yet. Please make the purchase wherever you planned to, then log it here once complete."
             : step === "coverage"
               ? uncoveredAmount > 0
-                ? `You are planning to spend ${formatCurrencyRounded(cleanAmount)}, which is more than you saved for this reward. ${formatCurrencyRounded(coveredFromUnassigned)} will be covered by Unassigned Skip Bucks. The remaining ${formatCurrencyRounded(uncoveredAmount)} will not come from skipped savings.`
-                : `You are planning to spend ${formatCurrencyRounded(cleanAmount)}, which is more than you saved for this reward. Your Unassigned Skip Bucks can cover the extra ${formatCurrencyRounded(coveredFromUnassigned)}.`
+                ? `You are planning to spend ${formatCurrencyRounded(cleanAmount)}, which is more than you saved for this reward. ${formatCurrencyRounded(coveredFromUnassigned)} will be covered by Skip Bucks. The remaining ${formatCurrencyRounded(uncoveredAmount)} will not come from skipped savings.`
+                : `You are planning to spend ${formatCurrencyRounded(cleanAmount)}, which is more than you saved for this reward. Your Skip Bucks can cover the extra ${formatCurrencyRounded(coveredFromUnassigned)}.`
             : step === "ready"
               ? goal.shoppingLink
-                ? `${formatCurrencyRounded(coveredAmount)} is ready from your Skip Bank for ${goal.label}.`
-                : `${formatCurrencyRounded(coveredAmount)} is ready from your Skip Bank. No purchase link is attached to this reward yet. Please buy it wherever you planned to, then log it here so your saved balance stays accurate.`
+                ? `${formatCurrencyRounded(coveredAmount)} is ready from your skipped savings for ${goal.label}.`
+                : `${formatCurrencyRounded(coveredAmount)} is ready from your skipped savings. No purchase link is attached to this reward yet. Please buy it wherever you planned to, then log it here so your saved balance stays accurate.`
               : "Enter the purchase amount. It is prefilled with this jar's saved balance."}
         </p>}
 
@@ -1086,7 +1086,7 @@ function GoalSpendModal({
           <div className="mt-5 grid gap-3">
             <div className="rounded-xl p-3" style={{ background: uncoveredAmount > 0 ? "rgba(239,68,68,0.08)" : "rgba(139,92,246,0.1)", border: uncoveredAmount > 0 ? "1px solid rgba(239,68,68,0.2)" : "1px solid rgba(167,139,250,0.2)" }}>
               <p className="text-xs font-bold leading-relaxed" style={{ color: uncoveredAmount > 0 ? "#FCA5A5" : "#C4B5FD" }}>
-                {formatCurrencyRounded(Math.min(cleanAmount, safeJarBalance))} from this jar · {formatCurrencyRounded(coveredFromUnassigned)} from Unassigned Skip Bucks{uncoveredAmount > 0 ? ` · ${formatCurrencyRounded(uncoveredAmount)} not from skipped savings` : ""}
+                {formatCurrencyRounded(Math.min(cleanAmount, safeJarBalance))} from this jar · {formatCurrencyRounded(coveredFromUnassigned)} from Skip Bucks{uncoveredAmount > 0 ? ` · ${formatCurrencyRounded(uncoveredAmount)} not from skipped savings` : ""}
               </p>
             </div>
             <button
@@ -1779,7 +1779,7 @@ export default function HomePage() {
   async function activateHomeFundingTarget(bankAmount = 0) {
     if (!user || !homeFundingTarget) return;
     if (bankAmount > availableHomeSkipBankBalance) {
-      toast.error(`You only have ${formatCurrency(availableHomeSkipBankBalance)} in Unassigned Skip Bucks.`);
+      toast.error(`You only have ${formatCurrency(availableHomeSkipBankBalance)} in Skip Bucks.`);
       return;
     }
 
@@ -1827,7 +1827,7 @@ export default function HomePage() {
             },
           });
         }
-        toast.success(`${formatCurrency(appliedAmount)} moved from Unassigned Skip Bucks into the jar.`);
+      toast.success(`${formatCurrency(appliedAmount)} moved from Skip Bucks into the jar.`);
       }
       setHomeFundingTarget(null);
       setHomeFundingAmountStr("");
@@ -2093,7 +2093,7 @@ export default function HomePage() {
           <span className="iskip-scoreboard-title">SKIP SCOREBOARD</span>
           <div className="home-scoreboard-skip-bucks hidden md:block" style={{ position: "absolute", right: 0, top: "50%", transform: "translateY(-50%)" }}>
             <SkipBucksBill
-              amount={skipBalance.availableFromSkips}
+              amount={skipBalance.unassignedSkipBank}
               compact
               paused={showSkipPicker}
             />
@@ -3100,7 +3100,7 @@ export default function HomePage() {
               </p>
               {hasHomeSkipBank && (
                 <p className="mt-1 text-xs font-bold leading-snug" style={{ color: "var(--text-muted)" }}>
-                  You have {formatCurrency(availableHomeSkipBankBalance)} in unassigned Skip Bucks. Do you want to use any to help fill {homeFundingGoalAmountValue ? `this goal of ${formatCurrency(homeFundingGoalAmountValue)}` : homeFundingPromptLabel(homeFundingTarget)}?
+                  You have {formatCurrency(availableHomeSkipBankBalance)} in Skip Bucks. Do you want to use any to help fill {homeFundingGoalAmountValue ? `this goal of ${formatCurrency(homeFundingGoalAmountValue)}` : homeFundingPromptLabel(homeFundingTarget)}?
                 </p>
               )}
             </div>
@@ -3139,7 +3139,7 @@ export default function HomePage() {
                   )}
                   {parseFloat(homeFundingAmountStr) > availableHomeSkipBankBalance && (
                     <p className="text-xs font-bold leading-relaxed mt-3" style={{ color: "#EF4444" }}>
-                      That is more than your Unassigned Skip Bucks. Lower the amount to {formatCurrency(availableHomeSkipBankBalance)} or less.
+                      That is more than your Skip Bucks. Lower the amount to {formatCurrency(availableHomeSkipBankBalance)} or less.
                     </p>
                   )}
                   <button

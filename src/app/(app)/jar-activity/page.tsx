@@ -57,7 +57,7 @@ type JarActivityItem =
 type SkipBucksSource = {
   type: "skip-bucks";
   id: typeof SKIP_BUCKS_DESTINATION;
-  title: "Unassigned Skip Bucks";
+  title: "Skip Bucks";
   balance: number;
 };
 
@@ -112,7 +112,7 @@ function jarOptionLabel(item: JarActivityItem) {
 
 function moveSourceOptionLabel(source: MoveSource) {
   return source.type === "skip-bucks"
-    ? `Unassigned Skip Bucks (${formatCurrency(source.balance)})`
+    ? `Skip Bucks (${formatCurrency(source.balance)})`
     : jarOptionLabel(source);
 }
 
@@ -307,7 +307,7 @@ function BalanceManager({
         <div>
           <h2 className="text-lg font-black" style={{ color: "var(--text-primary)" }}>Manage balance</h2>
           <p className="mt-1 text-sm" style={{ color: "var(--text-muted)" }}>
-            Move saved money between jars, or back to Unassigned Skip Bucks.
+            Move saved money between jars, or back to Skip Bucks.
           </p>
         </div>
         <button
@@ -441,7 +441,7 @@ function MoveBalanceModal({
 }) {
   const selected = destinations.find((item) => jarKey(item) === selectedId) ?? null;
   const releasing = source.type !== "skip-bucks" && selectedId === SKIP_BUCKS_DESTINATION;
-  const destinationLabel = releasing ? "Unassigned Skip Bucks" : selected?.title ?? "another jar";
+  const destinationLabel = releasing ? "Skip Bucks" : selected?.title ?? "another jar";
   const sourceIsSkipBucks = source.type === "skip-bucks";
   const parsedAmount = cents(Number.parseFloat(amount));
   const validAmount = Number.isFinite(parsedAmount) && parsedAmount > 0 && parsedAmount <= cents(source.balance);
@@ -453,7 +453,7 @@ function MoveBalanceModal({
           <p className="text-lg font-black leading-tight pr-6" style={{ color: "var(--text-primary)" }}>Move balance?</p>
           <p className="mt-2 text-sm leading-relaxed" style={{ color: "var(--text-secondary)" }}>
             {sourceIsSkipBucks
-              ? `Move saved money from Unassigned Skip Bucks into ${destinationLabel}.`
+              ? `Move saved money from Skip Bucks into ${destinationLabel}.`
               : "Review this move before changing where saved skips are kept."}
           </p>
         </div>
@@ -481,7 +481,7 @@ function MoveBalanceModal({
                 className="mt-2 w-full rounded-xl px-3 py-3 text-sm font-black outline-none"
                 style={{ background: "var(--bg-surface-2)", border: "1px solid var(--border-default)", color: "var(--text-primary)" }}
               >
-                {!sourceIsSkipBucks && <option value={SKIP_BUCKS_DESTINATION}>Unassigned Skip Bucks</option>}
+                {!sourceIsSkipBucks && <option value={SKIP_BUCKS_DESTINATION}>Skip Bucks</option>}
                 {destinations.map((item) => (
                   <option key={jarKey(item)} value={jarKey(item)}>
                     {jarOptionLabel(item)}
@@ -515,9 +515,9 @@ function MoveBalanceModal({
             <div className="rounded-xl p-3" style={{ background: "rgba(245,158,11,0.08)", border: "1px solid rgba(245,158,11,0.18)" }}>
               <p className="text-xs font-bold leading-relaxed" style={{ color: "var(--gold-cta)" }}>
                 {releasing
-                  ? `You skipped ${formatCurrency(parsedAmount || 0)} for ${source.title}. Are you sure you want to move it back to Unassigned Skip Bucks?`
+                  ? `You skipped ${formatCurrency(parsedAmount || 0)} for ${source.title}. Are you sure you want to move it back to Skip Bucks?`
                   : sourceIsSkipBucks
-                    ? `Are you sure you want to move ${formatCurrency(parsedAmount || 0)} from Unassigned Skip Bucks into ${selected?.title}?`
+                    ? `Are you sure you want to move ${formatCurrency(parsedAmount || 0)} from Skip Bucks into ${selected?.title}?`
                   : `You skipped ${formatCurrency(parsedAmount || 0)} for ${source.title}. Are you sure you want to move it to ${selected?.title}?`}
               </p>
             </div>
@@ -659,7 +659,7 @@ function JarActivityPageInner() {
   }, [donations, spendingHistory]);
   const transferSources = items.filter((item) => item.balance > 0);
   const skipBucksSource: SkipBucksSource | null = unassignedSkipBucks > 0
-    ? { type: "skip-bucks", id: SKIP_BUCKS_DESTINATION, title: "Unassigned Skip Bucks", balance: unassignedSkipBucks }
+    ? { type: "skip-bucks", id: SKIP_BUCKS_DESTINATION, title: "Skip Bucks", balance: unassignedSkipBucks }
     : null;
   const moveSources: MoveSource[] = [
     ...(skipBucksSource ? [skipBucksSource] : []),
@@ -865,7 +865,7 @@ function JarActivityPageInner() {
           : { activeSpendingGoalId: null, spendingGoal: null }),
       });
       setDeactivatePrompt(null);
-      toast.success("Future skips will go to Unassigned Skip Bucks.");
+      toast.success("Future skips will go to Skip Bucks.");
     } catch {
       toast.error("Could not pause this jar. Try again.");
     } finally {
@@ -875,7 +875,7 @@ function JarActivityPageInner() {
 
   function beginSelectedMoveBalance() {
     if (!moveSources[0]) {
-      toast.info("No balances to move yet. Once you have Unassigned Skip Bucks or money in a jar, you can move it here.");
+      toast.info("No balances to move yet. Once you have Skip Bucks or money in a jar, you can move it here.");
       return;
     }
     if (items.length === 0) {
@@ -941,7 +941,7 @@ function JarActivityPageInner() {
       });
       setMoveSource(null);
       setMoveAmount("");
-      toast.success(`${formatCurrency(appliedAmount)} moved to ${destination?.title ?? "Unassigned Skip Bucks"}.`);
+      toast.success(`${formatCurrency(appliedAmount)} moved to ${destination?.title ?? "Skip Bucks"}.`);
     } catch {
       toast.error("Could not move this balance. Try again.");
     } finally {
@@ -1079,7 +1079,7 @@ function JarActivityPageInner() {
 
       <section className="mb-5 grid grid-cols-2 gap-3 md:grid-cols-3">
         <div className="col-span-2 rounded-xl p-3 sm:p-4 md:col-span-1" style={{ background: "var(--bg-surface-1)", border: "1px solid var(--border-default)" }}>
-          <p className="text-xs uppercase tracking-[0.12em] font-black" style={{ color: "var(--text-muted)" }}>Total Skip Bucks</p>
+          <p className="text-xs uppercase tracking-[0.12em] font-black" style={{ color: "var(--text-muted)" }}>Total unspent savings</p>
           <p className="mt-1 text-2xl font-black sm:text-3xl" style={{ color: "var(--green-primary)" }}>{formatCurrency(totalSkipBucks)}</p>
           <p className="mt-2 text-xs leading-relaxed" style={{ color: "var(--text-secondary)" }}>
             Saved and not used yet.
@@ -1093,7 +1093,7 @@ function JarActivityPageInner() {
           </p>
         </div>
         <div className="rounded-xl p-3 sm:p-4" style={{ background: "var(--bg-surface-1)", border: "1px solid var(--border-default)" }}>
-          <p className="text-xs uppercase tracking-[0.12em] font-black" style={{ color: "var(--text-muted)" }}>Unassigned Skip Bucks</p>
+          <p className="text-xs uppercase tracking-[0.12em] font-black" style={{ color: "var(--text-muted)" }}>Skip Bucks</p>
           <p className="mt-1 text-2xl font-black sm:text-3xl" style={{ color: "var(--green-primary)" }}>{formatCurrency(unassignedSkipBucks)}</p>
           <p className="mt-2 hidden text-xs leading-relaxed sm:block" style={{ color: "var(--text-secondary)" }}>
             Available to add to any jar.
@@ -1233,7 +1233,7 @@ function JarActivityPageInner() {
 
                 <div className="rounded-xl p-3" style={{ background: "var(--bg-surface-2)", border: "1px solid var(--border-default)" }}>
                   <label htmlFor="resume-skip-bucks" className="text-xs font-black uppercase tracking-[0.12em]" style={{ color: "var(--text-muted)" }}>
-                    Use Unassigned Skip Bucks (optional)
+                    Use Skip Bucks (optional)
                   </label>
                   <p className="mt-1 text-xs" style={{ color: "var(--text-secondary)" }}>
                     {formatCurrency(unassignedSkipBucks)} available to add.

@@ -225,7 +225,7 @@ export function SkipBucksBill({
           </button>
           <p className="skip-bucks-popover-kicker" style={{ color: "var(--text-primary)", fontSize: 12, fontWeight: 700, letterSpacing: "normal", lineHeight: 1.35, textTransform: "none" }}>Skip Bucks</p>
           <p className="skip-bucks-popover-copy" style={{ marginTop: 6, color: "var(--text-secondary)", fontSize: 12, fontWeight: 400, letterSpacing: "normal", lineHeight: 1.45, textTransform: "none" }}>
-            Skip Bucks are dollars available from your skipped expenses. They are your lifetime skipped savings minus purchases and donations you have logged.
+            Skip Bucks are skipped-money savings that are not committed to a cause or reward jar yet. They include new skips you have not assigned and money released from a jar. Purchases and donations reduce your total skipped savings.
           </p>
         </div>
       )}

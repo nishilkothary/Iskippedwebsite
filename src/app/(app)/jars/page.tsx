@@ -370,7 +370,7 @@ function JarsPageInner() {
   if (!profile || !user) return null;
 
   const skipBalanceSummary = getSkipBalanceSummary(profile);
-  // Skip Bank is the unassigned part of lifetime skipped savings. Jars hold money
+  // Skip Bucks are the unassigned part of lifetime skipped savings. Jars hold money
   // already picked for a specific reward or fundraiser.
   const skipBankBalance = skipBalanceSummary.unassignedSkipBank;
 
@@ -1814,7 +1814,7 @@ function JarBrowser({
       toast.success(
         releaseBalance && releasedAmount > 0
           ? `${formatCurrency(releasedAmount)} moved back to Skip Bucks. Future skips will be unassigned.`
-          : "Future skips will go to Unassigned Skip Bucks."
+          : "Future skips will go to Skip Bucks."
       );
     } catch (err) {
       console.error("deactivate jar failed", err);
@@ -1910,7 +1910,7 @@ function JarBrowser({
     const amount = parseFloat(fundingAmountStr);
     if (!amount || amount <= 0) return;
     if (amount > availableSkipBankBalance) {
-      toast.error(`You only have ${formatCurrency(availableSkipBankBalance)} in Unassigned Skip Bucks.`);
+      toast.error(`You only have ${formatCurrency(availableSkipBankBalance)} in Skip Bucks.`);
       return;
     }
     setFundingWorking(true);
@@ -1918,7 +1918,7 @@ function JarBrowser({
       await onSetSkipTarget(fundingTarget);
       const appliedAmount = await onApplySkipBank(fundingTarget, amount);
       setFundingTarget(null);
-      if (appliedAmount > 0) toast.success(`${formatCurrency(appliedAmount)} moved from Unassigned Skip Bucks into the jar.`, { duration: 1800 });
+      if (appliedAmount > 0) toast.success(`${formatCurrency(appliedAmount)} moved from Skip Bucks into the jar.`, { duration: 1800 });
       router.push("/home");
     } catch (err) {
       console.error("apply Skip Bucks failed", err);
@@ -2409,7 +2409,7 @@ function JarBrowser({
                 <span className="mt-0.5 block text-xs font-bold opacity-80">
                   {deactivatePrompt.balance > 0
                     ? "Your saved money stays in this jar for later."
-                    : "Future skips will go to Unassigned Skip Bucks until you pick a jar."}
+                    : "Future skips will go to Skip Bucks until you pick a jar."}
                 </span>
               </button>
               {deactivatePrompt.balance > 0 && (
@@ -2683,7 +2683,7 @@ function JarBrowser({
               </p>
               {hasSkipBank && (
                 <p className="mt-1 text-xs font-bold leading-snug" style={{ color: "var(--text-muted)" }}>
-                  You have {formatCurrency(availableSkipBankBalance)} in unassigned Skip Bucks. Do you want to use any to help fill {fundingGoalAmount ? `this goal of ${formatCurrency(fundingGoalAmount)}` : skipFundingPromptLabel(fundingTarget)}?
+                  You have {formatCurrency(availableSkipBankBalance)} in Skip Bucks. Do you want to use any to help fill {fundingGoalAmount ? `this goal of ${formatCurrency(fundingGoalAmount)}` : skipFundingPromptLabel(fundingTarget)}?
                 </p>
               )}
             </div>
@@ -2722,7 +2722,7 @@ function JarBrowser({
                   )}
                   {parseFloat(fundingAmountStr) > availableSkipBankBalance && (
                     <p className="text-xs font-bold leading-relaxed mt-3" style={{ color: "#EF4444" }}>
-                      That is more than your Unassigned Skip Bucks. Lower the amount to {formatCurrency(availableSkipBankBalance)} or less.
+                      That is more than your Skip Bucks. Lower the amount to {formatCurrency(availableSkipBankBalance)} or less.
                     </p>
                   )}
                   <button
@@ -2807,7 +2807,7 @@ function JarBrowser({
               <button onClick={() => setDeactivatingGoal(false)} aria-label="Close" className="absolute top-4 right-4 text-xl leading-none" style={{ color: "var(--text-muted)" }}>×</button>
               <p className="text-lg font-bold pr-6" style={{ color: "var(--text-primary)" }}>Deactivate this goal?</p>
               <p className="text-xs mt-1.5" style={{ color: "var(--text-secondary)" }}>
-                Deactivating will keep your {formatCurrency(spendingBalance)} in your Skip Bank until you pick a new goal.
+                Deactivating will keep your {formatCurrency(spendingBalance)} in Skip Bucks until you pick a new goal.
               </p>
             </div>
             <div className="px-5 py-4 flex gap-2">

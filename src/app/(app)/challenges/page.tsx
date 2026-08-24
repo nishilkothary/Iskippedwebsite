@@ -513,7 +513,7 @@ export default function ChallengesPage() {
         <div className="flex items-end justify-between gap-5">
           <div>
             <p className="text-[11px] font-black uppercase tracking-[0.14em]" style={{ color: "var(--green-primary)" }}>
-              Skip Bank
+              Available skipped savings
             </p>
             <p className="mt-1 text-3xl font-black leading-none" style={{ color: "var(--green-primary)" }}>
               {formatCurrency(skipBalance.availableFromSkips)}

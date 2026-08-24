@@ -16,7 +16,7 @@ const STEPS = [
   {
     number: "02",
     title: "Log It",
-    copy: "Log a skip and turn that saved money into Skip Bucks.",
+    copy: "Log a skip and add that saved money to your Skip Bucks.",
     body: "Coffee, takeout, impulse buy — anything you can do without. Log it in iSkipped and your active jar grows with every skip.",
     color: "var(--gold-cta)",
     bgColor: "rgba(255,183,0,0.10)",
@@ -24,7 +24,7 @@ const STEPS = [
   {
     number: "03",
     title: "Use It",
-    copy: "Turn your Skip Bucks into purpose by picking a savings jar for a personal reward or a group fundraiser working toward a shared goal.",
+    copy: "Give your Skip Bucks a purpose by moving them into a savings jar for a personal reward or group fundraiser.",
     body: "Pick something you are saving toward, like a dinner out, concert tickets, or a small treat. Your skips fill the reward or fundraiser jar you choose, and you can change or park it anytime.",
     color: "#8B5CF6",
     bgColor: "rgba(139,92,246,0.10)",
@@ -33,12 +33,12 @@ const STEPS = [
 
 const FAQ_ITEMS = [
   {
-    q: "What are Skip Bucks, and how is my balance calculated?",
-    a: "Skip Bucks equal everything you have saved by skipping, minus purchases and donations you have logged. Some may be sitting in jars while the rest is unassigned and available to use.",
+    q: "What are Skip Bucks?",
+    a: "Skip Bucks are the part of your skipped-money savings that is not committed to a jar. They include new skips you have not assigned and money released from a cause or reward jar. Your total unspent savings includes both Skip Bucks and money already in jars, minus purchases and donations you have logged.",
   },
   {
-    q: "What are Unassigned Skip Bucks, and how do I use them?",
-    a: "Unassigned Skip Bucks are savings that are not in a jar yet. Choose a reward or fundraiser, then use the existing Skip Bucks option to move as much of that available balance as you want into it. You can also leave them unassigned until you are ready to choose a purpose for them.",
+    q: "How do I use my Skip Bucks?",
+    a: "Skip Bucks are savings that are not in a jar yet. Choose a reward or fundraiser, then use the Skip Bucks option to move as much of that available balance as you want into it. You can also leave them available until you are ready to choose a purpose for them.",
   },
   {
     q: "Does money move when I log a skip?",
@@ -46,7 +46,7 @@ const FAQ_ITEMS = [
   },
   {
     q: "Can I skip for more than one reason?",
-    a: "You can keep multiple jars by pausing one and returning to it later. When you log a skip, it fills your active jar by default. Tap Change to send that individual skip to a parked jar or leave it as Unassigned Skip Bucks. You can also move saved balances between jars from Jar Activity.",
+    a: "You can keep multiple jars by pausing one and returning to it later. When you log a skip, it fills your active jar by default. Tap Change to send that individual skip to a parked jar or leave it as Skip Bucks. You can also move saved balances between jars from Jar Activity.",
   },
   {
     q: "Can I increase a jar goal amount?",
@@ -54,11 +54,11 @@ const FAQ_ITEMS = [
   },
   {
     q: "What happens when I spend or donate from a jar?",
-    a: "iSkipped takes you to the retailer or fundraiser first. After you complete the purchase or donation outside iSkipped, return and log the amount. Your jar balance and Skip Bucks then update to match what you confirmed.",
+    a: "iSkipped takes you to the retailer or fundraiser first. After you complete the purchase or donation outside iSkipped, return and log the amount. Your jar balance and total unspent savings then update to match what you confirmed.",
   },
   {
     q: "What happens if I change or deactivate a jar?",
-    a: "You can keep the balance parked in that jar, move it to a new jar, or return it to Unassigned Skip Bucks. Deactivating a jar does not delete saved money unless you choose to move or release it.",
+    a: "You can keep the balance parked in that jar, move it to a new jar, or return it to Skip Bucks. Deactivating a jar does not delete saved money unless you choose to move or release it.",
   },
   {
     q: "Does iSkipped process donations or purchases?",
@@ -82,7 +82,7 @@ const FAQ_ITEMS = [
   },
   {
     q: "My balance or jar progress looks wrong. What should I do?",
-    a: "Open Jar Activity to compare Total Skip Bucks, money in jars, and Unassigned Skip Bucks. If something still looks wrong after checking your purchase and donation history, contact us at iskippedfor@gmail.com.",
+    a: "Open Jar Activity to compare total unspent savings, money in jars, and Skip Bucks. If something still looks wrong after checking your purchase and donation history, contact us at iskippedfor@gmail.com.",
   },
 ];
 
@@ -252,7 +252,7 @@ export default function AboutPage() {
                         <Link href="/jars" className="mt-3 inline-block font-black underline" style={{ color: "var(--green-primary)" }}>Open Manage Jars -&gt;</Link>
                       </>
                     ) : item.a}
-                    {item.q === "What are Skip Bucks, and how is my balance calculated?" && (
+                    {item.q === "What are Skip Bucks?" && (
                       <>
                         <br />
                         <Link href="/jar-activity" className="underline" style={{ color: "var(--green-primary)" }}>View Jar Activity for a breakdown</Link>.

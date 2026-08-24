@@ -1030,7 +1030,7 @@ export function SkipModal({ onClose }: Props) {
                 <div className="flex items-center justify-between gap-3">
                   <div>
                     <p className="text-[10px] font-black uppercase tracking-[0.16em]" style={{ color: "var(--text-muted)" }}>
-                      {progressTarget > 0 ? "Jar progress" : "Skip Bank"}
+                      {progressTarget > 0 ? "Jar progress" : "Skip Bucks"}
                     </p>
                     <p className="mt-1 text-xl font-black" style={{ color: "var(--text-primary)" }}>
                       {progressLabel}

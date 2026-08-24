@@ -301,7 +301,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
       </Suspense>
 
       <main className="flex-1 overflow-y-auto pb-28 md:pb-0">
-        <MobileAppHeader skipBucks={skipBalance.availableFromSkips} paused={showSkipPicker} />
+        <MobileAppHeader skipBucks={skipBalance.unassignedSkipBank} paused={showSkipPicker} />
         <EmailVerificationBanner />
         <ChallengeBanners />
         {children}

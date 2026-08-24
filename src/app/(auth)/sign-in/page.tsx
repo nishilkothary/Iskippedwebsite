@@ -7,7 +7,7 @@ import { signInWithGoogle, signUpWithEmail, signInWithEmail, resetPassword } fro
 import { useAuthStore } from "@/store/authStore";
 
 const previewSkips = [
-  { emoji: "☕", label: "Morning Latte", amount: "+$5.50", sub: "Added to your Skip Bucks", delay: "0s" },
+  { emoji: "☕", label: "Morning Latte", amount: "+$5.50", sub: "Added to Skip Bucks", delay: "0s" },
   { emoji: "🥗", label: "Lunch out", amount: "+$13.00", sub: "Saved toward Weekend Trip", delay: "0.15s" },
   { emoji: "🛍️", label: "Impulse buy", amount: "+$32.00", sub: "Saved for Laptops for Students", delay: "0.3s" },
 ];

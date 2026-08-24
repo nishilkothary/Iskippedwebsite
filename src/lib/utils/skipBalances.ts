@@ -84,9 +84,9 @@ export function sumMoneyRecord(record: Record<string, number> | undefined | null
 
 /**
  * Balance invariant:
- * Total Skip Bucks = lifetime skips - donations - purchases.
+ * Total unspent savings = lifetime skips - donations - purchases.
  * In Jars = sum of all fundraiser and reward jar balances.
- * Unassigned Skip Bucks = Total Skip Bucks - In Jars.
+ * Skip Bucks = Total unspent savings - In Jars.
  */
 export function getSkipBalanceSummary(profile: Pick<UserProfile,
   "totalSaved" | "totalSpent" | "totalDonated" | "causeJarBalances" | "goalJarBalances"
