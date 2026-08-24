@@ -2268,14 +2268,14 @@ export default function HomePage() {
                     paused={showSkipPicker}
                     color="#2ECC71"
                     gradEnd="#1E9485"
-                    label="Your contribution"
+                    label="Your goal"
                     amount={formatCurrency(givingBalance)}
                     emoji=""
                     causeLabel={activeProject.title}
                     goalAmount={hasPersonalGivingGoal ? personalGoal : undefined}
                     centerValueOverride={`${personalFundraiserPercent}%`}
                     centerLabelOverride="to goal"
-                    topLabel="Your contribution"
+                    topLabel="Your goal"
                     topLabelColor="#A7F3D0"
                     hideBottomLabel
                     href="/jar-activity"
@@ -2292,14 +2292,14 @@ export default function HomePage() {
                     paused={showSkipPicker}
                     color="#00F0D0"
                     gradEnd="#009C8B"
-                    label="Fundraising group"
+                    label="Fundraiser goal"
                     amount={formatCurrency(displayedGroupTotal)}
                     emoji=""
                     causeLabel={activeProject.title}
                     goalAmount={fundraiserGoalAmount > 0 ? fundraiserGoalAmount : undefined}
                     centerValueOverride={`${groupFundraiserPercent}%`}
                     centerLabelOverride="to goal"
-                    topLabel="Fundraising group"
+                    topLabel="Fundraiser goal"
                     topLabelColor="#A7FFF0"
                     hideBottomLabel
                     href="/jar-activity"
