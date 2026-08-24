@@ -46,7 +46,7 @@ const FAQ_ITEMS = [
   },
   {
     q: "Can I skip for more than one reason?",
-    a: "Each skip goes to one place. You can keep multiple jars by pausing one and returning to it later. When you log a skip, it fills your active jar by default. Tap Change to send that individual skip to a parked jar or leave it as Unassigned Skip Bucks. You can also move saved balances between jars from Jar Activity.",
+    a: "You can keep multiple jars by pausing one and returning to it later. When you log a skip, it fills your active jar by default. Tap Change to send that individual skip to a parked jar or leave it as Unassigned Skip Bucks. You can also move saved balances between jars from Jar Activity.",
   },
   {
     q: "Can I increase a jar goal amount?",
