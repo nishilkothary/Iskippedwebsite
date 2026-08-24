@@ -46,7 +46,7 @@ const FAQ_ITEMS = [
   },
   {
     q: "Can I skip for more than one reason?",
-    a: "You can keep multiple jars, but each new skip goes to your active jar. Pausing a jar keeps its saved balance parked until you make it active again. You can move saved balances between jars from Jar Activity.",
+    a: "Each skip can fill only one place at a time, but you can keep multiple jars. Pause a jar and return to it later. When you log a skip, you can choose to add that particular skip to a parked jar or leave it as Unassigned Skip Bucks. You can also move saved balances between jars from Jar Activity.",
   },
   {
     q: "Can I increase a jar goal amount?",
