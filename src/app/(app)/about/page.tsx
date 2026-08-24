@@ -37,12 +37,12 @@ const FAQ_ITEMS = [
     a: "Skip Bucks equal everything you have saved by skipping, minus purchases and donations you have logged. Some may be sitting in jars while the rest is unassigned and available to use.",
   },
   {
-    q: "Does money move when I log a skip?",
-    a: "No. iSkipped helps you track the amount you chose not to spend. No money moves automatically into or through iSkipped.",
+    q: "What are Unassigned Skip Bucks, and how do I use them?",
+    a: "Unassigned Skip Bucks are savings that are not in a jar yet. Choose a reward or fundraiser, then use the existing Skip Bucks option to move as much of that available balance as you want into it. You can also leave them unassigned until you are ready to choose a purpose for them.",
   },
   {
-    q: "What are unused Skip Bucks, and how do I use them?",
-    a: "Unused Skip Bucks are savings that are not assigned to a jar yet. Choose a reward or fundraiser, then use the existing Skip Bucks option to move as much of that available balance as you want into it. You can also leave Skip Bucks unassigned until you are ready to choose a purpose for them.",
+    q: "Does money move when I log a skip?",
+    a: "No. iSkipped helps you track the amount you chose not to spend. No money moves automatically into or through iSkipped.",
   },
   {
     q: "Can I skip for more than one reason?",
