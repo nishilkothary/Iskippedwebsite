@@ -63,18 +63,18 @@ export async function updateSkip(
   uid: string,
   skipId: string,
   updates: Partial<Pick<Skip, "category" | "categoryLabel" | "categoryEmoji" | "amount" | "projectId" | "projectTitle" | "whatSkipped" | "notes" | "allocationTarget">>
-): Promise<void> {
+): Promise<{ causeJarBalances?: Record<string, number>; goalJarBalances?: Record<string, number> }> {
   const cleanUpdates = Object.fromEntries(
     Object.entries(updates).filter(([, v]) => v !== undefined)
   ) as typeof updates;
-  await apiRequest(`/api/skips/${skipId}`, "PATCH", { updates: cleanUpdates });
+  return apiRequest(`/api/skips/${skipId}`, "PATCH", { updates: cleanUpdates });
 }
 
 export async function deleteSkip(
   uid: string,
   skipId: string
-): Promise<void> {
-  await apiRequest(`/api/skips/${skipId}`, "DELETE");
+): Promise<{ causeJarBalances?: Record<string, number>; goalJarBalances?: Record<string, number> }> {
+  return apiRequest(`/api/skips/${skipId}`, "DELETE");
 }
 
 export async function getRecentSkips(uid: string, count = 10): Promise<Skip[]> {

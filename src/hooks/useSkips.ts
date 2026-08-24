@@ -125,7 +125,7 @@ export function useSkips() {
     const amountDelta = newAmount - oldAmount;
     const target = resolveSkipTarget(skip, updates.allocationTarget);
 
-    await firebaseUpdateSkip(user.uid, skip.id, updates);
+    const result = await firebaseUpdateSkip(user.uid, skip.id, updates);
     storeUpdateSkip(skip.id, updates);
     if (amountDelta !== 0) {
       const targetedBalanceUpdates: Partial<Pick<UserProfilePatch, "goalJarBalances" | "causeJarBalances">> = {};
@@ -143,33 +143,21 @@ export function useSkips() {
       }
       updateProfile({
         totalSaved: profile.totalSaved + amountDelta,
-        ...targetedBalanceUpdates,
+        ...(result.goalJarBalances ? { goalJarBalances: result.goalJarBalances } : targetedBalanceUpdates.goalJarBalances ? { goalJarBalances: targetedBalanceUpdates.goalJarBalances } : {}),
+        ...(result.causeJarBalances ? { causeJarBalances: result.causeJarBalances } : targetedBalanceUpdates.causeJarBalances ? { causeJarBalances: targetedBalanceUpdates.causeJarBalances } : {}),
       });
     }
   }
 
   async function deleteSkip(skip: Skip): Promise<void> {
     if (!user || !profile) return;
-    const target = resolveSkipTarget(skip);
-    await firebaseDeleteSkip(user.uid, skip.id);
+    const result = await firebaseDeleteSkip(user.uid, skip.id);
     removeSkip(skip.id);
-    const targetedBalanceUpdates: Partial<Pick<UserProfilePatch, "goalJarBalances" | "causeJarBalances">> = {};
-    if (target?.type === "goal") {
-      targetedBalanceUpdates.goalJarBalances = {
-        ...(profile.goalJarBalances ?? {}),
-        [target.id]: Math.max(0, (profile.goalJarBalances?.[target.id] ?? 0) - skip.amount),
-      };
-    }
-    if (target?.type === "fundraiser") {
-      targetedBalanceUpdates.causeJarBalances = {
-        ...(profile.causeJarBalances ?? {}),
-        [target.id]: Math.max(0, (profile.causeJarBalances?.[target.id] ?? 0) - skip.amount),
-      };
-    }
     updateProfile({
       totalSaved: Math.max(0, profile.totalSaved - skip.amount),
       totalSkips: Math.max(0, profile.totalSkips - 1),
-      ...targetedBalanceUpdates,
+      ...(result.goalJarBalances ? { goalJarBalances: result.goalJarBalances } : {}),
+      ...(result.causeJarBalances ? { causeJarBalances: result.causeJarBalances } : {}),
     });
   }
 

@@ -4,6 +4,7 @@ import { getAdminDb } from "@/lib/services/firebaseAdmin";
 import { requireUid, ApiError, handleApiError } from "@/lib/services/apiAuth";
 import { adjustGlobalStats } from "@/lib/services/globalStats";
 import { UserProfile, Skip, SkipAllocationTarget } from "@/lib/types/models";
+import { removeUnspentSkipValue } from "@/lib/utils/skipBalances";
 
 type RouteContext = { params: Promise<{ skipId: string }> };
 
@@ -27,7 +28,7 @@ export async function PATCH(req: NextRequest, ctx: RouteContext) {
     const userRef = db.collection("users").doc(uid);
     const skipRef = userRef.collection("skips").doc(skipId);
 
-    const { projectId, fundraiserAmountDelta, amountDelta, resolvedAmount, resolvedCategoryLabel } = await db.runTransaction(async (tx) => {
+    const { projectId, fundraiserAmountDelta, amountDelta, resolvedAmount, resolvedCategoryLabel, causeJarBalances, goalJarBalances } = await db.runTransaction(async (tx) => {
       const [skipSnap, userSnap] = await Promise.all([tx.get(skipRef), tx.get(userRef)]);
       if (!skipSnap.exists) throw new ApiError(404, "Skip not found");
       const skip = skipSnap.data() as Skip;
@@ -37,22 +38,34 @@ export async function PATCH(req: NextRequest, ctx: RouteContext) {
       const newAmount = (updates.amount as number | undefined) ?? oldAmount;
       const amountDelta = newAmount - oldAmount;
       const allocationTarget = resolveSkipTarget(skip, updates.allocationTarget as SkipAllocationTarget | null | undefined);
+      let reconciledBalances: { causeJarBalances: Record<string, number>; goalJarBalances: Record<string, number> } | null = null;
+      if (amountDelta < 0) {
+        try {
+          reconciledBalances = removeUnspentSkipValue(profile, -amountDelta, allocationTarget, profile.activeSkipTarget);
+        } catch (error) {
+          throw new ApiError(409, error instanceof Error ? error.message : "This edit cannot be applied safely.");
+        }
+      }
 
       if (Object.keys(updates).length > 0) tx.update(skipRef, updates);
 
       const userUpdate: Record<string, unknown> = {};
       if (amountDelta !== 0) userUpdate.totalSaved = FieldValue.increment(amountDelta);
-      if (amountDelta !== 0 && allocationTarget?.type === "goal") {
-        userUpdate[`goalJarBalances.${allocationTarget.id}`] = Math.max(
-          0,
-          (profile.goalJarBalances?.[allocationTarget.id] ?? 0) + amountDelta
-        );
+      if (reconciledBalances) {
+        userUpdate.causeJarBalances = reconciledBalances.causeJarBalances;
+        userUpdate.goalJarBalances = reconciledBalances.goalJarBalances;
       }
       if (amountDelta !== 0 && allocationTarget?.type === "fundraiser") {
-        userUpdate[`causeJarBalances.${allocationTarget.id}`] = Math.max(
+        userUpdate.savedTowardActiveCause = Math.max(
           0,
-          (profile.causeJarBalances?.[allocationTarget.id] ?? 0) + amountDelta
+          (profile.savedTowardActiveCause ?? 0) + amountDelta
         );
+      }
+      if (amountDelta !== 0 && allocationTarget?.type === "goal") {
+        if (amountDelta > 0) userUpdate[`goalJarBalances.${allocationTarget.id}`] = Math.max(0, (profile.goalJarBalances?.[allocationTarget.id] ?? 0) + amountDelta);
+      }
+      if (amountDelta !== 0 && allocationTarget?.type === "fundraiser") {
+        if (amountDelta > 0) userUpdate[`causeJarBalances.${allocationTarget.id}`] = Math.max(0, (profile.causeJarBalances?.[allocationTarget.id] ?? 0) + amountDelta);
       }
       if (Object.keys(userUpdate).length > 0) tx.update(userRef, userUpdate);
 
@@ -62,6 +75,8 @@ export async function PATCH(req: NextRequest, ctx: RouteContext) {
         amountDelta,
         resolvedAmount: newAmount,
         resolvedCategoryLabel: (updates.categoryLabel as string | undefined) ?? skip.categoryLabel,
+        causeJarBalances: reconciledBalances?.causeJarBalances,
+        goalJarBalances: reconciledBalances?.goalJarBalances,
       };
     });
 
@@ -90,7 +105,7 @@ export async function PATCH(req: NextRequest, ctx: RouteContext) {
       }).catch(() => {});
     }
 
-    return NextResponse.json({}, { status: 200 });
+    return NextResponse.json({ causeJarBalances, goalJarBalances }, { status: 200 });
   } catch (e) {
     return handleApiError(e);
   }
@@ -105,36 +120,39 @@ export async function DELETE(req: NextRequest, ctx: RouteContext) {
     const userRef = db.collection("users").doc(uid);
     const skipRef = userRef.collection("skips").doc(skipId);
 
-    const { projectId, fundraiserAmount, deletedAmount } = await db.runTransaction(async (tx) => {
+    const { projectId, fundraiserAmount, deletedAmount, causeJarBalances, goalJarBalances } = await db.runTransaction(async (tx) => {
       const [skipSnap, userSnap] = await Promise.all([tx.get(skipRef), tx.get(userRef)]);
       if (!skipSnap.exists) throw new ApiError(404, "Skip not found");
       const skip = skipSnap.data() as Skip;
       const profile = userSnap.data() as UserProfile;
       const allocationTarget = resolveSkipTarget(skip);
+      let nextBalances;
+      try {
+        nextBalances = removeUnspentSkipValue(profile, skip.amount, allocationTarget, profile.activeSkipTarget);
+      } catch (error) {
+        throw new ApiError(409, error instanceof Error ? error.message : "This skip cannot be deleted safely.");
+      }
 
       tx.delete(skipRef);
       const userUpdate: Record<string, unknown> = {
         totalSaved: FieldValue.increment(-skip.amount),
         totalSkips: FieldValue.increment(-1),
+        savedTowardActiveCause: allocationTarget?.type === "fundraiser"
+          ? Math.max(0, (profile.savedTowardActiveCause ?? 0) - skip.amount)
+          : (profile.savedTowardActiveCause ?? 0),
+        // A jar is an aggregate balance. Reconcile from the current fungible
+        // balance, not by blindly subtracting from the skip's old target.
+        causeJarBalances: nextBalances.causeJarBalances,
+        goalJarBalances: nextBalances.goalJarBalances,
       };
-      if (allocationTarget?.type === "goal") {
-        userUpdate[`goalJarBalances.${allocationTarget.id}`] = Math.max(
-          0,
-          (profile.goalJarBalances?.[allocationTarget.id] ?? 0) - skip.amount
-        );
-      }
-      if (allocationTarget?.type === "fundraiser") {
-        userUpdate[`causeJarBalances.${allocationTarget.id}`] = Math.max(
-          0,
-          (profile.causeJarBalances?.[allocationTarget.id] ?? 0) - skip.amount
-        );
-      }
       tx.update(userRef, userUpdate);
 
       return {
-        projectId: allocationTarget?.type === "fundraiser" ? allocationTarget.id : skip.projectId,
+        projectId: allocationTarget?.type === "fundraiser" ? allocationTarget.id : null,
         fundraiserAmount: allocationTarget?.type === "fundraiser" ? skip.amount : 0,
         deletedAmount: skip.amount,
+        causeJarBalances: nextBalances.causeJarBalances,
+        goalJarBalances: nextBalances.goalJarBalances,
       };
     });
 
@@ -156,7 +174,7 @@ export async function DELETE(req: NextRequest, ctx: RouteContext) {
         .catch((e) => console.warn("[skips] project totals update failed:", e));
     }
 
-    return NextResponse.json({}, { status: 200 });
+    return NextResponse.json({ causeJarBalances, goalJarBalances }, { status: 200 });
   } catch (e) {
     return handleApiError(e);
   }
