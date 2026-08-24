@@ -416,7 +416,18 @@ function JarsPageInner() {
   }
 
   async function handleAddCause(title: string, sponsor: string, location: string | undefined, goalAmount: number, donationURL?: string, description?: string, tags?: string[]) {
-    await addCustomProject(user!.uid, { title, sponsor, location, goalAmount, donationURL, description, tags });
+    const isFundraiser = tags?.includes("challenge");
+    await addCustomProject(user!.uid, {
+      title,
+      sponsor,
+      location,
+      goalAmount,
+      donationURL,
+      description,
+      tags,
+      projectKind: isFundraiser ? "challenge" : "cause",
+      groupName: isFundraiser ? title : undefined,
+    });
     await refetch();
   }
 
@@ -1575,6 +1586,7 @@ function JarBrowser({
   const [fundingAmountStr, setFundingAmountStr] = useState("");
   const [fundingWorking, setFundingWorking] = useState(false);
   const [showFundraiserForm, setShowFundraiserForm] = useState(false);
+  const [fundraiserCreateStep, setFundraiserCreateStep] = useState(1);
   const [fundraiserTitle, setFundraiserTitle] = useState("");
   const [fundraiserOrganizer, setFundraiserOrganizer] = useState("");
   const [fundraiserGoalAmount, setFundraiserGoalAmount] = useState("");
@@ -1652,6 +1664,7 @@ function JarBrowser({
   useEffect(() => {
     if (!autoOpenFundraiserForm) return;
     setShopView("fundraisers");
+    setFundraiserCreateStep(1);
     setShowFundraiserForm(true);
     router.replace("/jars?tab=cause");
   }, [autoOpenFundraiserForm, router]);
@@ -1874,6 +1887,7 @@ function JarBrowser({
   }
 
   function resetFundraiserForm() {
+    setFundraiserCreateStep(1);
     setFundraiserTitle("");
     setFundraiserOrganizer("");
     setFundraiserGoalAmount("");
@@ -1881,16 +1895,28 @@ function JarBrowser({
     setFundraiserDescription("");
   }
 
+  const fundraiserCreateGoal = parseFloat(fundraiserGoalAmount);
+  const canContinueFundraiserBasics = fundraiserTitle.trim().length > 0;
+  const canContinueFundraiserImpact = Number.isFinite(fundraiserCreateGoal) && fundraiserCreateGoal > 0;
+  const canContinueFundraiserSetup = true;
+  const canCreateFundraiser = canContinueFundraiserBasics && canContinueFundraiserImpact && canContinueFundraiserSetup;
+  const fundraiserReviewDescription = fundraiserDescription.trim() || "The impact you choose.";
+
+  function handleFundraiserCreateNext() {
+    if (fundraiserCreateStep === 1 && canContinueFundraiserBasics) setFundraiserCreateStep(2);
+    if (fundraiserCreateStep === 2 && canContinueFundraiserImpact) setFundraiserCreateStep(3);
+    if (fundraiserCreateStep === 3 && canContinueFundraiserSetup) setFundraiserCreateStep(4);
+  }
+
   async function handleCreateFundraiser() {
-    const goal = parseFloat(fundraiserGoalAmount);
-    if (!fundraiserTitle.trim() || !goal || goal <= 0) return;
+    if (fundraiserCreateStep !== 4 || !canCreateFundraiser) return;
     setCreatingFundraiser(true);
     try {
       await onAddCause(
         fundraiserTitle.trim(),
         fundraiserOrganizer.trim() || "Community fundraiser",
         undefined,
-        goal,
+        fundraiserCreateGoal,
         fundraiserDonationLink.trim() ? normalizeExternalLink(fundraiserDonationLink) : undefined,
         fundraiserDescription.trim() || undefined,
         ["custom", "challenge"]
@@ -3125,7 +3151,10 @@ function JarBrowser({
             <p className="text-xs font-black uppercase tracking-[0.16em]" style={{ color: "#2ECC71" }}>Group Fundraisers</p>
             <button
               type="button"
-              onClick={() => setShowFundraiserForm(true)}
+              onClick={() => {
+                setFundraiserCreateStep(1);
+                setShowFundraiserForm(true);
+              }}
               className="shrink-0 rounded-full px-3 py-2 text-xs font-black"
               style={{ background: "white", color: "#0B1A14", border: "none" }}
             >
@@ -3267,9 +3296,16 @@ function JarBrowser({
           <div className="w-full max-w-md overflow-hidden rounded-2xl shadow-2xl" style={{ background: "var(--bg-surface-1)", border: "1px solid rgba(46,204,113,0.34)" }} onClick={(event) => event.stopPropagation()}>
             <div className="relative px-5 py-4 pr-12" style={{ borderBottom: "1px solid var(--border-default)" }}>
               <p className="text-lg font-black leading-tight" style={{ color: "var(--text-primary)" }}>Create a fundraiser</p>
-              <p className="mt-1 text-xs font-bold leading-relaxed" style={{ color: "var(--text-muted)" }}>
-                Add the basics now. You can share or manage details after it is created.
-              </p>
+              <p className="mt-1 text-xs font-bold leading-relaxed" style={{ color: "var(--text-muted)" }}>Step {fundraiserCreateStep} of 4</p>
+              <div className="mt-3 flex gap-2 pr-1">
+                {[1, 2, 3, 4].map((step) => (
+                  <div
+                    key={step}
+                    className="h-1.5 flex-1 rounded-full"
+                    style={{ background: step <= fundraiserCreateStep ? "#2ECC71" : "var(--bg-surface-3)" }}
+                  />
+                ))}
+              </div>
               <button
                 type="button"
                 onClick={() => { setShowFundraiserForm(false); resetFundraiserForm(); }}
@@ -3281,63 +3317,137 @@ function JarBrowser({
               </button>
             </div>
             <div className="space-y-3 p-5">
-              <input
-                type="text"
-                placeholder="Fundraiser name"
-                value={fundraiserTitle}
-                onChange={(event) => setFundraiserTitle(event.target.value)}
-                className="w-full rounded-xl px-4 py-3 text-sm focus:outline-none"
-                style={{ background: "var(--bg-surface-2)", border: "1px solid var(--border-default)", color: "var(--text-primary)" }}
-                autoFocus
-              />
-              <input
-                type="text"
-                placeholder="Organizer or charity"
-                value={fundraiserOrganizer}
-                onChange={(event) => setFundraiserOrganizer(event.target.value)}
-                className="w-full rounded-xl px-4 py-3 text-sm focus:outline-none"
-                style={{ background: "var(--bg-surface-2)", border: "1px solid var(--border-default)", color: "var(--text-primary)" }}
-              />
-              <div className="relative">
-                <span className="absolute left-4 top-1/2 -translate-y-1/2 text-sm" style={{ color: "var(--text-muted)" }}>$</span>
-                <input
-                  type="number"
-                  min="1"
-                  placeholder="Fundraiser goal"
-                  value={fundraiserGoalAmount}
-                  onChange={(event) => setFundraiserGoalAmount(event.target.value)}
-                  className="w-full rounded-xl py-3 pl-8 pr-4 text-sm focus:outline-none"
-                  style={{ background: "var(--bg-surface-2)", border: "1px solid var(--border-default)", color: "var(--text-primary)" }}
-                />
+              {fundraiserCreateStep === 1 && (
+                <>
+                  <div>
+                    <p className="mb-1.5 text-xs font-black uppercase tracking-wide" style={{ color: "var(--text-muted)" }}>Fundraiser name</p>
+                    <input
+                      type="text"
+                      placeholder="e.g. Books for Students in Kenya"
+                      value={fundraiserTitle}
+                      onChange={(event) => setFundraiserTitle(event.target.value)}
+                      className="w-full rounded-xl px-4 py-3 text-sm focus:outline-none"
+                      style={{ background: "var(--bg-surface-2)", border: "1px solid var(--border-default)", color: "var(--text-primary)" }}
+                      autoFocus
+                    />
+                  </div>
+                  <div>
+                    <p className="mb-1.5 text-xs font-black uppercase tracking-wide" style={{ color: "var(--text-muted)" }}>Who is organizing</p>
+                    <input
+                      type="text"
+                      placeholder="Organizer or charity"
+                      value={fundraiserOrganizer}
+                      onChange={(event) => setFundraiserOrganizer(event.target.value)}
+                      className="w-full rounded-xl px-4 py-3 text-sm focus:outline-none"
+                      style={{ background: "var(--bg-surface-2)", border: "1px solid var(--border-default)", color: "var(--text-primary)" }}
+                    />
+                  </div>
+                </>
+              )}
+
+              {fundraiserCreateStep === 2 && (
+                <>
+                  <div>
+                    <p className="mb-1.5 text-xs font-black uppercase tracking-wide" style={{ color: "var(--text-muted)" }}>Group goal</p>
+                    <div className="relative">
+                      <span className="absolute left-4 top-1/2 -translate-y-1/2 text-sm" style={{ color: "var(--text-muted)" }}>$</span>
+                      <input
+                        type="number"
+                        min="1"
+                        placeholder="Fundraiser goal"
+                        value={fundraiserGoalAmount}
+                        onChange={(event) => setFundraiserGoalAmount(event.target.value)}
+                        className="w-full rounded-xl py-3 pl-8 pr-4 text-sm focus:outline-none"
+                        style={{ background: "var(--bg-surface-2)", border: "1px solid var(--border-default)", color: "var(--text-primary)" }}
+                        autoFocus
+                      />
+                    </div>
+                  </div>
+                  <div>
+                    <p className="mb-1.5 text-xs font-black uppercase tracking-wide" style={{ color: "var(--text-muted)" }}>What will this support?</p>
+                    <textarea
+                      placeholder="Optional details people will see before they join"
+                      value={fundraiserDescription}
+                      onChange={(event) => setFundraiserDescription(event.target.value)}
+                      rows={4}
+                      className="w-full resize-none rounded-xl px-4 py-3 text-sm focus:outline-none"
+                      style={{ background: "var(--bg-surface-2)", border: "1px solid var(--border-default)", color: "var(--text-primary)" }}
+                    />
+                  </div>
+                </>
+              )}
+
+              {fundraiserCreateStep === 3 && (
+                <>
+                  <div>
+                    <p className="mb-1.5 text-xs font-black uppercase tracking-wide" style={{ color: "var(--text-muted)" }}>Donation destination</p>
+                    <input
+                      type="url"
+                      placeholder="Donation link (optional)"
+                      value={fundraiserDonationLink}
+                      onChange={(event) => setFundraiserDonationLink(event.target.value)}
+                      className="w-full rounded-xl px-4 py-3 text-sm focus:outline-none"
+                      style={{ background: "var(--bg-surface-2)", border: "1px solid var(--border-default)", color: "var(--text-primary)" }}
+                      autoFocus
+                    />
+                  </div>
+                  <p className="text-[10px] font-bold leading-relaxed" style={{ color: "var(--text-muted)" }}>
+                    iSkipped helps track motivation and saved skips. Donations happen outside iSkipped.
+                  </p>
+                </>
+              )}
+
+              {fundraiserCreateStep === 4 && (
+                <>
+                  <div className="rounded-xl p-4" style={{ background: "var(--bg-surface-2)", border: "1px solid var(--border-default)" }}>
+                    <p className="text-lg font-black leading-tight" style={{ color: "var(--text-primary)" }}>{fundraiserTitle.trim() || "Fundraiser name"}</p>
+                    <p className="mt-1 text-xs font-bold" style={{ color: "var(--text-muted)" }}>{fundraiserOrganizer.trim() || "Community fundraiser"}</p>
+                    <p className="mt-3 text-sm leading-relaxed" style={{ color: "var(--text-secondary)" }}>{fundraiserReviewDescription}</p>
+                    <p className="mt-3 text-sm font-black" style={{ color: "#2ECC71" }}>Goal: {formatCurrency(fundraiserCreateGoal || 0)}</p>
+                    {fundraiserDonationLink.trim() && (
+                      <p className="mt-2 truncate text-xs font-bold" style={{ color: "var(--text-muted)" }}>{normalizeExternalLink(fundraiserDonationLink)}</p>
+                    )}
+                  </div>
+                </>
+              )}
+
+              <div className="flex gap-2 pt-2">
+                {fundraiserCreateStep > 1 && (
+                  <button
+                    type="button"
+                    onClick={() => setFundraiserCreateStep((step) => Math.max(1, step - 1))}
+                    className="rounded-xl px-4 py-3 text-sm font-black"
+                    style={{ border: "1px solid var(--border-default)", color: "var(--text-secondary)" }}
+                  >
+                    Back
+                  </button>
+                )}
+                {fundraiserCreateStep < 4 ? (
+                  <button
+                    type="button"
+                    onClick={handleFundraiserCreateNext}
+                    disabled={
+                      (fundraiserCreateStep === 1 && !canContinueFundraiserBasics)
+                      || (fundraiserCreateStep === 2 && !canContinueFundraiserImpact)
+                      || (fundraiserCreateStep === 3 && !canContinueFundraiserSetup)
+                    }
+                    className="flex-1 rounded-xl py-3 text-sm font-black disabled:opacity-50"
+                    style={{ background: "#2ECC71", color: "#071B14" }}
+                  >
+                    {fundraiserCreateStep === 1 ? "Next: Impact" : fundraiserCreateStep === 2 ? "Next: Setup" : "Next: Review"}
+                  </button>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={() => void handleCreateFundraiser()}
+                    disabled={creatingFundraiser || !canCreateFundraiser}
+                    className="flex-1 rounded-xl py-3 text-sm font-black disabled:opacity-50"
+                    style={{ background: "#2ECC71", color: "#071B14" }}
+                  >
+                    {creatingFundraiser ? "Creating..." : "Create fundraiser"}
+                  </button>
+                )}
               </div>
-              <input
-                type="url"
-                placeholder="Donation link (optional)"
-                value={fundraiserDonationLink}
-                onChange={(event) => setFundraiserDonationLink(event.target.value)}
-                className="w-full rounded-xl px-4 py-3 text-sm focus:outline-none"
-                style={{ background: "var(--bg-surface-2)", border: "1px solid var(--border-default)", color: "var(--text-primary)" }}
-              />
-              <textarea
-                placeholder="What will this support? (optional)"
-                value={fundraiserDescription}
-                onChange={(event) => setFundraiserDescription(event.target.value)}
-                rows={3}
-                className="w-full resize-none rounded-xl px-4 py-3 text-sm focus:outline-none"
-                style={{ background: "var(--bg-surface-2)", border: "1px solid var(--border-default)", color: "var(--text-primary)" }}
-              />
-              <p className="text-[10px] font-bold leading-relaxed" style={{ color: "var(--text-muted)" }}>
-                iSkipped helps track motivation and saved skips. Donations happen outside iSkipped.
-              </p>
-              <button
-                type="button"
-                onClick={() => void handleCreateFundraiser()}
-                disabled={creatingFundraiser || !fundraiserTitle.trim() || !fundraiserGoalAmount || parseFloat(fundraiserGoalAmount) <= 0}
-                className="w-full rounded-xl py-3 text-sm font-black disabled:opacity-50"
-                style={{ background: "#2ECC71", color: "#071B14" }}
-              >
-                {creatingFundraiser ? "Creating..." : "Create fundraiser"}
-              </button>
             </div>
           </div>
         </div>
