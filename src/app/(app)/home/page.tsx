@@ -2231,10 +2231,10 @@ export default function HomePage() {
                       <p className="home-fundraiser-title" style={{ fontSize: 22, fontWeight: 900, lineHeight: 1.1, color: "var(--text-primary)", marginTop: 4 }}>
                         {activeProject?.title ?? "Pick a fundraiser"}
                       </p>
-                      {activeProject && groupContributorCount > 0 && (
+                      {activeProject && (
                         <p className="home-fundraiser-participants" style={{ marginTop: 5, color: "var(--text-secondary)", fontSize: 12, lineHeight: 1.35 }}>
-                          {groupContributorCount === 1
-                            ? "You're the first one skipping for this fundraiser."
+                          {groupContributorCount <= 1
+                            ? "You're the only one skipping for this fundraiser."
                             : `You and ${groupContributorCount - 1} ${groupContributorCount === 2 ? "other" : "others"} are skipping for this fundraiser.`}
                         </p>
                       )}
