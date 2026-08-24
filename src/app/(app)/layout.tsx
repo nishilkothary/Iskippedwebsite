@@ -114,7 +114,7 @@ function MobileBottomNav({ onLogSkip }: { onLogSkip: () => void }) {
       <Link
         key={item.href}
         href={item.href}
-        className="mx-1 flex flex-1 flex-col items-center justify-center gap-1 rounded-xl px-1 py-2 transition-colors"
+        className="mx-2 flex flex-1 flex-col items-center justify-center gap-0.5 rounded-lg px-1 py-1.5 transition-colors"
         style={active
           ? {
               background: "rgba(255,183,0,0.14)",
