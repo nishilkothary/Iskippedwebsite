@@ -1329,6 +1329,12 @@ export default function HomePage() {
     ? Math.max(liveChallengeTotalRaised, fundraiserDonatedTotal + userChallengeBalance)
     : 0;
   const groupContributorCount = isActiveChallenge ? liveChallengeContributorCount : 0;
+  const groupHasPriorProgress = displayedGroupTotal > userChallengeBalance + 0.005;
+  const fundraiserParticipantCopy = groupContributorCount > 1
+    ? `You and ${groupContributorCount - 1} ${groupContributorCount === 2 ? "other" : "others"} are skipping for this fundraiser.`
+    : groupHasPriorProgress
+      ? "Your skips are helping grow this fundraiser."
+      : "You're the first one skipping for this fundraiser.";
   const communityGoal = activeProject && isActiveChallenge ? getCommunityGoal(activeProject) : 0;
   const fundraiserUnitCost = activeProject?.unitCost && activeProject.unitCost > 0 ? activeProject.unitCost : null;
   const temporaryChallengeGoalUnits = activeProject && isActiveChallenge && fundraiserUnitCost && activeProject.goalAmount <= 0 ? 10 : null;
@@ -2235,9 +2241,7 @@ export default function HomePage() {
                       </p>
                       {activeProject && (
                         <p className="home-fundraiser-participants" style={{ marginTop: 5, color: "var(--text-secondary)", fontSize: 12, lineHeight: 1.35 }}>
-                          {groupContributorCount <= 1
-                            ? "You're the first one skipping for this fundraiser."
-                            : `You and ${groupContributorCount - 1} ${groupContributorCount === 2 ? "other" : "others"} are skipping for this fundraiser.`}
+                          {fundraiserParticipantCopy}
                         </p>
                       )}
                       {!activeProject && (
@@ -2288,14 +2292,14 @@ export default function HomePage() {
                     paused={showSkipPicker}
                     color="#00F0D0"
                     gradEnd="#009C8B"
-                    label="Group total"
+                    label="Fundraising group"
                     amount={formatCurrency(displayedGroupTotal)}
                     emoji=""
                     causeLabel={activeProject.title}
                     goalAmount={fundraiserGoalAmount > 0 ? fundraiserGoalAmount : undefined}
                     centerValueOverride={`${groupFundraiserPercent}%`}
                     centerLabelOverride="to goal"
-                    topLabel="Group total"
+                    topLabel="Fundraising group"
                     topLabelColor="#A7FFF0"
                     hideBottomLabel
                     href="/jar-activity"

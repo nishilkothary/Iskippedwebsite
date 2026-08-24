@@ -25,7 +25,6 @@ export async function GET(req: NextRequest, context: { params: Promise<{ id: str
       const balance = userSnap.data().causeJarBalances?.[challengeId];
       return sum + (typeof balance === "number" ? Math.max(0, balance) : 0);
     }, 0);
-    const contributorCount = balanceUsersSnap.size;
     const [causeDonations, titleDonations] = await Promise.all([
       db.collectionGroup("donations").where("causeId", "==", challengeId).get(),
       challengeTitle
@@ -38,6 +37,14 @@ export async function GET(req: NextRequest, context: { params: Promise<{ id: str
       const amount = donation.get("amount");
       return sum + (typeof amount === "number" ? Math.max(0, amount) : 0);
     }, 0);
+    // A participant can have donated their saved skips already, leaving no
+    // current jar balance. Count those people as supporters as well.
+    const contributorUids = new Set(balanceUsersSnap.docs.map((userSnap) => userSnap.id));
+    for (const donation of donationDocs.values()) {
+      const uid = donation.ref.parent.parent?.id;
+      if (uid) contributorUids.add(uid);
+    }
+    const contributorCount = contributorUids.size;
     const storedDonated = typeof project.totalDonated === "number" ? Math.max(0, project.totalDonated) : 0;
     const totalDonated = recordedDonations > 0 ? recordedDonations : storedDonated;
 
