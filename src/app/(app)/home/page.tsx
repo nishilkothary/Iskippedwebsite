@@ -1183,6 +1183,11 @@ export default function HomePage() {
   const [showContributionModal, setShowContributionModal] = useState(false);
   const [contributionMode, setContributionMode] = useState<"contribute" | "log">("contribute");
   const [showSpendModal, setShowSpendModal] = useState(false);
+  const [showRewardEditor, setShowRewardEditor] = useState(false);
+  const [rewardEditLabel, setRewardEditLabel] = useState("");
+  const [rewardEditGoal, setRewardEditGoal] = useState("");
+  const [rewardEditCategory, setRewardEditCategory] = useState("");
+  const [rewardEditWorking, setRewardEditWorking] = useState(false);
   const [jarCarouselIndex, setJarCarouselIndex] = useState(0);
   const jarCarouselSwipe = useRef<{ x: number; y: number; pointerId: number } | null>(null);
   const suppressCarouselClick = useRef(false);
@@ -1840,6 +1845,51 @@ export default function HomePage() {
     await activateHomeFundingTarget(amount);
   }
 
+  function openRewardEditor() {
+    if (!activeGoal) return;
+    setRewardEditLabel(activeGoal.label);
+    setRewardEditGoal(String(activeGoal.targetAmount));
+    setRewardEditCategory(activeGoal.category ?? "");
+    setShowRewardEditor(true);
+  }
+
+  async function saveRewardEditor() {
+    if (!user || !activeGoal) return;
+
+    const label = rewardEditLabel.trim();
+    const targetAmount = Number(rewardEditGoal);
+    if (!label) {
+      toast.error("Give this reward a name.");
+      return;
+    }
+    if (!Number.isFinite(targetAmount) || targetAmount <= 0) {
+      toast.error("Enter a goal greater than $0.");
+      return;
+    }
+
+    const category = rewardEditCategory.trim();
+    const nextGoals = spendingGoals.map((goal) => {
+      if (goal.id !== activeGoal.id) return goal;
+      const nextGoal = { ...goal, label, targetAmount, category: category || undefined };
+      return Object.fromEntries(
+        Object.entries(nextGoal).filter(([, value]) => value !== undefined),
+      ) as unknown as SpendingGoal;
+    });
+
+    setRewardEditWorking(true);
+    try {
+      await updateSpendingGoals(user.uid, nextGoals, activeSpendingGoalId);
+      updateProfile({ spendingGoals: nextGoals, spendingGoal: null });
+      setShowRewardEditor(false);
+      toast.success("Reward updated.");
+    } catch (err) {
+      console.error("reward update failed", err);
+      toast.error("Couldn't update this reward. Check your connection and try again.");
+    } finally {
+      setRewardEditWorking(false);
+    }
+  }
+
   function renderJarCarouselCard(item: JarCarouselItem) {
     if (item.kind === "createReward") {
       return (
@@ -2040,7 +2090,7 @@ export default function HomePage() {
       {/* Scoreboard */}
       <div className="iskip-scoreboard" style={{ marginBottom: 32 }}>
         <div className="iskip-scoreboard-header" style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 12 }}>
-          <span>SKIP SCOREBOARD</span>
+          <span className="iskip-scoreboard-title">SKIP SCOREBOARD</span>
           <div className="home-scoreboard-skip-bucks hidden md:block" style={{ position: "absolute", right: 0, top: "50%", transform: "translateY(-50%)" }}>
             <SkipBucksBill
               amount={skipBalance.availableFromSkips}
@@ -2162,7 +2212,7 @@ export default function HomePage() {
                   )}
                   <div style={{ minWidth: 0 }}>
                     <p style={{ fontSize: 11, fontWeight: 900, letterSpacing: 1.1, textTransform: "uppercase", color: "#A78BFA" }}>{firstName}'s Reward Jar</p>
-                    <p style={{ fontSize: 22, fontWeight: 900, color: "var(--text-primary)", lineHeight: 1.1, marginTop: 4 }}>
+                    <p className="home-reward-title" style={{ fontSize: 22, fontWeight: 900, color: "var(--text-primary)", lineHeight: 1.1, marginTop: 4 }}>
                       {activeGoal.label}
                     </p>
                     <p style={{ fontSize: 13, color: "var(--text-secondary)", lineHeight: 1.3, marginTop: 4 }}>
@@ -2170,6 +2220,15 @@ export default function HomePage() {
                     </p>
                   </div>
                 </div>
+                <button
+                  type="button"
+                  onClick={openRewardEditor}
+                  title="Edit reward"
+                  aria-label={`Edit ${activeGoal.label}`}
+                  style={{ flex: "0 0 auto", width: 34, height: 34, borderRadius: 999, display: "grid", placeItems: "center", background: "rgba(139,92,246,0.13)", border: "1px solid rgba(139,92,246,0.46)", color: "#C4B5FD", fontSize: 17, fontWeight: 900, lineHeight: 1, cursor: "pointer" }}
+                >
+                  &#9998;
+                </button>
               </div>
             ) : (
               <div style={{ marginBottom: 0 }}>
@@ -3108,6 +3167,78 @@ export default function HomePage() {
         </div>
         );
       })()}
+
+      {showRewardEditor && activeGoal && (
+        <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/60 p-4 sm:items-center" onClick={() => setShowRewardEditor(false)}>
+          <form
+            className="w-full max-w-sm rounded-2xl shadow-2xl"
+            style={{ background: "var(--bg-surface-1)", border: "1px solid rgba(139,92,246,0.32)" }}
+            onClick={(event) => event.stopPropagation()}
+            onSubmit={(event) => {
+              event.preventDefault();
+              void saveRewardEditor();
+            }}
+          >
+            <div className="relative border-b px-5 pb-4 pt-5 pr-12" style={{ borderColor: "var(--border-default)" }}>
+              <p className="text-lg font-black leading-tight" style={{ color: "var(--text-primary)" }}>Edit reward</p>
+              <button
+                type="button"
+                onClick={() => setShowRewardEditor(false)}
+                aria-label="Close reward editor"
+                className="absolute right-4 top-4 text-xl font-black leading-none"
+                style={{ color: "var(--text-muted)" }}
+              >
+                x
+              </button>
+            </div>
+            <div className="space-y-4 p-5">
+              <label className="block">
+                <span className="mb-1.5 block text-xs font-black uppercase tracking-wide" style={{ color: "#C4B5FD" }}>Reward name</span>
+                <input
+                  value={rewardEditLabel}
+                  onChange={(event) => setRewardEditLabel(event.target.value)}
+                  className="w-full rounded-xl px-4 py-3 text-sm focus:outline-none"
+                  style={{ background: "var(--bg-surface-2)", border: "1px solid var(--border-default)", color: "var(--text-primary)" }}
+                  autoFocus
+                />
+              </label>
+              <label className="block">
+                <span className="mb-1.5 block text-xs font-black uppercase tracking-wide" style={{ color: "#C4B5FD" }}>Goal amount</span>
+                <div className="relative">
+                  <span className="absolute left-4 top-1/2 -translate-y-1/2 text-sm" style={{ color: "var(--text-muted)" }}>$</span>
+                  <input
+                    type="number"
+                    min="1"
+                    step="0.01"
+                    value={rewardEditGoal}
+                    onChange={(event) => setRewardEditGoal(event.target.value)}
+                    className="w-full rounded-xl py-3 pl-8 pr-4 text-sm focus:outline-none"
+                    style={{ background: "var(--bg-surface-2)", border: "1px solid var(--border-default)", color: "var(--text-primary)" }}
+                  />
+                </div>
+              </label>
+              <label className="block">
+                <span className="mb-1.5 block text-xs font-black uppercase tracking-wide" style={{ color: "#C4B5FD" }}>Category (optional)</span>
+                <input
+                  value={rewardEditCategory}
+                  onChange={(event) => setRewardEditCategory(event.target.value)}
+                  placeholder="Travel, self-care, books..."
+                  className="w-full rounded-xl px-4 py-3 text-sm focus:outline-none"
+                  style={{ background: "var(--bg-surface-2)", border: "1px solid var(--border-default)", color: "var(--text-primary)" }}
+                />
+              </label>
+              <button
+                type="submit"
+                disabled={rewardEditWorking}
+                className="w-full rounded-xl py-3 text-sm font-black disabled:opacity-50"
+                style={{ background: "#8B5CF6", color: "white" }}
+              >
+                {rewardEditWorking ? "Saving..." : "Save changes"}
+              </button>
+            </div>
+          </form>
+        </div>
+      )}
 
       {editingSkip && (
         <EditSkipModal

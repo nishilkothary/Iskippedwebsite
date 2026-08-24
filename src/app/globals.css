@@ -133,6 +133,20 @@ body {
   text-transform: uppercase;
   margin-bottom: 14px;
 }
+.iskip-scoreboard-title {
+  max-width: calc(100% - 64px);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.home-reward-title,
+.home-fundraiser-title {
+  min-width: 0;
+  overflow: hidden;
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+}
 .iskip-scoreboard-live {
   display: inline-flex;
   align-items: center;
