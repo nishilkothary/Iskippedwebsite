@@ -275,7 +275,7 @@ export default function AboutPage() {
             iSkipped is a <span className="font-semibold" style={{ color: "var(--text-primary)" }}>motivation and tracking tool</span> — it helps you log, visualize, and stay accountable to the money you save by skipping. No funds move automatically.
           </p>
           <p className="text-sm leading-relaxed" style={{ color: "var(--text-secondary)" }}>
-            When you&apos;re ready to donate, iSkipped links you directly to each charitable organization. <span className="font-semibold" style={{ color: "var(--text-primary)" }}>All donations are processed by the cause itself</span> — iSkipped never holds or handles your funds.
+              When you&apos;re ready to use your savings, iSkipped links you to the retailer for a reward or the organization for a donation. <span className="font-semibold" style={{ color: "var(--text-primary)" }}>Purchases and donations are completed outside iSkipped</span> — we never hold or handle your funds.
           </p>
         </div>
 
