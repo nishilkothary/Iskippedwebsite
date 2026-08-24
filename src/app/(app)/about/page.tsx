@@ -45,6 +45,14 @@ const FAQ_ITEMS = [
     a: "Choose a reward or fundraiser and make it your active jar. Future skips go there. When you are ready, choose Spend my skips or Donate my skips. Parked jars keep their saved balance for later.",
   },
   {
+    q: "Can I skip for more than one reason?",
+    a: "Each skip can only fill one jar, but you can keep multiple jars. Pause a jar and return to it later, switch the jar while logging a skip, or edit any skip to fill a paused jar. If you change your mind later, you can move balances between jars.",
+  },
+  {
+    q: "Can I increase a jar goal amount?",
+    a: "Yes. Open Manage Jars, tap the pencil on your current jar, and enter a new goal amount. Your saved balance stays in the jar, and future skips keep filling it toward the updated goal.",
+  },
+  {
     q: "What happens when I spend or donate from a jar?",
     a: "iSkipped takes you to the retailer or fundraiser first. After you complete the purchase or donation outside iSkipped, return and log the amount. Your jar balance and Skip Bucks then update to match what you confirmed.",
   },

@@ -1,8 +1,8 @@
 "use client";
 
 import Link from "next/link";
-import { useRouter } from "next/navigation";
-import { useEffect, useMemo, useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
+import { Suspense, useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 import { useAuthStore } from "@/store/authStore";
 import { useProjects } from "@/hooks/useProjects";
@@ -15,6 +15,7 @@ import {
   recordPurchase,
   setActiveProject,
   setActiveSkipTarget,
+  setUserCauseGoal,
   parkSkipTarget,
   deleteDonation,
   deleteSpendingHistory,
@@ -121,6 +122,7 @@ function JarActivityCard({
   onDonate,
   onPurchase,
   onDeactivate,
+  onEditGoalAmount,
 }: {
   item: JarActivityItem;
   working: boolean;
@@ -128,6 +130,7 @@ function JarActivityCard({
   onDonate: (project: Project) => void;
   onPurchase: (goal: SpendingGoal) => void;
   onDeactivate: (item: JarActivityItem) => void;
+  onEditGoalAmount: (item: JarActivityItem) => void;
 }) {
   const percent = progressPercent(item.balance, item.goalAmount);
   const accent = item.type === "fundraiser" ? "var(--green-primary)" : "#A78BFA";
@@ -147,12 +150,26 @@ function JarActivityCard({
       }}
     >
       <div className="jar-activity-card-heading text-center">
-        <p className="jar-activity-card-meta text-[10px] font-black uppercase tracking-[0.14em]" style={{ color: item.active ? accent : "var(--text-muted)" }}>
-          {item.type === "fundraiser" ? "Fundraiser" : "Reward"}
-        </p>
+        <div className="flex min-h-7 items-center justify-center gap-1.5">
+          <p className="jar-activity-card-meta text-[10px] font-black uppercase tracking-[0.14em]" style={{ color: item.active ? accent : "var(--text-muted)" }}>
+            {item.type === "fundraiser" ? "Fundraiser" : "Reward"}
+          </p>
+          {item.active && (
+            <button
+              type="button"
+              onClick={() => onEditGoalAmount(item)}
+              className="flex h-6 w-6 items-center justify-center rounded-full text-xs leading-none"
+              style={{ background: item.type === "fundraiser" ? "rgba(46,204,113,0.13)" : "rgba(167,139,250,0.16)", border: `1px solid ${accent}`, color: accent }}
+              title="Edit jar goal"
+              aria-label="Edit jar goal"
+            >
+              ✎
+            </button>
+          )}
+        </div>
         <div className="min-w-0">
           <h2 className="jar-activity-card-title truncate text-sm font-black leading-tight" style={{ color: accent }}>{item.title}</h2>
-          <p className="jar-activity-card-subtitle mt-1 hidden text-xs" style={{ color: "var(--text-muted)" }}>{goalLine(item)}</p>
+          <p className="jar-activity-card-subtitle mt-1 text-xs" style={{ color: "var(--text-muted)" }}>{goalLine(item)}</p>
         </div>
       </div>
 
@@ -525,8 +542,9 @@ function MoveBalanceModal({
   );
 }
 
-export default function JarActivityPage() {
+function JarActivityPageInner() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const { user, profile, updateProfile } = useAuthStore();
   const { projects } = useProjects();
   const [workingId, setWorkingId] = useState<string | null>(null);
@@ -543,6 +561,9 @@ export default function JarActivityPage() {
   const [purchaseAmount, setPurchaseAmount] = useState("");
   const [purchaseWorking, setPurchaseWorking] = useState(false);
   const [purchaseDone, setPurchaseDone] = useState<"logged" | "emptied" | null>(null);
+  const [editingJarGoal, setEditingJarGoal] = useState<JarActivityItem | null>(null);
+  const [jarGoalAmount, setJarGoalAmount] = useState("");
+  const [jarGoalWorking, setJarGoalWorking] = useState(false);
 
   useEffect(() => {
     if (!user) return;
@@ -649,6 +670,8 @@ export default function JarActivityPage() {
 
   if (!user || !profile) return null;
   const profileData = profile;
+  const backHref = searchParams.get("from") === "profile" ? "/profile" : "/jars";
+  const backLabel = searchParams.get("from") === "profile" ? "Profile" : "Jars";
 
   async function handleResume(item: JarActivityItem) {
     if (!user || workingId) return;
@@ -692,6 +715,49 @@ export default function JarActivityPage() {
     setPurchasingGoal(goal);
     setPurchaseAmount(amountInputValue(balance));
     setPurchaseDone(null);
+  }
+
+  function beginEditJarGoal(item: JarActivityItem) {
+    setEditingJarGoal(item);
+    setJarGoalAmount(item.goalAmount > 0 ? amountInputValue(item.goalAmount) : "");
+  }
+
+  function closeJarGoalEditor() {
+    setEditingJarGoal(null);
+    setJarGoalAmount("");
+    setJarGoalWorking(false);
+  }
+
+  async function saveJarGoalAmount() {
+    if (!user || !editingJarGoal) return;
+    const nextAmount = cents(Number.parseFloat(jarGoalAmount));
+    if (!Number.isFinite(nextAmount) || nextAmount <= 0) {
+      toast.error("Enter a goal amount.");
+      return;
+    }
+    setJarGoalWorking(true);
+    try {
+      if (editingJarGoal.type === "fundraiser") {
+        await setUserCauseGoal(user.uid, editingJarGoal.id, nextAmount);
+        updateProfile({
+          causeGoalAmounts: {
+            ...(profileData.causeGoalAmounts ?? {}),
+            [editingJarGoal.id]: nextAmount,
+          },
+        });
+      } else {
+        const nextGoals = spendingGoals.map((goal) =>
+          goal.id === editingJarGoal.id ? { ...goal, targetAmount: nextAmount } : goal
+        );
+        await updateSpendingGoals(user.uid, nextGoals, activeSpendingGoalId);
+        updateProfile({ spendingGoals: nextGoals });
+      }
+      toast.success("Jar goal updated.");
+      closeJarGoalEditor();
+    } catch {
+      toast.error("Could not update that goal. Try again.");
+      setJarGoalWorking(false);
+    }
   }
 
   function closePurchaseModal() {
@@ -961,13 +1027,13 @@ export default function JarActivityPage() {
           <h1 className="jar-activity-title mt-1 hidden text-3xl font-black tracking-tight sm:block" style={{ color: "var(--text-primary)" }}>Where your skips are saved</h1>
         </div>
         <Link
-          href="/jars"
+          href={backHref}
           className="jar-activity-back-link inline-flex items-center justify-center rounded-full px-4 py-2 text-sm font-black"
           style={{ border: "1px solid var(--border-emphasis)", color: "var(--green-primary)", textDecoration: "none" }}
         >
           <span className="sm:hidden" aria-hidden="true">←</span>
-          <span className="sr-only sm:hidden">Back to jars</span>
-          <span className="hidden sm:inline">Jars</span>
+          <span className="sr-only sm:hidden">Back to {backLabel.toLowerCase()}</span>
+          <span className="hidden sm:inline">{backLabel}</span>
         </Link>
       </div>
 
@@ -1020,6 +1086,7 @@ export default function JarActivityPage() {
                     onDonate={beginDonate}
                     onPurchase={beginPurchase}
                     onDeactivate={handleDeactivate}
+                    onEditGoalAmount={beginEditJarGoal}
                   />
                 ))}
               </div>
@@ -1039,6 +1106,7 @@ export default function JarActivityPage() {
                     onDonate={beginDonate}
                     onPurchase={beginPurchase}
                     onDeactivate={handleDeactivate}
+                    onEditGoalAmount={beginEditJarGoal}
                   />
                 ))}
               </div>
@@ -1108,6 +1176,83 @@ export default function JarActivityPage() {
           unassignedSkipBucks={unassignedSkipBucks}
           onClose={() => setDonatingProject(null)}
         />
+      )}
+
+      {editingJarGoal && (
+        <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/60 p-4 sm:items-center" onClick={closeJarGoalEditor}>
+          <div
+            className="w-full max-w-sm rounded-2xl shadow-2xl"
+            style={{ background: "var(--bg-surface-1)", border: "1px solid var(--border-default)" }}
+            onClick={(event) => event.stopPropagation()}
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="jar-goal-edit-title"
+          >
+            <div className="relative px-5 py-4 pr-12" style={{ borderBottom: "1px solid var(--border-default)" }}>
+              <button
+                type="button"
+                onClick={closeJarGoalEditor}
+                aria-label="Close"
+                className="absolute right-4 top-4 text-xl leading-none"
+                style={{ color: "var(--text-muted)" }}
+              >
+                ×
+              </button>
+              <p id="jar-goal-edit-title" className="text-lg font-black leading-tight" style={{ color: "var(--text-primary)" }}>
+                Edit jar goal
+              </p>
+              <p className="mt-1 text-xs font-bold leading-relaxed" style={{ color: "var(--text-muted)" }}>
+                {editingJarGoal.title}
+              </p>
+            </div>
+            <div className="space-y-4 p-5">
+              <div>
+                <p className="text-xs font-black uppercase tracking-wide" style={{ color: "var(--text-muted)" }}>Current progress</p>
+                <p className="mt-1 text-sm font-bold" style={{ color: "var(--text-primary)" }}>
+                  {formatCurrency(editingJarGoal.balance)} saved toward {editingJarGoal.goalAmount > 0 ? formatCurrency(editingJarGoal.goalAmount) : "an open goal"}
+                </p>
+              </div>
+              <div>
+                <label className="mb-1.5 block text-xs font-black uppercase tracking-wide" style={{ color: "var(--text-muted)" }} htmlFor="jar-goal-amount">
+                  Goal amount
+                </label>
+                <div className="relative">
+                  <span className="absolute left-4 top-1/2 -translate-y-1/2 text-sm" style={{ color: "var(--text-muted)" }}>$</span>
+                  <input
+                    id="jar-goal-amount"
+                    type="number"
+                    min="1"
+                    step="0.01"
+                    value={jarGoalAmount}
+                    onChange={(event) => setJarGoalAmount(event.target.value)}
+                    className="w-full rounded-xl py-3 pl-8 pr-4 text-sm focus:outline-none"
+                    style={{ background: "var(--bg-surface-2)", border: "1px solid var(--border-default)", color: "var(--text-primary)" }}
+                    autoFocus
+                  />
+                </div>
+              </div>
+              <div className="flex gap-2">
+                <button
+                  type="button"
+                  onClick={() => void saveJarGoalAmount()}
+                  disabled={jarGoalWorking || !jarGoalAmount || Number.parseFloat(jarGoalAmount) <= 0}
+                  className="flex-1 rounded-xl py-3 text-sm font-black disabled:opacity-50"
+                  style={{ background: editingJarGoal.type === "fundraiser" ? "var(--green-primary)" : "#8B5CF6", color: editingJarGoal.type === "fundraiser" ? "#071B14" : "white" }}
+                >
+                  {jarGoalWorking ? "Saving..." : "Save goal"}
+                </button>
+                <button
+                  type="button"
+                  onClick={closeJarGoalEditor}
+                  className="rounded-xl px-4 py-3 text-sm font-black"
+                  style={{ border: "1px solid var(--border-default)", color: "var(--text-secondary)" }}
+                >
+                  Cancel
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
       )}
 
       {purchasingGoal && (() => {
@@ -1227,5 +1372,13 @@ export default function JarActivityPage() {
         );
       })()}
     </div>
+  );
+}
+
+export default function JarActivityPage() {
+  return (
+    <Suspense>
+      <JarActivityPageInner />
+    </Suspense>
   );
 }

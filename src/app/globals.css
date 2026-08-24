@@ -517,24 +517,13 @@ body {
   .home-suggestion-card { padding: 16px !important; border-radius: 20px !important; }
   .home-jar-carousel-frame {
     position: relative;
-    display: block !important;
+    display: grid !important;
+    grid-template-columns: minmax(0, 1fr) !important;
     margin-top: 18px !important;
   }
   .home-jar-carousel-arrow {
-    position: absolute;
-    top: 74px;
-    z-index: 2;
-    width: 34px !important;
-    height: 34px !important;
-    background: rgba(7,27,20,0.62) !important;
-    border-color: rgba(237,245,240,0.18) !important;
-    color: var(--text-primary) !important;
-    font-size: 22px !important;
-    box-shadow: 0 8px 18px rgba(0,0,0,0.24);
-    backdrop-filter: blur(8px);
+    display: none !important;
   }
-  .home-jar-carousel-frame > .home-jar-carousel-arrow:first-child { left: 10px; }
-  .home-jar-carousel-frame > .home-jar-carousel-arrow:last-child { right: 10px; }
   .home-jar-carousel-card {
     width: 100%;
     min-height: 318px;

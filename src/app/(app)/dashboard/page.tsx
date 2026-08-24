@@ -1,5 +1,6 @@
 "use client";
 import { useState } from "react";
+import Link from "next/link";
 import { useSkips } from "@/hooks/useSkips";
 import { formatCurrency } from "@/lib/utils/currency";
 import { formatRelativeTime } from "@/lib/utils/dates";
@@ -12,7 +13,18 @@ export default function SkipHistoryPage() {
 
   return (
     <div className="p-4 md:p-8 max-w-2xl mx-auto pb-24 md:pb-8">
-      <h1 className="text-2xl font-bold mb-6" style={{ color: "var(--text-primary)" }}>Skip History</h1>
+      <div className="mb-6 flex items-center justify-between gap-3">
+        <h1 className="text-2xl font-bold" style={{ color: "var(--text-primary)" }}>Skip History</h1>
+        <Link
+          href="/profile"
+          className="inline-flex items-center justify-center rounded-full px-4 py-2 text-sm font-black"
+          style={{ border: "1px solid var(--border-emphasis)", color: "var(--green-primary)", textDecoration: "none" }}
+        >
+          <span className="sm:hidden" aria-hidden="true">←</span>
+          <span className="sr-only sm:hidden">Back to profile</span>
+          <span className="hidden sm:inline">Profile</span>
+        </Link>
+      </div>
 
       {recentSkips.length === 0 ? (
         <div className="text-center py-16">

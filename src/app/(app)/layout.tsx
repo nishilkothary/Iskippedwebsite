@@ -26,7 +26,10 @@ function isNavActive(item: (typeof NAV_ITEMS)[number], pathname: string, _search
     return pathname === "/challenges" || pathname.startsWith("/challenges/");
   }
   if (item.href === "/jars") {
-    return pathname === "/jars";
+    return pathname === "/jars" || pathname === "/jar-activity" || pathname.startsWith("/jars/");
+  }
+  if (item.href === "/profile") {
+    return pathname === "/profile" || pathname === "/dashboard";
   }
   return pathname === item.href;
 }
@@ -111,8 +114,17 @@ function MobileBottomNav({ onLogSkip }: { onLogSkip: () => void }) {
       <Link
         key={item.href}
         href={item.href}
-        className="flex-1 flex flex-col items-center justify-center py-3 gap-1 transition-colors"
-        style={{ color: active ? "var(--gold-cta)" : "rgba(237,245,240,0.55)" }}
+        className="mx-1 flex flex-1 flex-col items-center justify-center gap-1 rounded-xl px-1 py-2 transition-colors"
+        style={active
+          ? {
+              background: "rgba(255,183,0,0.14)",
+              border: "1px solid rgba(255,183,0,0.28)",
+              color: "var(--gold-cta)",
+            }
+          : {
+              border: "1px solid transparent",
+              color: "rgba(237,245,240,0.55)",
+            }}
       >
         <span className="text-lg leading-none">{item.emoji}</span>
         <span className="text-[10px] font-bold leading-tight"

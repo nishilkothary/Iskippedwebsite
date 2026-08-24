@@ -248,32 +248,28 @@ export default function ProfilePage() {
             </div>
           ))}
         </div>
-        <Link
-          href="/dashboard"
-          className="mt-3 flex items-center justify-between gap-4 p-4 transition-colors"
-          style={{ ...cardStyle, borderRadius: 18, textDecoration: "none" }}
-        >
-          <div>
-            <p className="text-sm font-black" style={{ color: "var(--text-primary)" }}>See skip history</p>
-            <p className="mt-1 text-xs" style={{ color: "var(--text-muted)" }}>
-              Review and edit your logged skips.
-            </p>
-          </div>
-          <span className="text-lg font-black" style={{ color: "var(--green-primary)" }} aria-hidden="true">→</span>
-        </Link>
-        <Link
-          href="/jar-activity"
-          className="mt-3 flex items-center justify-between gap-4 p-4 transition-colors"
-          style={{ ...cardStyle, borderRadius: 18, textDecoration: "none" }}
-        >
-          <div>
-            <p className="text-sm font-black" style={{ color: "var(--text-primary)" }}>Manage jars</p>
-            <p className="mt-1 text-xs" style={{ color: "var(--text-muted)" }}>
-              Review jar balances, purchases, and donations.
-            </p>
-          </div>
-          <span className="text-lg font-black" style={{ color: "var(--green-primary)" }} aria-hidden="true">→</span>
-        </Link>
+        <div className="mt-4" style={{ borderTop: "1px solid var(--border-default)" }}>
+          {[
+            { href: "/dashboard?from=profile", title: "See skip history", helper: "Review and edit your logged skips." },
+            { href: "/jar-activity?from=profile", title: "Manage jars", helper: "Review jar balances, purchases, and donations." },
+          ].map((item, index) => (
+            <Link
+              key={item.href}
+              href={item.href}
+              className="flex items-center justify-between gap-4 py-3 transition-colors"
+              style={{
+                borderBottom: index === 0 ? "1px solid var(--border-default)" : "none",
+                textDecoration: "none",
+              }}
+            >
+              <span>
+                <span className="block text-sm font-black" style={{ color: "var(--text-primary)" }}>{item.title}</span>
+                <span className="mt-1 block text-xs" style={{ color: "var(--text-muted)" }}>{item.helper}</span>
+              </span>
+              <span className="text-lg font-black" style={{ color: "var(--green-primary)" }} aria-hidden="true">→</span>
+            </Link>
+          ))}
+        </div>
       </div>
 
       {/* Settings */}

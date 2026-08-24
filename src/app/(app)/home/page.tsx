@@ -2067,7 +2067,7 @@ export default function HomePage() {
             <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 14, marginBottom: 14, paddingRight: 34 }}>
               <div style={{ minWidth: 0 }}>
                 <p className="home-suggestion-title" style={{ fontWeight: 950, color: "var(--text-primary)", lineHeight: 1.05 }}>
-                  Need Motivation to Skip More?
+                  Need Motivation to Skip?
                 </p>
                 <p style={{ marginTop: 7, fontSize: 13, color: "var(--text-secondary)", lineHeight: 1.45 }}>
                   Pick a skipping jar and start saving for a purpose
@@ -2182,6 +2182,7 @@ export default function HomePage() {
                   topLabel="Reward jar"
                   topLabelColor="#C4B5FD"
                   hideBottomLabel
+                  href="/jar-activity"
                 />
               </div>
               </>
