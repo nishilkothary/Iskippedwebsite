@@ -25,6 +25,7 @@ export async function GET(req: NextRequest, context: { params: Promise<{ id: str
       const balance = userSnap.data().causeJarBalances?.[challengeId];
       return sum + (typeof balance === "number" ? Math.max(0, balance) : 0);
     }, 0);
+    const contributorCount = balanceUsersSnap.size;
     const [causeDonations, titleDonations] = await Promise.all([
       db.collectionGroup("donations").where("causeId", "==", challengeId).get(),
       challengeTitle
@@ -40,7 +41,7 @@ export async function GET(req: NextRequest, context: { params: Promise<{ id: str
     const storedDonated = typeof project.totalDonated === "number" ? Math.max(0, project.totalDonated) : 0;
     const totalDonated = recordedDonations > 0 ? recordedDonations : storedDonated;
 
-    return NextResponse.json({ totalPledged, totalDonated, total: totalPledged + totalDonated });
+    return NextResponse.json({ totalPledged, totalDonated, contributorCount, total: totalPledged + totalDonated });
   } catch {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }

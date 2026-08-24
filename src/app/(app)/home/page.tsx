@@ -1178,6 +1178,7 @@ export default function HomePage() {
   const [globalStats, setGlobalStats] = useState<GlobalStats | null>(null);
   const [liveFeedIndex, setLiveFeedIndex] = useState(0);
   const [liveChallengeTotalRaised, setLiveChallengeTotalRaised] = useState<number>(0);
+  const [liveChallengeContributorCount, setLiveChallengeContributorCount] = useState<number>(0);
   const [liveChallengeTotalSkips, setLiveChallengeTotalSkips] = useState<number>(0);
   const [showContributionModal, setShowContributionModal] = useState(false);
   const [contributionMode, setContributionMode] = useState<"contribute" | "log">("contribute");
@@ -1263,19 +1264,23 @@ export default function HomePage() {
 
   useEffect(() => {
     const activeProjectId = profile?.activeProjectId;
-    if (!activeProjectId) { setLiveChallengeTotalRaised(0); setLiveChallengeTotalSkips(0); return; }
+    if (!activeProjectId) { setLiveChallengeTotalRaised(0); setLiveChallengeContributorCount(0); setLiveChallengeTotalSkips(0); return; }
     const proj = projects.find((p) => p.id === activeProjectId);
-    if (!proj || !(isChallengeProject(proj) || !proj.isCustom)) { setLiveChallengeTotalRaised(0); setLiveChallengeTotalSkips(0); return; }
+    if (!proj || !(isChallengeProject(proj) || !proj.isCustom)) { setLiveChallengeTotalRaised(0); setLiveChallengeContributorCount(0); setLiveChallengeTotalSkips(0); return; }
     let cancelled = false;
     const loadProgress = async () => {
       try {
-        const result = await apiRequest<{ total: number }>(`/api/challenges/${activeProjectId}/progress`, "GET");
-        if (!cancelled) setLiveChallengeTotalRaised(Math.max(0, result.total ?? 0));
+        const result = await apiRequest<{ total: number; contributorCount?: number }>(`/api/challenges/${activeProjectId}/progress`, "GET");
+        if (!cancelled) {
+          setLiveChallengeTotalRaised(Math.max(0, result.total ?? 0));
+          setLiveChallengeContributorCount(Math.max(0, result.contributorCount ?? 0));
+        }
       } catch {
         if (!cancelled) setLiveChallengeTotalRaised(Math.max(0, proj.totalDonated ?? 0));
       }
     };
     setLiveChallengeTotalRaised(Math.max(0, proj.totalDonated ?? 0));
+    setLiveChallengeContributorCount(0);
     setLiveChallengeTotalSkips(proj.totalSkips ?? 0);
     void loadProgress();
     const unsubscribe = subscribeToProject(activeProjectId, (p) => {
@@ -1323,6 +1328,7 @@ export default function HomePage() {
   const displayedGroupTotal = isActiveChallenge
     ? Math.max(liveChallengeTotalRaised, fundraiserDonatedTotal + userChallengeBalance)
     : 0;
+  const groupContributorCount = isActiveChallenge ? liveChallengeContributorCount : 0;
   const communityGoal = activeProject && isActiveChallenge ? getCommunityGoal(activeProject) : 0;
   const fundraiserUnitCost = activeProject?.unitCost && activeProject.unitCost > 0 ? activeProject.unitCost : null;
   const temporaryChallengeGoalUnits = activeProject && isActiveChallenge && fundraiserUnitCost && activeProject.goalAmount <= 0 ? 10 : null;
@@ -2225,6 +2231,13 @@ export default function HomePage() {
                       <p className="home-fundraiser-title" style={{ fontSize: 22, fontWeight: 900, lineHeight: 1.1, color: "var(--text-primary)", marginTop: 4 }}>
                         {activeProject?.title ?? "Pick a fundraiser"}
                       </p>
+                      {activeProject && groupContributorCount > 0 && (
+                        <p className="home-fundraiser-participants" style={{ marginTop: 5, color: "var(--text-secondary)", fontSize: 12, lineHeight: 1.35 }}>
+                          {groupContributorCount === 1
+                            ? "You're the first one skipping for this fundraiser."
+                            : `You and ${groupContributorCount - 1} ${groupContributorCount === 2 ? "other" : "others"} are skipping for this fundraiser.`}
+                        </p>
+                      )}
                       {!activeProject && (
                         <p style={{ fontSize: 13, color: "var(--text-secondary)", lineHeight: 1.4, marginTop: 6 }}>
                           Find a cause where skipped savings can join a shared goal.
@@ -2242,9 +2255,6 @@ export default function HomePage() {
             </div>
             {activeProject ? (
               <>
-              <p style={{ margin: "2px auto 0", maxWidth: 430, padding: "0 14px", textAlign: "center", color: "var(--text-secondary)", fontSize: 12, lineHeight: 1.35 }}>
-                Your saved skips are part of the group&apos;s shared progress.
-              </p>
               <div className="home-fundraiser-jars" style={{ display: "grid", gridTemplateColumns: "minmax(0, 1fr) minmax(0, 1fr)", gap: 4, alignItems: "end", width: "min(100%, 430px)", margin: "0 auto 14px" }}>
               <div>
                   <Jar
