@@ -1021,11 +1021,7 @@ function JarActivityPageInner() {
 
   return (
     <div className="jar-activity-page-shell p-4 md:p-8 max-w-4xl mx-auto pb-24 md:pb-8">
-      <div className="jar-activity-page-header mb-6 flex items-center justify-between gap-3 sm:flex-row sm:items-end">
-        <div>
-          <p className="jar-activity-kicker hidden text-xs uppercase tracking-[0.14em] font-black sm:block" style={{ color: "var(--green-primary)" }}>Jar Activity</p>
-          <h1 className="jar-activity-title mt-1 hidden text-3xl font-black tracking-tight sm:block" style={{ color: "var(--text-primary)" }}>Where your skips are saved</h1>
-        </div>
+      <div className="jar-activity-page-header mb-4 flex justify-end">
         <Link
           href={backHref}
           className="jar-activity-back-link inline-flex items-center justify-center rounded-full px-4 py-2 text-sm font-black"
@@ -1037,25 +1033,25 @@ function JarActivityPageInner() {
         </Link>
       </div>
 
-      <section className="mb-5 grid gap-3 md:grid-cols-3">
-        <div className="rounded-xl p-4" style={{ background: "var(--bg-surface-1)", border: "1px solid var(--border-default)" }}>
+      <section className="mb-5 grid grid-cols-2 gap-3 md:grid-cols-3">
+        <div className="col-span-2 rounded-xl p-3 sm:p-4 md:col-span-1" style={{ background: "var(--bg-surface-1)", border: "1px solid var(--border-default)" }}>
           <p className="text-xs uppercase tracking-[0.12em] font-black" style={{ color: "var(--text-muted)" }}>Total Skip Bucks</p>
-          <p className="mt-1 text-3xl font-black" style={{ color: "var(--green-primary)" }}>{formatCurrency(totalSkipBucks)}</p>
+          <p className="mt-1 text-2xl font-black sm:text-3xl" style={{ color: "var(--green-primary)" }}>{formatCurrency(totalSkipBucks)}</p>
           <p className="mt-2 text-xs leading-relaxed" style={{ color: "var(--text-secondary)" }}>
             Saved and not used yet.
           </p>
         </div>
-        <div className="rounded-xl p-4" style={{ background: "var(--bg-surface-1)", border: "1px solid var(--border-default)" }}>
+        <div className="rounded-xl p-3 sm:p-4" style={{ background: "var(--bg-surface-1)", border: "1px solid var(--border-default)" }}>
           <p className="text-xs uppercase tracking-[0.12em] font-black" style={{ color: "var(--text-muted)" }}>In Jars</p>
-          <p className="mt-1 text-3xl font-black" style={{ color: "var(--text-primary)" }}>{formatCurrency(inJars)}</p>
-          <p className="mt-2 text-xs leading-relaxed" style={{ color: "var(--text-secondary)" }}>
+          <p className="mt-1 text-2xl font-black sm:text-3xl" style={{ color: "var(--text-primary)" }}>{formatCurrency(inJars)}</p>
+          <p className="mt-2 hidden text-xs leading-relaxed sm:block" style={{ color: "var(--text-secondary)" }}>
             Earmarked for a reward or cause.
           </p>
         </div>
-        <div className="rounded-xl p-4" style={{ background: "var(--bg-surface-1)", border: "1px solid var(--border-default)" }}>
+        <div className="rounded-xl p-3 sm:p-4" style={{ background: "var(--bg-surface-1)", border: "1px solid var(--border-default)" }}>
           <p className="text-xs uppercase tracking-[0.12em] font-black" style={{ color: "var(--text-muted)" }}>Unassigned Skip Bucks</p>
-          <p className="mt-1 text-3xl font-black" style={{ color: "var(--green-primary)" }}>{formatCurrency(unassignedSkipBucks)}</p>
-          <p className="mt-2 text-xs leading-relaxed" style={{ color: "var(--text-secondary)" }}>
+          <p className="mt-1 text-2xl font-black sm:text-3xl" style={{ color: "var(--green-primary)" }}>{formatCurrency(unassignedSkipBucks)}</p>
+          <p className="mt-2 hidden text-xs leading-relaxed sm:block" style={{ color: "var(--text-secondary)" }}>
             Available to add to any jar.
           </p>
         </div>
