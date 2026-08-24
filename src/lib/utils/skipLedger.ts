@@ -1,5 +1,5 @@
-import { SkipAllocationTarget, SkipLot, UserProfile } from "@/lib/types/models";
-import { getSkipBalanceSummary } from "@/lib/utils/skipBalances";
+import type { SkipAllocationTarget, SkipLot, UserProfile } from "@/lib/types/models";
+import { getSkipBalanceSummary } from "./skipBalances";
 
 export const UNASSIGNED_LOCATION = "unassigned";
 

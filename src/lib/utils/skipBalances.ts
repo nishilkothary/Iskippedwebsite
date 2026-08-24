@@ -1,4 +1,4 @@
-import { UserProfile } from "@/lib/types/models";
+import type { UserProfile } from "@/lib/types/models";
 
 export type JarBalances = {
   causeJarBalances: Record<string, number>;
