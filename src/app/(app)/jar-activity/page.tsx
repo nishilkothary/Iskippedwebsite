@@ -563,6 +563,8 @@ function JarActivityPageInner() {
   const [jarGoalAmount, setJarGoalAmount] = useState("");
   const [jarGoalWorking, setJarGoalWorking] = useState(false);
   const [deactivatePrompt, setDeactivatePrompt] = useState<JarActivityItem | null>(null);
+  const [resumePrompt, setResumePrompt] = useState<JarActivityItem | null>(null);
+  const [resumeAmount, setResumeAmount] = useState("");
 
   useEffect(() => {
     if (!user) return;
@@ -672,8 +674,24 @@ function JarActivityPageInner() {
   const backHref = searchParams.get("from") === "profile" ? "/profile" : "/jars";
   const backLabel = searchParams.get("from") === "profile" ? "Profile" : "Jars";
 
-  async function handleResume(item: JarActivityItem) {
+  function beginResume(item: JarActivityItem) {
+    setResumePrompt(item);
+    setResumeAmount("");
+  }
+
+  function closeResumePrompt() {
+    if (workingId) return;
+    setResumePrompt(null);
+    setResumeAmount("");
+  }
+
+  async function confirmResume(item: JarActivityItem) {
     if (!user || workingId) return;
+    const requestedAmount = resumeAmount.trim() ? cents(Number.parseFloat(resumeAmount)) : 0;
+    if (!Number.isFinite(requestedAmount) || requestedAmount < 0 || requestedAmount > unassignedSkipBucks) {
+      toast.error(`Enter an amount up to ${formatCurrency(unassignedSkipBucks)}.`);
+      return;
+    }
     setWorkingId(item.id);
     try {
       if (item.type === "fundraiser") {
@@ -690,9 +708,29 @@ function JarActivityPageInner() {
         ]);
         updateProfile({ activeSpendingGoalId: item.id, activeSkipTarget: { type: "goal", id: item.id } });
       }
+      if (requestedAmount > 0) {
+        const destination: JarBalanceEndpoint = { type: item.type, id: item.id };
+        const appliedAmount = await moveJarBalance(user.uid, { type: "skip-bucks" }, destination, requestedAmount);
+        if (item.type === "fundraiser") {
+          updateProfile({
+            causeJarBalances: {
+              ...(profileData.causeJarBalances ?? {}),
+              [item.id]: cents((profileData.causeJarBalances?.[item.id] ?? 0) + appliedAmount),
+            },
+          });
+        } else {
+          updateProfile({
+            goalJarBalances: {
+              ...(profileData.goalJarBalances ?? {}),
+              [item.id]: cents((profileData.goalJarBalances?.[item.id] ?? 0) + appliedAmount),
+            },
+          });
+        }
+      }
+      closeResumePrompt();
       router.push("/home");
     } catch {
-      toast.error("Could not resume this jar. Try again.");
+      toast.error("Could not make this jar active. Try again.");
     } finally {
       setWorkingId(null);
     }
@@ -1084,7 +1122,7 @@ function JarActivityPageInner() {
                     key={`${item.type}-${item.id}`}
                     item={item}
                     working={workingId === item.id}
-                    onResume={handleResume}
+                    onResume={beginResume}
                     onDonate={beginDonate}
                     onPurchase={beginPurchase}
                     onDeactivate={handleDeactivate}
@@ -1104,7 +1142,7 @@ function JarActivityPageInner() {
                     key={`${item.type}-${item.id}`}
                     item={item}
                     working={workingId === item.id}
-                    onResume={handleResume}
+                    onResume={beginResume}
                     onDonate={beginDonate}
                     onPurchase={beginPurchase}
                     onDeactivate={handleDeactivate}
@@ -1151,6 +1189,105 @@ function JarActivityPageInner() {
           </div>
         )}
       </section>
+
+      {resumePrompt && (() => {
+        const parsedAmount = Number.parseFloat(resumeAmount);
+        const additionalAmount = resumeAmount.trim() && Number.isFinite(parsedAmount)
+          ? Math.max(0, cents(parsedAmount))
+          : 0;
+        const projectedBalance = cents(resumePrompt.balance + additionalAmount);
+        const projectedPercent = progressPercent(projectedBalance, resumePrompt.goalAmount);
+        const currentJar = activeItems[0];
+        const canUseAmount = additionalAmount <= unassignedSkipBucks;
+        const actionLabel = additionalAmount > 0
+          ? `Add ${formatCurrency(additionalAmount)} and make active`
+          : "Make active";
+        return (
+          <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/60 p-4 sm:items-center" onClick={closeResumePrompt}>
+            <div
+              role="dialog"
+              aria-modal="true"
+              aria-labelledby="resume-jar-title"
+              className="w-full max-w-sm rounded-2xl shadow-2xl"
+              style={{ background: "var(--bg-surface-1)", border: "1px solid var(--border-default)" }}
+              onClick={(event) => event.stopPropagation()}
+            >
+              <div className="relative px-5 py-4 pr-12" style={{ borderBottom: "1px solid var(--border-default)" }}>
+                <h2 id="resume-jar-title" className="text-lg font-black" style={{ color: "var(--text-primary)" }}>
+                  Make {resumePrompt.title} your active jar?
+                </h2>
+                <button
+                  type="button"
+                  onClick={closeResumePrompt}
+                  aria-label="Close activation confirmation"
+                  className="absolute right-4 top-4 text-xl leading-none"
+                  style={{ color: "var(--text-muted)" }}
+                >
+                  x
+                </button>
+              </div>
+              <div className="space-y-4 p-5">
+                <p className="text-sm leading-relaxed" style={{ color: "var(--text-secondary)" }}>
+                  Future skips will go here.{currentJar ? ` ${currentJar.title} will stay parked with its saved balance.` : ""}
+                </p>
+
+                <div className="rounded-xl p-3" style={{ background: "var(--bg-surface-2)", border: "1px solid var(--border-default)" }}>
+                  <label htmlFor="resume-skip-bucks" className="text-xs font-black uppercase tracking-[0.12em]" style={{ color: "var(--text-muted)" }}>
+                    Use Unassigned Skip Bucks (optional)
+                  </label>
+                  <p className="mt-1 text-xs" style={{ color: "var(--text-secondary)" }}>
+                    {formatCurrency(unassignedSkipBucks)} available to add.
+                  </p>
+                  <div className="mt-3 flex items-center rounded-lg px-3 py-2" style={{ background: "var(--bg-surface-1)", border: "1px solid var(--border-default)" }}>
+                    <span className="text-sm font-black" style={{ color: "var(--text-muted)" }}>$</span>
+                    <input
+                      id="resume-skip-bucks"
+                      type="number"
+                      min="0"
+                      max={unassignedSkipBucks}
+                      step="0.01"
+                      inputMode="decimal"
+                      value={resumeAmount}
+                      onChange={(event) => setResumeAmount(event.target.value)}
+                      placeholder="0.00"
+                      className="min-w-0 flex-1 bg-transparent pl-2 text-base font-black outline-none"
+                      style={{ color: "var(--text-primary)" }}
+                    />
+                  </div>
+                  {!canUseAmount && (
+                    <p className="mt-2 text-xs font-semibold" style={{ color: "#F59E0B" }}>
+                      You have {formatCurrency(unassignedSkipBucks)} available.
+                    </p>
+                  )}
+                </div>
+
+                <p className="text-sm font-semibold" style={{ color: resumePrompt.type === "fundraiser" ? "var(--green-primary)" : "#C4B5FD" }}>
+                  Your jar will have {formatCurrency(projectedBalance)}{resumePrompt.goalAmount > 0 ? `, ${projectedPercent}% of its ${formatCurrency(resumePrompt.goalAmount)} goal.` : "."}
+                </p>
+
+                <button
+                  type="button"
+                  onClick={() => void confirmResume(resumePrompt)}
+                  disabled={workingId === resumePrompt.id || !canUseAmount}
+                  className="w-full rounded-xl py-3 text-sm font-black disabled:opacity-50"
+                  style={{ background: resumePrompt.type === "fundraiser" ? "#2ECC71" : "#8B5CF6", color: resumePrompt.type === "fundraiser" ? "#071B14" : "#FFFFFF" }}
+                >
+                  {workingId === resumePrompt.id ? "Making active..." : actionLabel}
+                </button>
+                <button
+                  type="button"
+                  onClick={closeResumePrompt}
+                  disabled={workingId === resumePrompt.id}
+                  className="w-full py-1 text-sm font-black disabled:opacity-50"
+                  style={{ color: "var(--text-muted)" }}
+                >
+                  Keep current jar
+                </button>
+              </div>
+            </div>
+          </div>
+        );
+      })()}
 
       {deactivatePrompt && (
         <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/60 p-4 sm:items-center" onClick={() => setDeactivatePrompt(null)}>
