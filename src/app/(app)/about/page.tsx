@@ -245,7 +245,11 @@ export default function AboutPage() {
                 </button>
                 {openFaq === i && (
                   <p className="px-5 pb-4 text-sm" style={{ color: "var(--text-secondary)" }}>
-                    {item.a}
+                    {item.q === "Can I increase a jar goal amount?" ? (
+                      <>
+                        Yes. Open <Link href="/jars" className="underline" style={{ color: "var(--green-primary)" }}>Manage Jars</Link>, tap the pencil on your current jar, and enter a new goal amount. Your saved balance stays in the jar, and future skips keep filling it toward the updated goal.
+                      </>
+                    ) : item.a}
                     {item.q === "What are Skip Bucks, and how is my balance calculated?" && (
                       <>
                         <br />
