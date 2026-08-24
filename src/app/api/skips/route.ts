@@ -9,6 +9,7 @@ import { xpForSkip, levelForXp, REFERRAL_BONUS_XP } from "@/lib/utils/xp";
 import { getConsecutiveWeeklyStreak, getLongestWeeklyStreak, today } from "@/lib/utils/dates";
 import { adjustGlobalStats } from "@/lib/services/globalStats";
 import { SkipAllocationTarget, UserProfile } from "@/lib/types/models";
+import { addSkipLot, cloneLots } from "@/lib/utils/skipLedger";
 
 function parseAllocationTarget(raw: unknown): SkipAllocationTarget | null {
   if (!raw || typeof raw !== "object") return null;
@@ -86,6 +87,8 @@ export async function POST(req: NextRequest) {
           ?? (profile.activeProjectId ? { type: "fundraiser" as const, id: profile.activeProjectId } : null);
       const resolvedProjectId = projectId
         ?? (allocationTarget?.type === "fundraiser" ? allocationTarget.id : null);
+      const skipLots = cloneLots(profile);
+      addSkipLot(skipLots, skipRef.id, amount, allocationTarget);
 
       tx.set(skipRef, {
         uid,
@@ -112,6 +115,7 @@ export async function POST(req: NextRequest) {
         streak: newStreak,
         longestStreak: newLongestStreak,
         lastSkipDate: todayStr,
+        skipLots,
         savedTowardActiveCause: allocationTarget?.type === "fundraiser" ? FieldValue.increment(amount) : (profile.savedTowardActiveCause ?? 0),
       };
       if (allocationTarget?.type === "goal") {

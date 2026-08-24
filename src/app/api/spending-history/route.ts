@@ -5,6 +5,7 @@ import { requireUid, ApiError, handleApiError } from "@/lib/services/apiAuth";
 import { validateAmount, validateNonEmptyString } from "@/lib/services/serverProfileDefaults";
 import { getSkipBalanceSummary } from "@/lib/utils/skipBalances";
 import { UserProfile } from "@/lib/types/models";
+import { balancesFromLots, cloneLots, consumeLots, locationKey } from "@/lib/utils/skipLedger";
 
 export async function POST(req: NextRequest) {
   try {
@@ -22,6 +23,8 @@ export async function POST(req: NextRequest) {
     const result = await db.runTransaction(async (tx) => {
       const userSnap = await tx.get(userRef);
       const profile = userSnap.data() as UserProfile | undefined;
+      if (!profile) throw new ApiError(404, "User not found");
+      const skipLots = cloneLots(profile);
       const currentBal = Math.max(0, profile?.goalJarBalances?.[goalId] ?? 0);
       const unassignedSkipBank = getSkipBalanceSummary(profile).unassignedSkipBank;
       const usableFromSkips = currentBal + unassignedSkipBank;
@@ -30,6 +33,8 @@ export async function POST(req: NextRequest) {
       }
       const amountFromSkips = Math.min(amount, usableFromSkips);
       const jarDecrease = Math.min(amountFromSkips, currentBal);
+      const consumption = consumeLots(skipLots, amountFromSkips, [locationKey({ type: "goal", id: goalId }), "unassigned"]);
+      const nextBalances = balancesFromLots(skipLots);
 
       tx.set(historyRef, {
         goalId,
@@ -37,11 +42,14 @@ export async function POST(req: NextRequest) {
         targetAmount,
         amountSaved: amountFromSkips,
         jarDecrease,
+        ledgerConsumption: consumption.consumedByLot,
         purchasedAt: FieldValue.serverTimestamp(),
       });
       tx.update(userRef, {
         totalSpent: FieldValue.increment(amountFromSkips),
-        [`goalJarBalances.${goalId}`]: Math.max(0, currentBal - jarDecrease),
+        goalJarBalances: nextBalances.goalJarBalances,
+        causeJarBalances: nextBalances.causeJarBalances,
+        skipLots,
       });
 
       return { amountFromSkips, jarDecrease };

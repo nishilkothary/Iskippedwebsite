@@ -1,9 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
+import { FieldValue } from "firebase-admin/firestore";
 import { getAdminDb } from "@/lib/services/firebaseAdmin";
 import { requireUid, ApiError, handleApiError } from "@/lib/services/apiAuth";
 import { validateAmount, validateNonEmptyString } from "@/lib/services/serverProfileDefaults";
 import { getSkipBalanceSummary } from "@/lib/utils/skipBalances";
 import { SkipAllocationTarget, UserProfile } from "@/lib/types/models";
+import { balancesFromLots, cloneLots, locationKey, transferLots } from "@/lib/utils/skipLedger";
 
 function parseTarget(raw: unknown): SkipAllocationTarget {
   if (!raw || typeof raw !== "object") throw new ApiError(400, "Missing allocation target");
@@ -29,23 +31,31 @@ export async function POST(req: NextRequest) {
       const userSnap = await tx.get(userRef);
       if (!userSnap.exists) throw new ApiError(404, "User not found");
       const profile = userSnap.data() as UserProfile;
+      const skipLots = cloneLots(profile);
       const availableSkipBank = getSkipBalanceSummary(profile).unassignedSkipBank;
       const amountToApply = Math.min(amount, availableSkipBank);
       if (amountToApply <= 0) return 0;
 
+      transferLots(skipLots, amountToApply, ["unassigned"], locationKey(target));
+      const nextBalances = balancesFromLots(skipLots);
+
       const updates: Record<string, unknown> = {};
       if (target.type === "goal") {
         const currentBalance = Math.max(0, profile.goalJarBalances?.[target.id] ?? 0);
-        updates[`goalJarBalances.${target.id}`] = currentBalance + amountToApply;
+        updates.goalJarBalances = nextBalances.goalJarBalances;
       }
       if (target.type === "fundraiser") {
         const currentBalance = Math.max(0, profile.causeJarBalances?.[target.id] ?? 0);
-        updates[`causeJarBalances.${target.id}`] = currentBalance + amountToApply;
+        updates.causeJarBalances = nextBalances.causeJarBalances;
       }
       if (makeActive) {
         updates.activeSkipTarget = target;
         updates.activeProjectId = target.type === "fundraiser" ? target.id : null;
         updates.activeSpendingGoalId = target.type === "goal" ? target.id : null;
+      }
+      updates.skipLots = skipLots;
+      if (target.type === "fundraiser") {
+        tx.set(db.collection("projects").doc(target.id), { totalRaised: FieldValue.increment(amountToApply) }, { merge: true });
       }
       tx.update(userRef, updates);
       return amountToApply;

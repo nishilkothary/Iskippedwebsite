@@ -1,8 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
+import { FieldValue } from "firebase-admin/firestore";
 import { getAdminDb } from "@/lib/services/firebaseAdmin";
 import { requireUid, ApiError, handleApiError } from "@/lib/services/apiAuth";
 import { validateNonEmptyString } from "@/lib/services/serverProfileDefaults";
 import { SkipAllocationTarget, UserProfile } from "@/lib/types/models";
+import { balancesFromLots, cloneLots, locationKey, transferLots } from "@/lib/utils/skipLedger";
 
 function parseTarget(raw: unknown): SkipAllocationTarget {
   if (!raw || typeof raw !== "object") throw new ApiError(400, "Missing allocation target");
@@ -27,6 +29,7 @@ export async function POST(req: NextRequest) {
       const userSnap = await tx.get(userRef);
       if (!userSnap.exists) throw new ApiError(404, "User not found");
       const profile = userSnap.data() as UserProfile;
+      const skipLots = cloneLots(profile);
       const currentBalance = target.type === "goal"
         ? Math.max(0, profile.goalJarBalances?.[target.id] ?? 0)
         : Math.max(0, profile.causeJarBalances?.[target.id] ?? 0);
@@ -34,8 +37,16 @@ export async function POST(req: NextRequest) {
       if (releasedAmount <= 0 && !clearActive) return 0;
 
       const updates: Record<string, unknown> = {};
-      if (releasedAmount > 0 && target.type === "goal") updates[`goalJarBalances.${target.id}`] = 0;
-      if (releasedAmount > 0 && target.type === "fundraiser") updates[`causeJarBalances.${target.id}`] = 0;
+      if (releasedAmount > 0) {
+        transferLots(skipLots, releasedAmount, [locationKey(target)], "unassigned");
+        const nextBalances = balancesFromLots(skipLots);
+        updates.goalJarBalances = nextBalances.goalJarBalances;
+        updates.causeJarBalances = nextBalances.causeJarBalances;
+        updates.skipLots = skipLots;
+        if (target.type === "fundraiser") {
+          tx.set(db.collection("projects").doc(target.id), { totalRaised: FieldValue.increment(-releasedAmount) }, { merge: true });
+        }
+      }
       const targetIsActive = profile.activeSkipTarget?.type === target.type && profile.activeSkipTarget.id === target.id;
       const targetMatchesLegacyActive = target.type === "goal"
         ? profile.activeSpendingGoalId === target.id

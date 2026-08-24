@@ -5,6 +5,7 @@ import { requireUid, ApiError, handleApiError } from "@/lib/services/apiAuth";
 import { validateNonEmptyString, isChallengeProjectServer } from "@/lib/services/serverProfileDefaults";
 import { sendPushToUser } from "@/lib/services/push";
 import { UserProfile } from "@/lib/types/models";
+import { balancesFromLots, cloneLots, locationKey, transferLots } from "@/lib/utils/skipLedger";
 
 export async function POST(req: NextRequest) {
   try {
@@ -20,6 +21,7 @@ export async function POST(req: NextRequest) {
       const userSnap = await tx.get(userRef);
       if (!userSnap.exists) throw new ApiError(404, "User not found");
       const profile = userSnap.data() as UserProfile;
+      const skipLots = cloneLots(profile);
 
       const updates: Record<string, unknown> = {
         activeProjectId: newCauseId,
@@ -36,11 +38,15 @@ export async function POST(req: NextRequest) {
           updates[`causeJarBalances.${causeId}`] = 0;
           balanceTransfer[causeId] = 0;
           totalTransferred += amount;
+          transferLots(skipLots, amount, [locationKey({ type: "fundraiser", id: causeId })], locationKey({ type: "fundraiser", id: newCauseId }));
           tx.set(db.collection("projects").doc(causeId), { totalRaised: FieldValue.increment(-amount) }, { merge: true });
         }
         if (totalTransferred > 0) {
           const existingNewBalance = Math.max(0, Number(allJarBalances[newCauseId]) || 0);
-          updates[`causeJarBalances.${newCauseId}`] = existingNewBalance + totalTransferred;
+          const nextBalances = balancesFromLots(skipLots);
+          updates.causeJarBalances = nextBalances.causeJarBalances;
+          updates.goalJarBalances = nextBalances.goalJarBalances;
+          updates.skipLots = skipLots;
           balanceTransfer[newCauseId] = existingNewBalance + totalTransferred;
         }
       }

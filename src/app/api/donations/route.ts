@@ -5,6 +5,7 @@ import { requireUid, ApiError, handleApiError } from "@/lib/services/apiAuth";
 import { validateAmount, validateNonEmptyString } from "@/lib/services/serverProfileDefaults";
 import { getSkipBalanceSummary } from "@/lib/utils/skipBalances";
 import { UserProfile } from "@/lib/types/models";
+import { balancesFromLots, cloneLots, consumeLots, locationKey } from "@/lib/utils/skipLedger";
 
 export async function POST(req: NextRequest) {
   try {
@@ -22,6 +23,8 @@ export async function POST(req: NextRequest) {
     await db.runTransaction(async (tx) => {
       const userSnap = await tx.get(userRef);
       const profile = userSnap.data() as UserProfile | undefined;
+      if (!profile) throw new ApiError(404, "User not found");
+      const skipLots = cloneLots(profile);
       const currentBal = Math.max(0, profile?.causeJarBalances?.[projectId] ?? 0);
       const unassignedSkipBank = getSkipBalanceSummary(profile).unassignedSkipBank;
       const usableFromSkips = currentBal + unassignedSkipBank;
@@ -29,19 +32,24 @@ export async function POST(req: NextRequest) {
         throw new ApiError(400, "Donation exceeds available skipped savings");
       }
       const jarDecrease = Math.min(amount, currentBal);
+      const consumption = consumeLots(skipLots, amount, [locationKey({ type: "fundraiser", id: projectId }), "unassigned"]);
+      const nextBalances = balancesFromLots(skipLots);
 
       tx.set(donationRef, {
         causeId: projectId,
         causeTitle: projectTitle,
         amount,
         jarDecrease,
+        ledgerConsumption: consumption.consumedByLot,
         ...(date ? { date } : {}),
         donatedAt: FieldValue.serverTimestamp(),
       });
       tx.update(userRef, {
         totalDonated: FieldValue.increment(amount),
         savedTowardActiveCause: 0,
-        [`causeJarBalances.${projectId}`]: Math.max(0, currentBal - jarDecrease),
+        causeJarBalances: nextBalances.causeJarBalances,
+        goalJarBalances: nextBalances.goalJarBalances,
+        skipLots,
         [`causeJarOverflowCounts.${projectId}`]: 0,
       });
     });

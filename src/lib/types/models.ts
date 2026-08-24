@@ -18,6 +18,13 @@ export type SkipAllocationTarget =
   | { type: "goal"; id: string }
   | { type: "fundraiser"; id: string };
 
+export interface SkipLot {
+  skipId: string;
+  createdAtMs: number;
+  originalLocation: string;
+  balances: Record<string, number>;
+}
+
 export interface UserProfile {
   uid: string;
   displayName: string;
@@ -52,6 +59,8 @@ export interface UserProfile {
   totalSpent?: number;
   causeJarBalances?: Record<string, number>;
   goalJarBalances?: Record<string, number>;
+  /** Provenance-aware Skip Bucks lots. Legacy balances are represented by synthetic lots. */
+  skipLots?: Record<string, SkipLot>;
   /** Marks a profile that has been through the one-time skip-pot jar migration. */
   jarMigrationVersion?: string;
   causeGoalAmounts?: Record<string, number>; // per-cause personal dollar goal set by user
@@ -167,6 +176,7 @@ export interface DonationEvent {
   amount: number;
   jarDecrease?: number;
   date?: string; // YYYY-MM-DD, user-specified donation date
+  ledgerConsumption?: Record<string, Record<string, number>>;
   donatedAt: Timestamp;
 }
 
@@ -177,6 +187,7 @@ export interface SpendingHistoryEvent {
   targetAmount: number;
   amountSaved: number;
   jarDecrease?: number;
+  ledgerConsumption?: Record<string, Record<string, number>>;
   purchasedAt: Timestamp;
 }
 

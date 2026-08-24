@@ -5,6 +5,7 @@ import { requireUid, ApiError, handleApiError } from "@/lib/services/apiAuth";
 import { validateAmount, validateNonEmptyString } from "@/lib/services/serverProfileDefaults";
 import { getSkipBalanceSummary } from "@/lib/utils/skipBalances";
 import { SkipAllocationTarget, UserProfile } from "@/lib/types/models";
+import { balancesFromLots, cloneLots, locationKey, transferLots } from "@/lib/utils/skipLedger";
 
 type MoveEndpoint = SkipAllocationTarget | { type: "skip-bucks" };
 
@@ -56,6 +57,7 @@ export async function POST(req: NextRequest) {
       const userSnap = await tx.get(userRef);
       if (!userSnap.exists) throw new ApiError(404, "User not found");
       const profile = userSnap.data() as UserProfile;
+      const skipLots = cloneLots(profile);
       const sourceBalance = source.type === "skip-bucks"
         ? cents(getSkipBalanceSummary(profile).unassignedSkipBank)
         : cents(jarBalance(profile, source));
@@ -64,16 +66,27 @@ export async function POST(req: NextRequest) {
         throw new ApiError(400, "Move amount exceeds available balance");
       }
 
+      const sourceLocation = source.type === "skip-bucks" ? "unassigned" : locationKey(source);
+      const destinationLocation = destination.type === "skip-bucks" ? "unassigned" : locationKey(destination);
+      transferLots(skipLots, amount, [sourceLocation], destinationLocation);
+      const nextBalances = balancesFromLots(skipLots);
+
       const updates: Record<string, unknown> = {};
       if (source.type !== "skip-bucks") {
-        updates[balancePath(source)] = cents(sourceBalance - amount);
+        updates[source.type === "goal" ? "goalJarBalances" : "causeJarBalances"] = nextBalances[source.type === "goal" ? "goalJarBalances" : "causeJarBalances"];
       }
       if (destination.type !== "skip-bucks") {
-        const destinationBalance = jarBalance(profile, destination);
-        updates[balancePath(destination)] = cents(destinationBalance + amount);
+        updates[destination.type === "goal" ? "goalJarBalances" : "causeJarBalances"] = nextBalances[destination.type === "goal" ? "goalJarBalances" : "causeJarBalances"];
         if (destination.type === "fundraiser") {
           updates.joinedProjectIds = FieldValue.arrayUnion(destination.id);
         }
+      }
+      updates.skipLots = skipLots;
+      if (source.type === "fundraiser") {
+        tx.set(db.collection("projects").doc(source.id), { totalRaised: FieldValue.increment(-amount) }, { merge: true });
+      }
+      if (destination.type === "fundraiser") {
+        tx.set(db.collection("projects").doc(destination.id), { totalRaised: FieldValue.increment(amount) }, { merge: true });
       }
 
       if (Object.keys(updates).length > 0) tx.update(userRef, updates);
