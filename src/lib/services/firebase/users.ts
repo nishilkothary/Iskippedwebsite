@@ -150,6 +150,17 @@ export async function parkSkipTarget(uid: string, target: SkipAllocationTarget):
   });
 }
 
+/** Stops future skips from going to an empty jar without creating a parked jar. */
+export async function deactivateSkipTarget(uid: string, target: SkipAllocationTarget): Promise<void> {
+  await updateDoc(doc(db, "users", uid), {
+    activeSkipTarget: null,
+    parkedSkipTargets: arrayRemove(target),
+    ...(target.type === "fundraiser"
+      ? { activeProjectId: null }
+      : { activeSpendingGoalId: null, spendingGoal: null }),
+  });
+}
+
 export async function allocateSkipBankToJar(
   uid: string,
   target: SkipAllocationTarget,

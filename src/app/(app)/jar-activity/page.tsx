@@ -17,6 +17,7 @@ import {
   setActiveSkipTarget,
   setUserCauseGoal,
   parkSkipTarget,
+  deactivateSkipTarget,
   deleteDonation,
   deleteSpendingHistory,
   subscribeToDonations,
@@ -559,6 +560,7 @@ function JarActivityPageInner() {
   const [editingJarGoal, setEditingJarGoal] = useState<JarActivityItem | null>(null);
   const [jarGoalAmount, setJarGoalAmount] = useState("");
   const [jarGoalWorking, setJarGoalWorking] = useState(false);
+  const [deactivatePrompt, setDeactivatePrompt] = useState<JarActivityItem | null>(null);
 
   useEffect(() => {
     if (!user) return;
@@ -792,7 +794,15 @@ function JarActivityPageInner() {
     }
   }
 
-  async function handleDeactivate(item: JarActivityItem) {
+  function handleDeactivate(item: JarActivityItem) {
+    if (item.balance <= 0) {
+      setDeactivatePrompt(item);
+      return;
+    }
+    void confirmDeactivate(item);
+  }
+
+  async function confirmDeactivate(item: JarActivityItem) {
     if (!user || workingId) return;
     setWorkingId(item.id);
     try {
@@ -800,9 +810,7 @@ function JarActivityPageInner() {
       if (item.balance > 0) {
         await parkSkipTarget(user.uid, target);
       } else {
-        await setActiveSkipTarget(user.uid, null);
-        if (item.type === "fundraiser") await setActiveProject(user.uid, null);
-        else await updateSpendingGoals(user.uid, spendingGoals, null);
+        await deactivateSkipTarget(user.uid, target);
       }
       updateProfile({
         activeSkipTarget: null,
@@ -811,11 +819,12 @@ function JarActivityPageInner() {
               ...(profileData.parkedSkipTargets ?? []).filter((parked) => parked.type !== target.type || parked.id !== target.id),
               target,
             ]
-          : profileData.parkedSkipTargets,
+          : (profileData.parkedSkipTargets ?? []).filter((parked) => parked.type !== target.type || parked.id !== target.id),
         ...(item.type === "fundraiser"
           ? { activeProjectId: null }
           : { activeSpendingGoalId: null, spendingGoal: null }),
       });
+      setDeactivatePrompt(null);
       toast.success("Future skips will go to Unassigned Skip Bucks.");
     } catch {
       toast.error("Could not pause this jar. Try again.");
@@ -1140,6 +1149,57 @@ function JarActivityPageInner() {
           </div>
         )}
       </section>
+
+      {deactivatePrompt && (
+        <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/60 p-4 sm:items-center" onClick={() => setDeactivatePrompt(null)}>
+          <div
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="deactivate-empty-jar-title"
+            className="w-full max-w-sm rounded-2xl shadow-2xl"
+            style={{ background: "var(--bg-surface-1)", border: "1px solid var(--border-default)" }}
+            onClick={(event) => event.stopPropagation()}
+          >
+            <div className="relative px-5 py-4 pr-12" style={{ borderBottom: "1px solid var(--border-default)" }}>
+              <h2 id="deactivate-empty-jar-title" className="text-lg font-black" style={{ color: "var(--text-primary)" }}>
+                Deactivate this jar?
+              </h2>
+              <button
+                type="button"
+                onClick={() => setDeactivatePrompt(null)}
+                aria-label="Close deactivate confirmation"
+                className="absolute right-4 top-4 text-xl leading-none"
+                style={{ color: "var(--text-muted)" }}
+              >
+                x
+              </button>
+            </div>
+            <div className="space-y-4 p-5">
+              <p className="text-sm leading-relaxed" style={{ color: "var(--text-secondary)" }}>
+                This jar has no saved Skip Bucks. Future skips will no longer go toward it.
+              </p>
+              <button
+                type="button"
+                onClick={() => void confirmDeactivate(deactivatePrompt)}
+                disabled={workingId === deactivatePrompt.id}
+                className="w-full rounded-xl py-3 text-sm font-black disabled:opacity-50"
+                style={{ background: "#2ECC71", color: "#071B14" }}
+              >
+                {workingId === deactivatePrompt.id ? "Deactivating..." : "Deactivate jar"}
+              </button>
+              <button
+                type="button"
+                onClick={() => setDeactivatePrompt(null)}
+                disabled={workingId === deactivatePrompt.id}
+                className="w-full py-1 text-sm font-black disabled:opacity-50"
+                style={{ color: "var(--text-muted)" }}
+              >
+                Keep active
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {moveSource && (
         <MoveBalanceModal

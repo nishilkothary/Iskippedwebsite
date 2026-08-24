@@ -122,9 +122,8 @@ export function SkipModal({ onClose }: Props) {
   const fundraiserJarIds = new Set<string>();
   if (profile?.activeProjectId) fundraiserJarIds.add(profile.activeProjectId);
   if (resolvedActiveTarget?.type === "fundraiser") fundraiserJarIds.add(resolvedActiveTarget.id);
-  (profile?.joinedProjectIds ?? []).forEach((id) => fundraiserJarIds.add(id));
   (profile?.parkedSkipTargets ?? [])
-    .filter((target) => target.type === "fundraiser")
+    .filter((target) => target.type === "fundraiser" && Math.max(0, profile?.causeJarBalances?.[target.id] ?? 0) > 0)
     .forEach((target) => fundraiserJarIds.add(target.id));
   Object.entries(profile?.causeJarBalances ?? {})
     .filter(([, balance]) => Math.max(0, balance ?? 0) > 0)
@@ -138,7 +137,11 @@ export function SkipModal({ onClose }: Props) {
     detail: string;
     accent: string;
   }> = [
-    ...spendingGoals.map((goal): {
+    ...spendingGoals.filter((goal) => {
+      const target = { type: "goal" as const, id: goal.id };
+      return targetKey(defaultSkipTarget) === targetKey(target)
+        || Math.max(0, profile?.goalJarBalances?.[goal.id] ?? 0) > 0;
+    }).map((goal): {
       key: string;
       target: SkipAllocationTarget;
       label: string;

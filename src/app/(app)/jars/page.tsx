@@ -18,6 +18,7 @@ import {
   setUserCauseGoal,
   setActiveSkipTarget,
   parkSkipTarget,
+  deactivateSkipTarget,
   setChallengeEmailConsent,
   allocateSkipBankToJar,
   releaseJarToSkipBank,
@@ -564,15 +565,13 @@ function JarsPageInner() {
         if (activeSkipTarget && activeBalance > 0) {
           await parkSkipTarget(user.uid, activeSkipTarget);
         } else {
-          await setActiveSkipTarget(user.uid, null);
-          if (activeSkipTarget?.type === "goal") await updateSpendingGoals(user.uid, spendingGoals, null);
-          if (activeSkipTarget?.type === "fundraiser") await setActiveProject(user.uid, null);
+          if (activeSkipTarget) await deactivateSkipTarget(user.uid, activeSkipTarget);
         }
         updateProfile({
           activeSkipTarget: null,
           parkedSkipTargets: activeSkipTarget && activeBalance > 0
             ? [...(profile.parkedSkipTargets ?? []).filter((parked) => parked.type !== activeSkipTarget.type || parked.id !== activeSkipTarget.id), activeSkipTarget]
-            : profile.parkedSkipTargets,
+            : (profile.parkedSkipTargets ?? []).filter((parked) => parked.type !== activeSkipTarget?.type || parked.id !== activeSkipTarget?.id),
           ...(activeSkipTarget?.type === "goal" ? { activeSpendingGoalId: null, spendingGoal: null } : {}),
           ...(activeSkipTarget?.type === "fundraiser" ? { activeProjectId: null } : {}),
         });
@@ -2371,7 +2370,7 @@ function JarBrowser({
           <div className="max-h-[calc(100dvh-2rem)] w-full max-w-sm overflow-y-auto rounded-2xl shadow-2xl" style={{ background: "var(--bg-surface-1)", border: "1px solid var(--border-default)" }} onClick={(e) => e.stopPropagation()}>
             <div className="relative px-5 pt-5 pb-4 pr-12" style={{ borderBottom: "1px solid var(--border-default)" }}>
               <p className="text-lg font-black leading-tight" style={{ color: "var(--text-primary)" }}>
-                Pause this active jar?
+                {deactivatePrompt.balance > 0 ? "Pause this active jar?" : "Deactivate this jar?"}
               </p>
               <button
                 type="button"
@@ -2384,9 +2383,13 @@ function JarBrowser({
               </button>
             </div>
             <div className="space-y-3 p-5">
-              {deactivatePrompt.balance > 0 && (
+              {deactivatePrompt.balance > 0 ? (
                 <p className="text-sm leading-relaxed" style={{ color: "var(--text-secondary)" }}>
                   You have {formatCurrency(deactivatePrompt.balance)} in {targetLabel(deactivatePrompt.target)}.
+                </p>
+              ) : (
+                <p className="text-sm leading-relaxed" style={{ color: "var(--text-secondary)" }}>
+                  This jar has no saved Skip Bucks. Future skips will no longer go toward it.
                 </p>
               )}
               <button
@@ -2398,13 +2401,13 @@ function JarBrowser({
               >
                 <span className="block text-sm font-black">
                   {jarDecisionWorking === "deactivate-park"
-                    ? "Pausing jar..."
-                    : deactivatePrompt.balance > 0 ? "Pause jar, keep balance parked" : "Pause jar"}
+                    ? deactivatePrompt.balance > 0 ? "Pausing jar..." : "Deactivating jar..."
+                    : deactivatePrompt.balance > 0 ? "Pause jar, keep balance parked" : "Deactivate jar"}
                 </span>
                 <span className="mt-0.5 block text-xs font-bold opacity-80">
                   {deactivatePrompt.balance > 0
                     ? "Your saved money stays in this jar for later."
-                    : "Future skips will go to Skip Bucks until you pick a jar."}
+                    : "Future skips will go to Unassigned Skip Bucks until you pick a jar."}
                 </span>
               </button>
               {deactivatePrompt.balance > 0 && (
@@ -2430,7 +2433,7 @@ function JarBrowser({
                 className="w-full py-1 text-sm font-bold disabled:opacity-45"
                 style={{ background: "transparent", border: "none", color: "var(--text-muted)" }}
               >
-                Keep skipping for this
+                {deactivatePrompt.balance > 0 ? "Keep skipping for this" : "Keep active"}
               </button>
             </div>
           </div>
