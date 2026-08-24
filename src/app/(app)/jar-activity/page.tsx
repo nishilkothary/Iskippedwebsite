@@ -149,16 +149,14 @@ function JarActivityCard({
         background: "transparent",
       }}
     >
-      <div className="jar-activity-card-heading text-center">
-        <div className="flex min-h-7 items-center justify-center gap-1.5">
-          <p className="jar-activity-card-meta text-[10px] font-black uppercase tracking-[0.14em]" style={{ color: item.active ? accent : "var(--text-muted)" }}>
-            {item.type === "fundraiser" ? "Fundraiser" : "Reward"}
-          </p>
+      <div className="jar-activity-card-heading text-left">
+        <div className="flex min-w-0 items-center gap-1.5">
+          <h2 className="jar-activity-card-title truncate text-sm font-black leading-tight" style={{ color: accent }}>{item.title}</h2>
           {item.active && (
             <button
               type="button"
               onClick={() => onEditGoalAmount(item)}
-              className="flex h-6 w-6 items-center justify-center rounded-full text-xs leading-none"
+              className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-xs leading-none"
               style={{ background: item.type === "fundraiser" ? "rgba(46,204,113,0.13)" : "rgba(167,139,250,0.16)", border: `1px solid ${accent}`, color: accent }}
               title="Edit jar goal"
               aria-label="Edit jar goal"
@@ -167,10 +165,7 @@ function JarActivityCard({
             </button>
           )}
         </div>
-        <div className="min-w-0">
-          <h2 className="jar-activity-card-title truncate text-sm font-black leading-tight" style={{ color: accent }}>{item.title}</h2>
-          <p className="jar-activity-card-subtitle mt-1 text-xs" style={{ color: "var(--text-muted)" }}>{goalLine(item)}</p>
-        </div>
+        <p className="jar-activity-card-subtitle mt-1 text-xs" style={{ color: "var(--text-muted)" }}>{goalLine(item)}</p>
       </div>
 
       <div className="jar-activity-card-visual mt-4 flex justify-center">
