@@ -23,19 +23,31 @@ export async function GET(req: NextRequest, context: { params: Promise<{ id: str
     // communityFeed documents. Read those historical skips as a compatibility
     // fallback and repair the missing feed entries while this fundraiser is
     // viewed. The repair is idempotent because feed docs use the skip ID.
-    const legacySkipsSnap = await db.collectionGroup("skips").where("projectId", "==", challengeId).get();
-    const legacySkipTotal = legacySkipsSnap.docs.reduce((sum, skip) => {
+    const legacySkipQueries = [
+      db.collectionGroup("skips").where("projectId", "==", challengeId).get(),
+      db.collectionGroup("skips").where("allocationTarget.id", "==", challengeId).get(),
+      ...(challengeTitle
+        ? [db.collectionGroup("skips").where("projectTitle", "==", challengeTitle).get()]
+        : []),
+    ];
+    const legacySkipSnapshots = await Promise.all(legacySkipQueries);
+    const legacySkipsByPath = new Map<string, FirebaseFirestore.QueryDocumentSnapshot>();
+    for (const snapshot of legacySkipSnapshots) {
+      for (const skip of snapshot.docs) legacySkipsByPath.set(skip.ref.path, skip);
+    }
+    const legacySkips = Array.from(legacySkipsByPath.values());
+    const legacySkipTotal = legacySkips.reduce((sum, skip) => {
       const amount = skip.get("amount");
       return sum + (typeof amount === "number" ? Math.max(0, amount) : 0);
     }, 0);
-    const legacySkipUids = Array.from(new Set(legacySkipsSnap.docs
+    const legacySkipUids = Array.from(new Set(legacySkips
       .map((skip) => skip.get("uid"))
       .filter((uid): uid is string => typeof uid === "string" && uid.length > 0)));
 
     try {
       const existingFeedSnap = await db.collection("communityFeed").where("projectId", "==", challengeId).get();
       const existingFeedSkipIds = new Set(existingFeedSnap.docs.map((feed) => feed.get("skipId") || feed.id));
-      const missingSkips = legacySkipsSnap.docs.filter((skip) => !existingFeedSkipIds.has(skip.id)).slice(0, 400);
+      const missingSkips = legacySkips.filter((skip) => !existingFeedSkipIds.has(skip.id)).slice(0, 400);
       if (missingSkips.length > 0) {
         const userRefs = Array.from(new Set(missingSkips.map((skip) => skip.get("uid")).filter((uid): uid is string => typeof uid === "string" && uid.length > 0)))
           .map((uid) => db.collection("users").doc(uid));
