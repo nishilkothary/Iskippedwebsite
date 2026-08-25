@@ -18,6 +18,13 @@ export type SkipAllocationTarget =
   | { type: "goal"; id: string }
   | { type: "fundraiser"; id: string };
 
+export type SkipValueSource = SkipAllocationTarget | { type: "skip-bucks" };
+
+export interface SkipSourceAllocation {
+  source: SkipValueSource;
+  amount: number;
+}
+
 export interface SkipLot {
   skipId: string;
   createdAtMs: number;

@@ -8,7 +8,7 @@ import { recordDonation, subscribeToDonations, updateDonation as firebaseUpdateD
 import { today } from "@/lib/utils/dates";
 import { getImpactMessage } from "@/lib/constants/impactMessages";
 import { xpForSkip, levelForXp } from "@/lib/utils/xp";
-import { Skip, DonationEvent, SkipAllocationTarget } from "@/lib/types/models";
+import { Skip, DonationEvent, SkipAllocationTarget, SkipSourceAllocation } from "@/lib/types/models";
 import { getActiveSkipTarget } from "@/lib/utils/skipTargets";
 
 export function useSkips() {
@@ -117,7 +117,8 @@ export function useSkips() {
 
   async function edit(
     skip: Skip,
-    updates: Partial<Pick<Skip, "category" | "categoryLabel" | "categoryEmoji" | "amount" | "projectId" | "projectTitle" | "whatSkipped" | "notes" | "allocationTarget">>
+    updates: Partial<Pick<Skip, "category" | "categoryLabel" | "categoryEmoji" | "amount" | "projectId" | "projectTitle" | "whatSkipped" | "notes" | "allocationTarget">>,
+    sourceAllocations?: SkipSourceAllocation[],
   ): Promise<void> {
     if (!user || !profile) return;
     const oldAmount = skip.amount;
@@ -125,7 +126,7 @@ export function useSkips() {
     const amountDelta = newAmount - oldAmount;
     const target = resolveSkipTarget(skip, updates.allocationTarget);
 
-    const result = await firebaseUpdateSkip(user.uid, skip.id, updates);
+    const result = await firebaseUpdateSkip(user.uid, skip.id, updates, sourceAllocations);
     storeUpdateSkip(skip.id, updates);
     if (amountDelta !== 0) {
       const targetedBalanceUpdates: Partial<Pick<UserProfilePatch, "goalJarBalances" | "causeJarBalances">> = {};
@@ -149,9 +150,9 @@ export function useSkips() {
     }
   }
 
-  async function deleteSkip(skip: Skip): Promise<void> {
+  async function deleteSkip(skip: Skip, sourceAllocations?: SkipSourceAllocation[]): Promise<void> {
     if (!user || !profile) return;
-    const result = await firebaseDeleteSkip(user.uid, skip.id);
+    const result = await firebaseDeleteSkip(user.uid, skip.id, sourceAllocations);
     removeSkip(skip.id);
     updateProfile({
       totalSaved: Math.max(0, profile.totalSaved - skip.amount),

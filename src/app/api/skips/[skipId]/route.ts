@@ -3,9 +3,9 @@ import { FieldValue } from "firebase-admin/firestore";
 import { getAdminDb } from "@/lib/services/firebaseAdmin";
 import { requireUid, ApiError, handleApiError } from "@/lib/services/apiAuth";
 import { adjustGlobalStats } from "@/lib/services/globalStats";
-import { UserProfile, Skip, SkipAllocationTarget } from "@/lib/types/models";
-import { removeUnspentSkipValue } from "@/lib/utils/skipBalances";
-import { adjustSkipLot, balancesFromLots, cloneLots, removeSkipLot } from "@/lib/utils/skipLedger";
+import { UserProfile, Skip, SkipAllocationTarget, SkipSourceAllocation, SkipValueSource } from "@/lib/types/models";
+import { getSkipBalanceSummary, removeUnspentSkipValue } from "@/lib/utils/skipBalances";
+import { adjustSkipLot, balancesFromLots, cloneLots, consumeLots, locationKey, removeSkipLot } from "@/lib/utils/skipLedger";
 
 type RouteContext = { params: Promise<{ skipId: string }> };
 
@@ -17,6 +17,7 @@ export async function PATCH(req: NextRequest, ctx: RouteContext) {
     const { skipId } = await ctx.params;
     const body = await req.json();
     const rawUpdates: Record<string, unknown> = typeof body.updates === "object" && body.updates ? body.updates : {};
+    const sourceAllocations = parseSourceAllocations(body.sourceAllocations);
     if (rawUpdates.amount !== undefined && (typeof rawUpdates.amount !== "number" || rawUpdates.amount <= 0 || rawUpdates.amount > 10000)) {
       throw new ApiError(400, "Invalid amount");
     }
@@ -29,7 +30,7 @@ export async function PATCH(req: NextRequest, ctx: RouteContext) {
     const userRef = db.collection("users").doc(uid);
     const skipRef = userRef.collection("skips").doc(skipId);
 
-    const { projectId, fundraiserAmountDelta, amountDelta, resolvedAmount, resolvedCategoryLabel, causeJarBalances, goalJarBalances } = await db.runTransaction(async (tx) => {
+    const { projectId, amountDelta, resolvedAmount, resolvedCategoryLabel, causeJarBalances, goalJarBalances, fundraiserDeltas } = await db.runTransaction(async (tx) => {
       const [skipSnap, userSnap] = await Promise.all([tx.get(skipRef), tx.get(userRef)]);
       if (!skipSnap.exists) throw new ApiError(404, "Skip not found");
       const skip = skipSnap.data() as Skip;
@@ -42,10 +43,18 @@ export async function PATCH(req: NextRequest, ctx: RouteContext) {
       const ledgerAware = Boolean(profile.skipLots?.[skip.id]);
       const skipLots = ledgerAware ? cloneLots(profile) : null;
       let reconciledBalances: { causeJarBalances: Record<string, number>; goalJarBalances: Record<string, number> } | null = null;
+      const fundraiserDeltas: Record<string, number> = {};
       if (ledgerAware && skipLots) {
         try {
-          adjustSkipLot(skipLots, skip.id, oldAmount, newAmount);
+          if (amountDelta < 0 && sourceAllocations) applySourcePlanToLots(skipLots, sourceAllocations, -amountDelta);
+          else adjustSkipLot(skipLots, skip.id, oldAmount, newAmount);
           reconciledBalances = balancesFromLots(skipLots);
+        } catch (error) {
+          throw new ApiError(409, error instanceof Error ? error.message : "This edit cannot be applied safely.");
+        }
+      } else if (amountDelta < 0 && sourceAllocations) {
+        try {
+          reconciledBalances = applySourcePlanToBalances(profile, sourceAllocations, -amountDelta);
         } catch (error) {
           throw new ApiError(409, error instanceof Error ? error.message : "This edit cannot be applied safely.");
         }
@@ -72,6 +81,15 @@ export async function PATCH(req: NextRequest, ctx: RouteContext) {
           (profile.savedTowardActiveCause ?? 0) + amountDelta
         );
       }
+      if (amountDelta > 0 && allocationTarget?.type === "fundraiser") {
+        fundraiserDeltas[allocationTarget.id] = amountDelta;
+      } else if (amountDelta < 0) {
+        for (const allocation of sourceAllocations ?? [{ source: allocationTarget ?? { type: "skip-bucks" as const }, amount: -amountDelta }]) {
+          if (allocation.source.type === "fundraiser") {
+            fundraiserDeltas[allocation.source.id] = Math.round((fundraiserDeltas[allocation.source.id] ?? 0) - allocation.amount * 100) / 100;
+          }
+        }
+      }
       if (!skipLots && amountDelta !== 0 && allocationTarget?.type === "goal") {
         if (amountDelta > 0) userUpdate[`goalJarBalances.${allocationTarget.id}`] = Math.max(0, (profile.goalJarBalances?.[allocationTarget.id] ?? 0) + amountDelta);
       }
@@ -82,26 +100,26 @@ export async function PATCH(req: NextRequest, ctx: RouteContext) {
 
       return {
         projectId: allocationTarget?.type === "fundraiser" ? allocationTarget.id : null,
-        fundraiserAmountDelta: allocationTarget?.type === "fundraiser" ? amountDelta : 0,
         amountDelta,
         resolvedAmount: newAmount,
         resolvedCategoryLabel: (updates.categoryLabel as string | undefined) ?? skip.categoryLabel,
         causeJarBalances: reconciledBalances?.causeJarBalances,
         goalJarBalances: reconciledBalances?.goalJarBalances,
+        fundraiserDeltas,
       };
     });
 
     // Keep legacy project counters in sync, but UI progress is derived from donations plus jar balances.
-    if (projectId && fundraiserAmountDelta !== 0) {
-      const projectRef = db.collection("projects").doc(projectId);
-      if (fundraiserAmountDelta > 0) {
-        projectRef.update({ totalRaised: FieldValue.increment(fundraiserAmountDelta) })
+    for (const [fundraiserId, delta] of Object.entries(fundraiserDeltas)) {
+      const projectRef = db.collection("projects").doc(fundraiserId);
+      if (delta > 0) {
+        projectRef.update({ totalRaised: FieldValue.increment(delta) })
           .catch((e) => console.warn("[skips] project totalRaised increment failed:", e));
-      } else {
+      } else if (delta < 0) {
         projectRef.get()
           .then((snap) => {
             const current = (snap.data()?.totalRaised ?? 0) as number;
-            return projectRef.update({ totalRaised: Math.max(0, current + fundraiserAmountDelta) });
+            return projectRef.update({ totalRaised: Math.max(0, current + delta) });
           })
           .catch((e) => console.warn("[skips] project totalRaised decrement failed:", e));
       }
@@ -126,6 +144,8 @@ export async function DELETE(req: NextRequest, ctx: RouteContext) {
   try {
     const uid = await requireUid(req);
     const { skipId } = await ctx.params;
+    const body = await req.json().catch(() => ({}));
+    const sourceAllocations = parseSourceAllocations(body.sourceAllocations);
 
     const db = getAdminDb();
     const userRef = db.collection("users").doc(uid);
@@ -143,14 +163,35 @@ export async function DELETE(req: NextRequest, ctx: RouteContext) {
       let ledgerProjectDeltas: Record<string, number> = {};
       if (skipLots) {
         try {
-          const removedByLocation = removeSkipLot(skipLots, skip.id, skip.amount);
-          for (const [location, value] of Object.entries(removedByLocation)) {
-            if (location.startsWith("fundraiser:")) {
-              const projectId = location.slice("fundraiser:".length);
-              ledgerProjectDeltas[projectId] = Math.round((ledgerProjectDeltas[projectId] ?? 0) + value * 100) / 100;
+          if (sourceAllocations) {
+            applySourcePlanToLots(skipLots, sourceAllocations, skip.amount);
+            for (const allocation of sourceAllocations) {
+              if (allocation.source.type === "fundraiser") {
+                ledgerProjectDeltas[allocation.source.id] = Math.round((ledgerProjectDeltas[allocation.source.id] ?? 0) + allocation.amount * 100) / 100;
+              }
+            }
+          } else {
+            const removedByLocation = removeSkipLot(skipLots, skip.id, skip.amount);
+            for (const [location, value] of Object.entries(removedByLocation)) {
+              if (location.startsWith("fundraiser:")) {
+                const projectId = location.slice("fundraiser:".length);
+                ledgerProjectDeltas[projectId] = Math.round((ledgerProjectDeltas[projectId] ?? 0) + value * 100) / 100;
+              }
             }
           }
           nextBalances = balancesFromLots(skipLots);
+        } catch (error) {
+          throw new ApiError(409, error instanceof Error ? error.message : "This skip cannot be deleted safely.");
+        }
+      } else if (sourceAllocations) {
+        try {
+          nextBalances = applySourcePlanToBalances(profile, sourceAllocations, skip.amount);
+          for (const [sourceId, amount] of Object.entries(nextBalances.causeJarBalances)) {
+            if (amount <= 0) delete nextBalances.causeJarBalances[sourceId];
+          }
+          for (const [sourceId, amount] of Object.entries(nextBalances.goalJarBalances)) {
+            if (amount <= 0) delete nextBalances.goalJarBalances[sourceId];
+          }
         } catch (error) {
           throw new ApiError(409, error instanceof Error ? error.message : "This skip cannot be deleted safely.");
         }
@@ -227,4 +268,71 @@ function resolveSkipTarget(skip: Skip, override?: SkipAllocationTarget | null): 
   if (skip.allocationTarget) return skip.allocationTarget;
   if (skip.projectId) return { type: "fundraiser", id: skip.projectId };
   return null;
+}
+
+function parseSourceAllocations(raw: unknown): SkipSourceAllocation[] | undefined {
+  if (raw === undefined) return undefined;
+  if (!Array.isArray(raw)) throw new ApiError(400, "Invalid source allocation plan");
+  return raw.map((entry) => {
+    if (!entry || typeof entry !== "object") throw new ApiError(400, "Invalid source allocation");
+    const data = entry as Record<string, unknown>;
+    const source = data.source;
+    if (!source || typeof source !== "object") throw new ApiError(400, "Invalid source allocation source");
+    const sourceData = source as Record<string, unknown>;
+    let parsedSource: SkipValueSource;
+    if (sourceData.type === "skip-bucks") parsedSource = { type: "skip-bucks" };
+    else if (sourceData.type === "goal" || sourceData.type === "fundraiser" && typeof sourceData.id === "string") {
+      if (typeof sourceData.id !== "string" || !sourceData.id.trim()) throw new ApiError(400, "Invalid source allocation target");
+      parsedSource = { type: sourceData.type, id: sourceData.id } as SkipAllocationTarget;
+    } else throw new ApiError(400, "Invalid source allocation target");
+    const amount = typeof data.amount === "number" ? Math.round(data.amount * 100) / 100 : 0;
+    if (!Number.isFinite(amount) || amount <= 0) throw new ApiError(400, "Invalid source allocation amount");
+    return { source: parsedSource, amount };
+  });
+}
+
+function sourceLocation(source: SkipValueSource) {
+  return source.type === "skip-bucks" ? "unassigned" : locationKey(source);
+}
+
+function validatePlanTotal(plan: SkipSourceAllocation[], amount: number) {
+  const planned = Math.round(plan.reduce((sum, allocation) => sum + allocation.amount, 0) * 100) / 100;
+  if (Math.abs(planned - Math.round(amount * 100) / 100) > 0.001) {
+    throw new Error("The source allocation plan does not match the amount being removed.");
+  }
+}
+
+function applySourcePlanToLots(
+  skipLots: Record<string, import("@/lib/types/models").SkipLot>,
+  plan: SkipSourceAllocation[],
+  amount: number,
+) {
+  validatePlanTotal(plan, amount);
+  for (const allocation of plan) {
+    consumeLots(skipLots, allocation.amount, [sourceLocation(allocation.source)]);
+  }
+}
+
+function applySourcePlanToBalances(
+  profile: UserProfile,
+  plan: SkipSourceAllocation[],
+  amount: number,
+) {
+  validatePlanTotal(plan, amount);
+  const causeJarBalances = { ...(profile.causeJarBalances ?? {}) };
+  const goalJarBalances = { ...(profile.goalJarBalances ?? {}) };
+  const availableSkipBucks = getSkipBalanceSummary(profile).unassignedSkipBank;
+  let availableFromSkipBucks = availableSkipBucks;
+  for (const allocation of plan) {
+    if (allocation.source.type === "skip-bucks") {
+      if (allocation.amount > availableFromSkipBucks + 0.001) throw new Error("The source allocation exceeds available Skip Bucks.");
+      availableFromSkipBucks = Math.round((availableFromSkipBucks - allocation.amount) * 100) / 100;
+      continue;
+    }
+    const balances = allocation.source.type === "goal" ? goalJarBalances : causeJarBalances;
+    const available = Math.max(0, Number(balances[allocation.source.id]) || 0);
+    if (allocation.amount > available + 0.001) throw new Error("The source allocation exceeds a jar balance.");
+    balances[allocation.source.id] = Math.round((available - allocation.amount) * 100) / 100;
+  }
+  return { causeJarBalances, goalJarBalances };
 }

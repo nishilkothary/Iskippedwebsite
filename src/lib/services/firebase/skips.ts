@@ -8,7 +8,7 @@ import {
   Unsubscribe,
 } from "firebase/firestore";
 import { db } from "./config";
-import { Skip, SkipAllocationTarget } from "@/lib/types/models";
+import { Skip, SkipAllocationTarget, SkipSourceAllocation } from "@/lib/types/models";
 import { apiRequest } from "./apiClient";
 
 export interface LogSkipParams {
@@ -62,19 +62,21 @@ export function subscribeToSkips(uid: string, callback: (skips: Skip[]) => void)
 export async function updateSkip(
   uid: string,
   skipId: string,
-  updates: Partial<Pick<Skip, "category" | "categoryLabel" | "categoryEmoji" | "amount" | "projectId" | "projectTitle" | "whatSkipped" | "notes" | "allocationTarget">>
+  updates: Partial<Pick<Skip, "category" | "categoryLabel" | "categoryEmoji" | "amount" | "projectId" | "projectTitle" | "whatSkipped" | "notes" | "allocationTarget">>,
+  sourceAllocations?: SkipSourceAllocation[],
 ): Promise<{ causeJarBalances?: Record<string, number>; goalJarBalances?: Record<string, number> }> {
   const cleanUpdates = Object.fromEntries(
     Object.entries(updates).filter(([, v]) => v !== undefined)
   ) as typeof updates;
-  return apiRequest(`/api/skips/${skipId}`, "PATCH", { updates: cleanUpdates });
+  return apiRequest(`/api/skips/${skipId}`, "PATCH", { updates: cleanUpdates, sourceAllocations });
 }
 
 export async function deleteSkip(
   uid: string,
-  skipId: string
+  skipId: string,
+  sourceAllocations?: SkipSourceAllocation[],
 ): Promise<{ causeJarBalances?: Record<string, number>; goalJarBalances?: Record<string, number> }> {
-  return apiRequest(`/api/skips/${skipId}`, "DELETE");
+  return apiRequest(`/api/skips/${skipId}`, "DELETE", { sourceAllocations });
 }
 
 export async function getRecentSkips(uid: string, count = 10): Promise<Skip[]> {
