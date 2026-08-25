@@ -586,8 +586,12 @@ body {
   .home-fundraiser-share-desktop { display: none; }
   .home-fundraiser-share-mobile { display: inline-block !important; }
   .home-fundraiser-share button { display: grid !important; place-items: center; width: 30px !important; height: 30px !important; min-width: 0 !important; padding: 0 !important; background: transparent !important; border-color: transparent !important; color: var(--green-primary) !important; font-size: 19px !important; line-height: 1 !important; }
-  .home-fundraiser-jars { gap: 10px !important; margin-top: 10px !important; }
-  .home-fundraiser-jars svg { max-width: 100%; height: auto; }
+  /* The active fundraiser has its own home-screen layout. Keep its jar pair
+     compact on phones so it behaves like the fundraiser cards in /jars. */
+  .home-active-fundraiser { min-height: 0 !important; overflow: hidden !important; }
+  .home-fundraiser-jars { width: min(100%, 320px) !important; gap: 6px !important; margin-top: 10px !important; }
+  .home-fundraiser-jars > div { min-width: 0; }
+  .home-fundraiser-jars svg { width: 132px !important; max-width: 100%; height: auto; }
   .jars-card-action {
     min-height: 42px;
     display: inline-flex;

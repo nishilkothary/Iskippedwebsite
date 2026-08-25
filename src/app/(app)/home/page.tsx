@@ -1232,7 +1232,7 @@ export default function HomePage() {
       return;
     }
     const active = projects.find((project) => project.id === activeProjectId);
-    if (!active || !isChallengeProject(active)) {
+    if (!active) {
       setActiveChallengeFeed([]);
       return;
     }
@@ -1246,7 +1246,7 @@ export default function HomePage() {
 
   useEffect(() => {
     const active = projects.find((project) => project.id === profile?.activeProjectId) ?? null;
-    const challengeItems = active && isChallengeProject(active)
+    const challengeItems = active
       ? activeChallengeFeed
       : [];
     const feedCount = challengeItems.length > 0
@@ -1271,7 +1271,7 @@ export default function HomePage() {
     const activeProjectId = profile?.activeProjectId;
     if (!activeProjectId) { setLiveChallengeTotalRaised(0); setLiveChallengeContributorCount(0); setLiveChallengeTotalSkips(0); return; }
     const proj = projects.find((p) => p.id === activeProjectId);
-    if (!proj || !(isChallengeProject(proj) || !proj.isCustom)) { setLiveChallengeTotalRaised(0); setLiveChallengeContributorCount(0); setLiveChallengeTotalSkips(0); return; }
+    if (!proj) { setLiveChallengeTotalRaised(0); setLiveChallengeContributorCount(0); setLiveChallengeTotalSkips(0); return; }
     let cancelled = false;
     const loadProgress = async () => {
       try {
@@ -1323,24 +1323,27 @@ export default function HomePage() {
 
 
   const isActiveChallenge = activeProject ? (isChallengeProject(activeProject) || !activeProject.isCustom) : false;
+  // Every fundraiser is a shared group target, including custom fundraisers
+  // created from /jars. Challenge type only controls challenge-specific UI.
+  const isActiveGroupFundraiser = Boolean(activeProject);
   // Per-challenge balance: what the user has pledged specifically to their active challenge
-  const userChallengeBalance = isActiveChallenge && activeProject
+  const userChallengeBalance = isActiveGroupFundraiser && activeProject
     ? Math.max(0, profile.causeJarBalances?.[activeProject.id] ?? 0)
     : 0;
   const challengeContribution = userChallengeBalance;
   const fundraiserDonatedTotal = activeProject ? Math.max(0, activeProject.totalDonated ?? 0) : 0;
   // Group total: donations that have been logged plus money currently sitting in users' fundraiser jars.
-  const displayedGroupTotal = isActiveChallenge
+  const displayedGroupTotal = isActiveGroupFundraiser
     ? Math.max(liveChallengeTotalRaised, fundraiserDonatedTotal + userChallengeBalance)
     : 0;
-  const groupContributorCount = isActiveChallenge ? liveChallengeContributorCount : 0;
+  const groupContributorCount = isActiveGroupFundraiser ? liveChallengeContributorCount : 0;
   const groupHasPriorProgress = displayedGroupTotal > userChallengeBalance + 0.005;
   const fundraiserParticipantCopy = groupContributorCount > 1
     ? `You and ${groupContributorCount - 1} ${groupContributorCount === 2 ? "other" : "others"} are skipping for this fundraiser.`
     : groupHasPriorProgress
       ? "Your skips are helping grow this fundraiser."
       : "You're the first one skipping for this fundraiser.";
-  const communityGoal = activeProject && isActiveChallenge ? getCommunityGoal(activeProject) : 0;
+  const communityGoal = activeProject && isActiveGroupFundraiser ? getCommunityGoal(activeProject) : 0;
   const fundraiserUnitCost = activeProject?.unitCost && activeProject.unitCost > 0 ? activeProject.unitCost : null;
   const temporaryChallengeGoalUnits = activeProject && isActiveChallenge && fundraiserUnitCost && activeProject.goalAmount <= 0 ? 10 : null;
   const fundraiserGoalAmount = activeProject && activeProject.goalAmount > 0
@@ -1378,7 +1381,7 @@ export default function HomePage() {
     : "/jars?tab=cause";
   const destinationLabel = "Fundraiser Jar";
   const destinationEmptyLabel = "Join a challenge →";
-  const challengeSkips = activeProject && isActiveChallenge
+  const challengeSkips = activeProject && isActiveGroupFundraiser
     ? recentSkips.filter((skip) => skip.projectId === activeProject.id)
     : [];
   const ownChallengeFeedItems: FeedItem[] = challengeSkips.map((skip) => ({
@@ -1412,10 +1415,10 @@ export default function HomePage() {
     ? `of ${oneUnitPhrase(activeProject.unitName)}`
     : activeProject?.unitDisplay || activeProject?.unitName || "units";
   const communityUnitSuffix = activeProject?.unitIsGoal && communityUnitCount > 0 && communityUnitCount < 1 ? "" : " Funded";
-  const challengeDonated = activeProject && isActiveChallenge
+  const challengeDonated = activeProject && isActiveGroupFundraiser
     ? profile.causeStats?.[activeProject.id]?.donated ?? 0
     : 0;
-  const challengeFeedAllItems = activeProject && isActiveChallenge
+  const challengeFeedAllItems = activeProject && isActiveGroupFundraiser
     ? [...ownChallengeFeedItems, ...activeChallengeFeed.filter((item) => !challengeSkips.some((skip) => skip.id === item.skipId))]
         .sort((a, b) => b.createdAt.toMillis() - a.createdAt.toMillis())
     : [];
@@ -1427,13 +1430,13 @@ export default function HomePage() {
     : null;
   const challengeCommunitySkipCount = challengeFeedItems.length > 0 ? challengeFeedItems.length : challengeSkips.length;
   const liveFundraiserSkipCount = Math.max(liveChallengeTotalSkips, challengeCommunitySkipCount);
-  const todaySkipCount = activeProject && isActiveChallenge
+  const todaySkipCount = activeProject && isActiveGroupFundraiser
     ? activeChallengeFeed.filter((item) => item.createdAt?.toDate?.()?.toDateString() === new Date().toDateString()).length
     : 0;
-  const groupSkipsThisWeek = activeProject && isActiveChallenge
+  const groupSkipsThisWeek = activeProject && isActiveGroupFundraiser
     ? challengeFeedAllItems.filter((item) => item.createdAt?.toDate && isSameWeek(item.createdAt.toDate().toISOString().split("T")[0])).length
     : 0;
-  const socialFeedItems = activeProject && isActiveChallenge
+  const socialFeedItems = activeProject && isActiveGroupFundraiser
     ? (activeChallengeFeed.length > 0
         ? activeChallengeFeed
         : communityFeed)

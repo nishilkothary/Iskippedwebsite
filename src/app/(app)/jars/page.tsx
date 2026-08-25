@@ -311,7 +311,9 @@ function JarsPageInner() {
   useEffect(() => {
     if (!user || projects.length === 0) return;
     const fundraiserIds = projects
-      .filter((project) => !isProjectEnded(project) && (isChallengeProject(project) || PARTNER_CHALLENGE_IDS.includes(project.id)))
+      // Custom fundraisers created from the jars flow are cause-type projects,
+      // but their jars are still shared with every member of the fundraiser.
+      .filter((project) => !isProjectEnded(project))
       .map((project) => project.id);
     if (fundraiserIds.length === 0) return;
     let cancelled = false;
