@@ -18,6 +18,18 @@ export async function GET(req: NextRequest, context: { params: Promise<{ id: str
 
     const project = projectSnap.data() ?? {};
     const challengeTitle = typeof project.title === "string" ? project.title : "";
+    const projectMemberUids = Array.isArray(project.memberUids)
+      ? project.memberUids.filter((uid: unknown): uid is string => typeof uid === "string" && uid.length > 0)
+      : [];
+    const [joinedUsersSnap, activeUsersSnap] = await Promise.all([
+      db.collection("users").where("joinedProjectIds", "array-contains", challengeId).get(),
+      db.collection("users").where("activeProjectId", "==", challengeId).get(),
+    ]);
+    const joinedMemberCount = new Set([
+      ...projectMemberUids,
+      ...joinedUsersSnap.docs.map((user) => user.id),
+      ...activeUsersSnap.docs.map((user) => user.id),
+    ]).size;
 
     // Older fundraisers may have skip documents but no project totals or
     // communityFeed documents. Read those historical skips as a compatibility
@@ -113,7 +125,7 @@ export async function GET(req: NextRequest, context: { params: Promise<{ id: str
     return NextResponse.json({
       totalPledged,
       totalDonated,
-      contributorCount: Math.max(contributorCount, legacySkipUids.length),
+      contributorCount: Math.max(contributorCount, legacySkipUids.length, joinedMemberCount),
       total: Math.max(totalPledged + totalDonated, legacyTotal),
     });
   } catch {
