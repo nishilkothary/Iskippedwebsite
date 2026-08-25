@@ -296,10 +296,10 @@ export function SkipModal({ onClose }: Props) {
   }
 
   if (success) {
-    const successActiveProject = successProject
-      ?? projects.find((p) => p.id === selectedFundraiserId)
-      ?? projects.find((p) => p.id === profile?.activeProjectId)
-      ?? null;
+    // Only show fundraiser progress when this skip was actually assigned to a fundraiser.
+    // A Skip Bucks selection intentionally leaves successProject null, even if another
+    // fundraiser remains active in the user's profile.
+    const successActiveProject = successProject;
     const postLogSkipCount = successSkipCount || (profile?.totalSkips ?? 0);
 
     function dismissSuccess() {

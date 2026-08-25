@@ -34,7 +34,7 @@ const STEPS = [
 const FAQ_ITEMS = [
   {
     q: "What are Skip Bucks?",
-    a: "Skip Bucks are the part of your skipped-money savings that is not committed to a jar. They include new skips you have not assigned and money released from a cause or reward jar. Your total unspent savings includes both Skip Bucks and money already in jars, minus purchases and donations you have logged.",
+    a: "Skip Bucks are the part of your skipped-money savings that isn’t committed to a jar. They include skips you haven’t dedicated to a cause or reward jar, plus money you’ve moved from a jar back into Skip Bucks. Use Skip Bucks to reach an existing goal faster, give a new goal a head start, or keep them saved until you’re ready to spend them.",
   },
   {
     q: "How do I use my Skip Bucks?",
@@ -47,6 +47,10 @@ const FAQ_ITEMS = [
   {
     q: "Can I skip for more than one reason?",
     a: "You can keep multiple jars by pausing one and returning to it later. When you log a skip, it fills your active jar by default. Tap Change to send that individual skip to a parked jar or leave it as Skip Bucks. You can also move saved balances between jars from Jar Activity.",
+  },
+  {
+    q: "What does ‘Skip for this’ mean?",
+    a: "‘Skip for this’ makes that cause or reward your active jar. Future skips will go there by default until you choose a different jar. It does not move or delete money already saved in another jar.",
   },
   {
     q: "Can I increase a jar goal amount?",
