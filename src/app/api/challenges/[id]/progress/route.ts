@@ -19,6 +19,55 @@ export async function GET(req: NextRequest, context: { params: Promise<{ id: str
     const project = projectSnap.data() ?? {};
     const challengeTitle = typeof project.title === "string" ? project.title : "";
 
+    // Older fundraisers may have skip documents but no project totals or
+    // communityFeed documents. Read those historical skips as a compatibility
+    // fallback and repair the missing feed entries while this fundraiser is
+    // viewed. The repair is idempotent because feed docs use the skip ID.
+    const legacySkipsSnap = await db.collectionGroup("skips").where("projectId", "==", challengeId).get();
+    const legacySkipTotal = legacySkipsSnap.docs.reduce((sum, skip) => {
+      const amount = skip.get("amount");
+      return sum + (typeof amount === "number" ? Math.max(0, amount) : 0);
+    }, 0);
+    const legacySkipUids = Array.from(new Set(legacySkipsSnap.docs
+      .map((skip) => skip.get("uid"))
+      .filter((uid): uid is string => typeof uid === "string" && uid.length > 0)));
+
+    try {
+      const existingFeedSnap = await db.collection("communityFeed").where("projectId", "==", challengeId).get();
+      const existingFeedSkipIds = new Set(existingFeedSnap.docs.map((feed) => feed.get("skipId") || feed.id));
+      const missingSkips = legacySkipsSnap.docs.filter((skip) => !existingFeedSkipIds.has(skip.id)).slice(0, 400);
+      if (missingSkips.length > 0) {
+        const userRefs = Array.from(new Set(missingSkips.map((skip) => skip.get("uid")).filter((uid): uid is string => typeof uid === "string" && uid.length > 0)))
+          .map((uid) => db.collection("users").doc(uid));
+        const userSnaps = userRefs.length > 0 ? await db.getAll(...userRefs) : [];
+        const usersByUid = new Map(userSnaps.map((user) => [user.id, user.data() ?? {}]));
+        const batch = db.batch();
+        for (const skip of missingSkips) {
+          const uid = skip.get("uid");
+          const user = typeof uid === "string" ? usersByUid.get(uid) ?? {} : {};
+          const label = skip.get("whatSkipped") || skip.get("categoryLabel") || "a skip";
+          batch.set(db.collection("communityFeed").doc(skip.id), {
+            uid: typeof uid === "string" ? uid : "",
+            displayName: user.displayName || "Skipper",
+            ...(user.photoURL ? { photoURL: user.photoURL } : {}),
+            type: "skip",
+            skipId: skip.id,
+            skipAmount: skip.get("amount") ?? 0,
+            skipCategory: skip.get("category") || "other",
+            skipEmoji: skip.get("categoryEmoji") || "",
+            skipLabel: label,
+            projectId: challengeId,
+            projectTitle: skip.get("projectTitle") || challengeTitle,
+            message: `skipped ${label}`,
+            createdAt: skip.get("createdAt") || new Date(),
+          }, { merge: true });
+        }
+        await batch.commit();
+      }
+    } catch (error) {
+      console.warn("[challenge progress] legacy feed repair failed", error);
+    }
+
     // Current impact is confirmed donations plus money still held in members' cause jars.
     const balanceUsersSnap = await db.collection("users").where(`causeJarBalances.${challengeId}`, ">", 0).get();
     const totalPledged = balanceUsersSnap.docs.reduce((sum, userSnap) => {
@@ -47,8 +96,14 @@ export async function GET(req: NextRequest, context: { params: Promise<{ id: str
     const contributorCount = contributorUids.size;
     const storedDonated = typeof project.totalDonated === "number" ? Math.max(0, project.totalDonated) : 0;
     const totalDonated = recordedDonations > 0 ? recordedDonations : storedDonated;
+    const legacyTotal = legacySkipTotal + totalDonated;
 
-    return NextResponse.json({ totalPledged, totalDonated, contributorCount, total: totalPledged + totalDonated });
+    return NextResponse.json({
+      totalPledged,
+      totalDonated,
+      contributorCount: Math.max(contributorCount, legacySkipUids.length),
+      total: Math.max(totalPledged + totalDonated, legacyTotal),
+    });
   } catch {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
