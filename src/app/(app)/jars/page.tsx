@@ -2286,7 +2286,7 @@ function JarBrowser({
                     x
                   </button>
                   <p className="text-sm mt-2 leading-relaxed" style={{ color: "var(--text-secondary)" }}>
-                    You have {formatCurrency(switchPrompt.balance)} in {targetLabel(switchPrompt.previous)}. Choose what happens next.
+                    You have {formatCurrency(switchPrompt.balance)} saved in {targetLabel(switchPrompt.previous)}. Choose where your future skips should go.
                   </p>
                 </div>
                 <div className="space-y-3 p-5">
@@ -2298,10 +2298,10 @@ function JarBrowser({
                     style={{ background: "#2ECC71", color: "#071B14" }}
                   >
                     <span className="block text-sm font-black">
-                      {jarDecisionWorking === "switch" ? "Changing jar..." : `Skip for ${targetLabel(switchPrompt.next)}`}
+                      {jarDecisionWorking === "switch" ? "Changing jar..." : `Pause this jar and start skipping for ${targetLabel(switchPrompt.next)}`}
                     </span>
                     <span className="mt-0.5 block text-xs font-bold opacity-80">
-                      Your {formatCurrency(switchPrompt.balance)} will remain in your current jar when you return to it.
+                      Your {formatCurrency(switchPrompt.balance)} will stay saved in {targetLabel(switchPrompt.previous)}. Future skips will go to {targetLabel(switchPrompt.next)}.
                     </span>
                   </button>
                   <button
@@ -2312,7 +2312,10 @@ function JarBrowser({
                     style={{ background: "rgba(237,245,240,0.05)", border: "1px solid rgba(237,245,240,0.1)", color: "var(--text-primary)" }}
                   >
                     <span className="block text-sm font-black">
-                      Keep skipping for {targetLabel(switchPrompt.previous)}
+                      Keep {targetLabel(switchPrompt.previous)} as your active jar
+                    </span>
+                    <span className="mt-0.5 block text-xs font-bold opacity-70">
+                      Future skips will continue going there.
                     </span>
                   </button>
                   <div className="pt-1">
