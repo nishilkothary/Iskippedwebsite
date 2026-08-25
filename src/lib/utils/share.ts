@@ -20,8 +20,9 @@ export function getChallengeSlug(project: { title: string; groupName?: string })
   return slugifyChallengeName(project.groupName?.trim() || project.title);
 }
 
-export function getChallengeSharePath(project: { title: string; groupName?: string }): string {
-  return `/join/${getChallengeSlug(project)}`;
+export function getChallengeSharePath(project: { id?: string; title: string; groupName?: string }): string {
+  const slug = getChallengeSlug(project);
+  return project.id ? `/join/${slug}?project=${encodeURIComponent(project.id)}` : `/join/${slug}`;
 }
 
 export function buildWhatsAppShareUrl(text: string, url: string): string {

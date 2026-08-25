@@ -182,6 +182,7 @@ export default function JoinChallengePage() {
   const params = useParams();
   const searchParams = useSearchParams();
   const challengeId = typeof params?.id === "string" ? params.id : Array.isArray(params?.id) ? params.id[0] : "";
+  const requestedProjectId = searchParams.get("project")?.trim() || "";
 
   const { user, isLoading: authLoading } = useAuthStore();
 
@@ -210,8 +211,16 @@ export default function JoinChallengePage() {
     // resolve instead of showing "Challenge not found".
     getAllProjects()
       .then(async (projects) => {
-        const match = projects.find((project) => project.id === challengeId)
-          ?? projects.find((project) => slugifyChallengeName(project.groupName?.trim() || project.title) === challengeId)
+        const slugMatches = projects
+          .filter((project) => slugifyChallengeName(project.groupName?.trim() || project.title) === challengeId)
+          .sort((a, b) => {
+            const aTime = (a as Project & { createdAt?: { toMillis?: () => number } }).createdAt?.toMillis?.() ?? 0;
+            const bTime = (b as Project & { createdAt?: { toMillis?: () => number } }).createdAt?.toMillis?.() ?? 0;
+            return bTime - aTime;
+          });
+        const match = projects.find((project) => project.id === requestedProjectId)
+          ?? projects.find((project) => project.id === challengeId)
+          ?? slugMatches[0]
           ?? OFFICIAL_PROJECTS.find((project) => slugifyChallengeName(project.groupName?.trim() || project.title) === challengeId)
           ?? null;
         if (!match) {
@@ -235,7 +244,7 @@ export default function JoinChallengePage() {
         else setNotFound(true);
       })
       .finally(() => setLoading(false));
-  }, [challengeId]);
+  }, [challengeId, requestedProjectId]);
 
   const challenge = useMemo(() => projectData ? challengeFromProject(projectData) : null, [projectData]);
 
