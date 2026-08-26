@@ -1679,9 +1679,18 @@ function JarBrowser({
   );
   const visibleSavedRewards = goals.filter((goal) => !presetRewardKeys.has(rewardPresetKey(goal.label, goal.targetAmount)));
   const activeGoalJarBalance = activeGoal ? Math.max(0, goalJarBalances?.[activeGoal.id] ?? 0) : 0;
+  const joinedProjectIds = new Set(profile?.joinedProjectIds ?? []);
+  const canSeeFundraiser = (project: Project) => {
+    const restricted = project.visibility === "private"
+      || project.visibility === "unlisted"
+      || project.visibility === "password"
+      || project.tags?.some((tag) => tag === "visibility-private" || tag === "visibility-unlisted");
+    return !restricted || project.createdBy === profile?.uid || joinedProjectIds.has(project.id);
+  };
   const fundraisers = projects
     .filter((project) =>
       !isProjectEnded(project)
+      && canSeeFundraiser(project)
       && (isChallengeProject(project) || PARTNER_CHALLENGE_IDS.includes(project.id))
     );
 
