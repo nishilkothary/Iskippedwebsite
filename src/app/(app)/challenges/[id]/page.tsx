@@ -34,7 +34,7 @@ type ChallengeView = {
   skipChallengeLine: string | null;
 };
 
-type InviteStep = "intro" | "active-choice" | "goal" | "skip-bucks" | "first-skip";
+type InviteStep = "intro" | "active-choice" | "goal" | "first-skip";
 
 
 function challengeTitle(project: Project): string {
@@ -475,20 +475,9 @@ export default function ChallengeDetailPage() {
         toastJoinedInactive(challenge.title);
         router.push("/jar-activity");
       }
-    } catch (error) {
-      console.error("join fundraiser failed", error);
-      toast.error("Couldn’t join this fundraiser. Please check your connection and try again.");
     } finally {
       setJoining(false);
     }
-  }
-
-  function continueInviteGoal() {
-    if (getSkipBalanceSummary(profile).unassignedSkipBank > 0) {
-      setInviteStep("skip-bucks");
-      return;
-    }
-    void completeInviteGoal();
   }
 
   function startInviteJoin() {
@@ -754,7 +743,6 @@ export default function ChallengeDetailPage() {
           onSkipBucksChange={setSkipBucksInput}
           shareEmailOnJoin={shareEmailOnJoin}
           onShareEmailChange={setShareEmailOnJoin}
-          onContinueGoal={continueInviteGoal}
           onSubmitGoal={completeInviteGoal}
           onLogSkip={() => finishInvite(true)}
           onLater={() => finishInvite(false)}
@@ -778,7 +766,6 @@ function InviteFlowModal({
   onChooseActivity,
   onGoalChange,
   onSkipBucksChange,
-  onContinueGoal,
   shareEmailOnJoin,
   onShareEmailChange,
   onSubmitGoal,
@@ -797,7 +784,6 @@ function InviteFlowModal({
   onChooseActivity: (makeActive: boolean) => void;
   onGoalChange: (value: string) => void;
   onSkipBucksChange: (value: string) => void;
-  onContinueGoal: () => void;
   shareEmailOnJoin: boolean;
   onShareEmailChange: (value: boolean) => void;
   onSubmitGoal: () => void;
@@ -911,6 +897,27 @@ function InviteFlowModal({
                   About {unitCount < 10 ? unitCount.toFixed(1) : Math.round(unitCount).toLocaleString()} {unitLabel}.
                 </p>
               )}
+              {availableSkipBucks > 0 && (
+                <label className="block rounded-xl p-3" style={{ background: "var(--bg-surface-2)", border: "1px solid var(--border-default)" }}>
+                  <span className="block text-xs font-black" style={{ color: "var(--text-primary)" }}>Use existing Skip Bucks (optional)</span>
+                  <span className="mt-1 block text-xs leading-relaxed" style={{ color: "var(--text-muted)" }}>
+                    You have {formatCurrency(availableSkipBucks)} available. Move any amount into this fundraiser now.
+                  </span>
+                  <div className="mt-2 flex items-center rounded-xl px-3 py-2" style={{ background: "var(--bg-surface-1)", border: "1px solid var(--border-default)" }}>
+                    <span className="text-sm font-black mr-2" style={{ color: "var(--text-muted)" }}>$</span>
+                    <input
+                      type="number"
+                      min="0"
+                      max={availableSkipBucks}
+                      value={skipBucksValue}
+                      onChange={(event) => onSkipBucksChange(event.target.value)}
+                      placeholder="0.00"
+                      className="w-full bg-transparent outline-none text-base font-black"
+                      style={{ color: "var(--text-primary)" }}
+                    />
+                  </div>
+                </label>
+              )}
               <label
                 className="flex items-start gap-3 rounded-xl p-3 cursor-pointer"
                 style={{ background: "var(--bg-surface-2)", border: "1px solid var(--border-default)" }}
@@ -930,43 +937,8 @@ function InviteFlowModal({
               </label>
               <button
                 type="button"
-                onClick={onContinueGoal}
-                disabled={!validGoal || joining}
-                className="w-full rounded-full py-3 text-sm font-black disabled:opacity-60"
-                style={{ background: "linear-gradient(135deg, var(--green-primary), var(--green-grad-end))", color: "var(--bg-base)" }}
-              >
-                {joining ? "Joining..." : availableSkipBucks > 0 ? "Continue" : "Join fundraiser"}
-              </button>
-            </>
-          )}
-
-          {step === "skip-bucks" && (
-            <>
-              <p className="text-sm leading-relaxed" style={{ color: "var(--text-secondary)" }}>
-                You have {formatCurrency(availableSkipBucks)} in Skip Bucks. Would you like to move any of it into this fundraiser now?
-              </p>
-              <label className="block">
-                <span className="text-xs uppercase tracking-wide font-black" style={{ color: "var(--green-primary)" }}>Skip Bucks to add (optional)</span>
-                <div className="mt-2 flex items-center rounded-xl px-3 py-2" style={{ background: "var(--bg-surface-2)", border: "1px solid var(--border-default)" }}>
-                  <span className="text-sm font-black mr-2" style={{ color: "var(--text-muted)" }}>$</span>
-                  <input
-                    type="number"
-                    min="0"
-                    max={availableSkipBucks}
-                    value={skipBucksValue}
-                    onChange={(event) => onSkipBucksChange(event.target.value)}
-                    placeholder="0.00"
-                    className="w-full bg-transparent outline-none text-base font-black"
-                    style={{ color: "var(--text-primary)" }}
-                    autoFocus
-                  />
-                </div>
-              </label>
-              {!validSkipBucks && <p className="text-xs font-bold" style={{ color: "#F59E0B" }}>Enter an amount up to your available Skip Bucks.</p>}
-              <button
-                type="button"
                 onClick={onSubmitGoal}
-                disabled={!validSkipBucks || joining}
+                disabled={!validGoal || !validSkipBucks || joining}
                 className="w-full rounded-full py-3 text-sm font-black disabled:opacity-60"
                 style={{ background: "linear-gradient(135deg, var(--green-primary), var(--green-grad-end))", color: "var(--bg-base)" }}
               >
