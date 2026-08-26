@@ -1693,6 +1693,11 @@ function JarBrowser({
     return Math.max(0, causeJarBalances?.[project.id] ?? 0);
   }
 
+  const endedFundraisers = (profile?.joinedProjectIds ?? [])
+    .map((id) => projects.find((project) => project.id === id))
+    .filter((project): project is Project => !!project && isProjectEnded(project))
+    .filter((project) => fundraiserJar(project) > 0);
+
   function unitCostLabel(project: Project) {
     if (!project.unitCost) return null;
     return `${formatCurrency(project.unitCost)}${project.unitName ? ` / ${project.unitName}` : ""}`;
@@ -3129,6 +3134,57 @@ function JarBrowser({
             })}
               </div>
             </>
+          )}
+
+          {endedFundraisers.length > 0 && (
+            <div className="mt-6 rounded-2xl p-4" style={{ background: "var(--bg-surface-1)", border: "1px solid rgba(245,158,11,0.32)" }}>
+              <p className="text-xs font-black uppercase tracking-[0.16em]" style={{ color: "#F59E0B" }}>Ended fundraisers</p>
+              <p className="mt-1 text-xs leading-relaxed" style={{ color: "var(--text-muted)" }}>
+                Choose whether to donate your saved balance or return it to Skip Bucks.
+              </p>
+              <div className="mt-4 space-y-4">
+                {endedFundraisers.map((project) => {
+                  const balance = fundraiserJar(project);
+                  return (
+                    <div key={project.id} className="rounded-xl p-3" style={{ background: "var(--bg-surface-2)" }}>
+                      <div className="flex items-start justify-between gap-3">
+                        <div>
+                          <p className="text-sm font-black" style={{ color: "var(--text-primary)" }}>{project.groupName ?? project.title}</p>
+                          <p className="mt-1 text-xs" style={{ color: "var(--text-muted)" }}>{formatCurrency(balance)} saved · fundraiser ended</p>
+                        </div>
+                        <span className="rounded-full px-2 py-1 text-[10px] font-black uppercase" style={{ background: "rgba(245,158,11,0.14)", color: "#F59E0B" }}>Ended</span>
+                      </div>
+                      <div className="mt-3 flex gap-2">
+                        <button
+                          type="button"
+                          onClick={() => setDonatingProject(project)}
+                          className="flex-1 rounded-lg py-2 text-[10px] font-black uppercase tracking-wide"
+                          style={{ background: "#F59E0B", color: "#0B1A14" }}
+                        >Donate my skips</button>
+                        <button
+                          type="button"
+                          disabled={jarDecisionWorking !== null}
+                          onClick={async () => {
+                            setJarDecisionWorking("release");
+                            try {
+                              const releasedAmount = await onReleaseJar({ type: "fundraiser", id: project.id });
+                              if (releasedAmount > 0) toast.success(`${formatCurrency(releasedAmount)} moved back to Skip Bucks.`);
+                            } catch (err) {
+                              console.error("release ended fundraiser failed", err);
+                              toast.error("Couldn’t move that balance — check your connection and try again.");
+                            } finally {
+                              setJarDecisionWorking(null);
+                            }
+                          }}
+                          className="flex-1 rounded-lg py-2 text-[10px] font-black uppercase tracking-wide disabled:opacity-50"
+                          style={{ border: "1px solid rgba(245,158,11,0.4)", color: "#F59E0B" }}
+                        >{jarDecisionWorking === "release" ? "Moving…" : "Move to Skip Bucks"}</button>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
           )}
         </div>
       )}
