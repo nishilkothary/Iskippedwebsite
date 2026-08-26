@@ -3215,12 +3215,14 @@ function JarBrowser({
                         {fundraiserHelpCopy(project)}
                       </p>
 
-                      <div>
-                        <p className="text-[10px] font-black uppercase tracking-wide" style={{ color: "var(--text-muted)" }}>Unit cost</p>
-                        <p className="mt-0.5 text-sm font-black" style={{ color: "var(--text-primary)" }}>
-                          {unitCostLabel(project) ?? "Any amount"}
-                        </p>
-                      </div>
+                      {unitCostLabel(project) && (
+                        <div>
+                          <p className="text-[10px] font-black uppercase tracking-wide" style={{ color: "var(--text-muted)" }}>Unit cost</p>
+                          <p className="mt-0.5 text-sm font-black" style={{ color: "var(--text-primary)" }}>
+                            {unitCostLabel(project)}
+                          </p>
+                        </div>
+                      )}
 
                       <div>
                         <div>
