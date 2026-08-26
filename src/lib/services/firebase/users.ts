@@ -195,11 +195,6 @@ export async function moveJarBalance(
 }
 
 export async function joinProject(uid: string, projectId: string, makeActive: boolean): Promise<void> {
-  const projectRef = doc(db, "projects", projectId);
-  const projectSnap = await getDoc(projectRef);
-  if (!projectSnap.exists()) throw new Error("Fundraiser not found");
-
-  const memberUids = (projectSnap.data().memberUids as string[] | undefined) ?? [];
   const updates: Record<string, unknown> = {
     joinedProjectIds: arrayUnion(projectId),
   };
@@ -211,9 +206,6 @@ export async function joinProject(uid: string, projectId: string, makeActive: bo
   }
 
   await updateDoc(doc(db, "users", uid), updates);
-  if (!memberUids.includes(uid)) {
-    await updateDoc(projectRef, { memberUids: arrayUnion(uid) });
-  }
 }
 
 export async function setChallengeEmailConsent(uid: string, projectId: string, shareEmail: boolean): Promise<void> {
@@ -253,12 +245,6 @@ export async function pinProjectToHome(uid: string, projectId: string): Promise<
  * server-side cause-switch route. No balance transfer is involved here.
  */
 export async function pinProjectToHomeFromJars(uid: string, projectId: string): Promise<void> {
-  const projectRef = doc(db, "projects", projectId);
-  const projectSnap = await getDoc(projectRef);
-  if (!projectSnap.exists()) throw new Error("Fundraiser not found");
-
-  const projectData = projectSnap.data();
-  const memberUids = (projectData.memberUids as string[] | undefined) ?? [];
   const target: SkipAllocationTarget = { type: "fundraiser", id: projectId };
 
   await updateDoc(doc(db, "users", uid), {
@@ -267,10 +253,6 @@ export async function pinProjectToHomeFromJars(uid: string, projectId: string): 
     activeSkipTarget: target,
     parkedSkipTargets: arrayRemove(target),
   });
-
-  if (!memberUids.includes(uid)) {
-    await updateDoc(projectRef, { memberUids: arrayUnion(uid) });
-  }
 }
 
 export async function switchGoal(
