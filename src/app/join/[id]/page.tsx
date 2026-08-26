@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { useRouter, useParams, useSearchParams } from "next/navigation";
 import { getDoc, doc } from "firebase/firestore";
-import { db } from "@/lib/services/firebase/config";
+import { auth, db } from "@/lib/services/firebase/config";
 import { getAllProjects, OFFICIAL_PROJECTS } from "@/lib/services/firebase/projects";
 import { useAuthStore } from "@/store/authStore";
 import { Project } from "@/lib/types/models";
@@ -199,51 +199,74 @@ export default function JoinChallengePage() {
 
   // Redirect signed-in users to the real authenticated invite flow.
   useEffect(() => {
-    if (!authLoading && user && resolvedChallengeId) router.replace(`/challenges/${resolvedChallengeId}?invite=1`);
+    // auth.currentUser is available immediately for an existing Firebase
+    // session, even while the shared store is hydrating on this public page.
+    if (!authLoading && (user ?? auth.currentUser) && resolvedChallengeId) {
+      router.replace(`/challenges/${resolvedChallengeId}?invite=1`);
+    }
   }, [user, authLoading, resolvedChallengeId, router]);
 
   useEffect(() => {
     if (!challengeId) { setNotFound(true); setLoading(false); return; }
-    // Official projects live in code (OFFICIAL_PROJECTS); their Firestore doc
-    // may not exist yet or may be a bare seed missing title/description/image.
-    // Merge the static official entry with whatever Firestore has (Firestore
-    // wins for live fields like totalRaised) so shared links to official causes
-    // resolve instead of showing "Challenge not found".
-    getAllProjects()
-      .then(async (projects) => {
-        const slugMatches = projects
-          .filter((project) => slugifyChallengeName(project.groupName?.trim() || project.title) === challengeId)
-          .sort((a, b) => {
-            const aTime = (a as Project & { createdAt?: { toMillis?: () => number } }).createdAt?.toMillis?.() ?? 0;
-            const bTime = (b as Project & { createdAt?: { toMillis?: () => number } }).createdAt?.toMillis?.() ?? 0;
-            return bTime - aTime;
-          });
-        const match = projects.find((project) => project.id === requestedProjectId)
-          ?? projects.find((project) => project.id === challengeId)
-          ?? slugMatches[0]
-          ?? OFFICIAL_PROJECTS.find((project) => slugifyChallengeName(project.groupName?.trim() || project.title) === challengeId)
-          ?? null;
-        if (!match) {
-          setNotFound(true);
+    let cancelled = false;
+
+    async function resolveInvite() {
+      // New share links carry the immutable project ID. Resolve that one
+      // document directly instead of waiting for the entire projects list.
+      if (requestedProjectId) {
+        const official = OFFICIAL_PROJECTS.find((project) => project.id === requestedProjectId) ?? null;
+        const snap = await getDoc(doc(db, "projects", requestedProjectId));
+        if (!snap.exists() && !official) {
+          if (!cancelled) setNotFound(true);
           return;
         }
-        const official = OFFICIAL_PROJECTS.find((project) => project.id === match.id) ?? null;
-        const snap = await getDoc(doc(db, "projects", match.id));
-        const fsData = snap.exists() ? snap.data() : null;
+        if (!cancelled) {
+          setResolvedChallengeId(requestedProjectId);
+          setProjectData({ ...(official ?? {}), ...(snap.exists() ? snap.data() : {}), id: requestedProjectId } as Project);
+        }
+        return;
+      }
+
+      // Older links only carry a readable slug, so retain the collection
+      // lookup as a backwards-compatible fallback.
+      const projects = await getAllProjects();
+      const slugMatches = projects
+        .filter((project) => slugifyChallengeName(project.groupName?.trim() || project.title) === challengeId)
+        .sort((a, b) => {
+          const aTime = (a as Project & { createdAt?: { toMillis?: () => number } }).createdAt?.toMillis?.() ?? 0;
+          const bTime = (b as Project & { createdAt?: { toMillis?: () => number } }).createdAt?.toMillis?.() ?? 0;
+          return bTime - aTime;
+        });
+      const match = projects.find((project) => project.id === challengeId)
+        ?? slugMatches[0]
+        ?? OFFICIAL_PROJECTS.find((project) => slugifyChallengeName(project.groupName?.trim() || project.title) === challengeId)
+        ?? null;
+      if (!match) {
+        if (!cancelled) setNotFound(true);
+        return;
+      }
+      const official = OFFICIAL_PROJECTS.find((project) => project.id === match.id) ?? null;
+      const snap = await getDoc(doc(db, "projects", match.id));
+      if (!cancelled) {
         setResolvedChallengeId(match.id);
-        setProjectData({ ...(official ?? {}), ...match, ...(fsData ?? {}), id: match.id } as Project);
-      })
+        setProjectData({ ...(official ?? {}), ...match, ...(snap.exists() ? snap.data() : {}), id: match.id } as Project);
+      }
+    }
+
+    void resolveInvite()
       .catch(() => {
         const official = OFFICIAL_PROJECTS.find((project) => project.id === challengeId)
           ?? OFFICIAL_PROJECTS.find((project) => slugifyChallengeName(project.groupName?.trim() || project.title) === challengeId)
           ?? null;
-        if (official) {
+        if (official && !cancelled) {
           setResolvedChallengeId(official.id);
           setProjectData({ ...official, id: official.id });
         }
-        else setNotFound(true);
+        else if (!cancelled) setNotFound(true);
       })
-      .finally(() => setLoading(false));
+      .finally(() => { if (!cancelled) setLoading(false); });
+
+    return () => { cancelled = true; };
   }, [challengeId, requestedProjectId]);
 
   const challenge = useMemo(() => projectData ? challengeFromProject(projectData) : null, [projectData]);
