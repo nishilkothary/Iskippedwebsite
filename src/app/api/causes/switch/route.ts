@@ -64,20 +64,19 @@ export async function POST(req: NextRequest) {
       };
     });
 
-    // Challenge-activity push is detached so a stalled push provider cannot
-    // leave the join request waiting after membership has already succeeded.
+    // Challenge-activity push: best-effort, never fails the join itself.
     try {
       const projSnap = await db.collection("projects").doc(newCauseId).get();
       const proj = projSnap.data();
       if (proj?.createdBy && proj.createdBy !== uid && isChallengeProjectServer(proj)) {
-        void sendPushToUser(proj.createdBy, {
+        await sendPushToUser(proj.createdBy, {
           title: "🎉 New challenge member",
           body: `${displayName || "Someone"} just joined "${proj.title || "your challenge"}"!`,
           url: `/challenges/${newCauseId}/manage`,
-        }).catch((error) => console.warn("[causes/switch] challenge-join push failed:", error));
+        });
       }
     } catch (e) {
-      console.warn("[causes/switch] challenge-join push setup failed:", e);
+      console.warn("[causes/switch] challenge-join push failed:", e);
     }
 
     return NextResponse.json({ balanceTransfer });
