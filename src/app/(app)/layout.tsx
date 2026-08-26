@@ -209,6 +209,9 @@ function ChallengeBanners() {
       .filter((p): p is Project => !!p && isChallengeProject(p) && isProjectEnded(p))
       .filter((p) => Math.max(0, profile.causeJarBalances?.[p.id] ?? 0) > 0);
   }, [profile?.joinedProjectIds, profile?.causeJarBalances, projects]);
+  const deletionNotice = profile?.deletedFundraiserNotices
+    ? Object.values(profile.deletedFundraiserNotices)[0] ?? null
+    : null;
 
   // Auto-clear activeProjectId when active challenge has ended
   useEffect(() => {
@@ -247,14 +250,16 @@ function ChallengeBanners() {
     return () => { cancelled = true; };
   }, [profile?.activeProjectId, projects, projectsLoading]);
 
-  if (!endedWithBalance.length && !showDeletedBanner) return null;
+  if (!endedWithBalance.length && !showDeletedBanner && !deletionNotice) return null;
 
   return (
     <div>
-      {showDeletedBanner && (
+      {(showDeletedBanner || deletionNotice) && (
         <div className="flex items-center justify-between gap-3 px-4 py-3" style={{ background: "rgba(239,68,68,0.08)", borderBottom: "1px solid rgba(239,68,68,0.18)" }}>
           <p className="text-xs font-semibold leading-relaxed" style={{ color: "#F87171" }}>
-            The organizer deleted your active challenge. Your jar balance is unchanged — pick a new cause to keep saving.
+            {deletionNotice
+              ? `${deletionNotice.title} was deleted by the creator. Your ${formatCurrency(deletionNotice.amount)} in savings was moved back to Skip Bucks.`
+              : "The organizer deleted your active challenge. Your jar balance is unchanged — pick a new cause to keep saving."}
           </p>
           <div className="flex items-center gap-2 shrink-0">
             <Link href="/jars?tab=cause" className="text-xs font-bold px-3 py-1.5 rounded-full" style={{ background: "#F87171", color: "#fff", textDecoration: "none" }}>

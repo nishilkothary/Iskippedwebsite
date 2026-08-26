@@ -72,6 +72,7 @@ export interface UserProfile {
   jarMigrationVersion?: string;
   causeGoalAmounts?: Record<string, number>; // per-cause personal dollar goal set by user
   causeJarOverflowCounts?: Record<string, number>; // skips taken while a fundraiser jar is at or above its goal
+  deletedFundraiserNotices?: Record<string, { title: string; amount: number; deletedAt: Timestamp }>;
   weeklyEmailOptOut?: boolean;
   emailVerified?: boolean;
   /** null once profile is created for a new user, set to a timestamp when the first-run onboarding flow is completed/skipped. Absent (undefined) on profiles created before onboarding existed. */

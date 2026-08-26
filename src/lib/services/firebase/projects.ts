@@ -6,7 +6,6 @@ import {
   addDoc,
   setDoc,
   updateDoc,
-  deleteDoc,
   serverTimestamp,
   writeBatch,
   onSnapshot,
@@ -14,6 +13,7 @@ import {
   Unsubscribe,
 } from "firebase/firestore";
 import { db } from "./config";
+import { apiRequest } from "./apiClient";
 import { Project } from "@/lib/types/models";
 
 export const OFFICIAL_PROJECTS: Project[] = [
@@ -338,9 +338,7 @@ export async function endChallenge(uid: string, projectId: string): Promise<void
 }
 
 export async function deleteCustomProject(uid: string, projectId: string): Promise<void> {
-  const snap = await getDoc(doc(db, "projects", projectId));
-  if (!snap.exists() || snap.data().createdBy !== uid) throw new Error("Not authorized");
-  await deleteDoc(doc(db, "projects", projectId));
+  await apiRequest(`/api/challenges/${projectId}/delete`, "POST", {});
 }
 
 export function subscribeToProject(projectId: string, callback: (project: Project | null) => void): Unsubscribe {
