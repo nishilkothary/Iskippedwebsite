@@ -61,6 +61,27 @@ export const OFFICIAL_PROJECTS: Project[] = [
     visibility: "public" as const,
   },
   {
+    id: "kc-books-kenya",
+    title: "Books for Kenya's Students",
+    groupName: "Books for Kenya's Students",
+    sponsor: "Kenya Connect",
+    description: "books for students in rural Kenya",
+    goalAmount: 500,
+    totalRaised: 0,
+    imageURL: "/causes/kc-books-kenya.jpg",
+    donationURL: "https://www.kenyaconnect.org/donate",
+    learnMoreURL: "https://www.kenyaconnect.org/",
+    isCustom: false,
+    location: "Kenya",
+    unitName: "Book",
+    unitDisplay: "books",
+    unitCost: 5,
+    unitIsGoal: false,
+    createdBy: null,
+    tags: ["education", "children", "kenya"],
+    visibility: "public" as const,
+  },
+  {
     id: "pop-education",
     title: "Pencils for Promise",
     sponsor: "Pencils of Promise",
@@ -108,7 +129,7 @@ export const OFFICIAL_PROJECTS: Project[] = [
 ];
 
 /** Official causes actively offered to users (pick-a-cause grids, partner challenges). The rest of OFFICIAL_PROJECTS is kept for existing users' history but no longer promoted. */
-export const PARTNER_CHALLENGE_IDS = ["cfc", "kc", "pop-education", "new-incentives"];
+export const PARTNER_CHALLENGE_IDS = ["cfc", "kc", "kc-books-kenya", "pop-education", "new-incentives"];
 
 function mergeWithOfficials(firestoreDocs: Project[]): Project[] {
   const firestoreById = new Map(firestoreDocs.map((d) => [d.id, d]));
