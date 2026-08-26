@@ -48,7 +48,6 @@ export default function ManageChallengePage() {
   const { projects } = useProjects();
 
   const challenge = projects.find((p) => p.id === challengeId) ?? null;
-  const isSiteAdmin = Boolean(profile?.email && profile.email === (process.env.NEXT_PUBLIC_ADMIN_EMAIL ?? ""));
 
   const [ending, setEnding] = useState(false);
   const [endConfirm, setEndConfirm] = useState(false);
@@ -91,15 +90,15 @@ export default function ManageChallengePage() {
   }, []);
 
   useEffect(() => {
-    if (challenge && challenge.createdBy !== user?.uid && !isSiteAdmin) {
+    if (challenge && challenge.createdBy !== user?.uid) {
       router.replace(`/challenges/${challengeId}`);
     }
   }, [challenge, user, isSiteAdmin, challengeId, router]);
 
   useEffect(() => {
-    if (!challenge || (challenge.createdBy !== user?.uid && !isSiteAdmin)) return;
+    if (!challenge || challenge.createdBy !== user?.uid) return;
     void loadMembers();
-  }, [challengeId, challenge?.createdBy, user?.uid, isSiteAdmin]);
+  }, [challengeId, challenge?.createdBy, user?.uid]);
 
   if (!challenge) {
     return (
@@ -109,7 +108,7 @@ export default function ManageChallengePage() {
     );
   }
 
-  if (challenge.createdBy !== user?.uid && !isSiteAdmin) return null;
+  if (challenge.createdBy !== user?.uid) return null;
 
   // Merge live stats over static challenge data
   const totalDonated = liveProgress?.totalDonated ?? membersTotalDonated ?? 0;

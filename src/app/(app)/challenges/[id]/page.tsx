@@ -16,8 +16,6 @@ import { getChallengeCausePhrase, getDirectChallengeShareText } from "@/lib/util
 import { getSkipBalanceSummary } from "@/lib/utils/skipBalances";
 import { ShareButton } from "@/components/share/ShareButton";
 
-const ADMIN_EMAIL = process.env.NEXT_PUBLIC_ADMIN_EMAIL ?? "";
-
 type ChallengeCategory = "Education" | "Meals" | "Health" | "Community";
 
 type ChallengeView = {
@@ -355,7 +353,7 @@ export default function ChallengeDetailPage() {
   const activeJarLabel = getActiveJarLabel(activeInviteTarget, profile, projects);
   const challengeOrganizerName = challenge.project.sponsor?.trim() || challenge.project.groupName?.trim() || "the organizer";
   const countdown = getChallengeCountdown(challenge.project);
-  const canManageChallenge = challenge.project.createdBy === user?.uid || profile?.email === ADMIN_EMAIL;
+  const canManageChallenge = challenge.project.createdBy === user?.uid;
   const profileChallengeBalance = Math.max(0, profile?.causeJarBalances?.[challenge.project.id] ?? 0);
   const pledgedAmount = Math.max(0, (challenge.project.totalDonated ?? 0) + profileChallengeBalance);
   const challengeUrl = appendRefParam(

@@ -286,7 +286,7 @@ export default function ChallengesPage() {
   });
   const visibleListChallenges = filteredChallenges.slice(0, 20);
   const canManageChallenge = (challenge: ChallengeCard) => (
-    challenge.project.createdBy === user?.uid || profile?.email === ADMIN_EMAIL
+    challenge.project.createdBy === user?.uid
   );
 
   async function beginJoin(challenge: ChallengeCard) {
