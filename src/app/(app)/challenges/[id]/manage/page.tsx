@@ -93,7 +93,7 @@ export default function ManageChallengePage() {
     if (challenge && challenge.createdBy !== user?.uid) {
       router.replace(`/challenges/${challengeId}`);
     }
-  }, [challenge, user, isSiteAdmin, challengeId, router]);
+  }, [challenge, user, challengeId, router]);
 
   useEffect(() => {
     if (!challenge || challenge.createdBy !== user?.uid) return;
