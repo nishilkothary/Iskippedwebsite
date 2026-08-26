@@ -195,16 +195,12 @@ export async function moveJarBalance(
 }
 
 export async function joinProject(uid: string, projectId: string, makeActive: boolean): Promise<void> {
-  const projectSnap = await getDoc(doc(db, "projects", projectId));
-  const memberUids = projectSnap.exists() ? (projectSnap.data().memberUids as string[] | undefined) ?? [] : [];
   await Promise.all([
     updateDoc(doc(db, "users", uid), {
       joinedProjectIds: arrayUnion(projectId),
       ...(makeActive ? { activeProjectId: projectId } : {}),
     }),
-    ...(projectSnap.exists() && !memberUids.includes(uid)
-      ? [updateDoc(doc(db, "projects", projectId), { memberUids: arrayUnion(uid) })]
-      : []),
+    setDoc(doc(db, "projects", projectId), { memberUids: arrayUnion(uid) }, { merge: true }),
   ]);
 }
 
