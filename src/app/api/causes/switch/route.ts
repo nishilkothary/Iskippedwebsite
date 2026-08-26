@@ -64,20 +64,22 @@ export async function POST(req: NextRequest) {
       };
     });
 
-    // Challenge-activity push: best-effort, never fails the join itself.
-    try {
-      const projSnap = await db.collection("projects").doc(newCauseId).get();
-      const proj = projSnap.data();
-      if (proj?.createdBy && proj.createdBy !== uid && isChallengeProjectServer(proj)) {
-        await sendPushToUser(proj.createdBy, {
-          title: "🎉 New challenge member",
-          body: `${displayName || "Someone"} just joined "${proj.title || "your challenge"}"!`,
-          url: `/challenges/${newCauseId}/manage`,
-        });
+    // Challenge-activity push is best-effort and must not delay the join response.
+    void (async () => {
+      try {
+        const projSnap = await db.collection("projects").doc(newCauseId).get();
+        const proj = projSnap.data();
+        if (proj?.createdBy && proj.createdBy !== uid && isChallengeProjectServer(proj)) {
+          await sendPushToUser(proj.createdBy, {
+            title: "🎉 New challenge member",
+            body: `${displayName || "Someone"} just joined "${proj.title || "your challenge"}"!`,
+            url: `/challenges/${newCauseId}/manage`,
+          });
+        }
+      } catch (e) {
+        console.warn("[causes/switch] challenge-join push failed:", e);
       }
-    } catch (e) {
-      console.warn("[causes/switch] challenge-join push failed:", e);
-    }
+    })();
     return NextResponse.json({ balanceTransfer });
   } catch (e) {
     return handleApiError(e);
