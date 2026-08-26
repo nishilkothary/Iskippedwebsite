@@ -195,14 +195,13 @@ export async function moveJarBalance(
 }
 
 export async function joinProject(uid: string, projectId: string, makeActive: boolean): Promise<void> {
-  // The user's joinedProjectIds is the authoritative membership record. Do
-  // not also write the project member list here: that secondary write is
-  // subject to stricter Firestore rules and can reject an otherwise valid
-  // join. Group progress already counts joined users from their profiles.
-  await updateDoc(doc(db, "users", uid), {
-    joinedProjectIds: arrayUnion(projectId),
-    ...(makeActive ? { activeProjectId: projectId } : {}),
-  });
+  await Promise.all([
+    updateDoc(doc(db, "users", uid), {
+      joinedProjectIds: arrayUnion(projectId),
+      ...(makeActive ? { activeProjectId: projectId } : {}),
+    }),
+    setDoc(doc(db, "projects", projectId), { memberUids: arrayUnion(uid) }, { merge: true }),
+  ]);
 }
 
 export async function setChallengeEmailConsent(uid: string, projectId: string, shareEmail: boolean): Promise<void> {
