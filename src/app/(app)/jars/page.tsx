@@ -23,7 +23,7 @@ import {
   allocateSkipBankToJar,
   releaseJarToSkipBank,
   moveJarBalance,
-  pinProjectToHomeFromJars,
+  pinProjectToHome,
 } from "@/lib/services/firebase/users";
 import { getActiveSkipTarget } from "@/lib/utils/skipTargets";
 import { addCustomProject, updateCustomProject, deleteCustomProject, isCauseProject, isChallengeProject, isProjectEnded, PARTNER_CHALLENGE_IDS } from "@/lib/services/firebase/projects";
@@ -580,7 +580,7 @@ function JarsPageInner() {
         return;
       }
       if (target?.type === "fundraiser") {
-        await pinProjectToHomeFromJars(user.uid, target.id);
+        await pinProjectToHome(user.uid, target.id);
         updateProfile({
           activeProjectId: target.id,
           activeSkipTarget: target,
