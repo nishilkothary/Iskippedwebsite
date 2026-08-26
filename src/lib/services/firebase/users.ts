@@ -195,25 +195,13 @@ export async function moveJarBalance(
 }
 
 export async function joinProject(uid: string, projectId: string, makeActive: boolean): Promise<void> {
-  const projectRef = doc(db, "projects", projectId);
-  const projectSnap = await getDoc(projectRef);
-  if (!projectSnap.exists()) throw new Error("Fundraiser not found");
-
-  const memberUids = (projectSnap.data().memberUids as string[] | undefined) ?? [];
-  const updates: Record<string, unknown> = {
-    joinedProjectIds: arrayUnion(projectId),
-  };
-  if (makeActive) {
-    const target: SkipAllocationTarget = { type: "fundraiser", id: projectId };
-    updates.activeProjectId = projectId;
-    updates.activeSkipTarget = target;
-    updates.parkedSkipTargets = arrayRemove(target);
-  }
-
-  await updateDoc(doc(db, "users", uid), updates);
-  if (!memberUids.includes(uid)) {
-    await updateDoc(projectRef, { memberUids: arrayUnion(uid) });
-  }
+  await Promise.all([
+    updateDoc(doc(db, "users", uid), {
+      joinedProjectIds: arrayUnion(projectId),
+      ...(makeActive ? { activeProjectId: projectId } : {}),
+    }),
+    setDoc(doc(db, "projects", projectId), { memberUids: arrayUnion(uid) }, { merge: true }),
+  ]);
 }
 
 export async function setChallengeEmailConsent(uid: string, projectId: string, shareEmail: boolean): Promise<void> {
