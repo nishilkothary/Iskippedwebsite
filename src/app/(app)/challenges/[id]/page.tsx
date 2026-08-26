@@ -312,8 +312,8 @@ export default function ChallengeDetailPage() {
   useEffect(() => {
     if (!user || !challenge || searchParams.get("invite") !== "1" || inviteFlowSeenFor === challenge.project.id) return;
     setInviteFlowSeenFor(challenge.project.id);
-    const savedGoal = profile?.causeGoalAmounts?.[challenge.project.id];
-    setPersonalGoalInput(savedGoal && savedGoal > 0 ? String(Math.round(savedGoal)) : "");
+    // A fundraiser join must never prefill a personal goal from an older jar.
+    setPersonalGoalInput("");
     setSkipBucksInput("");
     setInviteStep("intro");
   }, [user, challenge, searchParams, inviteFlowSeenFor, profile?.causeGoalAmounts]);
@@ -438,13 +438,34 @@ export default function ChallengeDetailPage() {
     if (hasSkipBucksAmount && skipBucksAmount > availableSkipBucks) return;
     setJoining(true);
     try {
-      await Promise.all([
-        inviteMakeActive ? pinProjectToHome(user.uid, challenge.project.id) : joinProject(user.uid, challenge.project.id, false),
+      await joinProject(user.uid, challenge.project.id, inviteMakeActive);
+      updateProfile({
+        ...(inviteMakeActive
+          ? {
+              activeProjectId: challenge.project.id,
+              activeSkipTarget: { type: "fundraiser", id: challenge.project.id },
+            }
+          : {}),
+        joinedProjectIds: Array.from(new Set([...(profile?.joinedProjectIds ?? []), challenge.project.id])),
+      });
+
+      // Optional invite settings are saved after membership succeeds so they
+      // cannot leave the join button stuck when a profile write is delayed.
+      void Promise.all([
         ...(hasPersonalGoal ? [setUserCauseGoal(user.uid, challenge.project.id, amount)] : []),
         profile?.challengeEmailConsents?.[challenge.project.id] === undefined
           ? setChallengeEmailConsent(user.uid, challenge.project.id, shareEmailOnJoin)
           : Promise.resolve(),
-      ]);
+      ]).then(() => {
+        updateProfile({
+          ...(hasPersonalGoal ? { causeGoalAmounts: { ...(profile?.causeGoalAmounts ?? {}), [challenge.project.id]: amount } } : {}),
+          challengeEmailConsents: profile?.challengeEmailConsents?.[challenge.project.id] === undefined
+            ? { ...(profile?.challengeEmailConsents ?? {}), [challenge.project.id]: shareEmailOnJoin }
+            : profile?.challengeEmailConsents,
+        });
+      }).catch((error) => {
+        console.error("optional invite setup save failed", error);
+      });
       if (hasSkipBucksAmount) {
         const target: SkipAllocationTarget = { type: "fundraiser", id: challenge.project.id };
         const appliedAmount = await allocateSkipBankToJar(user.uid, target, skipBucksAmount);
@@ -462,11 +483,6 @@ export default function ChallengeDetailPage() {
               activeSkipTarget: { type: "fundraiser", id: challenge.project.id },
             }
           : {}),
-        joinedProjectIds: Array.from(new Set([...(profile?.joinedProjectIds ?? []), challenge.project.id])),
-        ...(hasPersonalGoal ? { causeGoalAmounts: { ...(profile?.causeGoalAmounts ?? {}), [challenge.project.id]: amount } } : {}),
-        challengeEmailConsents: profile?.challengeEmailConsents?.[challenge.project.id] === undefined
-          ? { ...(profile?.challengeEmailConsents ?? {}), [challenge.project.id]: shareEmailOnJoin }
-          : profile?.challengeEmailConsents,
       });
       if (inviteMakeActive) {
         setInviteStep("first-skip");
