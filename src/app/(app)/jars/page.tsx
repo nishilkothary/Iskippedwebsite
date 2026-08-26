@@ -1865,16 +1865,8 @@ function JarBrowser({
     if (!goalAmount || goalAmount <= 0) return;
     setFundraiserSetupWorking(true);
     try {
-      if (user && profile?.challengeEmailConsents?.[fundraiserSetup.id] !== fundraiserShareEmail) {
-        await setChallengeEmailConsent(user.uid, fundraiserSetup.id, fundraiserShareEmail);
-        updateProfile({
-          challengeEmailConsents: {
-            ...(profile?.challengeEmailConsents ?? {}),
-            [fundraiserSetup.id]: fundraiserShareEmail,
-          },
-        });
-      }
-      await onSetFundraiserGoal(fundraiserSetup.id, goalAmount);
+      // Activate the fundraiser first. Optional profile writes must not block
+      // the existing Jars-page join from completing.
       await onSetSkipTarget(target);
       setFundraiserSetup(null);
       // A balance transfer is always an explicit choice; never carry a prior amount into this prompt.
@@ -1884,6 +1876,25 @@ function JarBrowser({
       } else {
         router.push("/home");
       }
+
+      // Persist the optional setup details after the join succeeds.
+      void Promise.all([
+        onSetFundraiserGoal(fundraiserSetup.id, goalAmount),
+        ...(user && profile?.challengeEmailConsents?.[fundraiserSetup.id] !== fundraiserShareEmail
+          ? [setChallengeEmailConsent(user.uid, fundraiserSetup.id, fundraiserShareEmail)]
+          : []),
+      ]).then(() => {
+        if (user && profile?.challengeEmailConsents?.[fundraiserSetup.id] !== fundraiserShareEmail) {
+          updateProfile({
+            challengeEmailConsents: {
+              ...(profile?.challengeEmailConsents ?? {}),
+              [fundraiserSetup.id]: fundraiserShareEmail,
+            },
+          });
+        }
+      }).catch((error) => {
+        console.error("optional fundraiser setup save failed", error);
+      });
     } catch {
       toast.error("Couldn't join this fundraiser. Please try again.");
     } finally {
