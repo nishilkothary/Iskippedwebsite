@@ -2282,7 +2282,7 @@ export default function HomePage() {
           <div className="home-active-fundraiser" style={{ ...cardStyle, padding: 18, display: "flex", flexDirection: "column", minHeight: 330, overflow: "visible" }}>
               <div style={{ marginBottom: 6 }}>
                 <div className="home-fundraiser-header" style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 12 }}>
-                  <div className="home-fundraiser-identity" style={{ minWidth: 0, display: "grid", gridTemplateColumns: activeProject?.imageURL ? "72px minmax(0, 1fr)" : "minmax(0, 1fr)", gap: 12, alignItems: "center" }}>
+                  <div className={`home-fundraiser-identity${activeProject?.imageURL ? "" : " home-fundraiser-identity-no-image"}`} style={{ minWidth: 0, display: "grid", gridTemplateColumns: activeProject?.imageURL ? "72px minmax(0, 1fr)" : "minmax(0, 1fr)", gap: 12, alignItems: "center" }}>
                     {activeProject?.imageURL && (
                       <div className="home-fundraiser-avatar">
                         <img

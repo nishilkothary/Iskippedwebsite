@@ -574,6 +574,7 @@ body {
     gap: 10px !important;
     align-items: start !important;
   }
+  .home-fundraiser-identity-no-image { grid-template-columns: minmax(0, 1fr) !important; }
   .home-fundraiser-avatar { width: 54px; }
   .home-fundraiser-image { width: 54px !important; height: 54px !important; border-radius: 14px !important; }
   .home-fundraiser-live { display: inline-flex; align-items: center; gap: 3px; color: #A7F3D0; font-size: 8px; font-weight: 900; letter-spacing: 0.55px; text-transform: uppercase; white-space: nowrap; }
