@@ -13,6 +13,7 @@ import {
   getDocs,
   arrayUnion,
   arrayRemove,
+  deleteField,
 } from "firebase/firestore";
 import { User } from "firebase/auth";
 import { db } from "./config";
@@ -127,6 +128,12 @@ export async function setShareSkipsByDefault(uid: string, shareSkipsByDefault: b
 
 export async function setActiveProject(uid: string, projectId: string | null): Promise<void> {
   await updateDoc(doc(db, "users", uid), { activeProjectId: projectId });
+}
+
+export async function dismissDeletedFundraiserNotice(uid: string, projectId: string): Promise<void> {
+  await updateDoc(doc(db, "users", uid), {
+    [`deletedFundraiserNotices.${projectId}`]: deleteField(),
+  });
 }
 
 export async function setActiveSkipTarget(uid: string, target: SkipAllocationTarget | null): Promise<void> {

@@ -8,7 +8,7 @@ import { SkipModal } from "@/components/skip/SkipModal";
 import { EmailVerificationBanner } from "@/components/EmailVerificationBanner";
 import { useProjects } from "@/hooks/useProjects";
 import { getProject, isChallengeProject, isProjectEnded } from "@/lib/services/firebase/projects";
-import { setActiveProject } from "@/lib/services/firebase/users";
+import { dismissDeletedFundraiserNotice, setActiveProject } from "@/lib/services/firebase/users";
 import { formatCurrency } from "@/lib/utils/currency";
 import { getSkipBalanceSummary } from "@/lib/utils/skipBalances";
 import { Project } from "@/lib/types/models";
@@ -209,9 +209,27 @@ function ChallengeBanners() {
       .filter((p): p is Project => !!p && isChallengeProject(p) && isProjectEnded(p))
       .filter((p) => Math.max(0, profile.causeJarBalances?.[p.id] ?? 0) > 0);
   }, [profile?.joinedProjectIds, profile?.causeJarBalances, projects]);
-  const deletionNotice = profile?.deletedFundraiserNotices
-    ? Object.values(profile.deletedFundraiserNotices)[0] ?? null
+  const deletionNoticeEntry = profile?.deletedFundraiserNotices
+    ? Object.entries(profile.deletedFundraiserNotices)[0] ?? null
     : null;
+  const deletionNotice = deletionNoticeEntry?.[1] ?? null;
+
+  async function dismissDeletionNotice() {
+    if (!profile?.uid || !deletionNoticeEntry) {
+      setShowDeletedBanner(false);
+      return;
+    }
+    const [projectId] = deletionNoticeEntry;
+    try {
+      await dismissDeletedFundraiserNotice(profile.uid, projectId);
+      const notices = { ...(profile.deletedFundraiserNotices ?? {}) };
+      delete notices[projectId];
+      updateProfile({ deletedFundraiserNotices: notices });
+      setShowDeletedBanner(false);
+    } catch {
+      // Keep the notice visible if dismissing it could not be saved.
+    }
+  }
 
   // Auto-clear activeProjectId when active challenge has ended
   useEffect(() => {
@@ -265,7 +283,7 @@ function ChallengeBanners() {
             <Link href="/jars?tab=cause" className="text-xs font-bold px-3 py-1.5 rounded-full" style={{ background: "#F87171", color: "#fff", textDecoration: "none" }}>
               Pick Cause
             </Link>
-            <button onClick={() => setShowDeletedBanner(false)} className="text-xs" style={{ color: "#F87171" }}>✕</button>
+            <button onClick={() => void dismissDeletionNotice()} className="text-xs" style={{ color: "#F87171" }} aria-label="Dismiss deletion notice">✕</button>
           </div>
         </div>
       )}
