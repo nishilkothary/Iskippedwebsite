@@ -236,6 +236,31 @@ export async function pinProjectToHome(uid: string, projectId: string): Promise<
   });
 }
 
+/**
+ * Activates an existing fundraiser from Jars without depending on the
+ * server-side cause-switch route. No balance transfer is involved here.
+ */
+export async function pinProjectToHomeFromJars(uid: string, projectId: string): Promise<void> {
+  const projectRef = doc(db, "projects", projectId);
+  const projectSnap = await getDoc(projectRef);
+  if (!projectSnap.exists()) throw new Error("Fundraiser not found");
+
+  const projectData = projectSnap.data();
+  const memberUids = (projectData.memberUids as string[] | undefined) ?? [];
+  const target: SkipAllocationTarget = { type: "fundraiser", id: projectId };
+
+  await updateDoc(doc(db, "users", uid), {
+    activeProjectId: projectId,
+    joinedProjectIds: arrayUnion(projectId),
+    activeSkipTarget: target,
+    parkedSkipTargets: arrayRemove(target),
+  });
+
+  if (!memberUids.includes(uid)) {
+    await updateDoc(projectRef, { memberUids: arrayUnion(uid) });
+  }
+}
+
 export async function switchGoal(
   uid: string,
   oldGoalId: string | null,
