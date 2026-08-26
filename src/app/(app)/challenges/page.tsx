@@ -34,7 +34,7 @@ type ChallengeCard = {
   pledgedLine: string;
   progressPct: number;
   joinedLabel: string | null;
-  trustLabel: "Verified Partner" | "Community";
+  trustLabel: "Verified Partner" | "Community" | "Private invite";
 };
 
 
@@ -193,7 +193,11 @@ function challengeFromProject(project: Project): ChallengeCard {
     pledgedLine: `${formatCurrency(raised)} donated so far`,
     progressPct,
     joinedLabel: (project.memberUids?.length ?? 0) > 0 ? `${project.memberUids!.length} joined` : null,
-    trustLabel: project.isCustom ? "Community" : "Verified Partner",
+    trustLabel: project.isCustom
+      ? (project.visibility === "private" || project.visibility === "unlisted" || project.tags?.some((tag) => tag === "visibility-private" || tag === "visibility-unlisted")
+        ? "Private invite"
+        : "Community")
+      : "Verified Partner",
   };
 }
 

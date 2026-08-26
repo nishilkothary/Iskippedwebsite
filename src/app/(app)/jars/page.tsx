@@ -1722,6 +1722,9 @@ function JarBrowser({
   }
 
   function fundraiserTrustLabel(project: Project) {
+    if (project.isCustom && (project.visibility === "private" || project.visibility === "unlisted" || project.tags?.some((tag) => tag === "visibility-private" || tag === "visibility-unlisted"))) {
+      return "Private invite";
+    }
     return project.isCustom ? "Community" : "Verified";
   }
 
