@@ -7,7 +7,6 @@ import {
   setDoc,
   updateDoc,
   serverTimestamp,
-  writeBatch,
   onSnapshot,
   Timestamp,
   Unsubscribe,
@@ -161,16 +160,6 @@ export function subscribeToProjects(callback: (projects: Project[]) => void): Un
       const docs = snap.docs.map((d) => ({ id: d.id, ...d.data() } as Project));
       callback(mergeWithOfficials(docs));
 
-      // Seed any official projects not yet in Firestore so totalRaised can be incremented
-      const firestoreIds = new Set(docs.map((d) => d.id));
-      const missing = OFFICIAL_PROJECTS.filter((p) => !firestoreIds.has(p.id));
-      if (missing.length > 0) {
-        const batch = writeBatch(db);
-        for (const p of missing) {
-          batch.set(doc(db, "projects", p.id), { totalRaised: 0, memberUids: [], isCustom: false }, { merge: true });
-        }
-        batch.commit().catch(() => {});
-      }
     },
     () => callback(OFFICIAL_PROJECTS),
   );

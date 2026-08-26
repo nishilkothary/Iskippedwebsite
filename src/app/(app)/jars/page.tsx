@@ -32,7 +32,6 @@ import { getSkipBalanceSummary } from "@/lib/utils/skipBalances";
 import { getChallengeCausePhrase } from "@/lib/utils/challengeShareCopy";
 import { Project, SpendingGoal, DonationEvent, SkipAllocationTarget } from "@/lib/types/models";
 import { DonationLogModal } from "@/components/skip/DonationLogModal";
-import { apiRequest } from "@/lib/services/firebase/apiClient";
 
 const rewardArtwork = [
   { background: "linear-gradient(135deg, #4C1D95 0%, #8B5CF6 48%, #E9D5FF 140%)", accent: "#E9D5FF" },
@@ -309,32 +308,14 @@ function JarsPageInner() {
   const { projects, refetch } = useProjects();
   const [groupProgress, setGroupProgress] = useState<Record<string, number>>({});
   useEffect(() => {
-    if (!user || projects.length === 0) return;
-    const fundraiserIds = projects
-      // Custom fundraisers created from the jars flow are cause-type projects,
-      // but their jars are still shared with every member of the fundraiser.
-      .filter((project) => !isProjectEnded(project))
-      .map((project) => project.id);
-    if (fundraiserIds.length === 0) return;
-    let cancelled = false;
-    Promise.all(
-      fundraiserIds.map(async (id) => {
-        try {
-          const result = await apiRequest<{ total: number }>(`/api/challenges/${id}/progress`, "GET");
-          return [id, Math.max(0, result.total)] as const;
-        } catch {
-          return null;
-        }
-      })
-    ).then((results) => {
-      if (cancelled) return;
-      setGroupProgress((current) => ({
-        ...current,
-        ...Object.fromEntries(results.filter((result): result is readonly [string, number] => result !== null)),
-      }));
-    });
-    return () => { cancelled = true; };
-  }, [projects, user?.uid]);
+    // Project totals are maintained when skips and donations are recorded. Do
+    // not fan out one historical-progress scan per card whenever Jars loads.
+    setGroupProgress(Object.fromEntries(
+      projects
+        .filter((project) => !isProjectEnded(project))
+        .map((project) => [project.id, Math.max(0, project.totalRaised ?? project.totalDonated ?? 0)]),
+    ));
+  }, [projects]);
   const [editingPurchaseId, setEditingPurchaseId] = useState<string | null>(null);
   const [editPurchaseAmountStr, setEditPurchaseAmountStr] = useState("");
   const [deletingPurchaseId, setDeletingPurchaseId] = useState<string | null>(null);

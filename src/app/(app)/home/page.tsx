@@ -32,7 +32,6 @@ import { SkipBucksBill } from "@/components/SkipBucksBill";
 import { formatAggregateImpactUnitsDecimal, oneUnitPhrase } from "@/lib/utils/impact";
 import { getSkipBalanceSummary } from "@/lib/utils/skipBalances";
 import { useModalA11y } from "@/hooks/useModalA11y";
-import { apiRequest } from "@/lib/services/firebase/apiClient";
 
 // ─── SVG Jar ───────────────────────────────────────────────────────────────
 interface JarProps {
@@ -1272,29 +1271,16 @@ export default function HomePage() {
     if (!activeProjectId) { setLiveChallengeTotalRaised(0); setLiveChallengeContributorCount(0); setLiveChallengeTotalSkips(0); return; }
     const proj = projects.find((p) => p.id === activeProjectId);
     if (!proj) { setLiveChallengeTotalRaised(0); setLiveChallengeContributorCount(0); setLiveChallengeTotalSkips(0); return; }
-    let cancelled = false;
-    const loadProgress = async () => {
-      try {
-        const result = await apiRequest<{ total: number; contributorCount?: number }>(`/api/challenges/${activeProjectId}/progress`, "GET");
-        if (!cancelled) {
-          setLiveChallengeTotalRaised(Math.max(0, result.total ?? 0));
-          setLiveChallengeContributorCount(Math.max(0, result.contributorCount ?? 0));
-        }
-      } catch {
-        if (!cancelled) setLiveChallengeTotalRaised(Math.max(0, proj.totalDonated ?? 0));
-      }
+    const syncProjectTotals = (project: Project | null) => {
+      setLiveChallengeTotalRaised(Math.max(0, project?.totalRaised ?? project?.totalDonated ?? 0));
+      setLiveChallengeContributorCount(project?.memberUids?.length ?? 0);
+      setLiveChallengeTotalSkips(project?.totalSkips ?? 0);
     };
-    setLiveChallengeTotalRaised(Math.max(0, proj.totalDonated ?? 0));
-    setLiveChallengeContributorCount(0);
-    setLiveChallengeTotalSkips(proj.totalSkips ?? 0);
-    void loadProgress();
+    syncProjectTotals(proj);
     const unsubscribe = subscribeToProject(activeProjectId, (p) => {
-      setLiveChallengeTotalRaised(Math.max(0, p?.totalDonated ?? 0));
-      setLiveChallengeTotalSkips(p?.totalSkips ?? 0);
-      void loadProgress();
+      syncProjectTotals(p);
     });
     return () => {
-      cancelled = true;
       unsubscribe();
     };
   }, [profile?.activeProjectId, projects]);

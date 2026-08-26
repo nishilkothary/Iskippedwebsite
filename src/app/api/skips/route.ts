@@ -161,11 +161,11 @@ export async function POST(req: NextRequest) {
     // Project totals for challenge group tracking (best-effort, non-atomic — matches prior behavior)
     if (result.allocationTarget?.type === "fundraiser") {
       const projectRef = db.collection("projects").doc(result.allocationTarget.id);
-      projectRef.update({
+      projectRef.set({
         totalSkips: FieldValue.increment(1),
         totalRaised: FieldValue.increment(amount),
         memberUids: FieldValue.arrayUnion(uid),
-      }).catch((e) => console.warn("[skips] project totals update failed:", e));
+      }, { merge: true }).catch((e) => console.warn("[skips] project totals update failed:", e));
     }
 
     // Global counters in Realtime DB
