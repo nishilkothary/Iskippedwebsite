@@ -1417,7 +1417,7 @@ function CreateChallengeWizard({
                 <p className="text-xs font-bold uppercase tracking-wide mb-2" style={{ color: "var(--text-muted)" }}>Cover image</p>
                 <div
                   className="relative rounded-xl overflow-hidden mb-2 h-36 flex items-center justify-center select-none"
-                  style={{ background: "var(--bg-surface-2)", border: "1px solid var(--border-default)", cursor: imageURL ? "grab" : "default" }}
+                  style={{ background: "var(--bg-surface-2)", border: "1px solid var(--border-default)", cursor: imageURL ? "grab" : "default", touchAction: imageURL ? "none" : "auto" }}
                   onPointerDown={(e) => {
                     if (!imageURL) return;
                     e.currentTarget.setPointerCapture(e.pointerId);
@@ -1460,6 +1460,43 @@ function CreateChallengeWizard({
                     <span className="text-sm font-semibold" style={{ color: "var(--text-muted)" }}>Add a cover image</span>
                   )}
                 </div>
+                {imageURL && (
+                  <div className="space-y-2 rounded-xl p-3" style={{ background: "var(--bg-surface-2)", border: "1px solid var(--border-default)" }}>
+                    <p className="text-xs font-bold" style={{ color: "var(--text-muted)" }}>Fine-tune the crop</p>
+                    <label className="flex items-center gap-3 text-xs font-bold" style={{ color: "var(--text-secondary)" }}>
+                      <span className="w-12">Left / right</span>
+                      <input
+                        type="range"
+                        min="0"
+                        max="100"
+                        value={imgPos.x}
+                        onChange={(event) => setImgPos((position) => ({ ...position, x: Number(event.target.value) }))}
+                        className="min-w-0 flex-1 accent-[var(--green-primary)]"
+                        aria-label="Adjust image left or right"
+                      />
+                    </label>
+                    <label className="flex items-center gap-3 text-xs font-bold" style={{ color: "var(--text-secondary)" }}>
+                      <span className="w-12">Up / down</span>
+                      <input
+                        type="range"
+                        min="0"
+                        max="100"
+                        value={imgPos.y}
+                        onChange={(event) => setImgPos((position) => ({ ...position, y: Number(event.target.value) }))}
+                        className="min-w-0 flex-1 accent-[var(--green-primary)]"
+                        aria-label="Adjust image up or down"
+                      />
+                    </label>
+                    <button
+                      type="button"
+                      onClick={() => setImgPos({ x: 50, y: 50 })}
+                      className="text-xs font-bold"
+                      style={{ color: "var(--green-primary)" }}
+                    >
+                      Reset crop
+                    </button>
+                  </div>
+                )}
                 <div className="flex">
                   <label className="px-5 py-3 rounded-full text-sm font-bold cursor-pointer select-none" style={{ background: "#2ECC71", color: "#0B1A14", touchAction: "manipulation", minHeight: 44, display: "inline-flex", alignItems: "center" }}>
                     Upload photo

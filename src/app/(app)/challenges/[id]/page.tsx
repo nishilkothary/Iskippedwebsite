@@ -7,12 +7,13 @@ import { useAuthStore } from "@/store/authStore";
 import { useUIStore } from "@/store/uiStore";
 import { useProjects } from "@/hooks/useProjects";
 import { Project, SkipAllocationTarget, UserProfile } from "@/lib/types/models";
-import { joinProject, pinProjectToHome, setChallengeEmailConsent, setUserCauseGoal } from "@/lib/services/firebase/users";
+import { allocateSkipBankToJar, joinProject, pinProjectToHome, setChallengeEmailConsent, setUserCauseGoal } from "@/lib/services/firebase/users";
 import { isChallengeProject, getProject } from "@/lib/services/firebase/projects";
 import { formatCurrency } from "@/lib/utils/currency";
 import { getChallengeCountdown } from "@/lib/utils/dates";
 import { appendRefParam, getChallengeSharePath } from "@/lib/utils/share";
 import { getChallengeCausePhrase, getDirectChallengeShareText } from "@/lib/utils/challengeShareCopy";
+import { getSkipBalanceSummary } from "@/lib/utils/skipBalances";
 import { ShareButton } from "@/components/share/ShareButton";
 
 const ADMIN_EMAIL = process.env.NEXT_PUBLIC_ADMIN_EMAIL ?? "";
@@ -66,17 +67,6 @@ function getDisplayGoalAmount(project: Project): number {
   if (project.goalAmount > 0) return project.goalAmount;
   if (project.unitCost && project.unitCost > 0) return project.unitCost * 10;
   return 0;
-}
-
-function getSuggestedPersonalGoal(project: Project): number {
-  const groupGoal = getDisplayGoalAmount(project);
-  const unitCost = project.unitCost ?? 0;
-  let suggestion = groupGoal > 0 ? groupGoal : 50;
-  if (unitCost >= 100) suggestion = unitCost;
-  else if (unitCost >= 10) suggestion = unitCost * 5;
-  else if (unitCost > 0) suggestion = Math.max(25, Math.round((unitCost * 100) / 5) * 5);
-  if (groupGoal > 0) suggestion = Math.min(suggestion, groupGoal);
-  return Math.max(5, Math.round(suggestion));
 }
 
 function getUnitLabel(project: Project): string {
@@ -285,6 +275,7 @@ export default function ChallengeDetailPage() {
   const [inviteFlowSeenFor, setInviteFlowSeenFor] = useState("");
   const [inviteMakeActive, setInviteMakeActive] = useState(true);
   const [personalGoalInput, setPersonalGoalInput] = useState("");
+  const [skipBucksInput, setSkipBucksInput] = useState("");
   const canNativeShare = typeof navigator !== "undefined" && typeof navigator.share === "function";
 
   // The projects list comes from a whole-collection snapshot that fires from
@@ -322,8 +313,8 @@ export default function ChallengeDetailPage() {
     if (!user || !challenge || searchParams.get("invite") !== "1" || inviteFlowSeenFor === challenge.project.id) return;
     setInviteFlowSeenFor(challenge.project.id);
     const savedGoal = profile?.causeGoalAmounts?.[challenge.project.id];
-    const suggestedGoal = savedGoal && savedGoal > 0 ? savedGoal : getSuggestedPersonalGoal(challenge.project);
-    setPersonalGoalInput(String(Math.round(suggestedGoal)));
+    setPersonalGoalInput(savedGoal && savedGoal > 0 ? String(Math.round(savedGoal)) : "");
+    setSkipBucksInput("");
     setInviteStep("intro");
   }, [user, challenge, searchParams, inviteFlowSeenFor, profile?.causeGoalAmounts]);
 
@@ -439,16 +430,31 @@ export default function ChallengeDetailPage() {
   async function completeInviteGoal() {
     if (!user || !challenge || joining) return;
     const amount = Number(personalGoalInput);
-    if (!Number.isFinite(amount) || amount <= 0) return;
+    const skipBucksAmount = Number(skipBucksInput);
+    const hasPersonalGoal = Number.isFinite(amount) && amount > 0;
+    const hasSkipBucksAmount = Number.isFinite(skipBucksAmount) && skipBucksAmount > 0;
+    const availableSkipBucks = getSkipBalanceSummary(profile).unassignedSkipBank;
+    if (personalGoalInput.trim() && !hasPersonalGoal) return;
+    if (hasSkipBucksAmount && skipBucksAmount > availableSkipBucks) return;
     setJoining(true);
     try {
       await Promise.all([
         inviteMakeActive ? pinProjectToHome(user.uid, challenge.project.id) : joinProject(user.uid, challenge.project.id, false),
-        setUserCauseGoal(user.uid, challenge.project.id, amount),
+        ...(hasPersonalGoal ? [setUserCauseGoal(user.uid, challenge.project.id, amount)] : []),
         profile?.challengeEmailConsents?.[challenge.project.id] === undefined
           ? setChallengeEmailConsent(user.uid, challenge.project.id, shareEmailOnJoin)
           : Promise.resolve(),
       ]);
+      if (hasSkipBucksAmount) {
+        const target: SkipAllocationTarget = { type: "fundraiser", id: challenge.project.id };
+        const appliedAmount = await allocateSkipBankToJar(user.uid, target, skipBucksAmount);
+        updateProfile({
+          causeJarBalances: {
+            ...(profile?.causeJarBalances ?? {}),
+            [challenge.project.id]: Math.max(0, profile?.causeJarBalances?.[challenge.project.id] ?? 0) + appliedAmount,
+          },
+        });
+      }
       updateProfile({
         ...(inviteMakeActive
           ? {
@@ -457,7 +463,7 @@ export default function ChallengeDetailPage() {
             }
           : {}),
         joinedProjectIds: Array.from(new Set([...(profile?.joinedProjectIds ?? []), challenge.project.id])),
-        causeGoalAmounts: { ...(profile?.causeGoalAmounts ?? {}), [challenge.project.id]: amount },
+        ...(hasPersonalGoal ? { causeGoalAmounts: { ...(profile?.causeGoalAmounts ?? {}), [challenge.project.id]: amount } } : {}),
         challengeEmailConsents: profile?.challengeEmailConsents?.[challenge.project.id] === undefined
           ? { ...(profile?.challengeEmailConsents ?? {}), [challenge.project.id]: shareEmailOnJoin }
           : profile?.challengeEmailConsents,
@@ -726,12 +732,15 @@ export default function ChallengeDetailPage() {
           step={inviteStep}
           challenge={challenge}
           goalValue={personalGoalInput}
+          skipBucksValue={skipBucksInput}
+          availableSkipBucks={getSkipBalanceSummary(profile).unassignedSkipBank}
           joining={joining}
           onClose={() => setInviteStep(null)}
           onStart={startInviteJoin}
           activeJarLabel={activeJarLabel}
           onChooseActivity={chooseInviteActivity}
           onGoalChange={setPersonalGoalInput}
+          onSkipBucksChange={setSkipBucksInput}
           shareEmailOnJoin={shareEmailOnJoin}
           onShareEmailChange={setShareEmailOnJoin}
           onSubmitGoal={completeInviteGoal}
@@ -748,12 +757,15 @@ function InviteFlowModal({
   step,
   challenge,
   goalValue,
+  skipBucksValue,
+  availableSkipBucks,
   joining,
   onClose,
   onStart,
   activeJarLabel,
   onChooseActivity,
   onGoalChange,
+  onSkipBucksChange,
   shareEmailOnJoin,
   onShareEmailChange,
   onSubmitGoal,
@@ -763,12 +775,15 @@ function InviteFlowModal({
   step: InviteStep;
   challenge: ChallengeView;
   goalValue: string;
+  skipBucksValue: string;
+  availableSkipBucks: number;
   joining: boolean;
   onClose: () => void;
   onStart: () => void;
   activeJarLabel: string;
   onChooseActivity: (makeActive: boolean) => void;
   onGoalChange: (value: string) => void;
+  onSkipBucksChange: (value: string) => void;
   shareEmailOnJoin: boolean;
   onShareEmailChange: (value: boolean) => void;
   onSubmitGoal: () => void;
@@ -776,7 +791,9 @@ function InviteFlowModal({
   onLater: () => void;
 }) {
   const amount = Number(goalValue);
-  const validGoal = Number.isFinite(amount) && amount > 0;
+  const validGoal = !goalValue.trim() || (Number.isFinite(amount) && amount > 0);
+  const skipBucksAmount = Number(skipBucksValue);
+  const validSkipBucks = !skipBucksValue.trim() || (Number.isFinite(skipBucksAmount) && skipBucksAmount > 0 && skipBucksAmount <= availableSkipBucks);
   const unitCount = challenge.project.unitCost && validGoal ? amount / challenge.project.unitCost : null;
   const unitLabel = challenge.project.unitDisplay ?? challenge.project.unitName ?? "units";
   const causePhrase = getChallengeCausePhrase(challenge.project);
@@ -794,7 +811,7 @@ function InviteFlowModal({
               : step === "active-choice"
                 ? `You are currently skipping for ${activeJarLabel}`
                 : step === "goal"
-                  ? `Set your goal for ${challenge.title}`
+                  ? `Join ${challenge.title}`
                   : "Have you skipped anything recently?"}
           </p>
           <button
@@ -856,13 +873,13 @@ function InviteFlowModal({
           {step === "goal" && (
             <>
               <p className="text-sm leading-relaxed" style={{ color: "var(--text-secondary)" }}>
-                Choose a personal savings goal. This becomes your jar target for this cause.
+                Add a personal savings goal if you want one. It is separate from the group goal and is optional.
               </p>
               <p className="text-xs font-bold" style={{ color: "var(--text-muted)" }}>
                 {formatGroupGoal(challenge.project)}
               </p>
               <label className="block">
-                <span className="text-xs uppercase tracking-wide font-black" style={{ color: "var(--green-primary)" }}>Personal savings goal</span>
+                <span className="text-xs uppercase tracking-wide font-black" style={{ color: "var(--green-primary)" }}>Personal savings goal (optional)</span>
                 <div className="mt-2 flex items-center rounded-xl px-3 py-2" style={{ background: "var(--bg-surface-2)", border: "1px solid var(--border-default)" }}>
                   <span className="text-sm font-black mr-2" style={{ color: "var(--text-muted)" }}>$</span>
                   <input
@@ -879,6 +896,27 @@ function InviteFlowModal({
                 <p className="text-xs font-bold" style={{ color: "var(--green-primary)" }}>
                   About {unitCount < 10 ? unitCount.toFixed(1) : Math.round(unitCount).toLocaleString()} {unitLabel}.
                 </p>
+              )}
+              {availableSkipBucks > 0 && (
+                <label className="block rounded-xl p-3" style={{ background: "var(--bg-surface-2)", border: "1px solid var(--border-default)" }}>
+                  <span className="block text-xs font-black" style={{ color: "var(--text-primary)" }}>Use existing Skip Bucks (optional)</span>
+                  <span className="mt-1 block text-xs leading-relaxed" style={{ color: "var(--text-muted)" }}>
+                    You have {formatCurrency(availableSkipBucks)} available. Move any amount into this fundraiser now.
+                  </span>
+                  <div className="mt-2 flex items-center rounded-xl px-3 py-2" style={{ background: "var(--bg-surface-1)", border: "1px solid var(--border-default)" }}>
+                    <span className="text-sm font-black mr-2" style={{ color: "var(--text-muted)" }}>$</span>
+                    <input
+                      type="number"
+                      min="0"
+                      max={availableSkipBucks}
+                      value={skipBucksValue}
+                      onChange={(event) => onSkipBucksChange(event.target.value)}
+                      placeholder="0.00"
+                      className="w-full bg-transparent outline-none text-base font-black"
+                      style={{ color: "var(--text-primary)" }}
+                    />
+                  </div>
+                </label>
               )}
               <label
                 className="flex items-start gap-3 rounded-xl p-3 cursor-pointer"
@@ -900,11 +938,11 @@ function InviteFlowModal({
               <button
                 type="button"
                 onClick={onSubmitGoal}
-                disabled={!validGoal || joining}
+                disabled={!validGoal || !validSkipBucks || joining}
                 className="w-full rounded-full py-3 text-sm font-black disabled:opacity-60"
                 style={{ background: "linear-gradient(135deg, var(--green-primary), var(--green-grad-end))", color: "var(--bg-base)" }}
               >
-                {joining ? "Setting goal..." : "Set goal"}
+                {joining ? "Joining..." : "Join fundraiser"}
               </button>
             </>
           )}
