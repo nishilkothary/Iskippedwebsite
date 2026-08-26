@@ -1865,25 +1865,35 @@ function JarBrowser({
     if (!goalAmount || goalAmount <= 0) return;
     setFundraiserSetupWorking(true);
     try {
-      if (user && profile?.challengeEmailConsents?.[fundraiserSetup.id] !== fundraiserShareEmail) {
-        await setChallengeEmailConsent(user.uid, fundraiserSetup.id, fundraiserShareEmail);
-        updateProfile({
-          challengeEmailConsents: {
-            ...(profile?.challengeEmailConsents ?? {}),
-            [fundraiserSetup.id]: fundraiserShareEmail,
-          },
-        });
-      }
-      await onSetFundraiserGoal(fundraiserSetup.id, goalAmount);
+      // Activate/join the fundraiser first. Optional profile settings must not
+      // block the core join action or leave the button stuck on "Setting up…".
       await onSetSkipTarget(target);
       setFundraiserSetup(null);
-      // A balance transfer is always an explicit choice; never carry a prior amount into this prompt.
       setFundingAmountStr("");
       if (availableSkipBankBalance > 0) {
         setFundingTarget(target);
       } else {
         router.push("/home");
       }
+
+      // Save optional setup details after the join has completed.
+      void Promise.all([
+        onSetFundraiserGoal(fundraiserSetup.id, goalAmount),
+        ...(user && profile?.challengeEmailConsents?.[fundraiserSetup.id] !== fundraiserShareEmail
+          ? [setChallengeEmailConsent(user.uid, fundraiserSetup.id, fundraiserShareEmail)]
+          : []),
+      ]).then(() => {
+        if (user && profile?.challengeEmailConsents?.[fundraiserSetup.id] !== fundraiserShareEmail) {
+          updateProfile({
+            challengeEmailConsents: {
+              ...(profile?.challengeEmailConsents ?? {}),
+              [fundraiserSetup.id]: fundraiserShareEmail,
+            },
+          });
+        }
+      }).catch((error) => {
+        console.error("optional fundraiser setup save failed", error);
+      });
     } catch {
       toast.error("Couldn't join this fundraiser. Please try again.");
     } finally {
