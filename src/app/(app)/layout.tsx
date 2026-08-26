@@ -7,7 +7,7 @@ import { useUIStore } from "@/store/uiStore";
 import { SkipModal } from "@/components/skip/SkipModal";
 import { EmailVerificationBanner } from "@/components/EmailVerificationBanner";
 import { useProjects } from "@/hooks/useProjects";
-import { isChallengeProject, isProjectEnded } from "@/lib/services/firebase/projects";
+import { getProject, isChallengeProject, isProjectEnded } from "@/lib/services/firebase/projects";
 import { setActiveProject } from "@/lib/services/firebase/users";
 import { formatCurrency } from "@/lib/utils/currency";
 import { getSkipBalanceSummary } from "@/lib/utils/skipBalances";
@@ -225,14 +225,26 @@ function ChallengeBanners() {
   // Detect deleted challenge: activeProjectId set but project not found after load
   useEffect(() => {
     if (deletedClearRef.current || !profile?.activeProjectId || !profile.uid || projectsLoading || !projects.length) return;
-    const active = projects.find((p) => p.id === profile.activeProjectId);
-    if (!active) {
+    const activeProjectId = profile.activeProjectId;
+    const active = projects.find((p) => p.id === activeProjectId);
+    if (active) return;
+
+    let cancelled = false;
+    void getProject(activeProjectId).then((directProject) => {
+      // A collection snapshot can briefly omit a custom fundraiser while it
+      // refreshes. Only clear the active target after a direct read confirms
+      // that the project was actually deleted.
+      if (cancelled || directProject) return;
       deletedClearRef.current = true;
       setShowDeletedBanner(true);
-      setActiveProject(profile.uid, null)
+      return setActiveProject(profile.uid, null)
         .then(() => updateProfile({ activeProjectId: null }))
         .catch(() => {});
-    }
+    }).catch(() => {
+      // A failed verification is not proof of deletion; preserve the active
+      // fundraiser and its balances.
+    });
+    return () => { cancelled = true; };
   }, [profile?.activeProjectId, projects, projectsLoading]);
 
   if (!endedWithBalance.length && !showDeletedBanner) return null;
