@@ -121,12 +121,13 @@ export async function GET(req: NextRequest, context: { params: Promise<{ id: str
     const storedDonated = typeof project.totalDonated === "number" ? Math.max(0, project.totalDonated) : 0;
     const totalDonated = recordedDonations > 0 ? recordedDonations : storedDonated;
     const legacyTotal = legacySkipTotal + totalDonated;
+    const storedRaised = typeof project.totalRaised === "number" ? Math.max(0, project.totalRaised) : 0;
 
     return NextResponse.json({
       totalPledged,
       totalDonated,
       contributorCount: Math.max(contributorCount, legacySkipUids.length, joinedMemberCount),
-      total: Math.max(totalPledged + totalDonated, legacyTotal),
+      total: Math.max(totalPledged + totalDonated, legacyTotal, storedRaised),
     });
   } catch {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
