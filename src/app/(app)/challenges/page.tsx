@@ -1237,7 +1237,10 @@ function CreateChallengeWizard({
   const [impactUnitDisplay, setImpactUnitDisplay] = useState(initialProject?.unitDisplay ?? "");
   const [impactUnitCost, setImpactUnitCost] = useState(initialProject?.unitCost ? String(initialProject.unitCost) : "");
   const [imageURL, setImageURL] = useState(initialProject?.imageURL ?? "");
-  const [imgPos, setImgPos] = useState({ x: 50, y: 50 });
+  const [imgPos, setImgPos] = useState(() => {
+    const match = initialProject?.imagePosition?.match(/(-?\d+(?:\.\d+)?)%\s+(-?\d+(?:\.\d+)?)%/);
+    return match ? { x: Number(match[1]), y: Number(match[2]) } : { x: 50, y: 50 };
+  });
   const [imageError, setImageError] = useState("");
   const dragStart = useRef<{ clientX: number; clientY: number; posX: number; posY: number } | null>(null);
   const category: CreateChallengeCategory = initialCategory;
@@ -1247,7 +1250,11 @@ function CreateChallengeWizard({
   const [isOrg, setIsOrg] = useState(Boolean(initialProject?.tags?.includes("organization")));
   const [groupName, setGroupName] = useState(initialProject?.groupName ?? "");
   const [goalAmountStr, setGoalAmountStr] = useState(initialProject?.goalAmount ? String(initialProject.goalAmount) : "");
-  const [noDonationLink, setNoDonationLink] = useState(!initialProject?.donationURL && Boolean(initialProject?.donationNote));
+  // Preserve the existing donation mode while editing. A fundraiser with no
+  // link should not become a required-link form just because its note is empty.
+  const [noDonationLink, setNoDonationLink] = useState(
+    isEditing ? !initialProject?.donationURL : false,
+  );
   const [donationNote, setDonationNote] = useState(initialProject?.donationNote ?? "");
 
   const parsedImpactUnitCost = parseFloat(impactUnitCost);
