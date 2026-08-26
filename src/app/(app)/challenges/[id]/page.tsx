@@ -306,7 +306,9 @@ export default function ChallengeDetailPage() {
 
   const challenge = useMemo(() => {
     const project = listedProject ?? fallbackProject;
-    return project && (isChallengeProject(project) || !project.isCustom) ? challengeFromProject(project) : null;
+    // Shared fundraiser links can point to custom cause-type projects created
+    // from the Fundraisers flow. They still use this detail page for joining.
+    return project ? challengeFromProject(project) : null;
   }, [listedProject, fallbackProject]);
 
   useEffect(() => {
