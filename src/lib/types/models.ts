@@ -74,6 +74,8 @@ export interface UserProfile {
   causeJarOverflowCounts?: Record<string, number>; // skips taken while a fundraiser jar is at or above its goal
   deletedFundraiserNotices?: Record<string, { title: string; amount: number; deletedAt: Timestamp }>;
   weeklyEmailOptOut?: boolean;
+  /** UTC date on which the weekly skip-prompt email was last sent. */
+  lastWeeklyEmailSentDate?: string | null;
   emailVerified?: boolean;
   /** null once profile is created for a new user, set to a timestamp when the first-run onboarding flow is completed/skipped. Absent (undefined) on profiles created before onboarding existed. */
   onboardingCompletedAt?: Timestamp | null;

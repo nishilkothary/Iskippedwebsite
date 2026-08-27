@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getAdminDb, getAdminAuth } from "@/lib/services/firebaseAdmin";
 
-const ADMIN_EMAIL = process.env.NEXT_PUBLIC_ADMIN_EMAIL ?? "";
+const ADMIN_EMAIL = (process.env.NEXT_PUBLIC_ADMIN_EMAIL ?? "").trim().toLowerCase();
 
 export async function GET(req: NextRequest) {
   const authHeader = req.headers.get("Authorization") ?? "";
@@ -11,7 +11,7 @@ export async function GET(req: NextRequest) {
   }
   try {
     const decoded = await getAdminAuth().verifyIdToken(idToken);
-    if (!ADMIN_EMAIL || decoded.email !== ADMIN_EMAIL) {
+    if (!ADMIN_EMAIL || (decoded.email ?? "").trim().toLowerCase() !== ADMIN_EMAIL) {
       return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }
   } catch {

@@ -15,7 +15,7 @@ import { getDirectChallengeShareText } from "@/lib/utils/challengeShareCopy";
 import { ShareButton } from "@/components/share/ShareButton";
 import { apiRequest } from "@/lib/services/firebase/apiClient";
 
-const ADMIN_EMAIL = process.env.NEXT_PUBLIC_ADMIN_EMAIL ?? "";
+const ADMIN_EMAIL = (process.env.NEXT_PUBLIC_ADMIN_EMAIL ?? "").trim().toLowerCase();
 
 type ChallengeCard = {
   project: Project;
@@ -313,6 +313,7 @@ export default function ChallengesPage() {
   const visibleListChallenges = filteredChallenges.slice(0, 20);
   const canManageChallenge = (challenge: ChallengeCard) => (
     challenge.project.createdBy === user?.uid
+    || (profile?.email ?? "").trim().toLowerCase() === ADMIN_EMAIL
   );
 
   async function beginJoin(challenge: ChallengeCard) {

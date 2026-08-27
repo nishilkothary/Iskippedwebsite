@@ -7,7 +7,7 @@ import { getRecentSkips } from "@/lib/services/firebase/skips";
 import { UserProfile, Skip, GlobalStats } from "@/lib/types/models";
 import { getAuth } from "firebase/auth";
 
-const ADMIN_EMAIL = process.env.NEXT_PUBLIC_ADMIN_EMAIL ?? "";
+const ADMIN_EMAIL = (process.env.NEXT_PUBLIC_ADMIN_EMAIL ?? "").trim().toLowerCase();
 
 function fmt(n: number) {
   return `$${n.toFixed(2)}`;
@@ -37,13 +37,13 @@ export default function AdminPage() {
   // Guard: wait for auth, then redirect if not admin
   useEffect(() => {
     if (isLoading) return;
-    if (!profile || profile.email !== ADMIN_EMAIL) {
+    if (!profile || profile.email.trim().toLowerCase() !== ADMIN_EMAIL) {
       router.replace("/home");
     }
   }, [profile, isLoading, router]);
 
   useEffect(() => {
-    if (!profile || profile.email !== ADMIN_EMAIL) return;
+    if (!profile || profile.email.trim().toLowerCase() !== ADMIN_EMAIL) return;
 
     const currentUser = getAuth().currentUser;
     if (!currentUser) { setUsersPermissionDenied(true); return; }
@@ -105,7 +105,7 @@ export default function AdminPage() {
   }, [users, search, sortKey]);
 
   if (isLoading || !profile) return null;
-  if (profile.email !== ADMIN_EMAIL) return null;
+  if (profile.email.trim().toLowerCase() !== ADMIN_EMAIL) return null;
 
   return (
     <div className="p-6 max-w-6xl mx-auto">

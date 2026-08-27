@@ -35,6 +35,11 @@ import { useModalA11y } from "@/hooks/useModalA11y";
 import { SKIP_CATEGORIES } from "@/lib/constants/skipCategories";
 import { apiRequest } from "@/lib/services/firebase/apiClient";
 
+function normalizeExternalLink(link: string): string {
+  const trimmed = link.trim();
+  return /^https?:\/\//i.test(trimmed) ? trimmed : `https://${trimmed}`;
+}
+
 // ─── SVG Jar ───────────────────────────────────────────────────────────────
 interface JarProps {
   fillPercent: number;
@@ -1194,6 +1199,9 @@ export default function HomePage() {
   const [rewardEditLabel, setRewardEditLabel] = useState("");
   const [rewardEditGoal, setRewardEditGoal] = useState("");
   const [rewardEditCategory, setRewardEditCategory] = useState("");
+  const [rewardEditLink, setRewardEditLink] = useState("");
+  const [rewardEditMerchant, setRewardEditMerchant] = useState("");
+  const [rewardEditImageURL, setRewardEditImageURL] = useState("");
   const [rewardEditWorking, setRewardEditWorking] = useState(false);
   const [jarCarouselIndex, setJarCarouselIndex] = useState(0);
   const jarCarouselSwipe = useRef<{ x: number; y: number; pointerId: number } | null>(null);
@@ -1871,6 +1879,9 @@ export default function HomePage() {
     setRewardEditLabel(activeGoal.label);
     setRewardEditGoal(String(activeGoal.targetAmount));
     setRewardEditCategory(activeGoal.category ?? "");
+    setRewardEditLink(activeGoal.shoppingLink ?? "");
+    setRewardEditMerchant(activeGoal.merchant ?? "");
+    setRewardEditImageURL(activeGoal.imageURL ?? "");
     setShowRewardEditor(true);
   }
 
@@ -1889,9 +1900,21 @@ export default function HomePage() {
     }
 
     const category = rewardEditCategory.trim();
+    const shoppingLink = rewardEditLink.trim() ? normalizeExternalLink(rewardEditLink) : undefined;
+    const merchant = rewardEditMerchant.trim() || undefined;
+    const imageURL = rewardEditImageURL.trim() || undefined;
     const nextGoals = spendingGoals.map((goal) => {
       if (goal.id !== activeGoal.id) return goal;
-      const nextGoal = { ...goal, label, targetAmount, category: category || undefined };
+      const nextGoal = {
+        ...goal,
+        label,
+        targetAmount,
+        category: category || undefined,
+        shoppingLink,
+        merchant,
+        imageURL,
+        imagePosition: imageURL ? goal.imagePosition : undefined,
+      };
       return Object.fromEntries(
         Object.entries(nextGoal).filter(([, value]) => value !== undefined),
       ) as unknown as SpendingGoal;
@@ -3288,6 +3311,38 @@ export default function HomePage() {
                   className="w-full rounded-xl px-4 py-3 text-sm focus:outline-none"
                   style={{ background: "var(--bg-surface-2)", border: "1px solid var(--border-default)", color: "var(--text-primary)" }}
                   autoFocus
+                />
+              </label>
+              <label className="block">
+                <span className="mb-1.5 block text-xs font-black uppercase tracking-wide" style={{ color: "#C4B5FD" }}>Shopping link (optional)</span>
+                <input
+                  type="url"
+                  value={rewardEditLink}
+                  onChange={(event) => setRewardEditLink(event.target.value)}
+                  placeholder="https://…"
+                  className="w-full rounded-xl px-4 py-3 text-sm focus:outline-none"
+                  style={{ background: "var(--bg-surface-2)", border: "1px solid var(--border-default)", color: "var(--text-primary)" }}
+                />
+              </label>
+              <label className="block">
+                <span className="mb-1.5 block text-xs font-black uppercase tracking-wide" style={{ color: "#C4B5FD" }}>Merchant (optional)</span>
+                <input
+                  value={rewardEditMerchant}
+                  onChange={(event) => setRewardEditMerchant(event.target.value)}
+                  placeholder="Target, Amazon, local shop…"
+                  className="w-full rounded-xl px-4 py-3 text-sm focus:outline-none"
+                  style={{ background: "var(--bg-surface-2)", border: "1px solid var(--border-default)", color: "var(--text-primary)" }}
+                />
+              </label>
+              <label className="block">
+                <span className="mb-1.5 block text-xs font-black uppercase tracking-wide" style={{ color: "#C4B5FD" }}>Inspo image URL (optional)</span>
+                <input
+                  type="url"
+                  value={rewardEditImageURL}
+                  onChange={(event) => setRewardEditImageURL(event.target.value)}
+                  placeholder="https://…"
+                  className="w-full rounded-xl px-4 py-3 text-sm focus:outline-none"
+                  style={{ background: "var(--bg-surface-2)", border: "1px solid var(--border-default)", color: "var(--text-primary)" }}
                 />
               </label>
               <label className="block">

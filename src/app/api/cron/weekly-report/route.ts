@@ -57,20 +57,20 @@ function firstName(displayName?: string | null) {
 function getWeekRange(): { start: string; end: string; label: string } {
   const now = new Date();
   const dayOfWeek = now.getUTCDay(); // 0=Sun, 1=Mon, ...
-  const daysToLastMonday = dayOfWeek === 0 ? 6 : dayOfWeek - 1;
-  const lastMonday = new Date(now);
-  lastMonday.setUTCDate(now.getUTCDate() - daysToLastMonday - 7);
-  lastMonday.setUTCHours(0, 0, 0, 0);
-  const lastSunday = new Date(lastMonday);
-  lastSunday.setUTCDate(lastMonday.getUTCDate() + 6);
+  const daysSinceMonday = dayOfWeek === 0 ? 6 : dayOfWeek - 1;
+  const monday = new Date(now);
+  monday.setUTCDate(now.getUTCDate() - daysSinceMonday);
+  monday.setUTCHours(0, 0, 0, 0);
+  const sunday = new Date(monday);
+  sunday.setUTCDate(monday.getUTCDate() + 6);
 
   const fmt = (d: Date) =>
     d.toLocaleDateString("en-US", { month: "short", day: "numeric", timeZone: "UTC" });
 
   return {
-    start: lastMonday.toISOString().slice(0, 10),
-    end: lastSunday.toISOString().slice(0, 10),
-    label: `${fmt(lastMonday)} - ${fmt(lastSunday)}`,
+    start: monday.toISOString().slice(0, 10),
+    end: sunday.toISOString().slice(0, 10),
+    label: `${fmt(monday)} - ${fmt(sunday)}`,
   };
 }
 
@@ -120,6 +120,7 @@ export async function GET(req: NextRequest) {
   const resend = new Resend(process.env.RESEND_API_KEY);
   const db = getAdminDb();
   const week = getWeekRange();
+  const sendDate = new Date().toISOString().slice(0, 10);
   const testMode = new URL(req.url).searchParams.get("test") === "true";
   const noSkipPreview = new URL(req.url).searchParams.get("preview") === "noskip";
 
@@ -163,9 +164,9 @@ export async function GET(req: NextRequest) {
     (u) =>
       u.email &&
       !u.weeklyEmailOptOut &&
+      u.lastWeeklyEmailSentDate !== sendDate &&
       u.lastSkipDate &&
-      u.lastSkipDate >= cutoffStr &&
-      u.emailVerified !== false
+      u.lastSkipDate >= cutoffStr
   );
   const userWeekData: UserWeekData[] = [];
 
@@ -275,6 +276,7 @@ export async function GET(req: NextRequest) {
             subject: name ? `Hey ${name}, did you skip anything this week?` : "Did you skip anything this week?",
             html,
           });
+          await db.collection("users").doc(data.uid).update({ lastWeeklyEmailSentDate: sendDate });
           sent++;
         } catch {
           failed++;

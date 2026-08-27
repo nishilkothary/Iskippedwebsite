@@ -5,7 +5,6 @@ import Link from "next/link";
 import { useAuthStore } from "@/store/authStore";
 import { useUIStore } from "@/store/uiStore";
 import { SkipModal } from "@/components/skip/SkipModal";
-import { EmailVerificationBanner } from "@/components/EmailVerificationBanner";
 import { useProjects } from "@/hooks/useProjects";
 import { getProject, isChallengeProject, isProjectEnded } from "@/lib/services/firebase/projects";
 import { dismissDeletedFundraiserNotice, setActiveProject } from "@/lib/services/firebase/users";
@@ -337,7 +336,6 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
 
       <main className="flex-1 overflow-y-auto pb-28 md:pb-0">
         <MobileAppHeader skipBucks={skipBalance.unassignedSkipBank} paused={showSkipPicker} />
-        <EmailVerificationBanner />
         <ChallengeBanners />
         {children}
       </main>
