@@ -142,7 +142,7 @@ function JarActivityCard({
 
   return (
     <article
-      className="jar-activity-card w-[172px] p-0"
+      className={`jar-activity-card w-[172px] p-0 ${menuOpen ? "z-40" : ""}`}
       style={{
         background: "transparent",
         position: "relative",
@@ -150,6 +150,9 @@ function JarActivityCard({
     >
       <div className="jar-activity-card-heading text-left pr-8">
         <h2 className="jar-activity-card-title truncate text-sm font-black leading-tight" style={{ color: item.active ? accent : "var(--text-muted)" }}>{item.title}</h2>
+        <p className="jar-activity-card-status mt-1 text-[10px] font-black uppercase tracking-[0.14em]" style={{ color: item.active ? accent : "var(--text-muted)" }}>
+          {item.active ? "Active" : "Paused"}
+        </p>
       </div>
 
       <div className="jar-activity-card-visual mt-4 flex justify-center">
