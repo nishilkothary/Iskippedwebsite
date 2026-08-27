@@ -1,16 +1,9 @@
-import { Firestore } from "firebase-admin/firestore";
-
-export type ChallengeTotalDonation = {
-  refPath: string;
-  uid: string | null;
-  amount: number;
-};
+import type { Firestore } from "firebase-admin/firestore";
 
 export type ChallengeTotals = {
   totalPledged: number;
   totalDonated: number;
   total: number;
-  donations: ChallengeTotalDonation[];
 };
 
 /** Canonical fundraiser accounting: current jar balances plus cause donations. */
@@ -32,18 +25,13 @@ export async function getChallengeTotals(
     return sum + (Number.isFinite(amount) && amount > 0 ? amount : 0);
   }, 0);
 
-  const donations = new Map<string, ChallengeTotalDonation>();
+  const donations = new Map<string, number>();
   for (const donation of [...causeDonations.docs, ...titleDonations.docs]) {
     const amount = Number(donation.get("amount") ?? 0);
     if (!Number.isFinite(amount) || amount <= 0) continue;
-    donations.set(donation.ref.path, {
-      refPath: donation.ref.path,
-      uid: donation.ref.parent.parent?.id ?? null,
-      amount,
-    });
+    donations.set(donation.ref.path, amount);
   }
 
-  const donationList = Array.from(donations.values());
-  const totalDonated = donationList.reduce((sum, donation) => sum + donation.amount, 0);
-  return { totalPledged, totalDonated, total: totalPledged + totalDonated, donations: donationList };
+  const totalDonated = Array.from(donations.values()).reduce((sum, amount) => sum + amount, 0);
+  return { totalPledged, totalDonated, total: totalPledged + totalDonated };
 }
