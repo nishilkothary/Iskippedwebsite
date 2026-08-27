@@ -2309,7 +2309,7 @@ export default function HomePage() {
                   ) : (
                     <div className="home-group-impact-items" style={{ display: "flex", flexWrap: "wrap", gap: 7, marginTop: 10 }}>
                       {rewardGoalSkipEstimates.map((category) => (
-                        <span key={category.key} className="home-group-impact-counter" style={{ background: "rgba(7,27,20,0.34)", color: "var(--text-primary)", fontWeight: 850 }}>
+                        <span key={category.key} className="home-group-impact-counter" style={{ color: "var(--text-primary)", fontWeight: 850 }}>
                           <span className="home-group-impact-counter-heading">
                             <span className="home-group-impact-counter-icon" aria-hidden="true">{category.icon}</span>
                             <span className="home-group-impact-counter-label">{category.label}</span>
@@ -2450,7 +2450,7 @@ export default function HomePage() {
                     {!groupGoalReached && (
                     <div className="home-group-impact-items" style={{ display: "flex", flexWrap: "wrap", gap: 7, marginTop: 10 }}>
                       {groupGoalSkipEstimates.map((category) => (
-                        <span key={category.key} className="home-group-impact-counter" style={{ background: "rgba(7,27,20,0.34)", color: "var(--text-primary)", fontWeight: 850 }}>
+                        <span key={category.key} className="home-group-impact-counter" style={{ color: "var(--text-primary)", fontWeight: 850 }}>
                           <span className="home-group-impact-counter-heading">
                             <span className="home-group-impact-counter-icon" aria-hidden="true">{category.icon}</span>
                             <span className="home-group-impact-counter-label">{category.label}</span>
