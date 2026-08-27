@@ -509,15 +509,16 @@ body {
   }
   .jar-activity-card {
     width: 100% !important;
-    min-height: 190px;
+    min-height: 176px;
     display: grid;
     grid-template-columns: minmax(0, 1fr) 96px;
     grid-template-areas:
       "heading visual"
       ". manage";
+    grid-template-rows: minmax(0, 1fr) auto;
     column-gap: 12px;
     align-items: center;
-    padding: 16px !important;
+    padding: 12px 14px !important;
     border-radius: 18px;
     background: linear-gradient(135deg, rgba(16,36,27,0.94), rgba(11,26,20,0.86)) !important;
     border: 1px solid rgba(237,245,240,0.08);
@@ -526,7 +527,8 @@ body {
   .jar-activity-card-heading {
     grid-area: heading;
     text-align: left !important;
-    align-self: end;
+    align-self: center;
+    padding-right: 0 !important;
   }
   .jar-activity-card-meta {
     margin-bottom: 6px;
@@ -547,6 +549,7 @@ body {
   .jar-activity-card-visual {
     grid-area: visual;
     margin-top: 0 !important;
+    align-self: center;
   }
   .jar-activity-card-manage {
     grid-area: manage;
