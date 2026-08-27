@@ -24,9 +24,9 @@ export const SKIP_CATEGORIES: SkipCategory[] = [
   },
   {
     id: "streaming",
-    label: "Streaming",
-    emoji: "📺",
-    defaultAmount: 14.99,
+    label: "Night Out",
+    emoji: "🎟️",
+    defaultAmount: 50,
     color: "#DC2626",
   },
   {

@@ -1356,7 +1356,7 @@ export default function HomePage() {
   const groupGoalSkipEstimates = [
     { key: "coffee", label: "coffees", icon: "☕", amount: SKIP_CATEGORIES.find((category) => category.id === "coffee")?.defaultAmount ?? 5.5 },
     { key: "food", label: "takeouts", icon: "🍔", amount: SKIP_CATEGORIES.find((category) => category.id === "food")?.defaultAmount ?? 15 },
-    { key: "uber", label: "Ubers", icon: "🚗", amount: SKIP_CATEGORIES.find((category) => category.id === "uber")?.defaultAmount ?? 12 },
+    { key: "night-out", label: "night outs", icon: "🎟️", amount: SKIP_CATEGORIES.find((category) => category.id === "streaming")?.defaultAmount ?? 50 },
   ].map((category) => ({
     ...category,
     count: Math.max(1, Math.ceil(groupGoalRemainingAmount / category.amount)),
