@@ -221,6 +221,28 @@ export default function ProfilePage() {
             </div>
           ))}
         </div>
+        <div className="mt-4" style={{ borderTop: "1px solid var(--border-default)" }}>
+          {[
+            { href: "/dashboard?from=profile", title: "See skip history", helper: "Review and edit your logged skips." },
+            { href: "/jar-activity?from=profile", title: "Manage jars", helper: "Review jar balances, purchases, and donations." },
+          ].map((item, index) => (
+            <Link
+              key={item.href}
+              href={item.href}
+              className="flex items-center justify-between gap-4 py-3 transition-colors"
+              style={{
+                borderBottom: index === 0 ? "1px solid var(--border-default)" : "none",
+                textDecoration: "none",
+              }}
+            >
+              <span>
+                <span className="block text-sm font-black" style={{ color: "var(--text-primary)" }}>{item.title}</span>
+                <span className="mt-1 block text-xs" style={{ color: "var(--text-muted)" }}>{item.helper}</span>
+              </span>
+              <span className="text-lg font-black" style={{ color: "var(--green-primary)" }} aria-hidden="true">→</span>
+            </Link>
+          ))}
+        </div>
         {/* Personal records */}
         <div className="mt-4 p-5" style={{ ...cardStyle, borderRadius: 20 }}>
           <div className="flex items-end justify-between gap-4 mb-4">
@@ -244,28 +266,6 @@ export default function ProfilePage() {
               <span className="text-sm" style={{ color: "var(--text-muted)" }}>{row.label}</span>
               <span className="text-sm font-bold" style={{ color: row.color }}>{row.value}</span>
             </div>
-          ))}
-        </div>
-        <div className="mt-4" style={{ borderTop: "1px solid var(--border-default)" }}>
-          {[
-            { href: "/dashboard?from=profile", title: "See skip history", helper: "Review and edit your logged skips." },
-            { href: "/jar-activity?from=profile", title: "Manage jars", helper: "Review jar balances, purchases, and donations." },
-          ].map((item, index) => (
-            <Link
-              key={item.href}
-              href={item.href}
-              className="flex items-center justify-between gap-4 py-3 transition-colors"
-              style={{
-                borderBottom: index === 0 ? "1px solid var(--border-default)" : "none",
-                textDecoration: "none",
-              }}
-            >
-              <span>
-                <span className="block text-sm font-black" style={{ color: "var(--text-primary)" }}>{item.title}</span>
-                <span className="mt-1 block text-xs" style={{ color: "var(--text-muted)" }}>{item.helper}</span>
-              </span>
-              <span className="text-lg font-black" style={{ color: "var(--green-primary)" }} aria-hidden="true">→</span>
-            </Link>
           ))}
         </div>
       </div>

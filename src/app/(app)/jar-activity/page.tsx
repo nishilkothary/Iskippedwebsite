@@ -522,6 +522,7 @@ function JarActivityPageInner() {
   const [jarGoalWorking, setJarGoalWorking] = useState(false);
   const [deactivatePrompt, setDeactivatePrompt] = useState<JarActivityItem | null>(null);
   const [resumePrompt, setResumePrompt] = useState<JarActivityItem | null>(null);
+  const [resumeStep, setResumeStep] = useState<"current" | "funding">("funding");
   const [resumeAmount, setResumeAmount] = useState("");
 
   useEffect(() => {
@@ -634,13 +635,19 @@ function JarActivityPageInner() {
 
   function beginResume(item: JarActivityItem) {
     setResumePrompt(item);
+    setResumeStep(activeItems.length > 0 ? "current" : "funding");
     setResumeAmount("");
   }
 
   function closeResumePrompt() {
     if (workingId) return;
     setResumePrompt(null);
+    setResumeStep("funding");
     setResumeAmount("");
+  }
+
+  function continueResumeActivation() {
+    setResumeStep("funding");
   }
 
   async function confirmResume(item: JarActivityItem) {
@@ -1195,8 +1202,13 @@ function JarActivityPageInner() {
             >
               <div className="relative px-5 py-4 pr-12" style={{ borderBottom: "1px solid var(--border-default)" }}>
                 <h2 id="resume-jar-title" className="text-lg font-black" style={{ color: "var(--text-primary)" }}>
-                  Make {resumePrompt.title} your active jar?
+                  {resumeStep === "current" ? "Change Your Active Jar?" : `Add Skip Bucks to ${resumePrompt.title}?`}
                 </h2>
+                {resumeStep === "current" && currentJar && (
+                  <p className="mt-2 text-sm leading-relaxed" style={{ color: "var(--text-secondary)" }}>
+                    You currently have {formatCurrency(currentJar.balance)} saved for {currentJar.title}.
+                  </p>
+                )}
                 <button
                   type="button"
                   onClick={closeResumePrompt}
@@ -1208,11 +1220,13 @@ function JarActivityPageInner() {
                 </button>
               </div>
               <div className="space-y-4 p-5">
-                <p className="text-sm leading-relaxed" style={{ color: "var(--text-secondary)" }}>
-                  Future skips will go here.{currentJar ? ` ${currentJar.title} will stay parked with its saved balance.` : ""}
-                </p>
+                {resumeStep === "funding" && (
+                  <p className="text-sm leading-relaxed" style={{ color: "var(--text-secondary)" }}>
+                    You already have {formatCurrency(resumePrompt.balance)} in this jar. Add any Skip Bucks to it?
+                  </p>
+                )}
 
-                <div className="rounded-xl p-3" style={{ background: "var(--bg-surface-2)", border: "1px solid var(--border-default)" }}>
+                {resumeStep === "funding" && <div className="rounded-xl p-3" style={{ background: "var(--bg-surface-2)", border: "1px solid var(--border-default)" }}>
                   <label htmlFor="resume-skip-bucks" className="text-xs font-black uppercase tracking-[0.12em]" style={{ color: "var(--text-muted)" }}>
                     Use Skip Bucks (optional)
                   </label>
@@ -1240,29 +1254,40 @@ function JarActivityPageInner() {
                       You have {formatCurrency(unassignedSkipBucks)} available.
                     </p>
                   )}
-                </div>
+                </div>}
 
-                <p className="text-sm font-semibold" style={{ color: resumePrompt.type === "fundraiser" ? "var(--green-primary)" : "#C4B5FD" }}>
+                {resumeStep === "funding" && <p className="text-sm font-semibold" style={{ color: resumePrompt.type === "fundraiser" ? "var(--green-primary)" : "#C4B5FD" }}>
                   Your jar will have {formatCurrency(projectedBalance)}{resumePrompt.goalAmount > 0 ? `, ${projectedPercent}% of its ${formatCurrency(resumePrompt.goalAmount)} goal.` : "."}
-                </p>
+                </p>}
 
                 <button
                   type="button"
-                  onClick={() => void confirmResume(resumePrompt)}
-                  disabled={workingId === resumePrompt.id || !canUseAmount}
-                  className="w-full rounded-xl py-3 text-sm font-black disabled:opacity-50"
-                  style={{ background: resumePrompt.type === "fundraiser" ? "#2ECC71" : "#8B5CF6", color: resumePrompt.type === "fundraiser" ? "#071B14" : "#FFFFFF" }}
+                  onClick={() => resumeStep === "current" ? continueResumeActivation() : void confirmResume(resumePrompt)}
+                  disabled={workingId === resumePrompt.id || (resumeStep === "funding" && !canUseAmount)}
+                  className={`w-full rounded-xl px-4 py-3 disabled:opacity-50 ${resumeStep === "funding" ? "text-center" : "text-left"}`}
+                  style={resumeStep === "current"
+                    ? { background: "#2ECC71", color: "#071B14" }
+                    : { background: resumePrompt.type === "fundraiser" ? "#2ECC71" : "#8B5CF6", color: resumePrompt.type === "fundraiser" ? "#071B14" : "#FFFFFF" }}
                 >
-                  {workingId === resumePrompt.id ? "Making active..." : actionLabel}
+                  <span className="block text-sm font-black">
+                    {workingId === resumePrompt.id ? "Making active..." : resumeStep === "current" ? `Start skipping for ${resumePrompt.title}` : actionLabel}
+                  </span>
+                  {resumeStep === "current" && currentJar && (
+                    <span className="mt-0.5 block text-xs font-bold opacity-80">
+                      Your {formatCurrency(currentJar.balance)} will remain in {currentJar.title}.
+                    </span>
+                  )}
                 </button>
                 <button
                   type="button"
                   onClick={closeResumePrompt}
                   disabled={workingId === resumePrompt.id}
-                  className="w-full py-1 text-sm font-black disabled:opacity-50"
-                  style={{ color: "var(--text-muted)" }}
+                  className={`w-full ${resumeStep === "current" ? "rounded-xl px-4 py-3 text-left" : "py-1"} text-sm font-black disabled:opacity-50`}
+                  style={resumeStep === "current"
+                    ? { background: "rgba(237,245,240,0.05)", border: "1px solid rgba(237,245,240,0.1)", color: "var(--text-primary)" }
+                    : { color: "var(--text-muted)" }}
                 >
-                  Keep current jar
+                  {resumeStep === "current" ? `Keep skipping for ${currentJar?.title ?? "your current jar"}` : "Cancel"}
                 </button>
               </div>
             </div>
