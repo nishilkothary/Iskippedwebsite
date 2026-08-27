@@ -68,7 +68,10 @@ function challengeFromProject(project: Project): ChallengeView {
   const category = challengeCategory(project);
   const fallback = fallbackForCategory(category);
   const goal = project.goalAmount > 0 ? project.goalAmount : 0;
-  const raised = Math.min(goal > 0 ? goal : Infinity, project.totalRaised || 0);
+  const raised = Math.min(
+    goal > 0 ? goal : Infinity,
+    Math.max(0, (project.totalRaised ?? 0) + (project.totalDonated ?? 0)),
+  );
   const progressPct = goal > 0 ? Math.min(100, Math.round((raised / goal) * 100)) : 0;
   return {
     project,

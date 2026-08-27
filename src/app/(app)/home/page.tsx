@@ -1272,7 +1272,7 @@ export default function HomePage() {
     const proj = projects.find((p) => p.id === activeProjectId);
     if (!proj) { setLiveChallengeTotalRaised(0); setLiveChallengeContributorCount(0); setLiveChallengeTotalSkips(0); return; }
     const syncProjectTotals = (project: Project | null) => {
-      setLiveChallengeTotalRaised(Math.max(0, project?.totalRaised ?? project?.totalDonated ?? 0));
+      setLiveChallengeTotalRaised(Math.max(0, (project?.totalRaised ?? 0) + (project?.totalDonated ?? 0)));
       setLiveChallengeContributorCount(project?.memberUids?.length ?? 0);
       setLiveChallengeTotalSkips(project?.totalSkips ?? 0);
     };

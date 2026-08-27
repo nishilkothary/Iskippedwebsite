@@ -52,9 +52,11 @@ export async function POST(req: NextRequest) {
         skipLots,
         [`causeJarOverflowCounts.${projectId}`]: 0,
       });
+      tx.set(db.collection("projects").doc(projectId), {
+        totalDonated: FieldValue.increment(amount),
+      }, { merge: true });
     });
 
-    db.collection("projects").doc(projectId).update({ totalDonated: FieldValue.increment(amount) }).catch(() => {});
     userRef.update({ lastDonationDate: new Date().toISOString().slice(0, 10) }).catch(() => {});
 
     return NextResponse.json({});

@@ -13,6 +13,7 @@ export async function POST(req: NextRequest) {
     const body = await req.json();
     const newCauseId = validateNonEmptyString(body.newCauseId, "newCauseId");
     const transferBalance = body.transferBalance === true;
+    const makeActive = body.makeActive !== false;
 
     const db = getAdminDb();
     const userRef = db.collection("users").doc(uid);
@@ -24,9 +25,9 @@ export async function POST(req: NextRequest) {
       const skipLots = cloneLots(profile);
 
       const updates: Record<string, unknown> = {
-        activeProjectId: newCauseId,
         joinedProjectIds: FieldValue.arrayUnion(newCauseId),
       };
+      if (makeActive) updates.activeProjectId = newCauseId;
       const balanceTransfer: Record<string, number> = {};
       let totalTransferred = 0;
 

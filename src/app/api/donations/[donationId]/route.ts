@@ -23,7 +23,7 @@ export async function PATCH(req: NextRequest, ctx: RouteContext) {
     const userRef = db.collection("users").doc(uid);
     const donationRef = userRef.collection("donations").doc(donationId);
 
-    const change = await db.runTransaction(async (tx) => {
+    await db.runTransaction(async (tx) => {
       const [donationSnap, userSnap] = await Promise.all([tx.get(donationRef), tx.get(userRef)]);
       if (!donationSnap.exists) throw new ApiError(404, "Donation not found");
       const donation = donationSnap.data() as DonationEvent & { jarDecrease?: number };
@@ -73,6 +73,9 @@ export async function PATCH(req: NextRequest, ctx: RouteContext) {
         };
         if (date !== undefined) donationUpdates.date = date;
         tx.update(donationRef, donationUpdates);
+        tx.set(db.collection("projects").doc(causeId), {
+          totalDonated: FieldValue.increment(delta),
+        }, { merge: true });
       } else {
         const donationUpdates: Record<string, unknown> = { amount: newAmount };
         if (date !== undefined) donationUpdates.date = date;
@@ -80,10 +83,6 @@ export async function PATCH(req: NextRequest, ctx: RouteContext) {
       }
       return { causeId: donation.causeId, delta };
     });
-
-    if (change.delta !== 0) {
-      db.collection("projects").doc(change.causeId).update({ totalDonated: FieldValue.increment(change.delta) }).catch(() => {});
-    }
 
     return NextResponse.json({});
   } catch (e) {
@@ -120,11 +119,12 @@ export async function DELETE(req: NextRequest, ctx: RouteContext) {
         totalDonated: FieldValue.increment(-amount),
         ...(nextBalances ? { causeJarBalances: nextBalances.causeJarBalances, goalJarBalances: nextBalances.goalJarBalances, skipLots } : { [`causeJarBalances.${causeId}`]: currentBal + amount }),
       });
+      tx.set(db.collection("projects").doc(causeId), {
+        totalDonated: FieldValue.increment(-amount),
+      }, { merge: true });
 
       return { amount, causeId };
     });
-
-    db.collection("projects").doc(result.causeId).update({ totalDonated: FieldValue.increment(-result.amount) }).catch(() => {});
 
     return NextResponse.json({ jarDecrease: result.amount });
   } catch (e) {

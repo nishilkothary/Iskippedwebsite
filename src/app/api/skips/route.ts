@@ -87,6 +87,10 @@ export async function POST(req: NextRequest) {
           ?? (profile.activeProjectId ? { type: "fundraiser" as const, id: profile.activeProjectId } : null);
       const resolvedProjectId = projectId
         ?? (allocationTarget?.type === "fundraiser" ? allocationTarget.id : null);
+      const projectRef = allocationTarget?.type === "fundraiser"
+        ? db.collection("projects").doc(allocationTarget.id)
+        : null;
+      if (projectRef) await tx.get(projectRef);
       const skipLots = cloneLots(profile);
       addSkipLot(skipLots, skipRef.id, amount, allocationTarget);
 
@@ -126,6 +130,14 @@ export async function POST(req: NextRequest) {
       }
       tx.update(userRef, userUpdates);
 
+      if (projectRef) {
+        tx.set(projectRef, {
+          totalSkips: FieldValue.increment(1),
+          totalRaised: FieldValue.increment(amount),
+          memberUids: FieldValue.arrayUnion(uid),
+        }, { merge: true });
+      }
+
       tx.set(feedRef, {
         uid,
         displayName: displayName || "Skipper",
@@ -157,16 +169,6 @@ export async function POST(req: NextRequest) {
 
       return { newTotalSaved, newXp, newLevel, newStreak, newLongestStreak, message, allocationTarget };
     });
-
-    // Project totals for challenge group tracking (best-effort, non-atomic — matches prior behavior)
-    if (result.allocationTarget?.type === "fundraiser") {
-      const projectRef = db.collection("projects").doc(result.allocationTarget.id);
-      projectRef.set({
-        totalSkips: FieldValue.increment(1),
-        totalRaised: FieldValue.increment(amount),
-        memberUids: FieldValue.arrayUnion(uid),
-      }, { merge: true }).catch((e) => console.warn("[skips] project totals update failed:", e));
-    }
 
     // Global counters in Realtime DB
     await adjustGlobalStats(amount, 1);

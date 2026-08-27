@@ -160,7 +160,7 @@ function challengeFromProject(project: Project): ChallengeCard {
   const category = challengeCategory(project);
   const fallback = fallbackForCategory(category);
   const goal = getChallengeGoal(project);
-  const raised = Math.min(goal, project.totalDonated ?? project.totalRaised ?? 0);
+  const raised = Math.min(goal, Math.max(0, (project.totalRaised ?? 0) + (project.totalDonated ?? 0)));
   const progressPct = goal > 0 ? Math.min(100, Math.round((raised / goal) * 100)) : 0;
   const unitCost = project.unitCost ?? 0;
   const hasUnits = unitCost > 0 && goal > 0;

@@ -110,7 +110,7 @@ function challengeFromProject(project: Project): ChallengeView {
   const category = challengeCategory(project);
   const fallback = fallbackForCategory(category);
   const goal = getDisplayGoalAmount(project);
-  const raised = Math.min(goal, project.totalRaised || 0);
+  const raised = Math.min(goal, Math.max(0, (project.totalRaised ?? 0) + (project.totalDonated ?? 0)));
   const progressPct = goal > 0 ? Math.min(100, Math.round((raised / goal) * 100)) : 0;
 
   return {
@@ -355,7 +355,7 @@ export default function ChallengeDetailPage() {
   const countdown = getChallengeCountdown(challenge.project);
   const canManageChallenge = challenge.project.createdBy === user?.uid;
   const profileChallengeBalance = Math.max(0, profile?.causeJarBalances?.[challenge.project.id] ?? 0);
-  const pledgedAmount = Math.max(0, (challenge.project.totalDonated ?? 0) + profileChallengeBalance);
+  const pledgedAmount = Math.max(0, (challenge.project.totalRaised ?? 0) + (challenge.project.totalDonated ?? 0));
   const challengeUrl = appendRefParam(
     typeof window !== "undefined" ? `${window.location.origin}${getChallengeSharePath(challenge.project)}` : getChallengeSharePath(challenge.project),
     user?.uid

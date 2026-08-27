@@ -30,7 +30,7 @@ export async function PATCH(req: NextRequest, ctx: RouteContext) {
     const userRef = db.collection("users").doc(uid);
     const skipRef = userRef.collection("skips").doc(skipId);
 
-    const { projectId, amountDelta, resolvedAmount, resolvedCategoryLabel, causeJarBalances, goalJarBalances, fundraiserDeltas } = await db.runTransaction(async (tx) => {
+    const { amountDelta, resolvedAmount, resolvedCategoryLabel, causeJarBalances, goalJarBalances } = await db.runTransaction(async (tx) => {
       const [skipSnap, userSnap] = await Promise.all([tx.get(skipRef), tx.get(userRef)]);
       if (!skipSnap.exists) throw new ApiError(404, "Skip not found");
       const skip = skipSnap.data() as Skip;
@@ -40,10 +40,19 @@ export async function PATCH(req: NextRequest, ctx: RouteContext) {
       const newAmount = (updates.amount as number | undefined) ?? oldAmount;
       const amountDelta = newAmount - oldAmount;
       const allocationTarget = resolveSkipTarget(skip, updates.allocationTarget as SkipAllocationTarget | null | undefined);
+      const fundraiserDeltas: Record<string, number> = {};
+      if (amountDelta > 0 && allocationTarget?.type === "fundraiser") {
+        fundraiserDeltas[allocationTarget.id] = amountDelta;
+      } else if (amountDelta < 0) {
+        for (const allocation of sourceAllocations ?? [{ source: allocationTarget ?? { type: "skip-bucks" as const }, amount: -amountDelta }]) {
+          if (allocation.source.type === "fundraiser") {
+            fundraiserDeltas[allocation.source.id] = Math.round((fundraiserDeltas[allocation.source.id] ?? 0) - allocation.amount * 100) / 100;
+          }
+        }
+      }
       const ledgerAware = Boolean(profile.skipLots?.[skip.id]);
       const skipLots = ledgerAware ? cloneLots(profile) : null;
       let reconciledBalances: { causeJarBalances: Record<string, number>; goalJarBalances: Record<string, number> } | null = null;
-      const fundraiserDeltas: Record<string, number> = {};
       if (ledgerAware && skipLots) {
         try {
           if (amountDelta < 0 && sourceAllocations) applySourcePlanToLots(skipLots, sourceAllocations, -amountDelta);
@@ -66,6 +75,15 @@ export async function PATCH(req: NextRequest, ctx: RouteContext) {
         }
       }
 
+      const projectRefs = new Map<string, FirebaseFirestore.DocumentReference>();
+      for (const fundraiserId of Object.keys(fundraiserDeltas)) {
+        projectRefs.set(fundraiserId, db.collection("projects").doc(fundraiserId));
+      }
+      const projectSnaps = new Map<string, FirebaseFirestore.DocumentSnapshot>();
+      for (const [fundraiserId, projectRef] of projectRefs) {
+        projectSnaps.set(fundraiserId, await tx.get(projectRef));
+      }
+
       if (Object.keys(updates).length > 0) tx.update(skipRef, updates);
 
       const userUpdate: Record<string, unknown> = {};
@@ -81,15 +99,6 @@ export async function PATCH(req: NextRequest, ctx: RouteContext) {
           (profile.savedTowardActiveCause ?? 0) + amountDelta
         );
       }
-      if (amountDelta > 0 && allocationTarget?.type === "fundraiser") {
-        fundraiserDeltas[allocationTarget.id] = amountDelta;
-      } else if (amountDelta < 0) {
-        for (const allocation of sourceAllocations ?? [{ source: allocationTarget ?? { type: "skip-bucks" as const }, amount: -amountDelta }]) {
-          if (allocation.source.type === "fundraiser") {
-            fundraiserDeltas[allocation.source.id] = Math.round((fundraiserDeltas[allocation.source.id] ?? 0) - allocation.amount * 100) / 100;
-          }
-        }
-      }
       if (!skipLots && amountDelta !== 0 && allocationTarget?.type === "goal") {
         if (amountDelta > 0) userUpdate[`goalJarBalances.${allocationTarget.id}`] = Math.max(0, (profile.goalJarBalances?.[allocationTarget.id] ?? 0) + amountDelta);
       }
@@ -97,6 +106,14 @@ export async function PATCH(req: NextRequest, ctx: RouteContext) {
         if (amountDelta > 0) userUpdate[`causeJarBalances.${allocationTarget.id}`] = Math.max(0, (profile.causeJarBalances?.[allocationTarget.id] ?? 0) + amountDelta);
       }
       if (Object.keys(userUpdate).length > 0) tx.update(userRef, userUpdate);
+
+      for (const [fundraiserId, projectRef] of projectRefs) {
+        const project = projectSnaps.get(fundraiserId)?.data() ?? {};
+        const delta = fundraiserDeltas[fundraiserId] ?? 0;
+        tx.set(projectRef, {
+          totalRaised: Math.max(0, Number(project.totalRaised ?? 0) + delta),
+        }, { merge: true });
+      }
 
       return {
         projectId: allocationTarget?.type === "fundraiser" ? allocationTarget.id : null,
@@ -108,22 +125,6 @@ export async function PATCH(req: NextRequest, ctx: RouteContext) {
         fundraiserDeltas,
       };
     });
-
-    // Keep legacy project counters in sync, but UI progress is derived from donations plus jar balances.
-    for (const [fundraiserId, delta] of Object.entries(fundraiserDeltas)) {
-      const projectRef = db.collection("projects").doc(fundraiserId);
-      if (delta > 0) {
-        projectRef.update({ totalRaised: FieldValue.increment(delta) })
-          .catch((e) => console.warn("[skips] project totalRaised increment failed:", e));
-      } else if (delta < 0) {
-        projectRef.get()
-          .then((snap) => {
-            const current = (snap.data()?.totalRaised ?? 0) as number;
-            return projectRef.update({ totalRaised: Math.max(0, current + delta) });
-          })
-          .catch((e) => console.warn("[skips] project totalRaised decrement failed:", e));
-      }
-    }
 
     // Sync community feed message/amount if the amount changed (best-effort)
     if (amountDelta !== 0) {
@@ -203,6 +204,18 @@ export async function DELETE(req: NextRequest, ctx: RouteContext) {
         }
       }
 
+      const projectRefs = new Map<string, FirebaseFirestore.DocumentReference>();
+      for (const fundraiserId of Object.keys(ledgerProjectDeltas)) {
+        projectRefs.set(fundraiserId, db.collection("projects").doc(fundraiserId));
+      }
+      if (projectId && !projectRefs.has(projectId)) {
+        projectRefs.set(projectId, db.collection("projects").doc(projectId));
+      }
+      const projectSnaps = new Map<string, FirebaseFirestore.DocumentSnapshot>();
+      for (const [fundraiserId, projectRef] of projectRefs) {
+        projectSnaps.set(fundraiserId, await tx.get(projectRef));
+      }
+
       tx.delete(skipRef);
       const userUpdate: Record<string, unknown> = {
         totalSaved: FieldValue.increment(-skip.amount),
@@ -218,6 +231,16 @@ export async function DELETE(req: NextRequest, ctx: RouteContext) {
       };
       tx.update(userRef, userUpdate);
 
+      for (const [fundraiserId, projectRef] of projectRefs) {
+        const project = projectSnaps.get(fundraiserId)?.data() ?? {};
+        const removedAmount = ledgerProjectDeltas[fundraiserId] ?? (fundraiserId === projectId ? skip.amount : 0);
+        const removedSkip = fundraiserId === projectId ? 1 : 0;
+        tx.set(projectRef, {
+          totalRaised: Math.max(0, Number(project.totalRaised ?? 0) - removedAmount),
+          totalSkips: Math.max(0, Number(project.totalSkips ?? 0) - removedSkip),
+        }, { merge: true });
+      }
+
       return {
         projectId: allocationTarget?.type === "fundraiser" ? allocationTarget.id : null,
         fundraiserAmount: allocationTarget?.type === "fundraiser" ? skip.amount : 0,
@@ -231,31 +254,6 @@ export async function DELETE(req: NextRequest, ctx: RouteContext) {
     await adjustGlobalStats(-deletedAmount, -1);
 
     db.collection("communityFeed").doc(skipId).delete().catch(() => {});
-
-    if (ledgerProjectDeltas && Object.keys(ledgerProjectDeltas).length > 0) {
-      for (const [fundraiserId, amount] of Object.entries(ledgerProjectDeltas)) {
-        db.collection("projects").doc(fundraiserId).get()
-          .then((snap) => {
-            const current = (snap.data()?.totalRaised ?? 0) as number;
-            const updates: Record<string, number> = { totalRaised: Math.max(0, current - amount) };
-            if (fundraiserId === projectId) updates.totalSkips = Math.max(0, ((snap.data()?.totalSkips ?? 0) as number) - 1);
-            return db.collection("projects").doc(fundraiserId).update(updates);
-          })
-          .catch((e) => console.warn("[skips] ledger project totalRaised decrement failed:", e));
-      }
-    } else if (projectId) {
-      const projectRef = db.collection("projects").doc(projectId);
-      projectRef.get()
-        .then((snap) => {
-          const current = (snap.data()?.totalRaised ?? 0) as number;
-          const currentSkips = (snap.data()?.totalSkips ?? 0) as number;
-          return projectRef.update({
-            totalRaised: Math.max(0, current - fundraiserAmount),
-            totalSkips: Math.max(0, currentSkips - 1),
-          });
-        })
-        .catch((e) => console.warn("[skips] project totals update failed:", e));
-    }
 
     return NextResponse.json({ causeJarBalances, goalJarBalances }, { status: 200 });
   } catch (e) {

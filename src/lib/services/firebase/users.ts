@@ -195,17 +195,11 @@ export async function moveJarBalance(
 }
 
 export async function joinProject(uid: string, projectId: string, makeActive: boolean): Promise<void> {
-  const updates: Record<string, unknown> = {
-    joinedProjectIds: arrayUnion(projectId),
-  };
-  if (makeActive) {
-    const target: SkipAllocationTarget = { type: "fundraiser", id: projectId };
-    updates.activeProjectId = projectId;
-    updates.activeSkipTarget = target;
-    updates.parkedSkipTargets = arrayRemove(target);
-  }
-
-  await updateDoc(doc(db, "users", uid), updates);
+  await apiRequest("/api/causes/switch", "POST", {
+    newCauseId: projectId,
+    transferBalance: false,
+    makeActive,
+  });
 }
 
 export async function setChallengeEmailConsent(uid: string, projectId: string, shareEmail: boolean): Promise<void> {

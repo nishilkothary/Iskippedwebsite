@@ -223,7 +223,21 @@ function rewardSkipEquivalentLine(balance: number, target: number) {
   return `~${coffees.toLocaleString()} coffee skips`;
 }
 
-function RewardArtwork({ label, amount, link, imageURL, imagePosition, category: categoryLabel, featured = false }: { label: string; amount?: number; link?: string; imageURL?: string; imagePosition?: string; category?: string; featured?: boolean }) {
+function JarStatusBadge({ status, tone = "green" }: { status: "active" | "paused"; tone?: "green" | "purple" }) {
+  const purple = tone === "purple";
+  return (
+    <span
+      className="inline-flex shrink-0 items-center gap-1 rounded-full px-2 py-1 text-[9px] font-black uppercase tracking-wide text-white shadow-sm"
+      style={{ background: purple ? "rgba(139,92,246,0.86)" : "rgba(7,27,20,0.72)" }}
+      aria-label={status === "active" ? "Active jar" : "Paused jar"}
+    >
+      <span aria-hidden="true" className="text-[10px] leading-none">{status === "active" ? "✓" : "Ⅱ"}</span>
+      {status === "active" ? "Active" : "Paused"}
+    </span>
+  );
+}
+
+function RewardArtwork({ label, amount, link, imageURL, imagePosition, category: categoryLabel, featured = false, status }: { label: string; amount?: number; link?: string; imageURL?: string; imagePosition?: string; category?: string; featured?: boolean; status?: "active" | "paused" }) {
   const art = rewardArtFor(label);
   const category = rewardCategory(label, categoryLabel);
   const previewImageURL = imageURL ?? amazonProductImage(link) ?? rewardDefaultImage(label, category.tag);
@@ -249,7 +263,12 @@ function RewardArtwork({ label, amount, link, imageURL, imagePosition, category:
         </>
       )}
       <div className="relative flex h-full flex-col justify-between p-4" style={{ color: art.accent }}>
-        <div className="flex items-start justify-end gap-3">
+        <div className="relative flex items-start justify-end gap-2">
+          {status && (
+            <div className="absolute left-0 top-0">
+              <JarStatusBadge status={status} tone="purple" />
+            </div>
+          )}
           {amount !== undefined && (
             <span className="shrink-0 rounded-full px-2 py-1 text-xs font-black text-white shadow-sm" style={{ background: "rgba(0,0,0,0.28)", boxShadow: `0 8px 18px ${category.accent}30` }}>
               {formatCurrency(amount)}
@@ -313,7 +332,7 @@ function JarsPageInner() {
     setGroupProgress(Object.fromEntries(
       projects
         .filter((project) => !isProjectEnded(project))
-        .map((project) => [project.id, Math.max(0, project.totalRaised ?? project.totalDonated ?? 0)]),
+        .map((project) => [project.id, Math.max(0, (project.totalRaised ?? 0) + (project.totalDonated ?? 0))]),
     ));
   }, [projects]);
   const [editingPurchaseId, setEditingPurchaseId] = useState<string | null>(null);
@@ -509,6 +528,7 @@ function JarsPageInner() {
     activeGoal,
     activeProject,
     activeSkipTarget,
+    parkedSkipTargets: profile.parkedSkipTargets ?? [],
     skipBankBalance,
     availableSkipBankBalance: skipBalanceSummary.unassignedSkipBank,
     goalJarBalances: profile.goalJarBalances,
@@ -1450,6 +1470,7 @@ function JarBrowser({
   activeGoal: activeGoalProp,
   activeProject,
   activeSkipTarget,
+  parkedSkipTargets,
   skipBankBalance,
   availableSkipBankBalance,
   goalJarBalances,
@@ -1484,6 +1505,7 @@ function JarBrowser({
   activeGoal: SpendingGoal | null;
   activeProject: Project | null;
   activeSkipTarget: SkipAllocationTarget | null;
+  parkedSkipTargets: SkipAllocationTarget[];
   skipBankBalance: number;
   availableSkipBankBalance: number;
   goalJarBalances: Record<string, number> | undefined;
@@ -1563,7 +1585,7 @@ function JarBrowser({
   const [fundraiserDonationLink, setFundraiserDonationLink] = useState("");
   const [fundraiserDescription, setFundraiserDescription] = useState("");
   const [creatingFundraiser, setCreatingFundraiser] = useState(false);
-  const [switchPrompt, setSwitchPrompt] = useState<{ previous: SkipAllocationTarget; next: SkipAllocationTarget; balance: number } | null>(null);
+  const [switchPrompt, setSwitchPrompt] = useState<{ previous: SkipAllocationTarget; next: SkipAllocationTarget; balance: number; reactivate?: boolean } | null>(null);
   const [deactivatePrompt, setDeactivatePrompt] = useState<{ target: SkipAllocationTarget; balance: number } | null>(null);
   const [showSwitchMoreOptions, setShowSwitchMoreOptions] = useState(false);
   const [switchConfirmAction, setSwitchConfirmAction] = useState<"move" | "release" | null>(null);
@@ -1740,6 +1762,18 @@ function JarBrowser({
     return "your current pick";
   }
 
+  function isPausedTarget(target: SkipAllocationTarget) {
+    // Balances created before parkedSkipTargets was introduced are still
+    // paused in practice when they are not the active destination.
+    return parkedSkipTargets.some((parked) => parked.type === target.type && parked.id === target.id)
+      || targetBalance(target) > 0;
+  }
+
+  async function reactivateTarget(target: SkipAllocationTarget) {
+    await onSetSkipTarget(target);
+    toast.success(`${targetLabel(target)} is active again.`);
+  }
+
   async function handleSkipFor(target: SkipAllocationTarget) {
     const isCurrentTarget = activeSkipTarget?.type === target.type && activeSkipTarget.id === target.id;
     if (isCurrentTarget) {
@@ -1751,7 +1785,11 @@ function JarBrowser({
       && (activeSkipTarget.type !== target.type || activeSkipTarget.id !== target.id)
       && targetBalance(activeSkipTarget) > 0
     ) {
-      setSwitchPrompt({ previous: activeSkipTarget, next: target, balance: targetBalance(activeSkipTarget) });
+      setSwitchPrompt({ previous: activeSkipTarget, next: target, balance: targetBalance(activeSkipTarget), reactivate: isPausedTarget(target) });
+      return;
+    }
+    if (isPausedTarget(target)) {
+      await reactivateTarget(target);
       return;
     }
     await proceedToTarget(target);
@@ -1763,7 +1801,12 @@ function JarBrowser({
     setJarDecisionWorking("switch");
     setSwitchPrompt(null);
     try {
-      await proceedToTarget(next);
+      if (switchPrompt.reactivate) {
+        await reactivateTarget(next);
+      } else {
+        await proceedToTarget(next);
+      }
+      setSwitchPrompt(null);
     } finally {
       setJarDecisionWorking(null);
     }
@@ -2964,6 +3007,7 @@ function JarBrowser({
                 (g) => g.label.toLowerCase() === preset.label.toLowerCase() && g.targetAmount === preset.amount
               );
               const isActive = activeSkipTarget?.type === "goal" && matchingGoal?.id === activeSkipTarget.id;
+              const isPaused = !!matchingGoal && !isActive && isPausedTarget({ type: "goal", id: matchingGoal.id });
               const balance = matchingGoal ? Math.max(0, goalJarBalances?.[matchingGoal.id] ?? 0) : 0;
               return (
                 <div
@@ -2975,7 +3019,7 @@ function JarBrowser({
                     boxShadow: isActive ? "0 18px 38px rgba(139,92,246,0.14)" : "0 12px 26px rgba(0,0,0,0.12)",
                   }}
                 >
-                  <RewardArtwork label={preset.label} amount={preset.amount} category={preset.category} />
+                  <RewardArtwork label={preset.label} amount={preset.amount} category={preset.category} status={isActive ? "active" : isPaused ? "paused" : undefined} />
                   <div className="p-3">
                     <div className="flex items-center justify-between gap-2">
                       <div className="text-[10px] font-black uppercase tracking-wide" style={{ color: "#C4B5FD" }}>{preset.category}</div>
@@ -3020,7 +3064,7 @@ function JarBrowser({
                           className="mt-3 w-full rounded-lg py-2 text-center text-[10px] font-black uppercase tracking-wide disabled:opacity-60"
                           style={{ background: isActive ? "rgba(139,92,246,0.23)" : "rgba(139,92,246,0.2)", color: "#DDD6FE" }}
                         >
-                          {isActive ? "Active jar" : "Skip for this"}
+                          {isActive ? "Deactivate" : isPaused ? "Reactivate" : "Skip for this"}
                         </button>
                       </>
                     )}
@@ -3041,6 +3085,7 @@ function JarBrowser({
               <div className="grid grid-cols-2 gap-4 sm:grid-cols-3">
             {visibleSavedRewards.map((goal) => {
               const isActiveGoal = activeSkipTarget?.type === "goal" && goal.id === activeSkipTarget.id;
+              const isPausedGoal = !isActiveGoal && isPausedTarget({ type: "goal", id: goal.id });
               const balance = Math.max(0, goalJarBalances?.[goal.id] ?? 0);
               return (
                 <div
@@ -3052,12 +3097,7 @@ function JarBrowser({
                     boxShadow: isActiveGoal ? "0 18px 38px rgba(139,92,246,0.14)" : "0 12px 26px rgba(0,0,0,0.12)",
                   }}
                 >
-                  {isActiveGoal && (
-                    <div className="absolute left-3 top-3 z-10 rounded-full px-2 py-1 text-[9px] font-black uppercase tracking-wide" style={{ background: "#8B5CF6", color: "white", boxShadow: "0 8px 18px rgba(139,92,246,0.3)" }}>
-                      Active
-                    </div>
-                  )}
-                  <RewardArtwork label={goal.label} amount={goal.targetAmount} link={goal.shoppingLink} imageURL={goal.imageURL} imagePosition={goal.imagePosition} category={goal.category} />
+                  <RewardArtwork label={goal.label} amount={goal.targetAmount} link={goal.shoppingLink} imageURL={goal.imageURL} imagePosition={goal.imagePosition} category={goal.category} status={isActiveGoal ? "active" : isPausedGoal ? "paused" : undefined} />
                   {deletingGoalId === goal.id ? (
                     <div className="p-3" onClick={(e) => e.stopPropagation()}>
                       <p className="mb-2 text-xs text-red-400">Delete &quot;{goal.label}&quot;?</p>
@@ -3102,7 +3142,7 @@ function JarBrowser({
                             className="jars-card-action flex-1 rounded-lg py-2 text-center text-[10px] font-black uppercase tracking-wide transition-colors hover:bg-[rgba(139,92,246,0.3)]"
                             style={{ background: "rgba(139,92,246,0.23)", color: "#DDD6FE" }}
                           >
-                            Active jar
+                            Deactivate
                           </button>
                         ) : (
                           <button
@@ -3110,7 +3150,7 @@ function JarBrowser({
                             className="jars-card-action flex-1 rounded-lg py-2 text-[10px] font-black uppercase tracking-wide transition-colors hover:bg-[rgba(139,92,246,0.26)]"
                             style={{ background: "rgba(139,92,246,0.17)", color: "#C4B5FD" }}
                           >
-                            Skip for this
+                            {isPausedGoal ? "Reactivate" : "Skip for this"}
                           </button>
                         )}
                         {balance > 0 && (
@@ -3215,6 +3255,7 @@ function JarBrowser({
             <div className="grid gap-x-3 gap-y-5 sm:grid-cols-2">
               {fundraisers.map((project) => {
                 const isActiveFundraiser = activeSkipTarget?.type === "fundraiser" && activeSkipTarget.id === project.id;
+                const isPausedFundraiser = !isActiveFundraiser && isPausedTarget({ type: "fundraiser", id: project.id });
                 const groupGoal = project.goalAmount ?? 0;
                 const ownJarBalance = Math.max(0, causeJarBalances?.[project.id] ?? 0);
                 const groupRaised = groupProgress[project.id] ?? Math.max(0, (project.totalDonated ?? 0) + ownJarBalance);
@@ -3242,7 +3283,12 @@ function JarBrowser({
                         </>
                       )}
                       <div className="relative flex h-full flex-col justify-between p-4">
-                        <div className="flex items-start justify-end gap-2">
+                        <div className="relative flex items-start justify-end gap-2">
+                          {(isActiveFundraiser || isPausedFundraiser) && (
+                            <div className="absolute left-0 top-0">
+                              <JarStatusBadge status={isActiveFundraiser ? "active" : "paused"} />
+                            </div>
+                          )}
                           <div className="flex shrink-0 flex-col items-end gap-1">
                             <span className="rounded-full bg-black/25 px-2 py-1 text-xs font-black text-white shadow-sm">
                               {fundraiserGoalBadge(project, groupGoal)}
@@ -3306,7 +3352,7 @@ function JarBrowser({
                           className="jars-card-action flex-1 rounded-lg py-2 text-[10px] font-black uppercase tracking-wide"
                           style={{ background: isActiveFundraiser ? "#2ECC71" : "rgba(46,204,113,0.16)", color: isActiveFundraiser ? "#071B14" : "#A7F3D0" }}
                         >
-                          {isActiveFundraiser ? "Active jar" : "Skip for this"}
+                          {isActiveFundraiser ? "Deactivate" : isPausedFundraiser ? "Reactivate" : "Skip for this"}
                         </button>
                         {ownJarBalance > 0 && (
                           <button
