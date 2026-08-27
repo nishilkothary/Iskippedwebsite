@@ -130,7 +130,7 @@ export default function AboutPage() {
           </h2>
           <div className="mt-4 space-y-4 text-sm leading-relaxed" style={{ color: "var(--text-secondary)" }}>
             <p>
-              The idea for iSkipped began during a backpacking trip through Asia. There, I met a local student sleeping on a hotel bench, eating plain white rice for dinner, as he tried to save money for college.
+              The idea for iSkipped began during a backpacking trip through Asia. There, I met a local student who was using a hotel bench as a bed and eating plain white rice for dinner, all to try and save more money for college.
             </p>
             <p>
               Amazed by his sacrifice, I asked how much his tuition would cost, expecting a relatively large number. His answer shocked me: &quot;$170,&quot; he said.
