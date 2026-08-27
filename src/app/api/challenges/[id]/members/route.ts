@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getAdminAuth, getAdminDb } from "@/lib/services/firebaseAdmin";
 import { DESIGNATED_ADMIN_EMAIL } from "@/lib/constants/admin";
+import { getChallengeTotals } from "@/lib/services/challengeTotals";
 
 type MemberProfile = {
   uid?: string;
@@ -49,6 +50,7 @@ export async function GET(req: NextRequest, context: { params: Promise<{ id: str
 
     const project = projectSnap.data() ?? {};
     const challengeTitle = typeof project.title === "string" ? project.title : "";
+    const totals = await getChallengeTotals(db, challengeId, challengeTitle);
     const isOwner = project.createdBy === decoded.uid;
     const isDesignatedAdmin = (decoded.email ?? "").trim().toLowerCase() === DESIGNATED_ADMIN_EMAIL;
     if (!isOwner && !isDesignatedAdmin) {
@@ -96,7 +98,7 @@ export async function GET(req: NextRequest, context: { params: Promise<{ id: str
     const resolvedMemberUids = Array.from(memberUidSet);
 
     const donatedByUid = new Map<string, number>();
-    let totalDonated = 0;
+    let memberDonatedTotal = 0;
     for (const batch of chunks(resolvedMemberUids, 10)) {
       const donationSnaps = await Promise.all(batch.map(async (uid) => {
         const donationsRef = db.collection("users").doc(uid).collection("donations");
@@ -116,7 +118,7 @@ export async function GET(req: NextRequest, context: { params: Promise<{ id: str
           userDonated += typeof amount === "number" ? amount : 0;
         }
         donatedByUid.set(uid, userDonated);
-        totalDonated += userDonated;
+        memberDonatedTotal += userDonated;
       }
     }
 
@@ -145,7 +147,8 @@ export async function GET(req: NextRequest, context: { params: Promise<{ id: str
 
     members.sort((a, b) => b.pledged - a.pledged || a.displayName.localeCompare(b.displayName));
 
-    const totalPledged = members.reduce((sum, member) => sum + member.pledged, 0);
+    const totalPledged = totals.totalPledged;
+    const totalDonated = totals.totalDonated;
 
     return NextResponse.json({
       members,

@@ -1288,8 +1288,8 @@ export default function HomePage() {
     if (!activeProjectId) { setLiveChallengeTotalRaised(0); setLiveChallengeContributorCount(0); setLiveChallengeTotalSkips(0); return; }
     const proj = projects.find((p) => p.id === activeProjectId);
     if (!proj) { setLiveChallengeTotalRaised(0); setLiveChallengeContributorCount(0); setLiveChallengeTotalSkips(0); return; }
+    setLiveChallengeTotalRaised(0);
     const syncProjectTotals = (project: Project | null) => {
-      setLiveChallengeTotalRaised(Math.max(0, (project?.totalRaised ?? 0) + (project?.totalDonated ?? 0)));
       setLiveChallengeContributorCount(project?.memberUids?.length ?? 0);
       setLiveChallengeTotalSkips(project?.totalSkips ?? 0);
     };

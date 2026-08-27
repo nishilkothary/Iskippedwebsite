@@ -331,9 +331,7 @@ function JarsPageInner() {
     const activeProjects = projects.filter((project) => !isProjectEnded(project));
     // Seed immediately from the cached project value, then replace it with
     // the authoritative sum of current jars plus donations.
-    setGroupProgress(Object.fromEntries(
-      activeProjects.map((project) => [project.id, Math.max(0, (project.totalRaised ?? 0) + (project.totalDonated ?? 0))]),
-    ));
+    setGroupProgress(Object.fromEntries(activeProjects.map((project) => [project.id, 0])));
     let cancelled = false;
     void Promise.all(activeProjects.map(async (project) => {
       try {

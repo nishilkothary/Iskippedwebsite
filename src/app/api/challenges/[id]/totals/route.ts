@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getAdminAuth, getAdminDb } from "@/lib/services/firebaseAdmin";
 import { DESIGNATED_ADMIN_EMAIL } from "@/lib/constants/admin";
+import { getChallengeTotals } from "@/lib/services/challengeTotals";
 
 export async function GET(req: NextRequest, context: { params: Promise<{ id: string }> }) {
   const authHeader = req.headers.get("Authorization") ?? "";
@@ -36,31 +37,12 @@ export async function GET(req: NextRequest, context: { params: Promise<{ id: str
       return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }
 
-    const title = typeof project.title === "string" ? project.title : "";
-    const [jarUsers, causeDonations, titleDonations] = await Promise.all([
-      db.collection("users").where(`causeJarBalances.${projectId}`, ">", 0).get(),
-      db.collectionGroup("donations").where("causeId", "==", projectId).get(),
-      title ? db.collectionGroup("donations").where("causeTitle", "==", title).get() : Promise.resolve({ docs: [] }),
-    ]);
-
-    const totalPledged = jarUsers.docs.reduce((sum, user) => {
-      const amount = Number(user.data().causeJarBalances?.[projectId] ?? 0);
-      return sum + (Number.isFinite(amount) && amount > 0 ? amount : 0);
-    }, 0);
-
-    // Legacy records may only have causeTitle. Deduplicate records that have
-    // both fields so a donation can never be counted twice.
-    const donations = new Map<string, FirebaseFirestore.QueryDocumentSnapshot>();
-    for (const doc of [...causeDonations.docs, ...titleDonations.docs]) donations.set(doc.ref.path, doc);
-    const totalDonated = Array.from(donations.values()).reduce((sum, donation) => {
-      const amount = Number(donation.get("amount") ?? 0);
-      return sum + (Number.isFinite(amount) && amount > 0 ? amount : 0);
-    }, 0);
+    const totals = await getChallengeTotals(db, projectId, typeof project.title === "string" ? project.title : "");
 
     return NextResponse.json({
-      totalPledged,
-      totalDonated,
-      total: totalPledged + totalDonated,
+      totalPledged: totals.totalPledged,
+      totalDonated: totals.totalDonated,
+      total: totals.total,
     });
   } catch (error) {
     console.error("[challenge totals] failed", error);
