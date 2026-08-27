@@ -45,7 +45,7 @@ export default function ManageChallengePage() {
   const params = useParams();
   const router = useRouter();
   const challengeId = typeof params.id === "string" ? params.id : Array.isArray(params.id) ? params.id[0] : "";
-  const { user, profile } = useAuthStore();
+  const { user, profile, isLoading: authLoading } = useAuthStore();
   const { projects } = useProjects();
 
   const challenge = projects.find((p) => p.id === challengeId) ?? null;
@@ -93,17 +93,18 @@ export default function ManageChallengePage() {
   }, []);
 
   useEffect(() => {
+    if (authLoading) return;
     if (challenge && !canManageChallenge) {
       router.replace(`/challenges/${challengeId}`);
     }
-  }, [challenge, canManageChallenge, challengeId, router]);
+  }, [authLoading, challenge, canManageChallenge, challengeId, router]);
 
   useEffect(() => {
     if (!challenge || !canManageChallenge) return;
     void loadMembers();
   }, [challengeId, canManageChallenge]);
 
-  if (!challenge) {
+  if (authLoading || !challenge) {
     return (
       <main className="min-h-screen p-4 max-w-lg mx-auto">
         <p className="text-sm" style={{ color: "var(--text-muted)" }}>Loading...</p>
