@@ -1,5 +1,5 @@
 ﻿"use client";
-import { useEffect, useRef, useState, Suspense } from "react";
+import { useEffect, useRef, useState, Suspense, Fragment } from "react";
 import Link from "next/link";
 import { toast } from "sonner";
 import { useRouter, useSearchParams } from "next/navigation";
@@ -683,9 +683,6 @@ function JarsPageInner() {
           <h1 className="jars-page-title hidden text-2xl font-black tracking-tight md:block md:text-3xl" style={{ color: "var(--text-primary)" }}>
             Skip for something
           </h1>
-          <p className="jars-page-subtitle mt-2 hidden text-sm md:block" style={{ color: "var(--text-secondary)" }}>
-            Pick a personal goal, or a group fundraiser, and make your skips count.
-          </p>
         </div>
         <Link
           href="/jar-activity"
@@ -1716,6 +1713,19 @@ function JarBrowser({
   function fundraiserJar(project: Project) {
     return Math.max(0, causeJarBalances?.[project.id] ?? 0);
   }
+
+  const participatingFundraisers = fundraisers
+    .filter((project) =>
+      (activeSkipTarget?.type === "fundraiser" && activeSkipTarget.id === project.id)
+      || isPausedTarget({ type: "fundraiser", id: project.id })
+    )
+    .sort((a, b) => {
+      const aIsActive = activeSkipTarget?.type === "fundraiser" && activeSkipTarget.id === a.id;
+      const bIsActive = activeSkipTarget?.type === "fundraiser" && activeSkipTarget.id === b.id;
+      return Number(bIsActive) - Number(aIsActive);
+    });
+  const otherFundraisers = fundraisers.filter((project) => !participatingFundraisers.includes(project));
+  const orderedFundraisers = [...participatingFundraisers, ...otherFundraisers];
 
   const endedFundraisers = (profile?.joinedProjectIds ?? [])
     .map((id) => projects.find((project) => project.id === id))
@@ -3227,7 +3237,7 @@ function JarBrowser({
       {shopView === "fundraisers" && (
         <div className="mt-6">
           <div className="mb-4 flex items-end justify-between gap-3">
-            <p className="text-xs font-black uppercase tracking-[0.16em]" style={{ color: "#2ECC71" }}>Group Fundraisers</p>
+            <span />
             <button
               type="button"
               onClick={() => router.push("/challenges?create=1")}
@@ -3247,7 +3257,7 @@ function JarBrowser({
             </div>
           ) : (
             <div className="grid gap-x-3 gap-y-5 sm:grid-cols-2">
-              {fundraisers.map((project) => {
+              {orderedFundraisers.map((project, index) => {
                 const isActiveFundraiser = activeSkipTarget?.type === "fundraiser" && activeSkipTarget.id === project.id;
                 const isPausedFundraiser = !isActiveFundraiser && isPausedTarget({ type: "fundraiser", id: project.id });
                 const groupGoal = project.goalAmount ?? 0;
@@ -3255,8 +3265,13 @@ function JarBrowser({
                 const groupRaised = groupProgress[project.id] ?? Math.max(0, (project.totalDonated ?? 0) + ownJarBalance);
                 const groupPct = groupGoal > 0 ? Math.min(100, Math.round((groupRaised / groupGoal) * 100)) : 0;
                 return (
+                  <Fragment key={`fundraiser-section-${project.id}`}>
+                  {(index === 0 || (index === participatingFundraisers.length && otherFundraisers.length > 0)) && (
+                    <p className="col-span-full mb-[-4px] mt-1 text-xs font-black uppercase tracking-[0.16em]" style={{ color: "#2ECC71" }}>
+                      {participatingFundraisers.length > 0 && index === 0 ? "Fundraisers I’m Participating In" : "Explore Fundraisers"}
+                    </p>
+                  )}
                   <div
-                    key={project.id}
                     className="overflow-hidden rounded-2xl transition-all"
                     style={{
                       background: "var(--bg-surface-1)",
@@ -3368,6 +3383,7 @@ function JarBrowser({
                       </div>
                     </div>
                   </div>
+                  </Fragment>
                 );
               })}
             </div>

@@ -1343,6 +1343,10 @@ export default function HomePage() {
   const displayedGroupTotal = isActiveGroupFundraiser
     ? Math.max(0, liveChallengeTotalRaised)
     : 0;
+  const groupContributorCount = isActiveGroupFundraiser ? liveChallengeContributorCount : 0;
+  const fundraiserParticipantCopy = groupContributorCount > 1
+    ? `You and ${groupContributorCount - 1} ${groupContributorCount === 2 ? "other" : "others"} are skipping.`
+    : "You're the first one skipping.";
   const communityGoal = activeProject && isActiveGroupFundraiser ? getCommunityGoal(activeProject) : 0;
   const fundraiserUnitCost = activeProject?.unitCost && activeProject.unitCost > 0 ? activeProject.unitCost : null;
   const temporaryChallengeGoalUnits = activeProject && isActiveChallenge && fundraiserUnitCost && activeProject.goalAmount <= 0 ? 10 : null;
@@ -2348,6 +2352,11 @@ export default function HomePage() {
                       <p className="home-fundraiser-title" style={{ fontSize: 22, fontWeight: 900, lineHeight: 1.1, color: "var(--text-primary)", marginTop: 4 }}>
                         {activeProject?.title ?? "Pick a fundraiser"}
                       </p>
+                      {activeProject && (
+                        <p className="home-fundraiser-participants" style={{ marginTop: 5, color: "var(--text-secondary)", fontSize: 12, lineHeight: 1.35 }}>
+                          {fundraiserParticipantCopy}
+                        </p>
+                      )}
                       {!activeProject && (
                         <p style={{ fontSize: 13, color: "var(--text-secondary)", lineHeight: 1.4, marginTop: 6 }}>
                           Find a cause where skipped savings can join a shared goal.
