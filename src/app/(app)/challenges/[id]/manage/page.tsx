@@ -14,6 +14,8 @@ import { getDirectChallengeShareText } from "@/lib/utils/challengeShareCopy";
 import { ShareButton } from "@/components/share/ShareButton";
 import { apiRequest } from "@/lib/services/firebase/apiClient";
 
+const ADMIN_EMAIL = (process.env.NEXT_PUBLIC_ADMIN_EMAIL ?? "").trim().toLowerCase();
+
 type ChallengeMember = {
   uid: string;
   displayName: string;
@@ -48,6 +50,8 @@ export default function ManageChallengePage() {
   const { projects } = useProjects();
 
   const challenge = projects.find((p) => p.id === challengeId) ?? null;
+  const isDesignatedAdmin = (profile?.email ?? "").trim().toLowerCase() === ADMIN_EMAIL;
+  const canManageChallenge = Boolean(challenge && (challenge.createdBy === user?.uid || isDesignatedAdmin));
 
   const [ending, setEnding] = useState(false);
   const [endConfirm, setEndConfirm] = useState(false);
@@ -90,15 +94,15 @@ export default function ManageChallengePage() {
   }, []);
 
   useEffect(() => {
-    if (challenge && challenge.createdBy !== user?.uid) {
+    if (challenge && !canManageChallenge) {
       router.replace(`/challenges/${challengeId}`);
     }
-  }, [challenge, user?.uid, challengeId, router]);
+  }, [challenge, canManageChallenge, challengeId, router]);
 
   useEffect(() => {
-    if (!challenge || challenge.createdBy !== user?.uid) return;
+    if (!challenge || !canManageChallenge) return;
     void loadMembers();
-  }, [challengeId, challenge?.createdBy, user?.uid]);
+  }, [challengeId, canManageChallenge]);
 
   if (!challenge) {
     return (
@@ -108,7 +112,7 @@ export default function ManageChallengePage() {
     );
   }
 
-  if (challenge.createdBy !== user?.uid) return null;
+  if (!canManageChallenge) return null;
 
   // Merge live stats over static challenge data
   const totalDonated = liveProgress?.totalDonated ?? membersTotalDonated ?? 0;
