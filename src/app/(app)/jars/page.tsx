@@ -338,10 +338,14 @@ function JarsPageInner() {
         const totals = await apiRequest<{ total: number }>(`/api/challenges/${project.id}/totals`, "GET");
         return [project.id, totals.total] as const;
       } catch {
-        return null;
+        // The project counters are reconciled cache fields. Use them only as
+        // a visible fallback if the live totals request is unavailable; never
+        // turn a temporary request failure into a misleading $0 card.
+        const cachedTotal = Math.max(0, Number(project.totalRaised ?? 0) + Number(project.totalDonated ?? 0));
+        return [project.id, cachedTotal] as const;
       }
     })).then((entries) => {
-      if (!cancelled) setGroupProgress(Object.fromEntries(entries.filter((entry): entry is readonly [string, number] => entry !== null)));
+      if (!cancelled) setGroupProgress(Object.fromEntries(entries));
     });
     return () => { cancelled = true; };
   }, [projects]);
