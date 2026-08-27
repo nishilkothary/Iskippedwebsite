@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getAdminAuth, getAdminDb } from "@/lib/services/firebaseAdmin";
+import { DESIGNATED_ADMIN_EMAIL } from "@/lib/constants/admin";
 
 export async function GET(req: NextRequest, context: { params: Promise<{ id: string }> }) {
   const authHeader = req.headers.get("Authorization") ?? "";
@@ -7,8 +8,11 @@ export async function GET(req: NextRequest, context: { params: Promise<{ id: str
   if (!idToken) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
   let uid: string;
+  let email: string;
   try {
-    uid = (await getAdminAuth().verifyIdToken(idToken)).uid;
+    const decoded = await getAdminAuth().verifyIdToken(idToken);
+    uid = decoded.uid;
+    email = (decoded.email ?? "").trim().toLowerCase();
   } catch {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
@@ -27,7 +31,8 @@ export async function GET(req: NextRequest, context: { params: Promise<{ id: str
       || project.visibility === "password"
       || project.tags?.includes?.("visibility-private")
       || project.tags?.includes?.("visibility-unlisted");
-    if (restricted && project.createdBy !== uid && !memberUids.includes(uid)) {
+    const isDesignatedAdmin = email === DESIGNATED_ADMIN_EMAIL;
+    if (restricted && !isDesignatedAdmin && project.createdBy !== uid && !memberUids.includes(uid)) {
       return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }
 

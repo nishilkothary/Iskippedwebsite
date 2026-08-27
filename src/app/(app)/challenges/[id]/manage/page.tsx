@@ -77,7 +77,7 @@ export default function ManageChallengePage() {
   useEffect(() => {
     if (!challengeId) return;
     let cancelled = false;
-    void apiRequest<ChallengeProgressResponse>(`/api/challenges/${challengeId}/progress`, "GET")
+      void apiRequest<ChallengeProgressResponse>(`/api/challenges/${challengeId}/totals`, "GET")
       .then((data) => {
         if (!cancelled) setLiveProgress(data);
       })

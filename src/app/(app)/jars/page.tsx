@@ -3262,7 +3262,7 @@ function JarBrowser({
                 const isPausedFundraiser = !isActiveFundraiser && isPausedTarget({ type: "fundraiser", id: project.id });
                 const groupGoal = project.goalAmount ?? 0;
                 const ownJarBalance = Math.max(0, causeJarBalances?.[project.id] ?? 0);
-                const groupRaised = groupProgress[project.id] ?? Math.max(0, (project.totalDonated ?? 0) + ownJarBalance);
+                const groupRaised = groupProgress[project.id] ?? 0;
                 const groupPct = groupGoal > 0 ? Math.min(100, Math.round((groupRaised / groupGoal) * 100)) : 0;
                 return (
                   <Fragment key={`fundraiser-section-${project.id}`}>
