@@ -152,7 +152,7 @@ export async function DELETE(req: NextRequest, ctx: RouteContext) {
     const userRef = db.collection("users").doc(uid);
     const skipRef = userRef.collection("skips").doc(skipId);
 
-    const { projectId, fundraiserAmount, deletedAmount, causeJarBalances, goalJarBalances, ledgerProjectDeltas } = await db.runTransaction(async (tx) => {
+    const { deletedAmount, causeJarBalances, goalJarBalances } = await db.runTransaction(async (tx) => {
       const [skipSnap, userSnap] = await Promise.all([tx.get(skipRef), tx.get(userRef)]);
       if (!skipSnap.exists) throw new ApiError(404, "Skip not found");
       const skip = skipSnap.data() as Skip;
@@ -204,12 +204,13 @@ export async function DELETE(req: NextRequest, ctx: RouteContext) {
         }
       }
 
+      const allocatedProjectId = allocationTarget?.type === "fundraiser" ? allocationTarget.id : null;
       const projectRefs = new Map<string, FirebaseFirestore.DocumentReference>();
       for (const fundraiserId of Object.keys(ledgerProjectDeltas)) {
         projectRefs.set(fundraiserId, db.collection("projects").doc(fundraiserId));
       }
-      if (projectId && !projectRefs.has(projectId)) {
-        projectRefs.set(projectId, db.collection("projects").doc(projectId));
+      if (allocatedProjectId && !projectRefs.has(allocatedProjectId)) {
+        projectRefs.set(allocatedProjectId, db.collection("projects").doc(allocatedProjectId));
       }
       const projectSnaps = new Map<string, FirebaseFirestore.DocumentSnapshot>();
       for (const [fundraiserId, projectRef] of projectRefs) {
@@ -233,8 +234,8 @@ export async function DELETE(req: NextRequest, ctx: RouteContext) {
 
       for (const [fundraiserId, projectRef] of projectRefs) {
         const project = projectSnaps.get(fundraiserId)?.data() ?? {};
-        const removedAmount = ledgerProjectDeltas[fundraiserId] ?? (fundraiserId === projectId ? skip.amount : 0);
-        const removedSkip = fundraiserId === projectId ? 1 : 0;
+        const removedAmount = ledgerProjectDeltas[fundraiserId] ?? (fundraiserId === allocatedProjectId ? skip.amount : 0);
+        const removedSkip = fundraiserId === allocatedProjectId ? 1 : 0;
         tx.set(projectRef, {
           totalRaised: Math.max(0, Number(project.totalRaised ?? 0) - removedAmount),
           totalSkips: Math.max(0, Number(project.totalSkips ?? 0) - removedSkip),
@@ -242,7 +243,7 @@ export async function DELETE(req: NextRequest, ctx: RouteContext) {
       }
 
       return {
-        projectId: allocationTarget?.type === "fundraiser" ? allocationTarget.id : null,
+        projectId: allocatedProjectId,
         fundraiserAmount: allocationTarget?.type === "fundraiser" ? skip.amount : 0,
         deletedAmount: skip.amount,
         causeJarBalances: nextBalances.causeJarBalances,

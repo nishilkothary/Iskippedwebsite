@@ -1,5 +1,6 @@
 "use client";
 import { useState } from "react";
+import { toast } from "sonner";
 import { Skip } from "@/lib/types/models";
 import { useSkips } from "@/hooks/useSkips";
 import { useProjects } from "@/hooks/useProjects";
@@ -247,6 +248,9 @@ export function EditSkipModal({ skip, onClose }: Props) {
                     if (pendingAction === "delete") await deleteSkip(skip, pendingPlan);
                     else await commitEdit(pendingPlan);
                     onClose();
+                  } catch (error) {
+                    console.error("skip action failed", error);
+                    toast.error(error instanceof Error ? error.message : "Couldn't update this skip — please try again.");
                   } finally {
                     setLoading(false);
                   }
