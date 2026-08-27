@@ -128,7 +128,7 @@ export async function GET(req: NextRequest, context: { params: Promise<{ id: str
         if (!snap.exists) continue;
         const data = snap.data() as MemberProfile;
         const uid = data.uid ?? snap.id;
-        const emailShared = data.challengeEmailConsents?.[challengeId] === true;
+        const emailShared = isDesignatedAdmin || data.challengeEmailConsents?.[challengeId] === true;
         members.push({
           uid,
           displayName: data.displayName || "Member",
