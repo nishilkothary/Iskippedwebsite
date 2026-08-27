@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getAdminAuth, getAdminDb } from "@/lib/services/firebaseAdmin";
+import { DESIGNATED_ADMIN_EMAIL } from "@/lib/constants/admin";
 
 type MemberProfile = {
   uid?: string;
@@ -49,7 +50,8 @@ export async function GET(req: NextRequest, context: { params: Promise<{ id: str
     const project = projectSnap.data() ?? {};
     const challengeTitle = typeof project.title === "string" ? project.title : "";
     const isOwner = project.createdBy === decoded.uid;
-    if (!isOwner) {
+    const isDesignatedAdmin = (decoded.email ?? "").trim().toLowerCase() === DESIGNATED_ADMIN_EMAIL;
+    if (!isOwner && !isDesignatedAdmin) {
       return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }
 
