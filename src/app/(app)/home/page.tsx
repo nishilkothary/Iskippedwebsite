@@ -34,7 +34,6 @@ import { getSkipBalanceSummary } from "@/lib/utils/skipBalances";
 import { useModalA11y } from "@/hooks/useModalA11y";
 import { SKIP_CATEGORIES } from "@/lib/constants/skipCategories";
 import { apiRequest } from "@/lib/services/firebase/apiClient";
-import { DESIGNATED_ADMIN_EMAIL } from "@/lib/constants/admin";
 
 function normalizeExternalLink(link: string): string {
   const trimmed = link.trim();
@@ -2410,18 +2409,6 @@ export default function HomePage() {
                   </div>
                   {activeProject && (
                     <div className="home-fundraiser-share">
-                      {(profile?.email ?? "").trim().toLowerCase() === DESIGNATED_ADMIN_EMAIL && (
-                        <button
-                          type="button"
-                          onClick={() => router.push(`/challenges/${activeProject.id}/manage`)}
-                          className="mr-1 inline-flex h-8 w-8 items-center justify-center rounded-full text-sm font-bold"
-                          aria-label="Manage fundraiser"
-                          title="Manage fundraiser"
-                          style={{ border: "1px solid var(--border-emphasis)", color: "var(--green-primary)", background: "transparent" }}
-                        >
-                          ⚙
-                        </button>
-                      )}
                       <span className="home-fundraiser-share-desktop"><ShareButton variant="pill" label="Share" title={activeProject.title} text={getDirectChallengeShareText(activeProject)} url={appendRefParam(`${typeof window !== "undefined" ? window.location.origin : "https://iskipped.com"}${getChallengeSharePath(activeProject)}`, user?.uid)} /></span>
                       <span className="home-fundraiser-share-mobile"><ShareButton variant="pill" label="Share fundraiser" iconOnly title={activeProject.title} text={getDirectChallengeShareText(activeProject)} url={appendRefParam(`${typeof window !== "undefined" ? window.location.origin : "https://iskipped.com"}${getChallengeSharePath(activeProject)}`, user?.uid)} /></span>
                     </div>
@@ -2497,33 +2484,31 @@ export default function HomePage() {
               {activeProject && (
                 <div className="home-live-progress-panel">
                   <div className="home-group-impact" style={{ borderRadius: 0, padding: "4px 0 0", marginBottom: 10, background: "transparent", border: "none" }}>
-                    <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", gap: 12, flexWrap: "wrap" }}>
-                      <p style={{ fontSize: 14, fontWeight: 950, color: groupGoalReached ? "#A7FFF0" : "var(--text-primary)" }}>
-                        {groupGoalReached ? "🎉 Group goal reached!" : "What Can Get Us To Our Goal"}
-                      </p>
-                      {!groupGoalReached && (
-                        <p style={{ fontSize: 10, fontWeight: 850, color: "var(--text-secondary)" }}>
-                          {formatCurrencyRounded(groupGoalRemainingAmount)} to go
-                        </p>
-                      )}
-                    </div>
+                    <p style={{ fontSize: 16, fontWeight: 950, color: groupGoalReached ? "#A7FFF0" : "var(--text-primary)" }}>
+                      {groupGoalReached ? "🎉 Group goal reached!" : `Only ${formatCurrencyRounded(groupGoalRemainingAmount)} to go`}
+                    </p>
                     {groupGoalReached && (
                       <p style={{ marginTop: 4, fontSize: 11, lineHeight: 1.4, color: "var(--text-secondary)" }}>
                         Every skip helped the group get there.
                       </p>
                     )}
                     {!groupGoalReached && (
-                    <div className="home-group-impact-items" style={{ display: "flex", flexWrap: "wrap", gap: 7, marginTop: 10 }}>
-                      {groupGoalSkipEstimates.map((category) => (
-                        <span key={category.key} className="home-group-impact-counter" style={{ color: "var(--text-primary)", fontWeight: 850 }}>
-                          <span className="home-group-impact-counter-heading">
-                            <span className="home-group-impact-counter-icon" aria-hidden="true">{category.icon}</span>
-                            <span className="home-group-impact-counter-label">{category.label}</span>
+                    <>
+                      <p style={{ marginTop: 4, fontSize: 11, lineHeight: 1.4, color: "var(--text-secondary)" }}>
+                        That&apos;s about:
+                      </p>
+                      <div className="home-group-impact-items" style={{ display: "flex", flexWrap: "wrap", gap: 7, marginTop: 10 }}>
+                        {groupGoalSkipEstimates.map((category) => (
+                          <span key={category.key} className="home-group-impact-counter" style={{ color: "var(--text-primary)", fontWeight: 850 }}>
+                            <span className="home-group-impact-counter-heading">
+                              <span className="home-group-impact-counter-icon" aria-hidden="true">{category.icon}</span>
+                              <span className="home-group-impact-counter-label">{category.label}</span>
+                            </span>
+                            <strong className="home-group-impact-counter-value">~{category.count}</strong>
                           </span>
-                          <strong className="home-group-impact-counter-value">~{category.count}</strong>
-                        </span>
-                      ))}
-                    </div>
+                        ))}
+                      </div>
+                    </>
                     )}
                   </div>
                   <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, marginTop: 12, marginBottom: 8, paddingTop: 12, borderTop: "1px solid rgba(237,245,240,0.08)" }}>
