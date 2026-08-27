@@ -1886,6 +1886,24 @@ export default function HomePage() {
     setShowRewardEditor(true);
   }
 
+  function handleRewardEditorImage(file?: File) {
+    if (!file || !file.type.startsWith("image/")) return;
+    const objectURL = URL.createObjectURL(file);
+    const image = new Image();
+    image.onload = () => {
+      URL.revokeObjectURL(objectURL);
+      const maxWidth = 900;
+      const scale = image.width > maxWidth ? maxWidth / image.width : 1;
+      const canvas = document.createElement("canvas");
+      canvas.width = Math.round(image.width * scale);
+      canvas.height = Math.round(image.height * scale);
+      canvas.getContext("2d")?.drawImage(image, 0, 0, canvas.width, canvas.height);
+      setRewardEditImageURL(canvas.toDataURL("image/jpeg", 0.8));
+    };
+    image.onerror = () => URL.revokeObjectURL(objectURL);
+    image.src = objectURL;
+  }
+
   async function saveRewardEditor() {
     if (!user || !activeGoal) return;
 
@@ -3382,6 +3400,15 @@ export default function HomePage() {
                   className="mt-2 w-full rounded-xl px-4 py-3 text-sm focus:outline-none"
                   style={{ background: "var(--bg-surface-2)", border: "1px solid var(--border-default)", color: "var(--text-primary)" }}
                 />
+                <label className="mt-2 inline-flex cursor-pointer items-center rounded-full px-4 py-2 text-sm font-bold" style={{ background: "rgba(139,92,246,0.16)", color: "#C4B5FD" }}>
+                  Upload photo
+                  <input
+                    type="file"
+                    accept="image/*"
+                    className="hidden"
+                    onChange={(event) => handleRewardEditorImage(event.target.files?.[0])}
+                  />
+                </label>
               </div>
               <label className="block">
                 <span className="mb-1.5 block text-xs font-black uppercase tracking-wide" style={{ color: "#C4B5FD" }}>Goal amount</span>
