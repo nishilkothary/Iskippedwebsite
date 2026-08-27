@@ -33,6 +33,7 @@ import { formatAggregateImpactUnitsDecimal, oneUnitPhrase } from "@/lib/utils/im
 import { getSkipBalanceSummary } from "@/lib/utils/skipBalances";
 import { useModalA11y } from "@/hooks/useModalA11y";
 import { SKIP_CATEGORIES } from "@/lib/constants/skipCategories";
+import { apiRequest } from "@/lib/services/firebase/apiClient";
 
 // ─── SVG Jar ───────────────────────────────────────────────────────────────
 interface JarProps {
@@ -632,6 +633,12 @@ function getFeedSkipLabel(item: Pick<FeedItem, "message" | "skipLabel"> & { skip
 
 function getFeedActionLine(item: Pick<FeedItem, "displayName" | "message" | "skipLabel"> & { skipLabel?: string }): string {
   return `${formatFeedName(item.displayName)} skipped ${getFeedSkipLabel(item)}`;
+}
+
+function getRecentWinLine(item: Pick<FeedItem, "displayName" | "message" | "skipLabel"> & { skipLabel?: string }): string {
+  const name = formatFeedName(item.displayName);
+  const shortName = name === "A friend" ? name : name.split(/\s+/)[0];
+  return `${shortName} skipped ${getFeedSkipLabel(item)}`;
 }
 
 function FundraiserContributionModal({
@@ -1278,10 +1285,20 @@ export default function HomePage() {
       setLiveChallengeTotalSkips(project?.totalSkips ?? 0);
     };
     syncProjectTotals(proj);
+    let cancelled = false;
+    void apiRequest<{ total: number; totalPledged: number; totalDonated: number }>(`/api/challenges/${activeProjectId}/totals`, "GET")
+      .then((totals) => {
+        if (!cancelled) setLiveChallengeTotalRaised(Math.max(0, totals.total));
+      })
+      .catch(() => {
+        // The live project snapshot remains a useful fallback if reconciliation
+        // is temporarily unavailable.
+      });
     const unsubscribe = subscribeToProject(activeProjectId, (p) => {
       syncProjectTotals(p);
     });
     return () => {
+      cancelled = true;
       unsubscribe();
     };
   }, [profile?.activeProjectId, projects]);
@@ -1319,17 +1336,13 @@ export default function HomePage() {
     : 0;
   const challengeContribution = userChallengeBalance;
   const fundraiserDonatedTotal = activeProject ? Math.max(0, activeProject.totalDonated ?? 0) : 0;
-  // Group total: donations that have been logged plus money currently sitting in users' fundraiser jars.
+  // Group total is the sum of every member's fundraiser jar plus every
+  // donation already logged for the fundraiser. `totalRaised` is maintained
+  // on the project from all member jar transactions; it is not this user's
+  // personal balance.
   const displayedGroupTotal = isActiveGroupFundraiser
-    ? Math.max(liveChallengeTotalRaised, fundraiserDonatedTotal + userChallengeBalance)
+    ? Math.max(0, liveChallengeTotalRaised)
     : 0;
-  const groupContributorCount = isActiveGroupFundraiser ? liveChallengeContributorCount : 0;
-  const groupHasPriorProgress = displayedGroupTotal > userChallengeBalance + 0.005;
-  const fundraiserParticipantCopy = groupContributorCount > 1
-    ? `You and ${groupContributorCount - 1} ${groupContributorCount === 2 ? "other" : "others"} are skipping for this fundraiser.`
-    : groupHasPriorProgress
-      ? "Your skips are helping grow this fundraiser."
-      : "You're the first one skipping for this fundraiser.";
   const communityGoal = activeProject && isActiveGroupFundraiser ? getCommunityGoal(activeProject) : 0;
   const fundraiserUnitCost = activeProject?.unitCost && activeProject.unitCost > 0 ? activeProject.unitCost : null;
   const temporaryChallengeGoalUnits = activeProject && isActiveChallenge && fundraiserUnitCost && activeProject.goalAmount <= 0 ? 10 : null;
@@ -1460,6 +1473,11 @@ export default function HomePage() {
     : 0;
   const goalCoveredAmount = activeGoal ? Math.min(spendingBalance, activeGoal.targetAmount) : 0;
   const goalRemainingAmount = activeGoal ? Math.max(0, activeGoal.targetAmount - spendingBalance) : 0;
+  const rewardGoalReached = Boolean(activeGoal) && goalRemainingAmount <= 0;
+  const rewardGoalSkipEstimates = groupGoalSkipEstimates.map((category) => ({
+    ...category,
+    count: Math.max(1, Math.ceil(goalRemainingAmount / category.amount)),
+  }));
   const displayedStreak = getConsecutiveWeeklyStreak(recentSkips.map((skip) => skip.date));
   const streakChipValue = hasSkippedThisWeek ? Math.max(displayedStreak, profile.streak ?? 0) : profile.streak ?? 0;
   const activeCountdown = activeProject && isActiveChallenge ? getChallengeCountdown(activeProject) : null;
@@ -2271,6 +2289,39 @@ export default function HomePage() {
             >
               {activeGoal ? "I'm Ready to Buy This" : "Choose a goal"}
             </button>
+            {activeGoal && (
+              <div className="home-reward-progress-panel">
+                <div className="home-group-impact" style={{ borderRadius: 0, padding: "4px 0 0", background: "transparent", border: "none" }}>
+                  <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", gap: 12, flexWrap: "wrap" }}>
+                    <p style={{ fontSize: 14, fontWeight: 950, color: rewardGoalReached ? "#C4B5FD" : "var(--text-primary)" }}>
+                      {rewardGoalReached ? "🎉 Goal reached!" : "What Can Get Me To My Goal"}
+                    </p>
+                    {!rewardGoalReached && (
+                      <p style={{ fontSize: 10, fontWeight: 850, color: "var(--text-secondary)" }}>
+                        {formatCurrencyRounded(goalRemainingAmount)} to go
+                      </p>
+                    )}
+                  </div>
+                  {rewardGoalReached ? (
+                    <p style={{ marginTop: 4, fontSize: 11, lineHeight: 1.4, color: "var(--text-secondary)" }}>
+                      Your skipped savings are ready to use.
+                    </p>
+                  ) : (
+                    <div className="home-group-impact-items" style={{ display: "flex", flexWrap: "wrap", gap: 7, marginTop: 10 }}>
+                      {rewardGoalSkipEstimates.map((category) => (
+                        <span key={category.key} className="home-group-impact-counter" style={{ background: "rgba(7,27,20,0.34)", color: "var(--text-primary)", fontWeight: 850 }}>
+                          <span className="home-group-impact-counter-heading">
+                            <span className="home-group-impact-counter-icon" aria-hidden="true">{category.icon}</span>
+                            <span className="home-group-impact-counter-label">{category.label}</span>
+                          </span>
+                          <strong className="home-group-impact-counter-value" style={{ color: "#C4B5FD" }}>~{category.count}</strong>
+                        </span>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
           </div>
           )}
 
@@ -2297,11 +2348,6 @@ export default function HomePage() {
                       <p className="home-fundraiser-title" style={{ fontSize: 22, fontWeight: 900, lineHeight: 1.1, color: "var(--text-primary)", marginTop: 4 }}>
                         {activeProject?.title ?? "Pick a fundraiser"}
                       </p>
-                      {activeProject && (
-                        <p className="home-fundraiser-participants" style={{ marginTop: 5, color: "var(--text-secondary)", fontSize: 12, lineHeight: 1.35 }}>
-                          {fundraiserParticipantCopy}
-                        </p>
-                      )}
                       {!activeProject && (
                         <p style={{ fontSize: 13, color: "var(--text-secondary)", lineHeight: 1.4, marginTop: 6 }}>
                           Find a cause where skipped savings can join a shared goal.
@@ -2385,20 +2431,10 @@ export default function HomePage() {
               </div>
               {activeProject && (
                 <div className="home-live-progress-panel">
-                  <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, marginBottom: 8 }}>
-                    <p style={{ fontSize: 10, fontWeight: 900, letterSpacing: 1.2, textTransform: "uppercase", color: "var(--text-muted)" }}>Live progress</p>
-                    <button
-                      type="button"
-                      onClick={() => router.push(`/challenges/${activeProject.id}/activity`)}
-                      style={{ border: "none", background: "transparent", color: "var(--green-primary)", fontSize: 11, fontWeight: 900, cursor: "pointer" }}
-                    >
-                      Full feed
-                    </button>
-                  </div>
-                  <div className="home-group-impact" style={{ borderRadius: 14, padding: "12px 13px", marginBottom: 10, background: groupGoalReached ? "linear-gradient(135deg, rgba(46,204,113,0.18), rgba(0,240,208,0.08))" : "linear-gradient(135deg, rgba(46,204,113,0.1), rgba(237,245,240,0.035))", border: groupGoalReached ? "1px solid rgba(46,204,113,0.42)" : "1px solid rgba(46,204,240,0.16)" }}>
+                  <div className="home-group-impact" style={{ borderRadius: 0, padding: "4px 0 0", marginBottom: 10, background: "transparent", border: "none" }}>
                     <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", gap: 12, flexWrap: "wrap" }}>
                       <p style={{ fontSize: 14, fontWeight: 950, color: groupGoalReached ? "#A7FFF0" : "var(--text-primary)" }}>
-                        {groupGoalReached ? "🎉 Group goal reached!" : "What can get us to our goal?"}
+                        {groupGoalReached ? "🎉 Group goal reached!" : "What Can Get Us To Our Goal"}
                       </p>
                       {!groupGoalReached && (
                         <p style={{ fontSize: 10, fontWeight: 850, color: "var(--text-secondary)" }}>
@@ -2427,6 +2463,13 @@ export default function HomePage() {
                   </div>
                   <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, marginTop: 12, marginBottom: 8, paddingTop: 12, borderTop: "1px solid rgba(237,245,240,0.08)" }}>
                     <p style={{ fontSize: 10, fontWeight: 900, letterSpacing: 1.2, textTransform: "uppercase", color: "var(--text-muted)" }}>Recent wins</p>
+                    <button
+                      type="button"
+                      onClick={() => router.push(`/challenges/${activeProject.id}/activity`)}
+                      style={{ border: "none", background: "transparent", color: "var(--green-primary)", fontSize: 11, fontWeight: 900, cursor: "pointer" }}
+                    >
+                      Full feed
+                    </button>
                   </div>
                   {featuredChallengeFeedItem ? (() => {
                   const item = challengeFeedItems[Math.min(featuredFeedIndex, challengeFeedItems.length - 1)] ?? featuredChallengeFeedItem;
@@ -2437,7 +2480,7 @@ export default function HomePage() {
                       </div>
                       <div style={{ minWidth: 0 }}>
                         <p style={{ fontSize: 13, fontWeight: 900, color: "var(--text-primary)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
-                          {getFeedActionLine(item)}
+                          {getRecentWinLine(item)}
                         </p>
                         <p style={{ fontSize: 10, color: "var(--text-muted)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", marginTop: 2 }}>
                           {item.createdAt?.toDate ? formatRelativeTime(item.createdAt.toDate()) : "just now"}
