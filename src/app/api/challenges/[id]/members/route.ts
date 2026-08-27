@@ -78,54 +78,24 @@ export async function GET(req: NextRequest, context: { params: Promise<{ id: str
     // A donation can be recorded before a member profile is added to the
     // project's memberUids array. Include those donor profiles so the
     // challenge total is attributable to a specific member in the list.
-    try {
-      const [causeDonations, titleDonations] = await Promise.all([
-        db.collectionGroup("donations").where("causeId", "==", challengeId).get(),
-        challengeTitle
-          ? db.collectionGroup("donations").where("causeTitle", "==", challengeTitle).get()
-          : Promise.resolve({ docs: [] }),
-      ]);
-      const donorDocs = new Map<string, FirebaseFirestore.QueryDocumentSnapshot>();
-      for (const donation of [
-        ...causeDonations.docs,
-        ...titleDonations.docs.filter((donation) => !donation.get("causeId")),
-      ]) donorDocs.set(donation.ref.path, donation);
-      for (const donation of donorDocs.values()) {
-        const uid = donation.ref.parent.parent?.id;
-        if (uid) memberUidSet.add(uid);
-      }
-    } catch (error) {
-      console.warn("[challenge members] donor lookup failed", error);
+    const allDonationDocs = await db.collectionGroup("donations").get();
+    const challengeDonationDocs = allDonationDocs.docs.filter((donation) => {
+      const causeId = donation.get("causeId");
+      return causeId === challengeId || (!causeId && Boolean(challengeTitle) && donation.get("causeTitle") === challengeTitle);
+    });
+    for (const donation of challengeDonationDocs) {
+      const uid = donation.ref.parent.parent?.id;
+      if (uid) memberUidSet.add(uid);
     }
 
     const resolvedMemberUids = Array.from(memberUidSet);
 
     const donatedByUid = new Map<string, number>();
-    let memberDonatedTotal = 0;
-    for (const batch of chunks(resolvedMemberUids, 10)) {
-      const donationSnaps = await Promise.all(batch.map(async (uid) => {
-        const donationsRef = db.collection("users").doc(uid).collection("donations");
-        const [causeDocs, titleDocs] = await Promise.all([
-          donationsRef.where("causeId", "==", challengeId).get(),
-          challengeTitle ? donationsRef.where("causeTitle", "==", challengeTitle).get() : Promise.resolve({ docs: [] }),
-        ]);
-        const unique = new Map<string, FirebaseFirestore.QueryDocumentSnapshot>();
-        for (const doc of [
-          ...causeDocs.docs,
-          ...titleDocs.docs.filter((doc) => !doc.get("causeId")),
-        ]) unique.set(doc.id, doc);
-        return [...unique.values()];
-      }));
-      for (let i = 0; i < donationSnaps.length; i += 1) {
-        const uid = batch[i];
-        let userDonated = 0;
-        for (const doc of donationSnaps[i]) {
-          const amount = doc.get("amount");
-          userDonated += typeof amount === "number" ? amount : 0;
-        }
-        donatedByUid.set(uid, userDonated);
-        memberDonatedTotal += userDonated;
-      }
+    for (const donation of challengeDonationDocs) {
+      const uid = donation.ref.parent.parent?.id;
+      const amount = Number(donation.get("amount") ?? 0);
+      if (!uid || !Number.isFinite(amount) || amount <= 0) continue;
+      donatedByUid.set(uid, (donatedByUid.get(uid) ?? 0) + amount);
     }
 
     const members = [];
