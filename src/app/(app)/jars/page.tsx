@@ -1616,7 +1616,7 @@ function JarBrowser({
 
   useEffect(() => {
     if (!fundingTarget) {
-      setFundingAmountStr("");
+      setFundingAmountStr("0.00");
     }
   }, [fundingTarget]);
 
@@ -1879,7 +1879,7 @@ function JarBrowser({
       }
     }
     setFundingTarget(target);
-    setFundingAmountStr("");
+    setFundingAmountStr("0.00");
   }
 
   async function confirmFundraiserSetup() {
@@ -1894,7 +1894,7 @@ function JarBrowser({
       await onSetSkipTarget(target);
       setFundraiserSetup(null);
       // A balance transfer is always an explicit choice; never carry a prior amount into this prompt.
-      setFundingAmountStr("");
+      setFundingAmountStr("0.00");
       if (availableSkipBankBalance > 0) {
         setFundingTarget(target);
       } else {
@@ -2026,18 +2026,14 @@ function JarBrowser({
     if (target.type === "goal") {
       const goal = goals.find((candidate) => candidate.id === target.id);
       if (!goal?.targetAmount) return null;
-      const currentBalance = Math.max(0, goalJarBalances?.[goal.id] ?? 0);
-      const nextBalance = currentBalance + appliedAmount;
-      const percent = Math.min(100, Math.round((nextBalance / goal.targetAmount) * 100));
-      return `${formatCurrency(nextBalance)} in this jar - about ${percent}% of your ${formatCurrency(goal.targetAmount)} goal.`;
+      const percent = Math.min(100, Math.round((appliedAmount / goal.targetAmount) * 100));
+      return `${formatCurrency(appliedAmount)} of your Skip Bucks will be used for this jar - about ${percent}% of goal.`;
     }
     const project = projects.find((candidate) => candidate.id === target.id);
     const goalAmount = skipFundingGoalAmount(target);
     if (goalAmount && goalAmount > 0) {
-      const currentBalance = Math.max(0, causeJarBalances?.[target.id] ?? 0);
-      const nextBalance = currentBalance + appliedAmount;
-      const percent = Math.min(100, Math.round((nextBalance / goalAmount) * 100));
-      return `${formatCurrency(nextBalance)} in this jar - about ${percent}% of your ${formatCurrency(goalAmount)} goal.`;
+      const percent = Math.min(100, Math.round((appliedAmount / goalAmount) * 100));
+      return `${formatCurrency(appliedAmount)} of your Skip Bucks will be used for this jar - about ${percent}% of goal.`;
     }
     if (project?.unitCost && project.unitCost > 0) {
       return `That is about ${formatAggregateImpactUnitsDecimal(
@@ -2328,7 +2324,7 @@ function JarBrowser({
               <>
                 <div className="relative px-5 pt-5 pb-4 pr-12" style={{ borderBottom: "1px solid var(--border-default)" }}>
                   <p className="text-lg font-black leading-tight" style={{ color: "var(--text-primary)" }}>
-                    Change your active jar?
+                    Change Your Active Jar?
                   </p>
                   <button
                     type="button"
@@ -2340,7 +2336,7 @@ function JarBrowser({
                     x
                   </button>
                   <p className="text-sm mt-2 leading-relaxed" style={{ color: "var(--text-secondary)" }}>
-                    You have {formatCurrency(switchPrompt.balance)} saved in {targetLabel(switchPrompt.previous)}. Choose where your future skips should go.
+                    You currently have {formatCurrency(switchPrompt.balance)} saved for {targetLabel(switchPrompt.previous)}.
                   </p>
                 </div>
                 <div className="space-y-3 p-5">
@@ -2352,10 +2348,10 @@ function JarBrowser({
                     style={{ background: "#2ECC71", color: "#071B14" }}
                   >
                     <span className="block text-sm font-black">
-                      {jarDecisionWorking === "switch" ? "Changing jar..." : `Pause this jar and start skipping for ${targetLabel(switchPrompt.next)}`}
+                      {jarDecisionWorking === "switch" ? "Changing jar..." : `Start skipping for ${targetLabel(switchPrompt.next)}`}
                     </span>
                     <span className="mt-0.5 block text-xs font-bold opacity-80">
-                      Your {formatCurrency(switchPrompt.balance)} will stay saved in {targetLabel(switchPrompt.previous)}. Future skips will go to {targetLabel(switchPrompt.next)}.
+                      Your {formatCurrency(switchPrompt.balance)} will remain in {targetLabel(switchPrompt.previous)}.
                     </span>
                   </button>
                   <button
@@ -2366,10 +2362,7 @@ function JarBrowser({
                     style={{ background: "rgba(237,245,240,0.05)", border: "1px solid rgba(237,245,240,0.1)", color: "var(--text-primary)" }}
                   >
                     <span className="block text-sm font-black">
-                      Keep {targetLabel(switchPrompt.previous)} as your active jar
-                    </span>
-                    <span className="mt-0.5 block text-xs font-bold opacity-70">
-                      Future skips will continue going there.
+                      Keep skipping for {targetLabel(switchPrompt.previous)}
                     </span>
                   </button>
                   <div className="pt-1">
@@ -2411,7 +2404,7 @@ function JarBrowser({
                             Move balance to Skip Bucks
                           </span>
                           <span className="mt-0.5 block text-xs font-bold" style={{ color: "var(--text-muted)" }}>
-                            Free it up to use later, then change your active jar.
+                            Put the {formatCurrency(switchPrompt.balance)} back into your Skip Bucks.
                           </span>
                         </button>
                       </div>
@@ -2657,7 +2650,7 @@ function JarBrowser({
           <div className="max-h-[calc(100dvh-2rem)] w-full max-w-sm overflow-y-auto rounded-2xl shadow-2xl" style={{ background: "var(--bg-surface-1)", border: "1px solid var(--border-default)" }} onClick={(e) => e.stopPropagation()}>
             <div className="relative px-5 pt-5 pb-4 pr-12" style={{ borderBottom: "1px solid var(--border-default)" }}>
               <p className="text-lg font-black leading-tight" style={{ color: "var(--text-primary)" }}>
-                Skip for {fundraiserSetup.groupName ?? fundraiserSetup.title}?
+                Set a Personal Savings Goal for {fundraiserSetup.groupName ?? fundraiserSetup.title}
               </p>
               <p className="mt-1 text-xs font-bold" style={{ color: "var(--text-muted)" }}>
                 {fundraiserGroupGoalLine(fundraiserSetup)}
@@ -2674,9 +2667,6 @@ function JarBrowser({
             </div>
             <div className="space-y-4 p-5">
               <div>
-                <label className="mb-1.5 block text-xs font-black uppercase tracking-wide" style={{ color: "#A7F3D0" }}>
-                  Personal skipping goal
-                </label>
                 <div className="relative">
                   <span className="absolute left-4 top-1/2 -translate-y-1/2 text-sm" style={{ color: "var(--text-muted)" }}>$</span>
                   <input
@@ -2714,7 +2704,7 @@ function JarBrowser({
                 className="w-full rounded-xl py-3 text-sm font-black disabled:opacity-50"
                 style={{ background: "#2ECC71", color: "#071B14" }}
               >
-                {fundraiserSetupWorking ? "Setting up..." : "Set goal and skip"}
+                {fundraiserSetupWorking ? "Setting up..." : "Set Goal"}
               </button>
             </div>
           </div>
@@ -2731,7 +2721,7 @@ function JarBrowser({
           : null;
         const fundingGoalAmount = skipFundingGoalAmount(fundingTarget);
         return (
-        <div className="fixed inset-0 bg-black/60 z-50 flex items-end sm:items-center justify-center p-4" onClick={() => setFundingTarget(null)}>
+        <div className="fixed inset-0 bg-black/60 z-50 flex items-end sm:items-center justify-center p-4">
           <div className="max-h-[calc(100dvh-2rem)] w-full max-w-sm overflow-y-auto rounded-2xl shadow-2xl" style={{ background: "var(--bg-surface-1)", border: "1px solid var(--border-default)" }} onClick={(e) => e.stopPropagation()}>
             <div className="px-5 pt-5 pb-4 relative" style={{ borderBottom: "1px solid var(--border-default)" }}>
               <button onClick={() => setFundingTarget(null)} aria-label="Close" className="absolute top-4 right-4 text-xl leading-none" style={{ color: "var(--text-muted)" }}>x</button>
@@ -2782,25 +2772,17 @@ function JarBrowser({
                       That is more than your Skip Bucks. Lower the amount to {formatCurrency(availableSkipBankBalance)} or less.
                     </p>
                   )}
-                  <button
-                    onClick={confirmSkipBankFunding}
-                    disabled={fundingWorking || !fundingAmountStr || parseFloat(fundingAmountStr) <= 0 || parseFloat(fundingAmountStr) > availableSkipBankBalance}
-                    className="mt-3 w-full rounded-xl py-3 text-sm font-black disabled:opacity-50"
-                    style={{ background: fundingTarget.type === "fundraiser" ? "rgba(46,204,113,0.18)" : "rgba(139,92,246,0.2)", color: fundingMutedColor }}
-                  >
-                    {fundingWorking ? "Moving..." : "Use"}
-                  </button>
                 </div>
               )}
               <button
-                onClick={confirmSkipBankDecline}
-                disabled={fundingWorking}
+                onClick={() => parseFloat(fundingAmountStr) > 0 ? confirmSkipBankFunding() : confirmSkipBankDecline()}
+                disabled={fundingWorking || !Number.isFinite(parseFloat(fundingAmountStr)) || parseFloat(fundingAmountStr) < 0 || parseFloat(fundingAmountStr) > availableSkipBankBalance}
                 className="w-full rounded-xl py-3 text-sm font-black disabled:opacity-50"
                 style={hasSkipBank
-                  ? { background: "var(--bg-surface-3)", color: "var(--text-primary)", border: "1px solid var(--border-default)" }
+                  ? { background: fundingAccent, color: fundingTextColor }
                   : { background: fundingAccent, color: fundingTextColor }}
               >
-                {fundingWorking ? "Activating..." : hasSkipBank ? "Don't use old skips" : fundingGoal ? "Skip for this reward" : "Start skipping for this"}
+                {fundingWorking ? (parseFloat(fundingAmountStr) > 0 ? "Moving..." : "Activating...") : hasSkipBank ? "Continue" : fundingGoal ? "Skip for this reward" : "Start skipping for this"}
               </button>
             </div>
           </div>

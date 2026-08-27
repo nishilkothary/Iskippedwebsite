@@ -34,7 +34,7 @@ type ChallengeView = {
   skipChallengeLine: string | null;
 };
 
-type InviteStep = "intro" | "active-choice" | "goal" | "skip-bucks" | "first-skip";
+type InviteStep = "intro" | "active-choice" | "goal" | "skip-bucks" | "first-skip" | "already-active" | "already-joined";
 
 
 function challengeTitle(project: Project): string {
@@ -314,9 +314,16 @@ export default function ChallengeDetailPage() {
     setInviteFlowSeenFor(challenge.project.id);
     // A fundraiser join must never prefill a personal goal from an older jar.
     setPersonalGoalInput("");
-    setSkipBucksInput("");
-    setInviteStep("intro");
-  }, [user, challenge, searchParams, inviteFlowSeenFor, profile?.causeGoalAmounts]);
+    setSkipBucksInput("0.00");
+    const hasJoinedChallenge = profile?.joinedProjectIds?.includes(challenge.project.id) ?? false;
+    setInviteStep(
+      profile?.activeProjectId === challenge.project.id
+        ? "already-active"
+        : hasJoinedChallenge
+          ? "already-joined"
+          : "intro",
+    );
+  }, [user, challenge, searchParams, inviteFlowSeenFor, profile?.activeProjectId, profile?.causeGoalAmounts]);
 
   if (!challenge) {
     if (projectsLoading || !fallbackChecked) {
@@ -340,6 +347,7 @@ export default function ChallengeDetailPage() {
   }
 
   const isActive = challenge.project.id === profile?.activeProjectId;
+  const hasJoinedChallenge = profile?.joinedProjectIds?.includes(challenge.project.id) ?? false;
   const activeInviteTarget = profile?.activeSkipTarget === undefined
     ? profile?.activeSpendingGoalId
       ? { type: "goal" as const, id: profile.activeSpendingGoalId }
@@ -434,7 +442,7 @@ export default function ChallengeDetailPage() {
     const hasPersonalGoal = Number.isFinite(amount) && amount > 0;
     const hasSkipBucksAmount = Number.isFinite(skipBucksAmount) && skipBucksAmount > 0;
     const availableSkipBucks = getSkipBalanceSummary(profile).unassignedSkipBank;
-    if (personalGoalInput.trim() && !hasPersonalGoal) return;
+    if (!hasPersonalGoal) return;
     if (hasSkipBucksAmount && skipBucksAmount > availableSkipBucks) return;
     setJoining(true);
     try {
@@ -449,16 +457,16 @@ export default function ChallengeDetailPage() {
         joinedProjectIds: Array.from(new Set([...(profile?.joinedProjectIds ?? []), challenge.project.id])),
       });
 
-      // Optional invite settings are saved after membership succeeds so they
+      // Invite settings are saved after membership succeeds so they
       // cannot leave the join button stuck when a profile write is delayed.
       void Promise.all([
-        ...(hasPersonalGoal ? [setUserCauseGoal(user.uid, challenge.project.id, amount)] : []),
+        setUserCauseGoal(user.uid, challenge.project.id, amount),
         profile?.challengeEmailConsents?.[challenge.project.id] === undefined
           ? setChallengeEmailConsent(user.uid, challenge.project.id, shareEmailOnJoin)
           : Promise.resolve(),
       ]).then(() => {
         updateProfile({
-          ...(hasPersonalGoal ? { causeGoalAmounts: { ...(profile?.causeGoalAmounts ?? {}), [challenge.project.id]: amount } } : {}),
+          causeGoalAmounts: { ...(profile?.causeGoalAmounts ?? {}), [challenge.project.id]: amount },
           challengeEmailConsents: profile?.challengeEmailConsents?.[challenge.project.id] === undefined
             ? { ...(profile?.challengeEmailConsents ?? {}), [challenge.project.id]: shareEmailOnJoin }
             : profile?.challengeEmailConsents,
@@ -501,6 +509,7 @@ export default function ChallengeDetailPage() {
 
   function continueInviteGoal() {
     if (getSkipBalanceSummary(profile).unassignedSkipBank > 0) {
+      setSkipBucksInput("0.00");
       setInviteStep("skip-bucks");
       return;
     }
@@ -680,7 +689,9 @@ export default function ChallengeDetailPage() {
                   boxShadow: "0 4px 18px var(--gold-glow)",
                 }}
               >
-                {isActive ? (profileChallengeBalance > 0 ? "Log a Skip" : "Log your first skip") : joining ? "Choosing..." : "Skip for this"}
+                {isActive
+                  ? (profileChallengeBalance > 0 ? "Log a Skip" : "Log your first skip")
+                  : hasJoinedChallenge ? "Activate" : joining ? "Choosing..." : "Skip for this"}
               </button>
             )}
             {challenge.project.donationURL && (
@@ -764,6 +775,7 @@ export default function ChallengeDetailPage() {
           joining={joining}
           onClose={() => setInviteStep(null)}
           onStart={startInviteJoin}
+          onActivate={completeJoin}
           activeJarLabel={activeJarLabel}
           onChooseActivity={chooseInviteActivity}
           onGoalChange={setPersonalGoalInput}
@@ -790,6 +802,7 @@ function InviteFlowModal({
   joining,
   onClose,
   onStart,
+  onActivate,
   activeJarLabel,
   onChooseActivity,
   onGoalChange,
@@ -809,6 +822,7 @@ function InviteFlowModal({
   joining: boolean;
   onClose: () => void;
   onStart: () => void;
+  onActivate: () => Promise<void>;
   activeJarLabel: string;
   onChooseActivity: (makeActive: boolean) => void;
   onGoalChange: (value: string) => void;
@@ -821,29 +835,45 @@ function InviteFlowModal({
   onLater: () => void;
 }) {
   const amount = Number(goalValue);
-  const validGoal = !goalValue.trim() || (Number.isFinite(amount) && amount > 0);
+  const validGoal = Number.isFinite(amount) && amount > 0;
   const skipBucksAmount = Number(skipBucksValue);
-  const validSkipBucks = !skipBucksValue.trim() || (Number.isFinite(skipBucksAmount) && skipBucksAmount > 0 && skipBucksAmount <= availableSkipBucks);
+  const validSkipBucks = Number.isFinite(skipBucksAmount) && skipBucksAmount >= 0 && skipBucksAmount <= availableSkipBucks;
   const unitCount = challenge.project.unitCost && validGoal ? amount / challenge.project.unitCost : null;
   const unitLabel = challenge.project.unitDisplay ?? challenge.project.unitName ?? "units";
   const causePhrase = getChallengeCausePhrase(challenge.project);
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4" style={{ background: "rgba(0,0,0,0.68)" }}>
-      <div className="w-full max-w-md overflow-hidden rounded-2xl shadow-2xl" style={{ background: "var(--bg-surface-1)", border: "1px solid var(--border-emphasis)" }}>
-        <div className="relative px-5 py-4" style={{ borderBottom: "1px solid var(--border-default)" }}>
-          <p className="text-xs uppercase tracking-[0.14em] font-black mb-1" style={{ color: "var(--green-primary)" }}>
-            Fundraiser invite
-          </p>
-          <p className="text-xl font-black leading-tight pr-8" style={{ color: "var(--text-primary)" }}>
+    <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-4" style={{ background: "rgba(0,0,0,0.68)" }}>
+      <div className="max-h-[calc(100dvh-2rem)] w-full max-w-sm overflow-y-auto rounded-2xl shadow-2xl" style={{ background: "var(--bg-surface-1)", border: "1px solid var(--border-default)" }}>
+        <div className="relative px-5 pt-5 pb-4 pr-12" style={{ borderBottom: "1px solid var(--border-default)" }}>
+          {step === "intro" && (
+            <p className="text-xs uppercase tracking-[0.14em] font-black mb-1" style={{ color: "var(--green-primary)" }}>
+              Fundraiser invite
+            </p>
+          )}
+          <p className="text-lg font-black leading-tight pr-8" style={{ color: "var(--text-primary)" }}>
             {step === "intro"
               ? `You were invited to skip for ${challenge.title}`
               : step === "active-choice"
                 ? `You are currently skipping for ${activeJarLabel}`
                 : step === "goal"
-                  ? `Join ${challenge.title}`
-                  : "Have you skipped anything recently?"}
+                  ? `Set a Personal Savings Goal for ${challenge.project.groupName ?? challenge.title}`
+              : step === "already-active"
+                    ? `You are currently skipping for ${challenge.project.groupName ?? challenge.title}`
+                    : step === "already-joined"
+                      ? `You already joined ${challenge.project.groupName ?? challenge.title}`
+                    : "Use existing Skip Bucks?"}
           </p>
+          {step === "goal" && (
+            <p className="mt-1 text-xs font-bold" style={{ color: "var(--text-muted)" }}>
+              {formatGroupGoal(challenge.project)}
+            </p>
+          )}
+          {step === "skip-bucks" && (
+            <p className="mt-1 text-xs font-bold leading-snug" style={{ color: "var(--text-muted)" }}>
+              You have {formatCurrency(availableSkipBucks)} in Skip Bucks. Do you want to use any to help fill this goal of {formatCurrency(amount)}?
+            </p>
+          )}
           <button
             type="button"
             onClick={onClose}
@@ -900,71 +930,92 @@ function InviteFlowModal({
             </>
           )}
 
-          {step === "goal" && (
+          {step === "already-active" && (
             <>
               <p className="text-sm leading-relaxed" style={{ color: "var(--text-secondary)" }}>
-                Add a personal savings goal if you want one. It is separate from the group goal and is optional.
+                This cause is already your active jar.
               </p>
-              <p className="text-xs font-bold" style={{ color: "var(--text-muted)" }}>
-                {formatGroupGoal(challenge.project)}
+              <button
+                type="button"
+                onClick={onLogSkip}
+                className="w-full rounded-xl py-3 text-sm font-black"
+                style={{ background: "#2ECC71", color: "#071B14" }}
+              >
+                Log a Skip
+              </button>
+            </>
+          )}
+
+          {step === "already-joined" && (
+            <>
+              <p className="text-sm leading-relaxed" style={{ color: "var(--text-secondary)" }}>
+                This challenge is paused. Activate it to send future skips here.
               </p>
-              <label className="block">
-                <span className="text-xs uppercase tracking-wide font-black" style={{ color: "var(--green-primary)" }}>Personal savings goal (optional)</span>
-                <div className="mt-2 flex items-center rounded-xl px-3 py-2" style={{ background: "var(--bg-surface-2)", border: "1px solid var(--border-default)" }}>
-                  <span className="text-sm font-black mr-2" style={{ color: "var(--text-muted)" }}>$</span>
-                  <input
-                    type="number"
-                    min="1"
-                    value={goalValue}
-                    onChange={(event) => onGoalChange(event.target.value)}
-                    className="w-full bg-transparent outline-none text-base font-black"
-                    style={{ color: "var(--text-primary)" }}
-                  />
-                </div>
-              </label>
+              <button
+                type="button"
+                onClick={() => {
+                  onClose();
+                  void onActivate();
+                }}
+                disabled={joining}
+                className="w-full rounded-xl py-3 text-sm font-black disabled:opacity-60"
+                style={{ background: "#2ECC71", color: "#071B14" }}
+              >
+                {joining ? "Activating..." : "Activate"}
+              </button>
+            </>
+          )}
+
+          {step === "goal" && (
+            <>
+              <div className="relative">
+                <span className="absolute left-4 top-1/2 -translate-y-1/2 text-sm" style={{ color: "var(--text-muted)" }}>$</span>
+                <input
+                  type="number"
+                  min="1"
+                  value={goalValue}
+                  onChange={(event) => onGoalChange(event.target.value)}
+                  className="w-full pl-8 rounded-xl px-4 py-3 text-sm focus:outline-none"
+                  style={{ background: "var(--bg-surface-2)", border: "1px solid var(--border-default)", color: "var(--text-primary)" }}
+                  autoFocus
+                />
+              </div>
               {unitCount !== null && (
                 <p className="text-xs font-bold" style={{ color: "var(--green-primary)" }}>
                   About {unitCount < 10 ? unitCount.toFixed(1) : Math.round(unitCount).toLocaleString()} {unitLabel}.
                 </p>
               )}
-              <label
-                className="flex items-start gap-3 rounded-xl p-3 cursor-pointer"
-                style={{ background: "var(--bg-surface-2)", border: "1px solid var(--border-default)" }}
-              >
+              <label className="flex items-start gap-2 cursor-pointer pt-1">
                 <input
                   type="checkbox"
                   checked={shareEmailOnJoin}
                   onChange={(event) => onShareEmailChange(event.target.checked)}
-                  className="mt-1 h-4 w-4 accent-[var(--green-primary)]"
+                  className="mt-0.5 h-3 w-3 accent-[var(--green-primary)]"
                 />
-                <span>
-                  <span className="block text-sm font-black" style={{ color: "var(--text-primary)" }}>Allow challenge updates by email</span>
-                  <span className="block text-xs leading-relaxed mt-1" style={{ color: "var(--text-muted)" }}>
-                    From {challenge.project.sponsor?.trim() || challenge.project.groupName?.trim() || "the organizer"}, for this challenge only.
-                  </span>
+                <span className="text-[10px] leading-snug" style={{ color: "var(--text-muted)" }}>
+                  Allow challenge updates by email. From {challenge.project.sponsor?.trim() || challenge.project.groupName?.trim() || "the organizer"}, for this challenge only.
                 </span>
               </label>
               <button
                 type="button"
                 onClick={onContinueGoal}
                 disabled={!validGoal || joining}
-                className="w-full rounded-full py-3 text-sm font-black disabled:opacity-60"
-                style={{ background: "linear-gradient(135deg, var(--green-primary), var(--green-grad-end))", color: "var(--bg-base)" }}
+                className="w-full rounded-xl py-3 text-sm font-black disabled:opacity-60"
+                style={{ background: "#2ECC71", color: "#071B14" }}
               >
-                {joining ? "Joining..." : availableSkipBucks > 0 ? "Continue" : "Join fundraiser"}
+                {joining ? "Setting up..." : "Set Goal"}
               </button>
             </>
           )}
 
           {step === "skip-bucks" && (
             <>
-              <p className="text-sm leading-relaxed" style={{ color: "var(--text-secondary)" }}>
-                You have {formatCurrency(availableSkipBucks)} in Skip Bucks. Would you like to move any of it into this fundraiser now?
-              </p>
-              <label className="block">
-                <span className="text-xs uppercase tracking-wide font-black" style={{ color: "var(--green-primary)" }}>Skip Bucks to add (optional)</span>
-                <div className="mt-2 flex items-center rounded-xl px-3 py-2" style={{ background: "var(--bg-surface-2)", border: "1px solid var(--border-default)" }}>
-                  <span className="text-sm font-black mr-2" style={{ color: "var(--text-muted)" }}>$</span>
+              <div className="rounded-xl p-4" style={{ background: "rgba(237,245,240,0.045)", border: "1px solid rgba(237,245,240,0.08)" }}>
+                <p className="mb-3 text-xs font-bold leading-snug" style={{ color: "var(--text-muted)" }}>
+                  Enter an amount to use.
+                </p>
+                <div className="relative">
+                  <span className="absolute left-4 top-1/2 -translate-y-1/2 text-sm" style={{ color: "var(--text-muted)" }}>$</span>
                   <input
                     type="number"
                     min="0"
@@ -972,21 +1023,21 @@ function InviteFlowModal({
                     value={skipBucksValue}
                     onChange={(event) => onSkipBucksChange(event.target.value)}
                     placeholder="0.00"
-                    className="w-full bg-transparent outline-none text-base font-black"
-                    style={{ color: "var(--text-primary)" }}
+                    className="w-full pl-8 rounded-xl px-4 py-3 text-sm focus:outline-none"
+                    style={{ background: "var(--bg-surface-2)", border: "1px solid var(--border-default)", color: "var(--text-primary)" }}
                     autoFocus
                   />
                 </div>
-              </label>
+              </div>
               {!validSkipBucks && <p className="text-xs font-bold" style={{ color: "#F59E0B" }}>Enter an amount up to your available Skip Bucks.</p>}
               <button
                 type="button"
                 onClick={onSubmitGoal}
                 disabled={!validSkipBucks || joining}
-                className="w-full rounded-full py-3 text-sm font-black disabled:opacity-60"
-                style={{ background: "linear-gradient(135deg, var(--green-primary), var(--green-grad-end))", color: "var(--bg-base)" }}
+                className="w-full rounded-xl py-3 text-sm font-black disabled:opacity-60"
+                style={{ background: "#2ECC71", color: "#071B14" }}
               >
-                {joining ? "Joining..." : "Join fundraiser"}
+                {joining ? "Activating..." : "Continue"}
               </button>
             </>
           )}
