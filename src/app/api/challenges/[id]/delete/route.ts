@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { FieldValue } from "firebase-admin/firestore";
 import { getAdminDb } from "@/lib/services/firebaseAdmin";
 import { requireUid, ApiError, handleApiError } from "@/lib/services/apiAuth";
 import { balancesFromLots, cloneLots, locationKey, transferLots } from "@/lib/utils/skipLedger";
@@ -50,6 +51,8 @@ export async function POST(req: NextRequest, context: { params: Promise<{ id: st
         }
         if (profile.activeProjectId === id) updates.activeProjectId = null;
         if (profile.activeSkipTarget?.type === "fundraiser" && profile.activeSkipTarget.id === id) updates.activeSkipTarget = null;
+        updates.joinedProjectIds = FieldValue.arrayRemove(id);
+        updates.parkedSkipTargets = FieldValue.arrayRemove({ type: "fundraiser", id });
         if (amount > 0) {
           updates[`deletedFundraiserNotices.${id}`] = {
             title,

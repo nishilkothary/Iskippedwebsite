@@ -3315,7 +3315,7 @@ function JarBrowser({
                       <div>
                         <div>
                           <div className="flex items-center justify-between gap-3 text-[10px] font-black uppercase tracking-wide" style={{ color: "#7DD3FC" }}>
-                            <span>{formatCurrency(groupRaised)} saved</span>
+                            <span>{formatCurrency(groupRaised)} group skips</span>
                             <span>
                               {groupGoal > 0
                                 ? `${formatCurrency(groupGoal)} goal`

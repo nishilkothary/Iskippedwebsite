@@ -182,6 +182,11 @@ export async function releaseJarToSkipBank(uid: string, target: SkipAllocationTa
   return result.releasedAmount;
 }
 
+export async function deleteJar(uid: string, target: SkipAllocationTarget): Promise<number> {
+  const result = await apiRequest<{ deletedAmount: number }>("/api/jars/delete", "POST", { target });
+  return result.deletedAmount;
+}
+
 export type JarBalanceEndpoint = SkipAllocationTarget | { type: "skip-bucks" };
 
 export async function moveJarBalance(

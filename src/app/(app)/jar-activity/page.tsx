@@ -18,6 +18,7 @@ import {
   setUserCauseGoal,
   parkSkipTarget,
   deactivateSkipTarget,
+  deleteJar,
   deleteDonation,
   deleteSpendingHistory,
   subscribeToDonations,
@@ -72,11 +73,6 @@ function progressPercent(balance: number, goalAmount: number) {
   return Math.min(100, Math.round((Math.max(0, balance) / goalAmount) * 100));
 }
 
-function goalLine(item: JarActivityItem) {
-  if (item.goalAmount <= 0) return "Open goal";
-  return `${progressPercent(item.balance, item.goalAmount)}% of ${formatCurrency(item.goalAmount)}`;
-}
-
 function cents(value: number) {
   return Math.round(value * 100) / 100;
 }
@@ -124,6 +120,7 @@ function JarActivityCard({
   onPurchase,
   onDeactivate,
   onEditGoalAmount,
+  onDelete,
 }: {
   item: JarActivityItem;
   working: boolean;
@@ -132,11 +129,12 @@ function JarActivityCard({
   onPurchase: (goal: SpendingGoal) => void;
   onDeactivate: (item: JarActivityItem) => void;
   onEditGoalAmount: (item: JarActivityItem) => void;
+  onDelete: (item: JarActivityItem) => void;
 }) {
+  const [menuOpen, setMenuOpen] = useState(false);
   const percent = progressPercent(item.balance, item.goalAmount);
   const accent = item.type === "fundraiser" ? "var(--green-primary)" : "#A78BFA";
   const gradEnd = item.type === "fundraiser" ? "#1E9485" : "#6D5FD4";
-  const actionLabel = item.type === "fundraiser" ? "Donate my skips" : "Spend my skips";
   const visualFillPercent = Math.max(percent, item.balance > 0 ? 8 : 0);
   const fillHeight = (visualFillPercent / 100) * 120;
   const fillY = 170 - fillHeight;
@@ -148,27 +146,11 @@ function JarActivityCard({
       className="jar-activity-card w-[172px] p-0"
       style={{
         background: "transparent",
+        position: "relative",
       }}
     >
-      <div className="jar-activity-card-heading text-left">
-        <div className="flex min-w-0 items-center gap-1.5">
-          <h2 className="jar-activity-card-title truncate text-sm font-black leading-tight" style={{ color: accent }}>{item.title}</h2>
-        </div>
-        <div className="mt-1 flex items-center gap-1.5">
-          <p className="jar-activity-card-subtitle text-xs" style={{ color: "var(--text-muted)" }}>{goalLine(item)}</p>
-          {item.active && (
-            <button
-              type="button"
-              onClick={() => onEditGoalAmount(item)}
-              className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full text-[10px] leading-none"
-              style={{ background: item.type === "fundraiser" ? "rgba(46,204,113,0.13)" : "rgba(167,139,250,0.16)", border: `1px solid ${accent}`, color: accent }}
-              title="Edit jar goal"
-              aria-label="Edit jar goal"
-            >
-              ✎
-            </button>
-          )}
-        </div>
+      <div className="jar-activity-card-heading text-left pr-8">
+        <h2 className="jar-activity-card-title truncate text-sm font-black leading-tight" style={{ color: item.active ? accent : "var(--text-muted)" }}>{item.title}</h2>
       </div>
 
       <div className="jar-activity-card-visual mt-4 flex justify-center">
@@ -211,48 +193,42 @@ function JarActivityCard({
         </svg>
       </div>
 
-      <div className="jar-activity-card-actions mt-3 grid gap-1.5">
-        {item.type === "fundraiser" && item.project ? (
-          <button
-            type="button"
-            onClick={() => onDonate(item.project!)}
-            className="rounded-full px-3 py-1.5 text-center text-[11px] font-black"
-            style={{ background: "rgba(46,204,113,0.18)", border: `1px solid ${accent}`, color: accent }}
+      <div className="jar-activity-card-manage relative mt-3">
+        <button
+          type="button"
+          onClick={() => setMenuOpen((open) => !open)}
+          className="rounded-full px-2.5 py-1 text-[11px] font-black leading-none"
+          style={{
+            background: item.active ? "rgba(46,204,113,0.1)" : "rgba(237,245,240,0.04)",
+            border: item.active ? "1px solid rgba(46,204,113,0.5)" : "1px solid rgba(237,245,240,0.12)",
+            color: item.active ? "var(--green-primary)" : "var(--text-muted)",
+          }}
+          aria-label={`Manage ${item.title}`}
+          aria-expanded={menuOpen}
+        >
+          Manage
+        </button>
+        {menuOpen && (
+          <div
+            className="absolute left-0 top-9 z-30 min-w-[168px] rounded-xl p-1.5 shadow-xl"
+            style={{ background: "var(--bg-surface-1)", border: "1px solid var(--border-emphasis)" }}
           >
-            {actionLabel}
-          </button>
-        ) : item.type === "goal" ? (
-          <button
-            type="button"
-            onClick={() => onPurchase(item.goal)}
-            className="rounded-full px-3 py-1.5 text-center text-[11px] font-black"
-            style={{ background: "rgba(167,139,250,0.18)", border: `1px solid ${accent}`, color: "#DDD6FE" }}
-          >
-            {actionLabel}
-          </button>
-        ) : null}
-        {item.active ? (
-          <button
-            type="button"
-            onClick={() => onDeactivate(item)}
-            disabled={working}
-            className="rounded-full px-3 py-1.5 text-[11px] font-black disabled:opacity-50"
-            style={{ background: "transparent", border: "1px solid rgba(239,68,68,0.34)", color: "#FCA5A5" }}
-          >
-            Deactivate
-          </button>
-        ) : (
-          <button
-            type="button"
-            onClick={() => onResume(item)}
-            disabled={working}
-            className="rounded-full px-3 py-1.5 text-[11px] font-black disabled:opacity-50"
-            style={{ background: "transparent", border: `1px solid ${accent}`, color: accent }}
-          >
-            Make active
-          </button>
+            {item.type === "fundraiser" && item.project ? (
+              <button type="button" onClick={() => { setMenuOpen(false); onDonate(item.project!); }} className="jar-action-menu-item">Donate my skips</button>
+            ) : item.type === "goal" ? (
+              <button type="button" onClick={() => { setMenuOpen(false); onPurchase(item.goal); }} className="jar-action-menu-item">Spend my skips</button>
+            ) : null}
+            {item.active ? (
+              <button type="button" onClick={() => { setMenuOpen(false); onDeactivate(item); }} disabled={working} className="jar-action-menu-item">Deactivate</button>
+            ) : (
+              <button type="button" onClick={() => { setMenuOpen(false); onResume(item); }} disabled={working} className="jar-action-menu-item">Make active</button>
+            )}
+            <button type="button" onClick={() => { setMenuOpen(false); onEditGoalAmount(item); }} className="jar-action-menu-item">Edit goal</button>
+            <button type="button" onClick={() => { setMenuOpen(false); onDelete(item); }} disabled={working} className="jar-action-menu-item">Delete jar</button>
+          </div>
         )}
       </div>
+
     </article>
   );
 }
@@ -264,24 +240,6 @@ function SectionHeader({ title, subtitle }: { title: string; subtitle?: string }
         <h2 className="text-lg font-black" style={{ color: "var(--text-primary)" }}>{title}</h2>
         {subtitle && <p className="mt-1 text-sm" style={{ color: "var(--text-muted)" }}>{subtitle}</p>}
       </div>
-    </div>
-  );
-}
-
-function JarShelfLabel({ label, count, helper }: { label: string; count?: number; helper?: string }) {
-  return (
-    <div className="jar-shelf-heading flex items-center justify-between gap-3">
-      <div>
-        <h2 className="jar-shelf-title text-lg font-black" style={{ color: "var(--text-primary)" }}>
-          {label}
-        </h2>
-        {helper && <p className="jar-shelf-helper mt-1 text-xs" style={{ color: "var(--text-muted)" }}>{helper}</p>}
-      </div>
-      {typeof count === "number" && count > 0 && (
-        <span className="jar-shelf-count rounded-full px-2.5 py-1 text-[11px] font-black" style={{ background: "rgba(46,204,113,0.1)", color: "var(--green-primary)" }}>
-          {count}
-        </span>
-      )}
     </div>
   );
 }
@@ -743,6 +701,43 @@ function JarActivityPageInner() {
     setMoveAmount(amountInputValue(item.balance));
   }
 
+  async function handleDeleteJar(item: JarActivityItem) {
+    if (!user || workingId) return;
+    const confirmed = window.confirm(
+      `${item.balance > 0 ? `${formatCurrency(item.balance)} will be moved to Skip Bucks, then ` : ""}delete ${item.title}?`,
+    );
+    if (!confirmed) return;
+    setWorkingId(item.id);
+    try {
+      await deleteJar(user.uid, { type: item.type === "fundraiser" ? "fundraiser" : "goal", id: item.id });
+      if (item.type === "fundraiser") {
+        const nextCauseBalances = { ...(profileData.causeJarBalances ?? {}) };
+        delete nextCauseBalances[item.id];
+        updateProfile({
+          causeJarBalances: nextCauseBalances,
+          joinedProjectIds: (profileData.joinedProjectIds ?? []).filter((id) => id !== item.id),
+          parkedSkipTargets: (profileData.parkedSkipTargets ?? []).filter((target) => target.type !== "fundraiser" || target.id !== item.id),
+          ...(profileData.activeProjectId === item.id ? { activeProjectId: null } : {}),
+          ...(profileData.activeSkipTarget?.type === "fundraiser" && profileData.activeSkipTarget.id === item.id ? { activeSkipTarget: null } : {}),
+        });
+      } else {
+        const nextGoalBalances = { ...(profileData.goalJarBalances ?? {}) };
+        delete nextGoalBalances[item.id];
+        updateProfile({
+          goalJarBalances: nextGoalBalances,
+          spendingGoals: spendingGoals.filter((goal) => goal.id !== item.id),
+          ...(profileData.activeSpendingGoalId === item.id ? { activeSpendingGoalId: null, activeSkipTarget: null, spendingGoal: null } : {}),
+          parkedSkipTargets: (profileData.parkedSkipTargets ?? []).filter((target) => target.type !== "goal" || target.id !== item.id),
+        });
+      }
+      toast.success(`${item.title} deleted. Saved money was moved to Skip Bucks.`);
+    } catch {
+      toast.error("Could not delete this jar. Try again.");
+    } finally {
+      setWorkingId(null);
+    }
+  }
+
   function beginDonate(project: Project) {
     setDonatingProject(project);
   }
@@ -1108,51 +1103,37 @@ function JarActivityPageInner() {
       />
 
       <section className="mb-6">
-        <div className="space-y-4">
+        <div className="mb-3 flex items-end justify-between gap-3">
           <div>
-            <JarShelfLabel label="Current jar" count={activeItems.length} helper="Future skips go here." />
-            {activeItems.length === 0 ? (
-              <p className="mt-2 text-sm" style={{ color: "var(--text-muted)" }}>
-                No current jar. Make a parked jar active when you want future skips to go there.
-              </p>
-            ) : (
-              <div className="jar-shelf-grid mt-3 flex flex-wrap gap-x-8 gap-y-6">
-                {activeItems.map((item) => (
-                  <JarActivityCard
-                    key={`${item.type}-${item.id}`}
-                    item={item}
-                    working={workingId === item.id}
-                    onResume={beginResume}
-                    onDonate={beginDonate}
-                    onPurchase={beginPurchase}
-                    onDeactivate={handleDeactivate}
-                    onEditGoalAmount={beginEditJarGoal}
-                  />
-                ))}
-              </div>
-            )}
+            <h2 className="text-lg font-black" style={{ color: "var(--text-primary)" }}>Your jars</h2>
           </div>
-
-          {inactiveItems.length > 0 && (
-            <div>
-              <JarShelfLabel label="Parked jars" count={inactiveItems.length} helper="Saved for later." />
-              <div className="jar-shelf-grid mt-3 flex flex-wrap gap-x-8 gap-y-6">
-                {inactiveItems.map((item) => (
-                  <JarActivityCard
-                    key={`${item.type}-${item.id}`}
-                    item={item}
-                    working={workingId === item.id}
-                    onResume={beginResume}
-                    onDonate={beginDonate}
-                    onPurchase={beginPurchase}
-                    onDeactivate={handleDeactivate}
-                    onEditGoalAmount={beginEditJarGoal}
-                  />
-                ))}
-              </div>
-            </div>
+          {items.length > 0 && (
+            <span className="jar-shelf-count rounded-full px-2.5 py-1 text-[11px] font-black" style={{ background: "rgba(46,204,113,0.1)", color: "var(--green-primary)" }}>
+              {items.length}
+            </span>
           )}
         </div>
+        {items.length === 0 ? (
+          <p className="text-sm" style={{ color: "var(--text-muted)" }}>
+            No jars yet. Choose a reward or fundraiser when you are ready.
+          </p>
+        ) : (
+          <div className="jar-shelf-grid flex flex-wrap gap-x-8 gap-y-6">
+            {items.map((item) => (
+              <JarActivityCard
+                key={`${item.type}-${item.id}`}
+                item={item}
+                working={workingId === item.id}
+                onResume={beginResume}
+                onDonate={beginDonate}
+                onPurchase={beginPurchase}
+                onDeactivate={handleDeactivate}
+                onEditGoalAmount={beginEditJarGoal}
+                onDelete={handleDeleteJar}
+              />
+            ))}
+          </div>
+        )}
       </section>
 
       <section className="mt-8 pt-6" style={{ borderTop: "1px solid rgba(237,245,240,0.12)" }}>
