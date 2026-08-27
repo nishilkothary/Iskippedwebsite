@@ -11,15 +11,27 @@ export async function GET(req: NextRequest, context: { params: Promise<{ id: str
     const { id: challengeId } = await context.params;
     if (!challengeId) return NextResponse.json({ error: "Challenge id is required" }, { status: 400 });
 
-    // The project document is the aggregate source of truth. The previous
-    // endpoint scanned every user's historical skips and donations (and wrote
-    // feed repairs) for each card on Jars, which exhausted Firestore quota.
-    const projectSnap = await getAdminDb().collection("projects").doc(challengeId).get();
+    const db = getAdminDb();
+    const projectSnap = await db.collection("projects").doc(challengeId).get();
     if (!projectSnap.exists) return NextResponse.json({ error: "Challenge not found" }, { status: 404 });
 
     const project = projectSnap.data() ?? {};
-    const totalRaised = typeof project.totalRaised === "number" ? Math.max(0, project.totalRaised) : 0;
-    const totalDonated = typeof project.totalDonated === "number" ? Math.max(0, project.totalDonated) : 0;
+    const title = typeof project.title === "string" ? project.title : "";
+    const [jarUsers, causeDonations, titleDonations] = await Promise.all([
+      db.collection("users").where(`causeJarBalances.${challengeId}`, ">", 0).get(),
+      db.collectionGroup("donations").where("causeId", "==", challengeId).get(),
+      title ? db.collectionGroup("donations").where("causeTitle", "==", title).get() : Promise.resolve({ docs: [] }),
+    ]);
+    const totalRaised = jarUsers.docs.reduce((sum, user) => {
+      const amount = Number(user.data().causeJarBalances?.[challengeId] ?? 0);
+      return sum + (Number.isFinite(amount) && amount > 0 ? amount : 0);
+    }, 0);
+    const donations = new Map<string, FirebaseFirestore.QueryDocumentSnapshot>();
+    for (const donation of [...causeDonations.docs, ...titleDonations.docs]) donations.set(donation.ref.path, donation);
+    const totalDonated = Array.from(donations.values()).reduce((sum, donation) => {
+      const amount = Number(donation.get("amount") ?? 0);
+      return sum + (Number.isFinite(amount) && amount > 0 ? amount : 0);
+    }, 0);
     const members = Array.isArray(project.memberUids)
       ? project.memberUids.filter((uid: unknown): uid is string => typeof uid === "string" && uid.length > 0)
       : [];
@@ -28,8 +40,8 @@ export async function GET(req: NextRequest, context: { params: Promise<{ id: str
       totalPledged: totalRaised,
       totalDonated,
       contributorCount: members.length,
-      // Pledged and completed donations are separate, non-overlapping
-      // buckets. The group total is their sum.
+      // Pledged and completed donations are separate buckets. Pledged is the
+      // current money still held in users' fundraiser jars.
       total: totalRaised + totalDonated,
     });
   } catch (error) {

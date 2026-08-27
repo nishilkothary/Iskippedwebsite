@@ -115,10 +115,9 @@ export default function ManageChallengePage() {
 
   // Merge live stats over static challenge data
   const totalDonated = liveProgress?.totalDonated ?? membersTotalDonated ?? 0;
-  const totalRaised = liveProgress?.total
-    ?? (membersTotalPledged !== null ? membersTotalPledged + totalDonated : null)
-    ?? liveProject?.totalRaised
-    ?? challenge.totalRaised;
+  const totalRaised = liveProgress?.totalPledged
+    ?? membersTotalPledged
+    ?? 0;
   const totalSkips = liveProject?.totalSkips ?? challenge.totalSkips ?? 0;
   const memberUids = liveProject?.memberUids ?? challenge.memberUids ?? [];
 

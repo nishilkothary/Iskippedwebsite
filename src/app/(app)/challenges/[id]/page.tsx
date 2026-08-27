@@ -16,6 +16,7 @@ import { getChallengeCausePhrase, getDirectChallengeShareText } from "@/lib/util
 import { getSkipBalanceSummary } from "@/lib/utils/skipBalances";
 import { ShareButton } from "@/components/share/ShareButton";
 import { DESIGNATED_ADMIN_EMAIL } from "@/lib/constants/admin";
+import { apiRequest } from "@/lib/services/firebase/apiClient";
 
 type ChallengeCategory = "Education" | "Meals" | "Health" | "Community";
 
@@ -36,6 +37,11 @@ type ChallengeView = {
 };
 
 type InviteStep = "intro" | "active-choice" | "goal" | "skip-bucks" | "first-skip" | "already-active" | "already-joined";
+
+type ChallengeTotals = {
+  totalPledged: number;
+  totalDonated: number;
+};
 
 
 function challengeTitle(project: Project): string {
@@ -288,6 +294,7 @@ export default function ChallengeDetailPage() {
   );
   const [fallbackProject, setFallbackProject] = useState<Project | null>(null);
   const [fallbackChecked, setFallbackChecked] = useState(false);
+  const [challengeTotals, setChallengeTotals] = useState<ChallengeTotals | null>(null);
 
   useEffect(() => {
     if (!challengeId || listedProject) {
@@ -309,6 +316,15 @@ export default function ChallengeDetailPage() {
     // from the Fundraisers flow. They still use this detail page for joining.
     return project ? challengeFromProject(project) : null;
   }, [listedProject, fallbackProject]);
+
+  useEffect(() => {
+    if (!challengeId) return;
+    let cancelled = false;
+    void apiRequest<ChallengeTotals>(`/api/challenges/${challengeId}/progress`, "GET")
+      .then((totals) => { if (!cancelled) setChallengeTotals(totals); })
+      .catch(() => { if (!cancelled) setChallengeTotals(null); });
+    return () => { cancelled = true; };
+  }, [challengeId]);
 
   useEffect(() => {
     if (!user || !challenge || searchParams.get("invite") !== "1" || inviteFlowSeenFor === challenge.project.id) return;
@@ -365,7 +381,7 @@ export default function ChallengeDetailPage() {
   const canManageChallenge = challenge.project.createdBy === user?.uid
     || (profile?.email ?? "").trim().toLowerCase() === DESIGNATED_ADMIN_EMAIL;
   const profileChallengeBalance = Math.max(0, profile?.causeJarBalances?.[challenge.project.id] ?? 0);
-  const pledgedAmount = Math.max(0, (challenge.project.totalRaised ?? 0) + (challenge.project.totalDonated ?? 0));
+  const pledgedAmount = challengeTotals?.totalPledged ?? 0;
   const challengeUrl = appendRefParam(
     typeof window !== "undefined" ? `${window.location.origin}${getChallengeSharePath(challenge.project)}` : getChallengeSharePath(challenge.project),
     user?.uid
