@@ -3348,17 +3348,42 @@ export default function HomePage() {
                   style={{ background: "var(--bg-surface-2)", border: "1px solid var(--border-default)", color: "var(--text-primary)" }}
                 />
               </label>
-              <label className="block">
-                <span className="mb-1.5 block text-xs font-black uppercase tracking-wide" style={{ color: "#C4B5FD" }}>Inspo image URL (optional)</span>
+              <div>
+                <span className="mb-1.5 block text-xs font-black uppercase tracking-wide" style={{ color: "#C4B5FD" }}>Inspo pic (optional)</span>
+                <div
+                  className="relative flex aspect-[1.35] w-full select-none items-center justify-center overflow-hidden rounded-xl"
+                  style={{ background: "var(--bg-surface-2)", border: "1px dashed rgba(139,92,246,0.52)" }}
+                >
+                  {rewardEditImageURL ? (
+                    <>
+                      <img
+                        src={rewardEditImageURL}
+                        alt="Reward preview"
+                        className="h-full w-full object-cover"
+                        style={{ objectPosition: activeGoal.imagePosition ?? "center" }}
+                      />
+                      <button
+                        type="button"
+                        onClick={() => setRewardEditImageURL("")}
+                        className="absolute right-2 top-2 rounded-full px-2 py-1 text-xs font-bold"
+                        style={{ background: "rgba(7,27,20,0.82)", color: "white" }}
+                      >
+                        Remove
+                      </button>
+                    </>
+                  ) : (
+                    <span className="text-sm font-semibold" style={{ color: "var(--text-muted)" }}>Add an inspo pic</span>
+                  )}
+                </div>
                 <input
                   type="url"
                   value={rewardEditImageURL}
                   onChange={(event) => setRewardEditImageURL(event.target.value)}
-                  placeholder="https://…"
-                  className="w-full rounded-xl px-4 py-3 text-sm focus:outline-none"
+                  placeholder="Paste an image URL"
+                  className="mt-2 w-full rounded-xl px-4 py-3 text-sm focus:outline-none"
                   style={{ background: "var(--bg-surface-2)", border: "1px solid var(--border-default)", color: "var(--text-primary)" }}
                 />
-              </label>
+              </div>
               <label className="block">
                 <span className="mb-1.5 block text-xs font-black uppercase tracking-wide" style={{ color: "#C4B5FD" }}>Goal amount</span>
                 <div className="relative">
