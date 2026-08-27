@@ -212,6 +212,23 @@ body {
 .home-fundraiser-live { display: inline-flex; align-items: center; gap: 4px; color: #A7F3D0; font-size: 8px; font-weight: 900; letter-spacing: 0.6px; text-transform: uppercase; white-space: nowrap; }
 .home-fundraiser-live i { width: 5px; height: 5px; border-radius: 50%; background: var(--green-primary); box-shadow: 0 0 8px rgba(46,204,113,0.85); }
 .home-fundraiser-share-mobile { display: none; }
+.home-group-impact-items { display: grid !important; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px !important; }
+.home-group-impact-counter { min-width: 0; min-height: 96px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 8px; border-radius: 14px; padding: 9px 7px !important; text-align: center; }
+.home-group-impact-counter-heading { display: inline-flex; align-items: center; gap: 5px; }
+.home-group-impact-counter-icon { font-size: 20px; line-height: 1; }
+.home-group-impact-counter-label { color: var(--text-secondary); font-size: 10px; font-weight: 900; letter-spacing: 0.08em; line-height: 1.1; text-transform: uppercase; }
+.home-group-impact-counter-value { color: var(--green-primary); font-family: Arial, Helvetica, sans-serif; font-size: clamp(20px, 2.6vw, 26px); font-variant-numeric: tabular-nums; font-weight: 900; line-height: 0.9; white-space: nowrap; }
+.home-live-progress-panel { margin-top: 22px; margin-bottom: 14px; padding: 12px; border: 1px solid rgba(46,204,113,0.18); border-radius: 16px; background: linear-gradient(180deg, rgba(46,204,113,0.055), rgba(7,27,20,0.2)); }
+.home-recent-wins-item { background: rgba(46,204,113,0.075) !important; border: 1px solid rgba(46,204,113,0.08); }
+@media (max-width: 520px) {
+  .home-group-impact { padding: 0 !important; background: transparent !important; border: none !important; }
+  .home-group-impact-items { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 5px !important; }
+  .home-group-impact-counter { min-height: 74px; padding: 7px 3px !important; gap: 5px; border-radius: 11px; }
+  .home-group-impact-counter-heading { gap: 3px; }
+  .home-group-impact-counter-icon { font-size: 17px; }
+  .home-group-impact-counter-label { font-size: 8px; letter-spacing: 0.04em; }
+  .home-group-impact-counter-value { font-size: 22px; }
+}
 .mobile-app-header { display: none; }
 .app-skip-bucks-counter { display: none; }
 
@@ -439,7 +456,13 @@ body {
     min-height: 52px;
     line-height: 1.15;
   }
-  .jar-activity-page-shell { padding-top: 18px !important; }
+  /* The app header and bottom nav are fixed/sticky on phones. Reserve their
+     safe-area space so the manager never opens underneath either one. */
+  .jar-activity-page-shell.jar-activity-page-shell {
+    padding-top: 24px !important;
+    padding-bottom: calc(104px + env(safe-area-inset-bottom)) !important;
+    scroll-padding-top: calc(70px + env(safe-area-inset-top));
+  }
   .jar-activity-page-header {
     margin-bottom: 10px !important;
     display: flex !important;
@@ -481,7 +504,7 @@ body {
   }
   .jar-activity-card {
     width: 100% !important;
-    min-height: 178px;
+    min-height: 190px;
     display: grid;
     grid-template-columns: minmax(0, 1fr) 96px;
     grid-template-areas:
@@ -489,7 +512,7 @@ body {
       ". manage";
     column-gap: 12px;
     align-items: center;
-    padding: 14px !important;
+    padding: 16px !important;
     border-radius: 18px;
     background: linear-gradient(135deg, rgba(16,36,27,0.94), rgba(11,26,20,0.86)) !important;
     border: 1px solid rgba(237,245,240,0.08);
@@ -509,6 +532,7 @@ body {
     white-space: normal !important;
     overflow: visible !important;
     text-overflow: clip !important;
+    max-width: 100%;
     font-size: 18px !important;
     line-height: 1.05 !important;
   }
@@ -525,8 +549,8 @@ body {
     margin-top: 0 !important;
   }
   .jar-activity-card-visual svg {
-    width: 88px;
-    height: 138px;
+    width: 92px;
+    height: 144px;
   }
   .iskip-scoreboard { padding: 16px 14px 15px; border-radius: 18px; box-shadow: inset 0 0 0 1px rgba(237,245,240,0.055), 0 12px 26px rgba(0,0,0,0.18); }
   .iskip-scoreboard-header { margin-bottom: 12px; font-size: 10px; gap: 6px; letter-spacing: 0.12em; }
@@ -634,15 +658,3 @@ body {
 ::-webkit-scrollbar-thumb { background: rgba(46,204,113,0.15); border-radius: 3px; }
 ::-webkit-scrollbar-thumb:hover { background: rgba(46,204,113,0.25); }
 
-.home-group-impact-items { display: grid !important; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px !important; }
-.home-group-impact-counter { min-width: 0; min-height: 96px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 8px; border-radius: 14px; padding: 9px 7px !important; text-align: center; }
-.home-group-impact-counter-heading { display: inline-flex; align-items: center; gap: 5px; }
-.home-group-impact-counter-icon { font-size: 20px; line-height: 1; }
-.home-group-impact-counter-label { color: var(--text-secondary); font-size: 10px; font-weight: 900; letter-spacing: 0.08em; line-height: 1.1; text-transform: uppercase; }
-.home-group-impact-counter-value { color: var(--green-primary); font-family: Arial, Helvetica, sans-serif; font-size: clamp(20px, 2.6vw, 26px); font-variant-numeric: tabular-nums; font-weight: 900; line-height: 0.9; white-space: nowrap; }
-.home-live-progress-panel { margin-top: 22px; margin-bottom: 14px; padding: 12px; border: 1px solid rgba(46,204,113,0.18); border-radius: 16px; background: linear-gradient(180deg, rgba(46,204,113,0.055), rgba(7,27,20,0.2)); }
-.home-recent-wins-item { background: rgba(46,204,113,0.075) !important; border: 1px solid rgba(46,204,113,0.08); }
-@media (max-width: 520px) {
-  .home-group-impact-items { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-  .home-group-impact-counter { min-height: 88px; }
-}
