@@ -210,7 +210,7 @@ function JarActivityCard({
         </button>
         {menuOpen && (
           <div
-            className="absolute left-0 top-9 z-30 min-w-[168px] rounded-xl p-1.5 shadow-xl"
+            className="jar-activity-card-menu absolute left-0 top-9 z-30 min-w-[168px] rounded-xl p-1.5 shadow-xl"
             style={{ background: "var(--bg-surface-1)", border: "1px solid var(--border-emphasis)" }}
           >
             {item.type === "fundraiser" && item.project ? (

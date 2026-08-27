@@ -556,6 +556,11 @@ body {
     justify-self: center;
     margin-top: 0 !important;
   }
+  .jar-activity-card-menu {
+    left: auto !important;
+    right: 0 !important;
+    max-width: calc(100vw - 32px);
+  }
   .jar-activity-card-visual svg {
     width: 92px;
     height: 144px;
