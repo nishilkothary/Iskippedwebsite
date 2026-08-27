@@ -3313,7 +3313,7 @@ export default function HomePage() {
       {showRewardEditor && activeGoal && (
         <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/60 p-4 sm:items-center" onClick={() => setShowRewardEditor(false)}>
           <form
-            className="w-full max-w-sm rounded-2xl shadow-2xl"
+            className="max-h-[calc(100dvh-2rem)] w-full max-w-sm overflow-y-auto rounded-2xl shadow-2xl"
             style={{ background: "var(--bg-surface-1)", border: "1px solid rgba(139,92,246,0.32)" }}
             onClick={(event) => event.stopPropagation()}
             onSubmit={(event) => {
@@ -3333,8 +3333,8 @@ export default function HomePage() {
                 x
               </button>
             </div>
-            <div className="space-y-4 p-5">
-              <label className="block">
+            <div className="flex flex-col gap-4 p-5">
+              <label className="order-2 block">
                 <span className="mb-1.5 block text-xs font-black uppercase tracking-wide" style={{ color: "#C4B5FD" }}>Reward name</span>
                 <input
                   value={rewardEditLabel}
@@ -3344,7 +3344,7 @@ export default function HomePage() {
                   autoFocus
                 />
               </label>
-              <label className="block">
+              <label className="order-1 block">
                 <span className="mb-1.5 block text-xs font-black uppercase tracking-wide" style={{ color: "#C4B5FD" }}>Shopping link (optional)</span>
                 <input
                   type="url"
@@ -3355,7 +3355,7 @@ export default function HomePage() {
                   style={{ background: "var(--bg-surface-2)", border: "1px solid var(--border-default)", color: "var(--text-primary)" }}
                 />
               </label>
-              <label className="block">
+              <label className="order-5 block">
                 <span className="mb-1.5 block text-xs font-black uppercase tracking-wide" style={{ color: "#C4B5FD" }}>Merchant (optional)</span>
                 <input
                   value={rewardEditMerchant}
@@ -3365,7 +3365,7 @@ export default function HomePage() {
                   style={{ background: "var(--bg-surface-2)", border: "1px solid var(--border-default)", color: "var(--text-primary)" }}
                 />
               </label>
-              <div>
+              <div className="order-6">
                 <span className="mb-1.5 block text-xs font-black uppercase tracking-wide" style={{ color: "#C4B5FD" }}>Inspo pic (optional)</span>
                 <div
                   className="relative flex aspect-[1.35] w-full select-none items-center justify-center overflow-hidden rounded-xl"
@@ -3410,7 +3410,7 @@ export default function HomePage() {
                   />
                 </label>
               </div>
-              <label className="block">
+              <label className="order-4 block">
                 <span className="mb-1.5 block text-xs font-black uppercase tracking-wide" style={{ color: "#C4B5FD" }}>Goal amount</span>
                 <div className="relative">
                   <span className="absolute left-4 top-1/2 -translate-y-1/2 text-sm" style={{ color: "var(--text-muted)" }}>$</span>
@@ -3425,7 +3425,7 @@ export default function HomePage() {
                   />
                 </div>
               </label>
-              <label className="block">
+              <label className="order-3 block">
                 <span className="mb-1.5 block text-xs font-black uppercase tracking-wide" style={{ color: "#C4B5FD" }}>Category (optional)</span>
                 <input
                   value={rewardEditCategory}
@@ -3436,9 +3436,9 @@ export default function HomePage() {
                 />
               </label>
               <button
+                className="order-7 w-full rounded-xl py-3 text-sm font-black disabled:opacity-50"
                 type="submit"
                 disabled={rewardEditWorking}
-                className="w-full rounded-xl py-3 text-sm font-black disabled:opacity-50"
                 style={{ background: "#8B5CF6", color: "white" }}
               >
                 {rewardEditWorking ? "Saving..." : "Save changes"}
