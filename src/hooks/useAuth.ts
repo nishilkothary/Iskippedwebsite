@@ -28,23 +28,31 @@ export function useAuth() {
         setLoading(false);
         return;
       }
-      unsubProfileRef.current = onSnapshot(doc(db, "users", authUser.uid), (snap) => {
-        if (snap.exists()) {
-          const data = snap.data() as UserProfile;
-          if (authUser.displayName && (!data.displayName || data.displayName === "Skipper")) {
-            updateDoc(doc(db, "users", authUser.uid), { displayName: authUser.displayName });
+      unsubProfileRef.current = onSnapshot(
+        doc(db, "users", authUser.uid),
+        (snap) => {
+          if (snap.exists()) {
+            const data = snap.data() as UserProfile;
+            if (authUser.displayName && (!data.displayName || data.displayName === "Skipper")) {
+              updateDoc(doc(db, "users", authUser.uid), { displayName: authUser.displayName }).catch(() => {});
+            }
+            if (authUser.emailVerified && !data.emailVerified) {
+              updateDoc(doc(db, "users", authUser.uid), { emailVerified: true }).catch(() => {});
+            }
+            if (!causeChecked.current && data.activeProjectId) {
+              causeChecked.current = true;
+              resetActiveProjectIfRemoved(authUser.uid, data.activeProjectId);
+            }
+            setProfile(data);
           }
-          if (authUser.emailVerified && !data.emailVerified) {
-            updateDoc(doc(db, "users", authUser.uid), { emailVerified: true });
-          }
-          if (!causeChecked.current && data.activeProjectId) {
-            causeChecked.current = true;
-            resetActiveProjectIfRemoved(authUser.uid, data.activeProjectId);
-          }
-          setProfile(data);
+          setLoading(false);
+        },
+        () => {
+          // Do not leave the entire app behind an infinite spinner when Firestore
+          // temporarily loses its live connection.
+          setLoading(false);
         }
-        setLoading(false);
-      });
+      );
     });
     return () => {
       unsubAuth();

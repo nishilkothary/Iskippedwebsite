@@ -32,6 +32,7 @@ import { SkipBucksBill } from "@/components/SkipBucksBill";
 import { formatAggregateImpactUnitsDecimal, oneUnitPhrase } from "@/lib/utils/impact";
 import { getSkipBalanceSummary } from "@/lib/utils/skipBalances";
 import { useModalA11y } from "@/hooks/useModalA11y";
+import { SKIP_CATEGORIES } from "@/lib/constants/skipCategories";
 
 // ─── SVG Jar ───────────────────────────────────────────────────────────────
 interface JarProps {
@@ -1169,7 +1170,7 @@ export default function HomePage() {
   const searchParams = useSearchParams();
   const { user, profile, updateProfile } = useAuthStore();
   const { recentSkips, donate } = useSkips();
-  const { projects } = useProjects();
+  const { projects, loading: projectsLoading } = useProjects();
   const { showSkipPicker, setShowSkipPicker } = useUIStore();
   const [editingSkip, setEditingSkip] = useState<Skip | null>(null);
   const [communityFeed, setCommunityFeed] = useState<FeedItem[]>([]);
@@ -1337,6 +1338,16 @@ export default function HomePage() {
     : temporaryChallengeGoalUnits && fundraiserUnitCost
       ? temporaryChallengeGoalUnits * fundraiserUnitCost
       : communityGoal;
+  const groupGoalReached = fundraiserGoalAmount > 0 && displayedGroupTotal >= fundraiserGoalAmount;
+  const groupGoalRemainingAmount = Math.max(0, fundraiserGoalAmount - displayedGroupTotal);
+  const groupGoalSkipEstimates = [
+    { key: "coffee", label: "coffees", icon: "☕", amount: SKIP_CATEGORIES.find((category) => category.id === "coffee")?.defaultAmount ?? 5.5 },
+    { key: "food", label: "takeouts", icon: "🍔", amount: SKIP_CATEGORIES.find((category) => category.id === "food")?.defaultAmount ?? 15 },
+    { key: "uber", label: "Ubers", icon: "🚗", amount: SKIP_CATEGORIES.find((category) => category.id === "uber")?.defaultAmount ?? 12 },
+  ].map((category) => ({
+    ...category,
+    count: Math.max(1, Math.ceil(groupGoalRemainingAmount / category.amount)),
+  }));
   const fundraiserGoalUnits = fundraiserUnitCost && fundraiserGoalAmount > 0
     ? fundraiserGoalAmount / fundraiserUnitCost
     : null;
@@ -1453,7 +1464,6 @@ export default function HomePage() {
   const streakChipValue = hasSkippedThisWeek ? Math.max(displayedStreak, profile.streak ?? 0) : profile.streak ?? 0;
   const activeCountdown = activeProject && isActiveChallenge ? getChallengeCountdown(activeProject) : null;
   const personalGoalAmt = activeProject ? (profile.causeGoalAmounts?.[activeProject.id] ?? 0) : 0;
-  const groupGoalReached = communityGoal > 0 && displayedGroupTotal >= communityGoal;
   const personalGoalReached = personalGoalAmt > 0 && userChallengeBalance >= personalGoalAmt;
   const challengeEnded = activeProject?.status === "ended";
   const hasReminderReadyBalance = Boolean(activeProject) && givingBalance >= DONATION_REMINDER_MIN_BALANCE;
@@ -1594,12 +1604,12 @@ export default function HomePage() {
   }
 
   useEffect(() => {
-    if (activeGoal || activeProject || dismissedJarCarousel || jarCarouselItems.length < 2) return;
+    if (projectsLoading || activeGoal || activeProject || dismissedJarCarousel || jarCarouselItems.length < 2) return;
     const id = window.setInterval(() => {
       setJarCarouselIndex((current) => (current + 1) % jarCarouselItems.length);
     }, 6500);
     return () => window.clearInterval(id);
-  }, [activeGoal, activeProject, dismissedJarCarousel, jarCarouselItems.length]);
+  }, [activeGoal, activeProject, dismissedJarCarousel, jarCarouselItems.length, projectsLoading]);
 
   const cardStyle: React.CSSProperties = {
     background: "var(--bg-surface-1)",
@@ -2102,7 +2112,7 @@ export default function HomePage() {
 
       {/* What it could become */}
       <div style={{ marginTop: 32, marginBottom: 28 }}>
-        {!activeGoal && !activeProject && !dismissedJarCarousel && activeJarCarouselItem && (
+        {!projectsLoading && !activeGoal && !activeProject && !dismissedJarCarousel && activeJarCarouselItem && (
           <div className="home-suggestion-card" style={{ ...cardStyle, padding: 18, overflow: "hidden", background: "linear-gradient(180deg, rgba(237,245,240,0.055), var(--bg-surface-1))", border: "1px solid rgba(237,245,240,0.11)", position: "relative" }}>
             <button
               type="button"
@@ -2328,11 +2338,11 @@ export default function HomePage() {
                     hideBottomLabel
                     href="/jar-activity"
                   />
-                  <p style={{ marginTop: 6, textAlign: "center", fontSize: 12, fontWeight: 900, color: "#A7F3D0", lineHeight: 1.25 }}>
-                    {hasCommunityUnit && personalUnitCountDisplay !== null
-                      ? `~ ${personalUnitCountDisplay} ${communityUnitLabel} from you`
-                      : `${formatCurrencyRounded(givingBalance)} pledged`}
-                  </p>
+                  {hasCommunityUnit && personalUnitCountDisplay !== null && (
+                    <p style={{ marginTop: 6, textAlign: "center", fontSize: 12, fontWeight: 900, color: "#A7F3D0", lineHeight: 1.25 }}>
+                      ~ {personalUnitCountDisplay} {communityUnitLabel} from you
+                    </p>
+                  )}
                 </div>
                 <div>
                   <Jar
@@ -2352,11 +2362,11 @@ export default function HomePage() {
                     hideBottomLabel
                     href="/jar-activity"
                   />
-                  <p style={{ marginTop: 6, textAlign: "center", fontSize: 12, fontWeight: 900, color: "#A7FFF0", lineHeight: 1.25 }}>
-                    {hasCommunityUnit && communityUnitCountDisplay !== null
-                      ? `~ ${communityUnitCountDisplay} ${communityUnitLabel} together`
-                      : `${formatCurrencyRounded(displayedGroupTotal)} raised`}
-                  </p>
+                  {hasCommunityUnit && communityUnitCountDisplay !== null && (
+                    <p style={{ marginTop: 6, textAlign: "center", fontSize: 12, fontWeight: 900, color: "#A7FFF0", lineHeight: 1.25 }}>
+                      ~ {communityUnitCountDisplay} {communityUnitLabel} together
+                    </p>
+                  )}
                 </div>
               </div>
               <div style={{ display: "flex", justifyContent: "center", marginBottom: 14 }}>
@@ -2373,10 +2383,10 @@ export default function HomePage() {
                   {activeProject ? "Donate Your Savings" : "Browse fundraisers"}
                 </button>
               </div>
-              {featuredChallengeFeedItem && (
-                <div style={{ borderTop: "1px solid rgba(237,245,240,0.08)", paddingTop: 12, marginBottom: 14 }}>
+              {activeProject && (
+                <div className="home-live-progress-panel">
                   <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, marginBottom: 8 }}>
-                    <p style={{ fontSize: 10, fontWeight: 900, letterSpacing: 1.2, textTransform: "uppercase", color: "var(--text-muted)" }}>Live activity</p>
+                    <p style={{ fontSize: 10, fontWeight: 900, letterSpacing: 1.2, textTransform: "uppercase", color: "var(--text-muted)" }}>Live progress</p>
                     <button
                       type="button"
                       onClick={() => router.push(`/challenges/${activeProject.id}/activity`)}
@@ -2385,10 +2395,43 @@ export default function HomePage() {
                       Full feed
                     </button>
                   </div>
-                  {(() => {
+                  <div className="home-group-impact" style={{ borderRadius: 14, padding: "12px 13px", marginBottom: 10, background: groupGoalReached ? "linear-gradient(135deg, rgba(46,204,113,0.18), rgba(0,240,208,0.08))" : "linear-gradient(135deg, rgba(46,204,113,0.1), rgba(237,245,240,0.035))", border: groupGoalReached ? "1px solid rgba(46,204,113,0.42)" : "1px solid rgba(46,204,240,0.16)" }}>
+                    <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", gap: 12, flexWrap: "wrap" }}>
+                      <p style={{ fontSize: 14, fontWeight: 950, color: groupGoalReached ? "#A7FFF0" : "var(--text-primary)" }}>
+                        {groupGoalReached ? "🎉 Group goal reached!" : "What can get us to our goal?"}
+                      </p>
+                      {!groupGoalReached && (
+                        <p style={{ fontSize: 10, fontWeight: 850, color: "var(--text-secondary)" }}>
+                          {formatCurrencyRounded(groupGoalRemainingAmount)} to go
+                        </p>
+                      )}
+                    </div>
+                    {groupGoalReached && (
+                      <p style={{ marginTop: 4, fontSize: 11, lineHeight: 1.4, color: "var(--text-secondary)" }}>
+                        Every skip helped the group get there.
+                      </p>
+                    )}
+                    {!groupGoalReached && (
+                    <div className="home-group-impact-items" style={{ display: "flex", flexWrap: "wrap", gap: 7, marginTop: 10 }}>
+                      {groupGoalSkipEstimates.map((category) => (
+                        <span key={category.key} className="home-group-impact-counter" style={{ background: "rgba(7,27,20,0.34)", color: "var(--text-primary)", fontWeight: 850 }}>
+                          <span className="home-group-impact-counter-heading">
+                            <span className="home-group-impact-counter-icon" aria-hidden="true">{category.icon}</span>
+                            <span className="home-group-impact-counter-label">{category.label}</span>
+                          </span>
+                          <strong className="home-group-impact-counter-value">~{category.count}</strong>
+                        </span>
+                      ))}
+                    </div>
+                    )}
+                  </div>
+                  <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, marginTop: 12, marginBottom: 8, paddingTop: 12, borderTop: "1px solid rgba(237,245,240,0.08)" }}>
+                    <p style={{ fontSize: 10, fontWeight: 900, letterSpacing: 1.2, textTransform: "uppercase", color: "var(--text-muted)" }}>Recent wins</p>
+                  </div>
+                  {featuredChallengeFeedItem ? (() => {
                   const item = challengeFeedItems[Math.min(featuredFeedIndex, challengeFeedItems.length - 1)] ?? featuredChallengeFeedItem;
                   return (
-                    <div key={item.id} style={{ display: "grid", gridTemplateColumns: "34px minmax(0, 1fr) auto", alignItems: "center", gap: 10, borderRadius: 14, background: "rgba(237,245,240,0.045)", padding: "10px 12px" }}>
+                    <div key={item.id} className="home-recent-wins-item" style={{ display: "grid", gridTemplateColumns: "34px minmax(0, 1fr) auto", alignItems: "center", gap: 10, borderRadius: 14, background: "rgba(237,245,240,0.045)", padding: "10px 12px" }}>
                       <div style={{ width: 34, height: 34, borderRadius: 12, background: "rgba(43,186,164,0.14)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 17, flexShrink: 0 }}>
                         {item.skipEmoji ?? "."}
                       </div>
@@ -2407,7 +2450,11 @@ export default function HomePage() {
                       )}
                     </div>
                   );
-                  })()}
+                  })() : (
+                    <p style={{ borderRadius: 14, background: "rgba(237,245,240,0.045)", padding: "12px", color: "var(--text-muted)", fontSize: 12, lineHeight: 1.4 }}>
+                      Be the first to add a skip to the group’s live activity.
+                    </p>
+                  )}
                 </div>
               )}
               </>
