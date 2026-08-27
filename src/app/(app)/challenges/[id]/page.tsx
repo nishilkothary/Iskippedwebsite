@@ -16,6 +16,8 @@ import { getChallengeCausePhrase, getDirectChallengeShareText } from "@/lib/util
 import { getSkipBalanceSummary } from "@/lib/utils/skipBalances";
 import { ShareButton } from "@/components/share/ShareButton";
 
+const ADMIN_EMAIL = (process.env.NEXT_PUBLIC_ADMIN_EMAIL ?? "").trim().toLowerCase();
+
 type ChallengeCategory = "Education" | "Meals" | "Health" | "Community";
 
 type ChallengeView = {
@@ -361,7 +363,8 @@ export default function ChallengeDetailPage() {
   const activeJarLabel = getActiveJarLabel(activeInviteTarget, profile, projects);
   const challengeOrganizerName = challenge.project.sponsor?.trim() || challenge.project.groupName?.trim() || "the organizer";
   const countdown = getChallengeCountdown(challenge.project);
-  const canManageChallenge = challenge.project.createdBy === user?.uid;
+  const canManageChallenge = challenge.project.createdBy === user?.uid
+    || (profile?.email ?? "").trim().toLowerCase() === ADMIN_EMAIL;
   const profileChallengeBalance = Math.max(0, profile?.causeJarBalances?.[challenge.project.id] ?? 0);
   const pledgedAmount = Math.max(0, (challenge.project.totalRaised ?? 0) + (challenge.project.totalDonated ?? 0));
   const challengeUrl = appendRefParam(
@@ -547,10 +550,12 @@ export default function ChallengeDetailPage() {
             <button
               type="button"
               onClick={() => router.push(`/challenges/${challenge.project.id}/manage`)}
-              className="px-3 py-1.5 rounded-full text-xs font-black"
+              className="flex h-9 w-9 items-center justify-center rounded-full text-sm font-black"
               style={{ background: "rgba(46,204,113,0.14)", border: "1px solid rgba(46,204,113,0.34)", color: "var(--green-primary)" }}
+              aria-label="Manage fundraiser"
+              title="Manage fundraiser"
             >
-              Manage
+              ⚙
             </button>
           )}
           <button
