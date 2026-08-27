@@ -2339,32 +2339,28 @@ export default function HomePage() {
             {activeGoal && (
               <div className="home-reward-progress-panel">
                 <div className="home-group-impact" style={{ borderRadius: 0, padding: "4px 0 0", background: "transparent", border: "none" }}>
-                  <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", gap: 12, flexWrap: "wrap" }}>
-                    <p style={{ fontSize: 14, fontWeight: 950, color: rewardGoalReached ? "#C4B5FD" : "var(--text-primary)" }}>
-                      {rewardGoalReached ? "🎉 Goal reached!" : "What Can Get Me To My Goal"}
-                    </p>
-                    {!rewardGoalReached && (
-                      <p style={{ fontSize: 10, fontWeight: 850, color: "var(--text-secondary)" }}>
-                        {formatCurrencyRounded(goalRemainingAmount)} to go
-                      </p>
-                    )}
-                  </div>
+                  <p style={{ fontSize: 16, fontWeight: 950, color: rewardGoalReached ? "#C4B5FD" : "var(--text-primary)" }}>
+                    {rewardGoalReached ? "🎉 Goal reached!" : `Only ${formatCurrencyRounded(goalRemainingAmount)} to go`}
+                  </p>
                   {rewardGoalReached ? (
                     <p style={{ marginTop: 4, fontSize: 11, lineHeight: 1.4, color: "var(--text-secondary)" }}>
                       Your skipped savings are ready to use.
                     </p>
                   ) : (
-                    <div className="home-group-impact-items" style={{ display: "flex", flexWrap: "wrap", gap: 7, marginTop: 10 }}>
-                      {rewardGoalSkipEstimates.map((category) => (
-                        <span key={category.key} className="home-group-impact-counter" style={{ color: "var(--text-primary)", fontWeight: 850 }}>
-                          <span className="home-group-impact-counter-heading">
-                            <span className="home-group-impact-counter-icon" aria-hidden="true">{category.icon}</span>
-                            <span className="home-group-impact-counter-label">{category.label}</span>
+                    <>
+                      <p style={{ marginTop: 4, fontSize: 11, lineHeight: 1.4, color: "var(--text-secondary)" }}>That&apos;s about:</p>
+                      <div className="home-group-impact-items" style={{ display: "flex", flexWrap: "wrap", gap: 7, marginTop: 10 }}>
+                        {rewardGoalSkipEstimates.map((category) => (
+                          <span key={category.key} className="home-group-impact-counter" style={{ color: "var(--text-primary)", fontWeight: 850 }}>
+                            <span className="home-group-impact-counter-heading">
+                              <span className="home-group-impact-counter-icon" aria-hidden="true">{category.icon}</span>
+                              <span className="home-group-impact-counter-label">{category.label}</span>
+                            </span>
+                            <strong className="home-group-impact-counter-value" style={{ color: "#C4B5FD" }}>~{category.count}</strong>
                           </span>
-                          <strong className="home-group-impact-counter-value" style={{ color: "#C4B5FD" }}>~{category.count}</strong>
-                        </span>
-                      ))}
-                    </div>
+                        ))}
+                      </div>
+                    </>
                   )}
                 </div>
               </div>
