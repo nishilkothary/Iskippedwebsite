@@ -13,8 +13,7 @@ import { appendRefParam, getChallengeSharePath } from "@/lib/utils/share";
 import { getDirectChallengeShareText } from "@/lib/utils/challengeShareCopy";
 import { ShareButton } from "@/components/share/ShareButton";
 import { apiRequest } from "@/lib/services/firebase/apiClient";
-
-const ADMIN_EMAIL = (process.env.NEXT_PUBLIC_ADMIN_EMAIL ?? "").trim().toLowerCase();
+import { DESIGNATED_ADMIN_EMAIL } from "@/lib/constants/admin";
 
 type ChallengeMember = {
   uid: string;
@@ -50,7 +49,7 @@ export default function ManageChallengePage() {
   const { projects } = useProjects();
 
   const challenge = projects.find((p) => p.id === challengeId) ?? null;
-  const isDesignatedAdmin = (profile?.email ?? "").trim().toLowerCase() === ADMIN_EMAIL;
+  const isDesignatedAdmin = (profile?.email ?? "").trim().toLowerCase() === DESIGNATED_ADMIN_EMAIL;
   const canManageChallenge = Boolean(challenge && (challenge.createdBy === user?.uid || isDesignatedAdmin));
 
   const [ending, setEnding] = useState(false);

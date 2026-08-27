@@ -34,8 +34,7 @@ import { getSkipBalanceSummary } from "@/lib/utils/skipBalances";
 import { useModalA11y } from "@/hooks/useModalA11y";
 import { SKIP_CATEGORIES } from "@/lib/constants/skipCategories";
 import { apiRequest } from "@/lib/services/firebase/apiClient";
-
-const ADMIN_EMAIL = (process.env.NEXT_PUBLIC_ADMIN_EMAIL ?? "").trim().toLowerCase();
+import { DESIGNATED_ADMIN_EMAIL } from "@/lib/constants/admin";
 
 function normalizeExternalLink(link: string): string {
   const trimmed = link.trim();
@@ -2391,7 +2390,7 @@ export default function HomePage() {
                   </div>
                   {activeProject && (
                     <div className="home-fundraiser-share">
-                      {(profile?.email ?? "").trim().toLowerCase() === ADMIN_EMAIL && (
+                      {(profile?.email ?? "").trim().toLowerCase() === DESIGNATED_ADMIN_EMAIL && (
                         <button
                           type="button"
                           onClick={() => router.push(`/challenges/${activeProject.id}/manage`)}
