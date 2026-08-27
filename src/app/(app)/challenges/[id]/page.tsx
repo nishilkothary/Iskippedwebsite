@@ -41,6 +41,7 @@ type InviteStep = "intro" | "active-choice" | "goal" | "skip-bucks" | "first-ski
 type ChallengeTotals = {
   totalPledged: number;
   totalDonated: number;
+  total: number;
 };
 
 
@@ -113,11 +114,11 @@ function causeHelpDescription(description: string | undefined): string {
   return `Your skips can help fund ${sentence}`;
 }
 
-function challengeFromProject(project: Project): ChallengeView {
+function challengeFromProject(project: Project, reconciledTotal?: number): ChallengeView {
   const category = challengeCategory(project);
   const fallback = fallbackForCategory(category);
   const goal = getDisplayGoalAmount(project);
-  const raised = Math.min(goal, Math.max(0, (project.totalRaised ?? 0) + (project.totalDonated ?? 0)));
+  const raised = Math.min(goal, Math.max(0, reconciledTotal ?? 0));
   const progressPct = goal > 0 ? Math.min(100, Math.round((raised / goal) * 100)) : 0;
 
   return {
@@ -314,8 +315,8 @@ export default function ChallengeDetailPage() {
     const project = listedProject ?? fallbackProject;
     // Shared fundraiser links can point to custom cause-type projects created
     // from the Fundraisers flow. They still use this detail page for joining.
-    return project ? challengeFromProject(project) : null;
-  }, [listedProject, fallbackProject]);
+    return project ? challengeFromProject(project, challengeTotals?.total) : null;
+  }, [listedProject, fallbackProject, challengeTotals?.total]);
 
   useEffect(() => {
     if (!challengeId) return;

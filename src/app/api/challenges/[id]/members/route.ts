@@ -49,13 +49,13 @@ export async function GET(req: NextRequest, context: { params: Promise<{ id: str
     }
 
     const project = projectSnap.data() ?? {};
-    const challengeTitle = typeof project.title === "string" ? project.title : "";
-    const totals = await getChallengeTotals(db, challengeId, challengeTitle);
     const isOwner = project.createdBy === decoded.uid;
     const isDesignatedAdmin = (decoded.email ?? "").trim().toLowerCase() === DESIGNATED_ADMIN_EMAIL;
     if (!isOwner && !isDesignatedAdmin) {
       return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }
+    const challengeTitle = typeof project.title === "string" ? project.title : "";
+    const totals = await getChallengeTotals(db, challengeId, challengeTitle);
 
     const memberUids = Array.isArray(project.memberUids)
       ? project.memberUids.filter((uid): uid is string => typeof uid === "string")
@@ -86,7 +86,10 @@ export async function GET(req: NextRequest, context: { params: Promise<{ id: str
           : Promise.resolve({ docs: [] }),
       ]);
       const donorDocs = new Map<string, FirebaseFirestore.QueryDocumentSnapshot>();
-      for (const donation of [...causeDonations.docs, ...titleDonations.docs]) donorDocs.set(donation.ref.path, donation);
+      for (const donation of [
+        ...causeDonations.docs,
+        ...titleDonations.docs.filter((donation) => !donation.get("causeId")),
+      ]) donorDocs.set(donation.ref.path, donation);
       for (const donation of donorDocs.values()) {
         const uid = donation.ref.parent.parent?.id;
         if (uid) memberUidSet.add(uid);
@@ -107,7 +110,10 @@ export async function GET(req: NextRequest, context: { params: Promise<{ id: str
           challengeTitle ? donationsRef.where("causeTitle", "==", challengeTitle).get() : Promise.resolve({ docs: [] }),
         ]);
         const unique = new Map<string, FirebaseFirestore.QueryDocumentSnapshot>();
-        for (const doc of [...causeDocs.docs, ...titleDocs.docs]) unique.set(doc.id, doc);
+        for (const doc of [
+          ...causeDocs.docs,
+          ...titleDocs.docs.filter((doc) => !doc.get("causeId")),
+        ]) unique.set(doc.id, doc);
         return [...unique.values()];
       }));
       for (let i = 0; i < donationSnaps.length; i += 1) {

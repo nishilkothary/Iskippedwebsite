@@ -64,14 +64,11 @@ function visibilityLabel(project: Project): ChallengeView["visibilityLabel"] {
     : "Public";
 }
 
-function challengeFromProject(project: Project): ChallengeView {
+function challengeFromProject(project: Project, reconciledTotal?: number): ChallengeView {
   const category = challengeCategory(project);
   const fallback = fallbackForCategory(category);
   const goal = project.goalAmount > 0 ? project.goalAmount : 0;
-  const raised = Math.min(
-    goal > 0 ? goal : Infinity,
-    Math.max(0, (project.totalRaised ?? 0) + (project.totalDonated ?? 0)),
-  );
+  const raised = Math.min(goal > 0 ? goal : Infinity, Math.max(0, reconciledTotal ?? 0));
   const progressPct = goal > 0 ? Math.min(100, Math.round((raised / goal) * 100)) : 0;
   return {
     project,
@@ -272,7 +269,19 @@ export default function JoinChallengePage() {
     return () => { cancelled = true; };
   }, [challengeId, requestedProjectId]);
 
-  const challenge = useMemo(() => projectData ? challengeFromProject(projectData) : null, [projectData]);
+  const [reconciledTotal, setReconciledTotal] = useState<number | null>(null);
+
+  useEffect(() => {
+    if (!challengeId) return;
+    let cancelled = false;
+    void fetch(`/api/challenges/${challengeId}/public-totals`)
+      .then((response) => response.ok ? response.json() : Promise.reject(new Error("Unable to load totals")))
+      .then((data: { total?: number }) => { if (!cancelled) setReconciledTotal(Number(data.total) || 0); })
+      .catch(() => { if (!cancelled) setReconciledTotal(null); });
+    return () => { cancelled = true; };
+  }, [challengeId]);
+
+  const challenge = useMemo(() => projectData ? challengeFromProject(projectData, reconciledTotal ?? undefined) : null, [projectData, reconciledTotal]);
 
   const inviteDestination = `/challenges/${resolvedChallengeId || challengeId}?invite=1`;
   const signUpHref = `/sign-in?mode=signup&redirect=${encodeURIComponent(inviteDestination)}`;

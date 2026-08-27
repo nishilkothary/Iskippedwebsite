@@ -1191,6 +1191,7 @@ export default function HomePage() {
   const [globalStats, setGlobalStats] = useState<GlobalStats | null>(null);
   const [liveFeedIndex, setLiveFeedIndex] = useState(0);
   const [liveChallengeTotalRaised, setLiveChallengeTotalRaised] = useState<number>(0);
+  const [liveChallengeTotalDonated, setLiveChallengeTotalDonated] = useState<number>(0);
   const [liveChallengeContributorCount, setLiveChallengeContributorCount] = useState<number>(0);
   const [liveChallengeTotalSkips, setLiveChallengeTotalSkips] = useState<number>(0);
   const [showContributionModal, setShowContributionModal] = useState(false);
@@ -1285,10 +1286,11 @@ export default function HomePage() {
 
   useEffect(() => {
     const activeProjectId = profile?.activeProjectId;
-    if (!activeProjectId) { setLiveChallengeTotalRaised(0); setLiveChallengeContributorCount(0); setLiveChallengeTotalSkips(0); return; }
+    if (!activeProjectId) { setLiveChallengeTotalRaised(0); setLiveChallengeTotalDonated(0); setLiveChallengeContributorCount(0); setLiveChallengeTotalSkips(0); return; }
     const proj = projects.find((p) => p.id === activeProjectId);
-    if (!proj) { setLiveChallengeTotalRaised(0); setLiveChallengeContributorCount(0); setLiveChallengeTotalSkips(0); return; }
+    if (!proj) { setLiveChallengeTotalRaised(0); setLiveChallengeTotalDonated(0); setLiveChallengeContributorCount(0); setLiveChallengeTotalSkips(0); return; }
     setLiveChallengeTotalRaised(0);
+    setLiveChallengeTotalDonated(0);
     const syncProjectTotals = (project: Project | null) => {
       setLiveChallengeContributorCount(project?.memberUids?.length ?? 0);
       setLiveChallengeTotalSkips(project?.totalSkips ?? 0);
@@ -1297,7 +1299,10 @@ export default function HomePage() {
     let cancelled = false;
     void apiRequest<{ total: number; totalPledged: number; totalDonated: number }>(`/api/challenges/${activeProjectId}/totals`, "GET")
       .then((totals) => {
-        if (!cancelled) setLiveChallengeTotalRaised(Math.max(0, totals.total));
+        if (!cancelled) {
+          setLiveChallengeTotalRaised(Math.max(0, totals.total));
+          setLiveChallengeTotalDonated(Math.max(0, totals.totalDonated));
+        }
       })
       .catch(() => {
         // The live project snapshot remains a useful fallback if reconciliation
@@ -1344,7 +1349,7 @@ export default function HomePage() {
     ? Math.max(0, profile.causeJarBalances?.[activeProject.id] ?? 0)
     : 0;
   const challengeContribution = userChallengeBalance;
-  const fundraiserDonatedTotal = activeProject ? Math.max(0, activeProject.totalDonated ?? 0) : 0;
+  const fundraiserDonatedTotal = isActiveGroupFundraiser ? liveChallengeTotalDonated : 0;
   // Group total is the sum of every member's fundraiser jar plus every
   // donation already logged for the fundraiser. `totalRaised` is maintained
   // on the project from all member jar transactions; it is not this user's

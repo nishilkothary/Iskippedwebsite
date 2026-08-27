@@ -26,7 +26,13 @@ export async function getChallengeTotals(
   }, 0);
 
   const donations = new Map<string, number>();
-  for (const donation of [...causeDonations.docs, ...titleDonations.docs]) {
+  for (const donation of [
+    ...causeDonations.docs,
+    // Older donation records may not have a causeId. Only use the title as a
+    // legacy fallback when causeId is actually missing; never let a matching
+    // title override a donation explicitly assigned to another cause.
+    ...titleDonations.docs.filter((donation) => !donation.get("causeId")),
+  ]) {
     const amount = Number(donation.get("amount") ?? 0);
     if (!Number.isFinite(amount) || amount <= 0) continue;
     donations.set(donation.ref.path, amount);
