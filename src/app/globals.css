@@ -230,6 +230,7 @@ body {
   .home-group-impact-counter-icon { font-size: 17px; }
   .home-group-impact-counter-label { font-size: 8px; letter-spacing: 0.04em; }
   .home-group-impact-counter-value { font-size: 22px; }
+  .home-recent-wins-item { background: transparent !important; border: none; border-radius: 0 !important; padding: 10px 0 !important; }
 }
 .mobile-app-header { display: none; }
 .app-skip-bucks-counter { display: none; }
