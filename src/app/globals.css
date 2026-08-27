@@ -223,6 +223,7 @@ body {
 .home-reward-progress-panel { margin-top: 20px; padding: 12px; border: 1px solid rgba(139,92,246,0.24); border-radius: 16px; background: linear-gradient(180deg, rgba(139,92,246,0.08), rgba(7,27,20,0.2)); }
 .home-recent-wins-item { background: rgba(46,204,113,0.075) !important; border: 1px solid rgba(46,204,113,0.08); }
 @media (max-width: 520px) {
+  .home-live-progress-panel { margin-top: 20px; margin-bottom: 14px; padding: 12px 0 0; border: none; border-top: 1px solid rgba(46,204,113,0.18); border-radius: 0; background: transparent; }
   .home-group-impact { padding: 0 !important; background: transparent !important; border: none !important; }
   .home-group-impact-items { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 0 !important; }
   .home-group-impact-counter { min-height: 74px; padding: 7px 3px !important; gap: 5px; border-radius: 0; }
