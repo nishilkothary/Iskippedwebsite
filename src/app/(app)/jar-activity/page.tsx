@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
-import { Suspense, useEffect, useMemo, useState } from "react";
+import { Suspense, useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 import { useAuthStore } from "@/store/authStore";
 import { useProjects } from "@/hooks/useProjects";
@@ -131,6 +131,7 @@ function JarActivityCard({
   onDelete: (item: JarActivityItem) => void;
 }) {
   const [menuOpen, setMenuOpen] = useState(false);
+  const menuRef = useRef<HTMLDivElement>(null);
   const percent = progressPercent(item.balance, item.goalAmount);
   const accent = item.type === "fundraiser" ? "var(--green-primary)" : "#A78BFA";
   const gradEnd = item.type === "fundraiser" ? "#1E9485" : "#6D5FD4";
@@ -139,6 +140,22 @@ function JarActivityCard({
   const fillY = 170 - fillHeight;
   const jarUid = `${item.type}-${item.id}`.replace(/\W/g, "");
   const jarPath = "M20,40 Q20,40 25,35 L35,30 Q40,28 42,25 L42,15 Q42,10 48,10 L72,10 Q78,10 78,15 L78,25 Q80,28 85,30 L95,35 Q100,40 100,45 L100,155 Q100,170 85,170 L35,170 Q20,170 20,155 Z";
+
+  useEffect(() => {
+    if (!menuOpen) return;
+    const handlePointerDown = (event: PointerEvent) => {
+      if (!menuRef.current?.contains(event.target as Node)) setMenuOpen(false);
+    };
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") setMenuOpen(false);
+    };
+    document.addEventListener("pointerdown", handlePointerDown);
+    document.addEventListener("keydown", handleKeyDown);
+    return () => {
+      document.removeEventListener("pointerdown", handlePointerDown);
+      document.removeEventListener("keydown", handleKeyDown);
+    };
+  }, [menuOpen]);
 
   return (
     <article
@@ -195,7 +212,7 @@ function JarActivityCard({
         </svg>
       </div>
 
-      <div className="jar-activity-card-manage relative mt-3">
+      <div ref={menuRef} className="jar-activity-card-manage relative mt-3">
         <button
           type="button"
           onClick={() => setMenuOpen((open) => !open)}
@@ -215,6 +232,18 @@ function JarActivityCard({
             className="jar-activity-card-menu absolute left-0 top-9 z-30 min-w-[168px] rounded-xl p-1.5 shadow-xl"
             style={{ background: "var(--bg-surface-1)", border: "1px solid var(--border-emphasis)" }}
           >
+            <div className="flex items-center justify-between px-2 py-1">
+              <span className="text-[10px] font-black uppercase tracking-[0.14em]" style={{ color: "var(--text-muted)" }}>Manage jar</span>
+              <button
+                type="button"
+                onClick={() => setMenuOpen(false)}
+                aria-label="Close jar menu"
+                className="flex h-6 w-6 items-center justify-center rounded-full text-base font-black leading-none"
+                style={{ color: "var(--text-muted)" }}
+              >
+                ×
+              </button>
+            </div>
             {item.type === "fundraiser" && item.project ? (
               <button type="button" onClick={() => { setMenuOpen(false); onDonate(item.project!); }} className="jar-action-menu-item">Donate my skips</button>
             ) : item.type === "goal" ? (
