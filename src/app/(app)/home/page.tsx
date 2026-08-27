@@ -35,6 +35,8 @@ import { useModalA11y } from "@/hooks/useModalA11y";
 import { SKIP_CATEGORIES } from "@/lib/constants/skipCategories";
 import { apiRequest } from "@/lib/services/firebase/apiClient";
 
+const ADMIN_EMAIL = (process.env.NEXT_PUBLIC_ADMIN_EMAIL ?? "").trim().toLowerCase();
+
 function normalizeExternalLink(link: string): string {
   const trimmed = link.trim();
   return /^https?:\/\//i.test(trimmed) ? trimmed : `https://${trimmed}`;
@@ -2389,6 +2391,18 @@ export default function HomePage() {
                   </div>
                   {activeProject && (
                     <div className="home-fundraiser-share">
+                      {(profile?.email ?? "").trim().toLowerCase() === ADMIN_EMAIL && (
+                        <button
+                          type="button"
+                          onClick={() => router.push(`/challenges/${activeProject.id}/manage`)}
+                          className="mr-1 inline-flex h-8 w-8 items-center justify-center rounded-full text-sm font-bold"
+                          aria-label="Manage fundraiser"
+                          title="Manage fundraiser"
+                          style={{ border: "1px solid var(--border-emphasis)", color: "var(--green-primary)", background: "transparent" }}
+                        >
+                          ⚙
+                        </button>
+                      )}
                       <span className="home-fundraiser-share-desktop"><ShareButton variant="pill" label="Share" title={activeProject.title} text={getDirectChallengeShareText(activeProject)} url={appendRefParam(`${typeof window !== "undefined" ? window.location.origin : "https://iskipped.com"}${getChallengeSharePath(activeProject)}`, user?.uid)} /></span>
                       <span className="home-fundraiser-share-mobile"><ShareButton variant="pill" label="Share fundraiser" iconOnly title={activeProject.title} text={getDirectChallengeShareText(activeProject)} url={appendRefParam(`${typeof window !== "undefined" ? window.location.origin : "https://iskipped.com"}${getChallengeSharePath(activeProject)}`, user?.uid)} /></span>
                     </div>
