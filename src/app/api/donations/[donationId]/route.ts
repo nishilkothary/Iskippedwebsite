@@ -74,6 +74,9 @@ export async function PATCH(req: NextRequest, ctx: RouteContext) {
         if (date !== undefined) donationUpdates.date = date;
         tx.update(donationRef, donationUpdates);
         tx.set(db.collection("projects").doc(causeId), {
+          // Only the portion that came from this fundraiser jar changes the
+          // pledged bucket. The rest may have come from the unassigned bank.
+          totalRaised: FieldValue.increment(-jarDecreaseDelta),
           totalDonated: FieldValue.increment(delta),
         }, { merge: true });
       } else {
@@ -120,6 +123,9 @@ export async function DELETE(req: NextRequest, ctx: RouteContext) {
         ...(nextBalances ? { causeJarBalances: nextBalances.causeJarBalances, goalJarBalances: nextBalances.goalJarBalances, skipLots } : { [`causeJarBalances.${causeId}`]: currentBal + amount }),
       });
       tx.set(db.collection("projects").doc(causeId), {
+        // Restore the amount that was held in the fundraiser jar. Donations
+        // made from the unassigned bank never belonged in totalRaised.
+        totalRaised: FieldValue.increment(donation.jarDecrease ?? amount),
         totalDonated: FieldValue.increment(-amount),
       }, { merge: true });
 

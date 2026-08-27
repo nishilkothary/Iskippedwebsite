@@ -23,7 +23,11 @@ export async function GET(req: NextRequest, context: { params: Promise<{ id: str
 
     const project = projectSnap.data() ?? {};
     const memberUids = Array.isArray(project.memberUids) ? project.memberUids : [];
-    if (project.createdBy !== uid && !memberUids.includes(uid)) {
+    const restricted = project.visibility === "private"
+      || project.visibility === "password"
+      || project.tags?.includes?.("visibility-private")
+      || project.tags?.includes?.("visibility-unlisted");
+    if (restricted && project.createdBy !== uid && !memberUids.includes(uid)) {
       return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }
 

@@ -13,6 +13,7 @@ import { getSkipBalanceSummary } from "@/lib/utils/skipBalances";
 import { appendRefParam, getChallengeSharePath } from "@/lib/utils/share";
 import { getDirectChallengeShareText } from "@/lib/utils/challengeShareCopy";
 import { ShareButton } from "@/components/share/ShareButton";
+import { apiRequest } from "@/lib/services/firebase/apiClient";
 
 const ADMIN_EMAIL = process.env.NEXT_PUBLIC_ADMIN_EMAIL ?? "";
 
@@ -156,11 +157,11 @@ function sentenceCaseStart(value: string): string {
   return trimmed.charAt(0).toUpperCase() + trimmed.slice(1);
 }
 
-function challengeFromProject(project: Project): ChallengeCard {
+function challengeFromProject(project: Project, reconciledTotal?: number): ChallengeCard {
   const category = challengeCategory(project);
   const fallback = fallbackForCategory(category);
   const goal = getChallengeGoal(project);
-  const raised = Math.min(goal, Math.max(0, (project.totalRaised ?? 0) + (project.totalDonated ?? 0)));
+  const raised = Math.min(goal, Math.max(0, reconciledTotal ?? ((project.totalRaised ?? 0) + (project.totalDonated ?? 0))));
   const progressPct = goal > 0 ? Math.min(100, Math.round((raised / goal) * 100)) : 0;
   const unitCost = project.unitCost ?? 0;
   const hasUnits = unitCost > 0 && goal > 0;
@@ -219,6 +220,7 @@ export default function ChallengesPage() {
   const [pendingActivationProjectId, setPendingActivationProjectId] = useState<string | null>(null);
   const [pendingActivationChallenge, setPendingActivationChallenge] = useState<ChallengeCard | null>(null);
   const [creating, setCreating] = useState(false);
+  const [reconciledTotals, setReconciledTotals] = useState<Record<string, number>>({});
 
   useEffect(() => {
     if (createRequested) setShowCreateForm(true);
@@ -236,13 +238,33 @@ export default function ChallengesPage() {
     });
     return Array.from(challengesById.values());
   }, [challenges, partnerChallenges]);
+  useEffect(() => {
+    let cancelled = false;
+    const ids = allChallenges.map((challenge) => challenge.project.id);
+    void Promise.all(ids.map(async (id) => {
+      try {
+        const totals = await apiRequest<{ total: number }>(`/api/challenges/${id}/totals`, "GET");
+        return [id, totals.total] as const;
+      } catch {
+        return null;
+      }
+    })).then((entries) => {
+      if (cancelled) return;
+      setReconciledTotals(Object.fromEntries(entries.filter((entry): entry is readonly [string, number] => entry !== null)));
+    });
+    return () => { cancelled = true; };
+  }, [allChallenges]);
+  const reconciledAllChallenges = useMemo(
+    () => allChallenges.map((challenge) => challengeFromProject(challenge.project, reconciledTotals[challenge.project.id])),
+    [allChallenges, reconciledTotals],
+  );
   const archivedChallenges = useMemo(() => {
     if (!profile) return [];
     const joined = new Set([...(profile.joinedProjectIds ?? []), ...(profile.activeProjectId ? [profile.activeProjectId] : [])]);
-    return allChallenges.filter((challenge) => (
+    return reconciledAllChallenges.filter((challenge) => (
       joined.has(challenge.project.id) || challenge.project.createdBy === user?.uid
     ) && isProjectEnded(challenge.project));
-  }, [allChallenges, profile?.joinedProjectIds, profile?.activeProjectId, user?.uid]);
+  }, [reconciledAllChallenges, profile?.joinedProjectIds, profile?.activeProjectId, user?.uid]);
 
   // Open share modal once the newly created challenge appears in the list
   useEffect(() => {
@@ -270,7 +292,7 @@ export default function ChallengesPage() {
     const found = challenges.find((c) => c.project.id === editId);
     if (found) setEditingChallenge(found);
   }, [editId, challenges]);
-  const activeChallenge = allChallenges.find(
+  const activeChallenge = reconciledAllChallenges.find(
     (challenge) => challenge.project.id === profile?.activeProjectId
   ) ?? null;
   const skipBalance = getSkipBalanceSummary(profile);
@@ -282,7 +304,7 @@ export default function ChallengesPage() {
     () => new Set(profile?.favoriteCauseIds ?? []),
     [profile?.favoriteCauseIds]
   );
-  const filteredChallenges = allChallenges.filter((challenge) => {
+  const filteredChallenges = reconciledAllChallenges.filter((challenge) => {
     if (challenge.project.status === "ended") return false;
     if (selectedCategory === "All") return !isPrivateChallenge(challenge.project) || joinedProjectIds.has(challenge.project.id);
     if (selectedCategory === "My Fundraisers") return favoriteProjectIds.has(challenge.project.id);

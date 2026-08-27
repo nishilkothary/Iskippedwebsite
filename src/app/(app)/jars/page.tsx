@@ -32,6 +32,7 @@ import { getSkipBalanceSummary } from "@/lib/utils/skipBalances";
 import { getChallengeCausePhrase } from "@/lib/utils/challengeShareCopy";
 import { Project, SpendingGoal, DonationEvent, SkipAllocationTarget } from "@/lib/types/models";
 import { DonationLogModal } from "@/components/skip/DonationLogModal";
+import { apiRequest } from "@/lib/services/firebase/apiClient";
 
 const rewardArtwork = [
   { background: "linear-gradient(135deg, #4C1D95 0%, #8B5CF6 48%, #E9D5FF 140%)", accent: "#E9D5FF" },
@@ -327,13 +328,24 @@ function JarsPageInner() {
   const { projects, refetch } = useProjects();
   const [groupProgress, setGroupProgress] = useState<Record<string, number>>({});
   useEffect(() => {
-    // Project totals are maintained when skips and donations are recorded. Do
-    // not fan out one historical-progress scan per card whenever Jars loads.
+    const activeProjects = projects.filter((project) => !isProjectEnded(project));
+    // Seed immediately from the cached project value, then replace it with
+    // the authoritative sum of current jars plus donations.
     setGroupProgress(Object.fromEntries(
-      projects
-        .filter((project) => !isProjectEnded(project))
-        .map((project) => [project.id, Math.max(0, (project.totalRaised ?? 0) + (project.totalDonated ?? 0))]),
+      activeProjects.map((project) => [project.id, Math.max(0, (project.totalRaised ?? 0) + (project.totalDonated ?? 0))]),
     ));
+    let cancelled = false;
+    void Promise.all(activeProjects.map(async (project) => {
+      try {
+        const totals = await apiRequest<{ total: number }>(`/api/challenges/${project.id}/totals`, "GET");
+        return [project.id, totals.total] as const;
+      } catch {
+        return null;
+      }
+    })).then((entries) => {
+      if (!cancelled) setGroupProgress(Object.fromEntries(entries.filter((entry): entry is readonly [string, number] => entry !== null)));
+    });
+    return () => { cancelled = true; };
   }, [projects]);
   const [editingPurchaseId, setEditingPurchaseId] = useState<string | null>(null);
   const [editPurchaseAmountStr, setEditPurchaseAmountStr] = useState("");

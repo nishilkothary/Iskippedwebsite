@@ -28,7 +28,9 @@ export async function GET(req: NextRequest, context: { params: Promise<{ id: str
       totalPledged: totalRaised,
       totalDonated,
       contributorCount: members.length,
-      total: Math.max(totalRaised, totalDonated),
+      // Pledged and completed donations are separate, non-overlapping
+      // buckets. The group total is their sum.
+      total: totalRaised + totalDonated,
     });
   } catch (error) {
     console.error("[challenge progress] failed", error);

@@ -53,6 +53,9 @@ export async function POST(req: NextRequest) {
         [`causeJarOverflowCounts.${projectId}`]: 0,
       });
       tx.set(db.collection("projects").doc(projectId), {
+        // A donation moves money out of the fundraiser jars into the
+        // completed-donation bucket. Keep the two project totals disjoint.
+        totalRaised: FieldValue.increment(-jarDecrease),
         totalDonated: FieldValue.increment(amount),
       }, { merge: true });
     });
