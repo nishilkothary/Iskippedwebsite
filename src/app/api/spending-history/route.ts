@@ -28,11 +28,10 @@ export async function POST(req: NextRequest) {
       const currentBal = Math.max(0, profile?.goalJarBalances?.[goalId] ?? 0);
       const unassignedSkipBank = getSkipBalanceSummary(profile).unassignedSkipBank;
       const usableFromSkips = currentBal + unassignedSkipBank;
-      if (amount > usableFromSkips) {
-        throw new ApiError(400, "Purchase exceeds available skipped savings");
-      }
       const amountFromSkips = Math.min(amount, usableFromSkips);
       const jarDecrease = Math.min(amountFromSkips, currentBal);
+      const skipBucksDecrease = Math.max(0, amountFromSkips - jarDecrease);
+      const outsideContribution = Math.max(0, amount - amountFromSkips);
       const consumption = consumeLots(skipLots, amountFromSkips, [locationKey({ type: "goal", id: goalId }), "unassigned"]);
       const nextBalances = balancesFromLots(skipLots);
 
@@ -41,7 +40,10 @@ export async function POST(req: NextRequest) {
         label: goalLabel,
         targetAmount,
         amountSaved: amountFromSkips,
+        totalAmount: amount,
         jarDecrease,
+        skipBucksDecrease,
+        outsideContribution,
         ledgerConsumption: consumption.consumedByLot,
         purchasedAt: FieldValue.serverTimestamp(),
       });
@@ -52,7 +54,7 @@ export async function POST(req: NextRequest) {
         skipLots,
       });
 
-      return { amountFromSkips, jarDecrease };
+      return { amountFromSkips, jarDecrease, skipBucksDecrease, outsideContribution };
     });
 
     return NextResponse.json(result);

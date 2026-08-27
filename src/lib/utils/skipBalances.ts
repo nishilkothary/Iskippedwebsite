@@ -89,11 +89,13 @@ export function sumMoneyRecord(record: Record<string, number> | undefined | null
  * Skip Bucks = Total unspent savings - In Jars.
  */
 export function getSkipBalanceSummary(profile: Pick<UserProfile,
-  "totalSaved" | "totalSpent" | "totalDonated" | "causeJarBalances" | "goalJarBalances"
+  "totalSaved" | "totalSpent" | "totalDonated" | "totalDonatedFromSkips" | "causeJarBalances" | "goalJarBalances"
 > | null | undefined) {
   const lifetimeSaved = Math.max(0, profile?.totalSaved ?? 0);
   const spentFromSkips = Math.max(0, profile?.totalSpent ?? 0);
-  const donatedFromSkips = Math.max(0, profile?.totalDonated ?? 0);
+  // Before outside contributions existed every donation came from skips, so
+  // legacy profiles fall back to totalDonated until their first new donation.
+  const donatedFromSkips = Math.max(0, profile?.totalDonatedFromSkips ?? profile?.totalDonated ?? 0);
   const fundraiserReady = sumMoneyRecord(profile?.causeJarBalances);
   const goalReady = sumMoneyRecord(profile?.goalJarBalances);
   const assignedToJars = fundraiserReady + goalReady;

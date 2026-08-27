@@ -31,14 +31,15 @@ export function DonationLogModal({ projectId, projectTitle, onClose, initialAmou
   const jarBalance = Math.max(0, profile?.causeJarBalances?.[projectId] ?? 0);
   const unassignedSkipBucks = unassignedSkipBucksProp ?? getSkipBalanceSummary(profile).unassignedSkipBank;
   const totalAvailable = jarBalance + unassignedSkipBucks;
-  const amountOverAvailable = cleanAmount > totalAvailable;
-  const extraFromUnassigned = Math.max(0, cleanAmount - jarBalance);
+  const jarUsed = Math.min(cleanAmount, jarBalance);
+  const skipBucksUsed = Math.min(Math.max(0, cleanAmount - jarUsed), unassignedSkipBucks);
+  const outsideContribution = Math.max(0, cleanAmount - jarUsed - skipBucksUsed);
   const emptiesJar = jarBalance > 0 && cleanAmount >= jarBalance;
   const recipientLabel = donationRecipient?.trim() || projectTitle;
 
   async function handleLog() {
     const num = cleanAmount;
-    if (!num || num < 1 || amountOverAvailable) return;
+    if (!num || num < 1) return;
     setLoading(true);
     try {
       const ok = await donate(num, projectId, projectTitle, date);
@@ -71,9 +72,16 @@ export function DonationLogModal({ projectId, projectTitle, onClose, initialAmou
         onClick={(e) => e.stopPropagation()}
       >
         <div className="flex items-center justify-between px-6 py-5" style={{ borderBottom: "1px solid var(--border-default)" }}>
-          <h2 id="donation-log-title" className="text-lg font-bold" style={{ color: "var(--text-primary)" }}>
-            {done === "emptied" ? "Jar emptied" : "Donate my skips"}
-          </h2>
+          <div>
+            <h2 id="donation-log-title" className="text-lg font-bold" style={{ color: "var(--text-primary)" }}>
+              {done === "emptied" ? "Jar emptied" : "Donate my skips"}
+            </h2>
+            {done === null && (
+              <p className="mt-1 text-xs font-black" style={{ color: "var(--green-primary)" }}>
+                In this jar: {formatCurrency(jarBalance)}
+              </p>
+            )}
+          </div>
           <button onClick={onClose} aria-label="Close" className="text-2xl leading-none" style={{ color: "var(--text-muted)" }}>×</button>
         </div>
 
@@ -158,7 +166,6 @@ export function DonationLogModal({ projectId, projectTitle, onClose, initialAmou
                     <input
                       type="number"
                       min="1"
-                      max={totalAvailable || undefined}
                       value={amount}
                       onChange={(e) => setAmount(e.target.value)}
                       placeholder="0"
@@ -170,18 +177,18 @@ export function DonationLogModal({ projectId, projectTitle, onClose, initialAmou
                       }}
                     />
                   </div>
-                  <p className="mt-2 text-xs font-bold" style={{ color: "var(--text-muted)" }}>
-                    {formatCurrency(jarBalance)} saved in this jar.
-                  </p>
-                  {amountOverAvailable && (
-                    <p className="mt-2 text-xs font-bold leading-relaxed" style={{ color: "#EF4444" }}>
-                      That is more than your saved skips. Lower the amount to {formatCurrency(totalAvailable)} or less.
-                    </p>
-                  )}
-                  {!amountOverAvailable && extraFromUnassigned > 0 && cleanAmount > 0 && (
-                    <p className="mt-2 text-xs font-bold leading-relaxed" style={{ color: "#F59E0B" }}>
-                      You are donating more than this jar holds. {formatCurrency(extraFromUnassigned)} will come from your saved Skip Bucks.
-                    </p>
+                  {cleanAmount > 0 && (
+                    <div className="mt-3 rounded-lg px-3 py-2.5 text-xs leading-relaxed" style={{ background: "rgba(46,204,113,0.07)", border: "1px solid rgba(46,204,113,0.18)", color: "var(--text-secondary)" }}>
+                      <p><strong style={{ color: "var(--text-primary)" }}>{formatCurrency(jarUsed)}</strong> will come from this jar.</p>
+                      {skipBucksUsed > 0 && (
+                        <p><strong style={{ color: "var(--text-primary)" }}>{formatCurrency(skipBucksUsed)}</strong> will come from Skip Bucks.</p>
+                      )}
+                      {outsideContribution > 0 && (
+                        <p className="mt-1 font-bold" style={{ color: "#F59E0B" }}>
+                          Note: the remaining {formatCurrency(outsideContribution)} is an outside contribution and will not be covered by your skips.
+                        </p>
+                      )}
+                    </div>
                   )}
                 </div>
                 <div>
@@ -201,7 +208,7 @@ export function DonationLogModal({ projectId, projectTitle, onClose, initialAmou
               </div>
               <button
                 onClick={handleLog}
-                disabled={loading || !amount || cleanAmount < 1 || amountOverAvailable}
+                disabled={loading || !amount || cleanAmount < 1}
                 className="w-full font-bold py-3.5 rounded-xl transition-all disabled:opacity-60 disabled:cursor-not-allowed"
                 style={{
                   background: "linear-gradient(135deg, var(--coral-primary), var(--coral-dark))",

@@ -20,7 +20,7 @@ export async function POST(req: NextRequest) {
     const userRef = db.collection("users").doc(uid);
     const donationRef = userRef.collection("donations").doc();
 
-    await db.runTransaction(async (tx) => {
+    const result = await db.runTransaction(async (tx) => {
       const userSnap = await tx.get(userRef);
       const profile = userSnap.data() as UserProfile | undefined;
       if (!profile) throw new ApiError(404, "User not found");
@@ -28,11 +28,11 @@ export async function POST(req: NextRequest) {
       const currentBal = Math.max(0, profile?.causeJarBalances?.[projectId] ?? 0);
       const unassignedSkipBank = getSkipBalanceSummary(profile).unassignedSkipBank;
       const usableFromSkips = currentBal + unassignedSkipBank;
-      if (amount > usableFromSkips) {
-        throw new ApiError(400, "Donation exceeds available skipped savings");
-      }
-      const jarDecrease = Math.min(amount, currentBal);
-      const consumption = consumeLots(skipLots, amount, [locationKey({ type: "fundraiser", id: projectId }), "unassigned"]);
+      const amountFromSkips = Math.min(amount, usableFromSkips);
+      const jarDecrease = Math.min(amountFromSkips, currentBal);
+      const skipBucksDecrease = Math.max(0, amountFromSkips - jarDecrease);
+      const outsideContribution = Math.max(0, amount - amountFromSkips);
+      const consumption = consumeLots(skipLots, amountFromSkips, [locationKey({ type: "fundraiser", id: projectId }), "unassigned"]);
       const nextBalances = balancesFromLots(skipLots);
 
       tx.set(donationRef, {
@@ -40,12 +40,18 @@ export async function POST(req: NextRequest) {
         causeTitle: projectTitle,
         amount,
         jarDecrease,
+        skipBucksDecrease,
+        outsideContribution,
+        amountFromSkips,
         ledgerConsumption: consumption.consumedByLot,
         ...(date ? { date } : {}),
         donatedAt: FieldValue.serverTimestamp(),
       });
       tx.update(userRef, {
         totalDonated: FieldValue.increment(amount),
+        totalDonatedFromSkips: profile.totalDonatedFromSkips === undefined
+          ? Math.max(0, Number(profile.totalDonated ?? 0)) + amountFromSkips
+          : FieldValue.increment(amountFromSkips),
         savedTowardActiveCause: 0,
         causeJarBalances: nextBalances.causeJarBalances,
         goalJarBalances: nextBalances.goalJarBalances,
@@ -58,11 +64,12 @@ export async function POST(req: NextRequest) {
         totalRaised: FieldValue.increment(-jarDecrease),
         totalDonated: FieldValue.increment(amount),
       }, { merge: true });
+      return { jarDecrease, skipBucksDecrease, outsideContribution, amountFromSkips };
     });
 
     userRef.update({ lastDonationDate: new Date().toISOString().slice(0, 10) }).catch(() => {});
 
-    return NextResponse.json({});
+    return NextResponse.json(result);
   } catch (e) {
     return handleApiError(e);
   }

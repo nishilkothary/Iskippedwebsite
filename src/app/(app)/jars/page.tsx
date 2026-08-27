@@ -324,7 +324,7 @@ function JarsPageInner() {
   const autoOpenRewardAmount = searchParams.get("amount") ?? "";
   const autoOpenRewardCategory = searchParams.get("category") ?? "";
   const { user, profile, updateProfile } = useAuthStore();
-  const { donate, editDonation, deleteDonation, donations } = useSkips();
+  const { donate, deleteDonation, donations } = useSkips();
   const { projects, refetch } = useProjects();
   const [groupProgress, setGroupProgress] = useState<Record<string, number>>({});
   useEffect(() => {
@@ -2252,8 +2252,6 @@ function JarBrowser({
   async function handlePurchaseLog(goal: SpendingGoal, balance: number) {
     const amount = parseFloat(purchaseAmountStr);
     if (!amount || amount <= 0) return;
-    const totalAvailable = balance + availableSkipBankBalance;
-    if (amount > totalAvailable) return;
     setPurchasing(true);
     const ok = await onPurchase(amount);
     setPurchasing(false);
@@ -2534,9 +2532,9 @@ function JarBrowser({
         const balance = Math.max(0, goalJarBalances?.[goal.id] ?? 0);
         const parsedAmount = parseFloat(purchaseAmountStr);
         const cleanAmount = Number.isFinite(parsedAmount) ? parsedAmount : 0;
-        const totalAvailable = balance + availableSkipBankBalance;
-        const amountOverAvailable = cleanAmount > totalAvailable;
-        const extraFromSkipBucks = Math.max(0, cleanAmount - balance);
+        const jarUsed = Math.min(cleanAmount, balance);
+        const skipBucksUsed = Math.min(Math.max(0, cleanAmount - jarUsed), availableSkipBankBalance);
+        const outsideContribution = Math.max(0, cleanAmount - jarUsed - skipBucksUsed);
         return (
           <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4" onClick={closePurchaseModal}>
             <div
@@ -2548,9 +2546,12 @@ function JarBrowser({
               onClick={(event) => event.stopPropagation()}
             >
               <div className="flex items-center justify-between px-6 py-5" style={{ borderBottom: "1px solid var(--border-default)" }}>
-                <h2 id="purchase-log-title" className="text-lg font-bold" style={{ color: "var(--text-primary)" }}>
-                  {purchaseDone === "emptied" ? "Jar emptied" : "Spend my skips"}
-                </h2>
+                <div>
+                  <h2 id="purchase-log-title" className="text-lg font-bold" style={{ color: "var(--text-primary)" }}>
+                    {purchaseDone === "emptied" ? "Jar emptied" : "Spend my skips"}
+                  </h2>
+                  {purchaseDone === null && <p className="mt-1 text-xs font-black" style={{ color: "#C4B5FD" }}>In this jar: {formatCurrency(balance)}</p>}
+                </div>
                 <button onClick={closePurchaseModal} aria-label="Close" className="text-2xl leading-none" style={{ color: "var(--text-muted)" }}>x</button>
               </div>
               <div className="px-6 py-5">
@@ -2628,7 +2629,6 @@ function JarBrowser({
                           <input
                             type="number"
                             min="1"
-                            max={totalAvailable || undefined}
                             value={purchaseAmountStr}
                             onChange={(event) => setPurchaseAmountStr(event.target.value)}
                             placeholder="0"
@@ -2637,25 +2637,19 @@ function JarBrowser({
                             autoFocus
                           />
                         </div>
-                        <p className="mt-2 text-xs font-bold" style={{ color: "var(--text-muted)" }}>
-                          {formatCurrency(balance)} saved in this jar.
-                        </p>
-                        {amountOverAvailable && (
-                          <p className="mt-2 text-xs font-bold leading-relaxed" style={{ color: "#EF4444" }}>
-                            That is more than your saved skips. Lower the amount to {formatCurrency(totalAvailable)} or less.
-                          </p>
-                        )}
-                        {!amountOverAvailable && extraFromSkipBucks > 0 && cleanAmount > 0 && (
-                          <p className="mt-2 text-xs font-bold leading-relaxed" style={{ color: "#F59E0B" }}>
-                            You are spending more than this jar holds. {formatCurrency(extraFromSkipBucks)} will come from your saved Skip Bucks.
-                          </p>
+                        {cleanAmount > 0 && (
+                          <div className="mt-3 rounded-lg px-3 py-2.5 text-xs leading-relaxed" style={{ background: "rgba(139,92,246,0.09)", border: "1px solid rgba(139,92,246,0.22)", color: "var(--text-secondary)" }}>
+                            <p><strong style={{ color: "var(--text-primary)" }}>{formatCurrency(jarUsed)}</strong> will come from this jar.</p>
+                            {skipBucksUsed > 0 && <p><strong style={{ color: "var(--text-primary)" }}>{formatCurrency(skipBucksUsed)}</strong> will come from Skip Bucks.</p>}
+                            {outsideContribution > 0 && <p className="mt-1 font-bold" style={{ color: "#F59E0B" }}>Note: the remaining {formatCurrency(outsideContribution)} is outside iSkipped and will not be covered by your skips.</p>}
+                          </div>
                         )}
                       </div>
                     </div>
                     <button
                       type="button"
                       onClick={() => handlePurchaseLog(goal, balance)}
-                      disabled={purchasing || !purchaseAmountStr || cleanAmount < 1 || amountOverAvailable}
+                      disabled={purchasing || !purchaseAmountStr || cleanAmount < 1}
                       className="w-full font-bold py-3.5 rounded-xl transition-all disabled:opacity-60 disabled:cursor-not-allowed"
                       style={{ background: "#8B5CF6", color: "white" }}
                     >

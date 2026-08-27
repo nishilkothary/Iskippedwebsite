@@ -23,7 +23,6 @@ import {
   deleteSpendingHistory,
   subscribeToDonations,
   subscribeToSpendingHistory,
-  updateDonation,
   updateSpendingHistory,
   updateSpendingGoals,
 } from "@/lib/services/firebase/users";
@@ -292,6 +291,7 @@ function EditableHistoryRow({
   editValue,
   working,
   accent,
+  canEdit,
   onEdit,
   onEditValue,
   onCancel,
@@ -307,6 +307,7 @@ function EditableHistoryRow({
   editValue: string;
   working: boolean;
   accent: string;
+  canEdit: boolean;
   onEdit: () => void;
   onEditValue: (value: string) => void;
   onCancel: () => void;
@@ -339,14 +340,16 @@ function EditableHistoryRow({
         ) : (
           <div className="flex shrink-0 flex-col items-end gap-2">
             <p className="text-lg font-black" style={{ color: "var(--text-primary)" }}>{amountPrefix}{formatCurrency(amount)}</p>
-            <button
-              type="button"
-              onClick={onEdit}
-              className="rounded-full px-3 py-1 text-xs font-black"
-              style={{ background: "rgba(46,204,113,0.1)", border: "1px solid rgba(46,204,113,0.22)", color: "var(--green-primary)" }}
-            >
-              Edit
-            </button>
+            {canEdit && (
+              <button
+                type="button"
+                onClick={onEdit}
+                className="rounded-full px-3 py-1 text-xs font-black"
+                style={{ background: "rgba(46,204,113,0.1)", border: "1px solid rgba(46,204,113,0.22)", color: "var(--green-primary)" }}
+              >
+                Edit
+              </button>
+            )}
             <button
               type="button"
               onClick={onDelete}
@@ -600,7 +603,12 @@ function JarActivityPageInner() {
       kind: "donation",
       id: event.id,
       title: `Donation to ${event.causeTitle}`,
-      meta: formatEventDate(event.donatedAt, event.date),
+      meta: [
+        formatEventDate(event.donatedAt, event.date),
+        `${formatCurrency(Math.max(0, event.jarDecrease ?? event.amountFromSkips ?? event.amount))} jar`,
+        (event.skipBucksDecrease ?? 0) > 0 ? `${formatCurrency(event.skipBucksDecrease ?? 0)} Skip Bucks` : "",
+        (event.outsideContribution ?? 0) > 0 ? `${formatCurrency(event.outsideContribution ?? 0)} outside` : "",
+      ].filter(Boolean).join(" · "),
       amount: event.amount,
       timestamp: eventTime(event.donatedAt, event.date),
       event,
@@ -609,8 +617,13 @@ function JarActivityPageInner() {
       kind: "purchase",
       id: event.id,
       title: `Purchase for ${event.label}`,
-      meta: formatEventDate(event.purchasedAt),
-      amount: event.amountSaved,
+      meta: [
+        formatEventDate(event.purchasedAt),
+        `${formatCurrency(Math.max(0, event.jarDecrease ?? event.amountSaved))} jar`,
+        (event.skipBucksDecrease ?? 0) > 0 ? `${formatCurrency(event.skipBucksDecrease ?? 0)} Skip Bucks` : "",
+        (event.outsideContribution ?? 0) > 0 ? `${formatCurrency(event.outsideContribution ?? 0)} outside` : "",
+      ].filter(Boolean).join(" · "),
+      amount: event.totalAmount ?? event.amountSaved,
       timestamp: eventTime(event.purchasedAt),
       event,
     }));
@@ -810,8 +823,7 @@ function JarActivityPageInner() {
     if (!user) return;
     const amount = parseFloat(purchaseAmount);
     const jarBalance = Math.max(0, profileData.goalJarBalances?.[goal.id] ?? 0);
-    const totalAvailable = jarBalance + unassignedSkipBucks;
-    if (!amount || amount <= 0 || amount > totalAvailable) return;
+    if (!amount || amount <= 0) return;
     setPurchaseWorking(true);
     try {
       const result = await recordPurchase(user.uid, goal.id, goal.label, goal.targetAmount, amount);
@@ -956,34 +968,6 @@ function JarActivityPageInner() {
     setEditingAmount(String(amount));
   }
 
-  async function saveDonationEdit(event: DonationEvent) {
-    if (!user) return;
-    const nextAmount = Number(editingAmount);
-    if (!Number.isFinite(nextAmount) || nextAmount <= 0) return;
-    const delta = nextAmount - event.amount;
-    const currentBal = Math.max(0, profileData.causeJarBalances?.[event.causeId] ?? 0);
-    const jarDecreaseDelta = delta > 0
-      ? Math.min(delta, currentBal)
-      : delta;
-    setHistoryWorkingId(`donation-${event.id}`);
-    try {
-      await updateDonation(user.uid, event.id, nextAmount, event.amount, event.causeId, event.date);
-      updateProfile({
-        totalDonated: Math.max(0, (profileData.totalDonated ?? 0) + delta),
-        causeJarBalances: {
-          ...(profileData.causeJarBalances ?? {}),
-          [event.causeId]: Math.max(0, currentBal - jarDecreaseDelta),
-        },
-      });
-      setEditingHistoryId(null);
-      toast.success("Donation updated.");
-    } catch {
-      toast.error("Could not update donation.");
-    } finally {
-      setHistoryWorkingId(null);
-    }
-  }
-
   async function savePurchaseEdit(event: SpendingHistoryEvent) {
     if (!user) return;
     const nextAmount = Number(editingAmount);
@@ -1018,17 +1002,20 @@ function JarActivityPageInner() {
 
   async function deleteDonationHistory(event: DonationEvent) {
     if (!user) return;
-    const confirmed = window.confirm("Delete this donation record? The skipped amount it used will go back to this jar.");
+    const coveredBySkips = Math.max(0, event.amountFromSkips ?? event.amount);
+    const outsideContribution = Math.max(0, event.outsideContribution ?? 0);
+    const confirmed = window.confirm(`Delete this ${formatCurrency(event.amount)} donation record? ${formatCurrency(coveredBySkips)} funded by saved skips will be restored.${outsideContribution > 0 ? ` The ${formatCurrency(outsideContribution)} outside contribution will only be removed from the record.` : ""}`);
     if (!confirmed) return;
     setHistoryWorkingId(`donation-${event.id}`);
     try {
-      await deleteDonation(user.uid, event.id, event.amount, event.causeId);
+      const funding = await deleteDonation(user.uid, event.id, event.amount, event.causeId);
       const currentBal = Math.max(0, profileData.causeJarBalances?.[event.causeId] ?? 0);
       updateProfile({
         totalDonated: Math.max(0, (profileData.totalDonated ?? 0) - event.amount),
+        totalDonatedFromSkips: Math.max(0, (profileData.totalDonatedFromSkips ?? profileData.totalDonated ?? 0) - funding.amountFromSkips),
         causeJarBalances: {
           ...(profileData.causeJarBalances ?? {}),
-          [event.causeId]: currentBal + event.amount,
+          [event.causeId]: currentBal + funding.jarDecrease,
         },
       });
       toast.success("Donation deleted.");
@@ -1167,11 +1154,12 @@ function JarActivityPageInner() {
                 editValue={editingAmount}
                 working={historyWorkingId === `${spentEvent.kind}-${spentEvent.id}`}
                 accent={spentEvent.kind === "donation" ? "var(--green-primary)" : "#A78BFA"}
+                canEdit={spentEvent.kind === "purchase"}
                 onEdit={() => beginEditHistory(spentEvent.kind, spentEvent.id, spentEvent.amount)}
                 onEditValue={setEditingAmount}
                 onCancel={() => setEditingHistoryId(null)}
                 onDelete={() => spentEvent.kind === "donation" ? void deleteDonationHistory(spentEvent.event) : void deletePurchaseHistory(spentEvent.event)}
-                onSave={() => spentEvent.kind === "donation" ? saveDonationEdit(spentEvent.event) : savePurchaseEdit(spentEvent.event)}
+                onSave={() => spentEvent.kind === "purchase" ? savePurchaseEdit(spentEvent.event) : undefined}
               />
             ))}
           </div>
@@ -1455,9 +1443,9 @@ function JarActivityPageInner() {
         const jarBalance = Math.max(0, profileData.goalJarBalances?.[purchasingGoal.id] ?? 0);
         const parsedAmount = parseFloat(purchaseAmount);
         const cleanAmount = Number.isFinite(parsedAmount) ? parsedAmount : 0;
-        const totalAvailable = jarBalance + unassignedSkipBucks;
-        const amountOverAvailable = cleanAmount > totalAvailable;
-        const extraFromSkipBucks = Math.max(0, cleanAmount - jarBalance);
+        const jarUsed = Math.min(cleanAmount, jarBalance);
+        const skipBucksUsed = Math.min(Math.max(0, cleanAmount - jarUsed), unassignedSkipBucks);
+        const outsideContribution = Math.max(0, cleanAmount - jarUsed - skipBucksUsed);
         return (
           <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4" onClick={closePurchaseModal}>
             <div
@@ -1469,9 +1457,12 @@ function JarActivityPageInner() {
               onClick={(event) => event.stopPropagation()}
             >
               <div className="flex items-center justify-between px-6 py-5" style={{ borderBottom: "1px solid var(--border-default)" }}>
-                <h2 id="jar-activity-purchase-title" className="text-lg font-bold" style={{ color: "var(--text-primary)" }}>
-                  {purchaseDone === "emptied" ? "Jar emptied" : "Spend my skips"}
-                </h2>
+                <div>
+                  <h2 id="jar-activity-purchase-title" className="text-lg font-bold" style={{ color: "var(--text-primary)" }}>
+                    {purchaseDone === "emptied" ? "Jar emptied" : "Spend my skips"}
+                  </h2>
+                  {purchaseDone === null && <p className="mt-1 text-xs font-black" style={{ color: "#C4B5FD" }}>In this jar: {formatCurrency(jarBalance)}</p>}
+                </div>
                 <button type="button" onClick={closePurchaseModal} aria-label="Close" className="text-2xl leading-none" style={{ color: "var(--text-muted)" }}>x</button>
               </div>
               <div className="px-6 py-5">
@@ -1530,7 +1521,6 @@ function JarActivityPageInner() {
                         <input
                           type="number"
                           min="1"
-                          max={totalAvailable || undefined}
                           value={purchaseAmount}
                           onChange={(event) => setPurchaseAmount(event.target.value)}
                           placeholder="0"
@@ -1539,22 +1529,18 @@ function JarActivityPageInner() {
                           autoFocus
                         />
                       </div>
-                      <p className="mt-2 text-xs font-bold" style={{ color: "var(--text-muted)" }}>{formatCurrency(jarBalance)} saved in this jar.</p>
-                      {amountOverAvailable && (
-                        <p className="mt-2 text-xs font-bold leading-relaxed" style={{ color: "#EF4444" }}>
-                          That is more than your saved skips. Lower the amount to {formatCurrency(totalAvailable)} or less.
-                        </p>
-                      )}
-                      {!amountOverAvailable && extraFromSkipBucks > 0 && cleanAmount > 0 && (
-                        <p className="mt-2 text-xs font-bold leading-relaxed" style={{ color: "#F59E0B" }}>
-                          You are spending more than this jar holds. {formatCurrency(extraFromSkipBucks)} will come from your saved Skip Bucks.
-                        </p>
+                      {cleanAmount > 0 && (
+                        <div className="mt-3 rounded-lg px-3 py-2.5 text-xs leading-relaxed" style={{ background: "rgba(139,92,246,0.09)", border: "1px solid rgba(139,92,246,0.22)", color: "var(--text-secondary)" }}>
+                          <p><strong style={{ color: "var(--text-primary)" }}>{formatCurrency(jarUsed)}</strong> will come from this jar.</p>
+                          {skipBucksUsed > 0 && <p><strong style={{ color: "var(--text-primary)" }}>{formatCurrency(skipBucksUsed)}</strong> will come from Skip Bucks.</p>}
+                          {outsideContribution > 0 && <p className="mt-1 font-bold" style={{ color: "#F59E0B" }}>Note: the remaining {formatCurrency(outsideContribution)} is outside iSkipped and will not be covered by your skips.</p>}
+                        </div>
                       )}
                     </div>
                     <button
                       type="button"
                       onClick={() => handlePurchaseLog(purchasingGoal)}
-                      disabled={purchaseWorking || !purchaseAmount || cleanAmount < 1 || amountOverAvailable}
+                      disabled={purchaseWorking || !purchaseAmount || cleanAmount < 1}
                       className="w-full rounded-xl py-3.5 font-bold transition-all disabled:cursor-not-allowed disabled:opacity-60"
                       style={{ background: "#8B5CF6", color: "white" }}
                     >

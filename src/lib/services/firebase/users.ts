@@ -269,10 +269,24 @@ export async function transferJarBalance(uid: string, fromProjectId: string, toP
   await apiRequest("/api/causes/transfer-jar", "POST", { fromProjectId, toProjectId });
 }
 
-export async function recordDonation(uid: string, amount: number, projectId: string, projectTitle: string, date?: string): Promise<void> {
+export type DonationFundingBreakdown = {
+  jarDecrease: number;
+  skipBucksDecrease: number;
+  outsideContribution: number;
+  amountFromSkips: number;
+};
+
+export async function recordDonation(uid: string, amount: number, projectId: string, projectTitle: string, date?: string): Promise<DonationFundingBreakdown> {
   if (amount <= 0) throw new Error("Donation amount must be greater than zero");
-  await apiRequest("/api/donations", "POST", { amount, projectId, projectTitle, date });
+  return apiRequest<DonationFundingBreakdown>("/api/donations", "POST", { amount, projectId, projectTitle, date });
 }
+
+export type PurchaseFundingBreakdown = {
+  amountFromSkips: number;
+  jarDecrease: number;
+  skipBucksDecrease: number;
+  outsideContribution: number;
+};
 
 export async function recordPurchase(
   uid: string,
@@ -280,8 +294,8 @@ export async function recordPurchase(
   goalLabel: string,
   targetAmount: number,
   amount: number
-): Promise<{ amountFromSkips: number; jarDecrease: number }> {
-  return apiRequest<{ amountFromSkips: number; jarDecrease: number }>("/api/spending-history", "POST", { goalId, goalLabel, targetAmount, amount });
+): Promise<PurchaseFundingBreakdown> {
+  return apiRequest<PurchaseFundingBreakdown>("/api/spending-history", "POST", { goalId, goalLabel, targetAmount, amount });
 }
 
 export function subscribeToDonations(uid: string, callback: (donations: DonationEvent[]) => void): Unsubscribe {
@@ -295,9 +309,8 @@ export async function updateDonation(uid: string, donationId: string, newAmount:
   await apiRequest(`/api/donations/${donationId}`, "PATCH", { newAmount, date });
 }
 
-export async function deleteDonation(uid: string, donationId: string, amount: number, causeId: string): Promise<number> {
-  const result = await apiRequest<{ jarDecrease: number }>(`/api/donations/${donationId}`, "DELETE");
-  return result.jarDecrease;
+export async function deleteDonation(uid: string, donationId: string, amount: number, causeId: string): Promise<DonationFundingBreakdown> {
+  return apiRequest<DonationFundingBreakdown>(`/api/donations/${donationId}`, "DELETE");
 }
 
 export function subscribeToSpendingHistory(

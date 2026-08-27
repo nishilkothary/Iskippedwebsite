@@ -723,9 +723,9 @@ function FundraiserContributionModal({
   }
 
   async function handleCompleted() {
-    if (!canContinue || coveredAmount <= 0) return;
+    if (!canContinue) return;
     setSaving(true);
-    const ok = await onComplete(coveredAmount);
+    const ok = await onComplete(cleanAmount);
     setSaving(false);
     if (!ok) return;
     toast.success("Donation logged from your skipped savings.");
@@ -1072,15 +1072,12 @@ function GoalSpendModal({
             </div>
             <button type="submit" className="sr-only">Continue</button>
           </form>
-          {amountOverAvailable && (
-            <p className="mt-3 text-xs font-bold leading-relaxed" style={{ color: "#EF4444" }}>
-              That is more than your saved skips. Lower the amount to {formatCurrencyRounded(totalAvailable)} or less.
-            </p>
-          )}
-          {!amountOverAvailable && extraFromUnassigned > 0 && cleanAmount > 0 && (
-            <p className="mt-3 text-xs font-bold leading-relaxed" style={{ color: "#F59E0B" }}>
-              You are spending more than this jar holds. {formatCurrencyRounded(extraFromUnassigned)} will come from your saved Skip Bucks.
-            </p>
+          {cleanAmount > 0 && (
+            <div className="mt-3 rounded-xl p-3 text-xs font-bold leading-relaxed" style={{ background: "rgba(139,92,246,0.09)", border: "1px solid rgba(139,92,246,0.22)", color: "var(--text-secondary)" }}>
+              <p>{formatCurrencyRounded(Math.min(cleanAmount, safeJarBalance))} will come from this jar.</p>
+              {coveredFromUnassigned > 0 && <p>{formatCurrencyRounded(coveredFromUnassigned)} will come from Skip Bucks.</p>}
+              {uncoveredAmount > 0 && <p className="mt-1" style={{ color: "#F59E0B" }}>The remaining {formatCurrencyRounded(uncoveredAmount)} is outside iSkipped and will not be covered by saved skips.</p>}
+            </div>
           )}
           </>
         )}
@@ -1089,7 +1086,7 @@ function GoalSpendModal({
           <button
             type="button"
             onClick={handleCompleted}
-            disabled={!canContinue || amountOverAvailable || saving}
+            disabled={!canContinue || saving}
             className="mt-5 w-full py-3 rounded-xl text-sm font-black disabled:opacity-50"
             style={{ background: "#A78BFA", color: "#0B1A14" }}
           >

@@ -52,6 +52,8 @@ export interface UserProfile {
   challengeEmailConsents?: Record<string, boolean>;
   savedTowardActiveCause: number;
   totalDonated: number;
+  /** Portion of donations funded from saved skips; excludes outside contributions. */
+  totalDonatedFromSkips?: number;
   followingCount: number;
   followersCount: number;
   createdAt: Timestamp;
@@ -184,7 +186,14 @@ export interface DonationEvent {
   causeId: string;
   causeTitle: string;
   amount: number;
+  /** Amount funded from this fundraiser jar. */
   jarDecrease?: number;
+  /** Amount funded from unassigned Skip Bucks. */
+  skipBucksDecrease?: number;
+  /** Amount donated outside iSkipped (does not reduce saved skips). */
+  outsideContribution?: number;
+  /** Total of jarDecrease + skipBucksDecrease. */
+  amountFromSkips?: number;
   date?: string; // YYYY-MM-DD, user-specified donation date
   ledgerConsumption?: Record<string, Record<string, number>>;
   donatedAt: Timestamp;
@@ -196,7 +205,11 @@ export interface SpendingHistoryEvent {
   label: string;
   targetAmount: number;
   amountSaved: number;
+  /** Full purchase amount, including any outside contribution. */
+  totalAmount?: number;
   jarDecrease?: number;
+  skipBucksDecrease?: number;
+  outsideContribution?: number;
   ledgerConsumption?: Record<string, Record<string, number>>;
   purchasedAt: Timestamp;
 }

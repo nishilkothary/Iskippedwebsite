@@ -4,7 +4,7 @@ import { toast } from "sonner";
 import { useAuthStore } from "@/store/authStore";
 import { useSkipStore } from "@/store/skipStore";
 import { subscribeToSkips, logSkip, LogSkipParams, updateSkip as firebaseUpdateSkip, deleteSkip as firebaseDeleteSkip } from "@/lib/services/firebase/skips";
-import { recordDonation, subscribeToDonations, updateDonation as firebaseUpdateDonation, deleteDonation as firebaseDeleteDonation } from "@/lib/services/firebase/users";
+import { recordDonation, subscribeToDonations, deleteDonation as firebaseDeleteDonation } from "@/lib/services/firebase/users";
 import { today } from "@/lib/utils/dates";
 import { getImpactMessage } from "@/lib/constants/impactMessages";
 import { xpForSkip, levelForXp } from "@/lib/utils/xp";
@@ -98,20 +98,21 @@ export function useSkips() {
   async function donate(amount: number, projectId: string, projectTitle: string, date?: string): Promise<boolean> {
     if (!user || !profile) return false;
     try {
-      await recordDonation(user.uid, amount, projectId, projectTitle, date);
+      const funding = await recordDonation(user.uid, amount, projectId, projectTitle, date);
+      const prevDonated = profile.causeStats?.[projectId]?.donated ?? 0;
+      const prevJarBal = Math.max(0, profile.causeJarBalances?.[projectId] ?? 0);
+      updateProfile({
+        totalDonated: profile.totalDonated + amount,
+        totalDonatedFromSkips: (profile.totalDonatedFromSkips ?? profile.totalDonated) + funding.amountFromSkips,
+        causeStats: { ...profile.causeStats, [projectId]: { donated: prevDonated + amount } },
+        causeJarBalances: { ...profile.causeJarBalances, [projectId]: Math.max(0, prevJarBal - funding.jarDecrease) },
+        causeJarOverflowCounts: { ...(profile.causeJarOverflowCounts ?? {}), [projectId]: 0 },
+      });
     } catch (err) {
       console.error("recordDonation failed", err);
       toast.error("Couldn't log your donation — check your connection and try again.");
       return false;
     }
-    const prevDonated = profile.causeStats?.[projectId]?.donated ?? 0;
-    const prevJarBal = Math.max(0, profile.causeJarBalances?.[projectId] ?? 0);
-    updateProfile({
-      totalDonated: profile.totalDonated + amount,
-      causeStats: { ...profile.causeStats, [projectId]: { donated: prevDonated + amount } },
-      causeJarBalances: { ...profile.causeJarBalances, [projectId]: Math.max(0, prevJarBal - amount) },
-      causeJarOverflowCounts: { ...(profile.causeJarOverflowCounts ?? {}), [projectId]: 0 },
-    });
     return true;
   }
 
@@ -162,38 +163,20 @@ export function useSkips() {
     });
   }
 
-  async function editDonation(donation: DonationEvent, newAmount: number, date?: string): Promise<void> {
-    if (!user || !profile) return;
-    const delta = newAmount - donation.amount;
-    await firebaseUpdateDonation(user.uid, donation.id, newAmount, donation.amount, donation.causeId, date);
-    if (delta !== 0) {
-      const currentBal = Math.max(0, profile.causeJarBalances?.[donation.causeId] ?? 0);
-      const jarDelta = delta > 0
-        ? -Math.min(delta, Math.max(0, currentBal))
-        : -delta;
-      updateProfile({
-        totalDonated: profile.totalDonated + delta,
-        causeJarBalances: {
-          ...(profile.causeJarBalances ?? {}),
-          [donation.causeId]: Math.max(0, currentBal + jarDelta),
-        },
-      });
-    }
-  }
-
   async function deleteDonation(donation: DonationEvent): Promise<void> {
     if (!user || !profile) return;
-    await firebaseDeleteDonation(user.uid, donation.id, donation.amount, donation.causeId);
+    const funding = await firebaseDeleteDonation(user.uid, donation.id, donation.amount, donation.causeId);
     updateProfile({
       totalDonated: Math.max(0, profile.totalDonated - donation.amount),
+      totalDonatedFromSkips: Math.max(0, (profile.totalDonatedFromSkips ?? profile.totalDonated) - funding.amountFromSkips),
       causeJarBalances: {
         ...(profile.causeJarBalances ?? {}),
-        [donation.causeId]: Math.max(0, profile.causeJarBalances?.[donation.causeId] ?? 0) + Math.max(0, donation.amount),
+        [donation.causeId]: Math.max(0, profile.causeJarBalances?.[donation.causeId] ?? 0) + funding.jarDecrease,
       },
     });
   }
 
-  return { recentSkips, isLogging, log, donate, edit, deleteSkip, donations, editDonation, deleteDonation };
+  return { recentSkips, isLogging, log, donate, edit, deleteSkip, donations, deleteDonation };
 }
 
 type UserProfilePatch = Parameters<ReturnType<typeof useAuthStore.getState>["updateProfile"]>[0];
