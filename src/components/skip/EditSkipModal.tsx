@@ -31,7 +31,6 @@ export function EditSkipModal({ skip, onClose }: Props) {
   const [customLabel, setCustomLabel] = useState(initialCustomLabel);
   const [amount, setAmount] = useState(skip.amount.toString());
   const [whatSkipped, setWhatSkipped] = useState(skip.whatSkipped ?? "");
-  const [notes, setNotes] = useState(skip.notes ?? "");
   const [loading, setLoading] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [pendingAction, setPendingAction] = useState<"edit" | "delete" | null>(null);
@@ -136,7 +135,6 @@ export function EditSkipModal({ skip, onClose }: Props) {
       categoryLabel: selectedCat.id === "custom" ? (customLabel || "Custom") : selectedCat.label,
       categoryEmoji: selectedCat.emoji,
       whatSkipped: whatSkipped || undefined,
-      notes: notes || undefined,
     }, sourceAllocations);
     onClose();
   }
@@ -361,23 +359,7 @@ export function EditSkipModal({ skip, onClose }: Props) {
             )}
           </div>
 
-          {/* Notes */}
-          <div>
-            <label className="block text-sm font-medium mb-2" style={{ color: "var(--text-primary)" }}>Personal notes (optional)</label>
-            <textarea
-              value={notes}
-              onChange={(e) => setNotes(e.target.value)}
-              placeholder="Any thoughts?"
-              rows={2}
-              className="w-full rounded-xl px-4 py-3 text-sm focus:outline-none resize-none"
-              style={{
-                background: "var(--bg-surface-2)",
-                border: "1px solid var(--border-default)",
-                color: "var(--text-primary)",
-              }}
-            />
           </div>
-        </div>
         )}
 
         {/* Actions */}

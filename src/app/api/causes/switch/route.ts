@@ -27,7 +27,10 @@ export async function POST(req: NextRequest) {
       const updates: Record<string, unknown> = {
         joinedProjectIds: FieldValue.arrayUnion(newCauseId),
       };
-      if (makeActive) updates.activeProjectId = newCauseId;
+      if (makeActive) {
+        updates.activeProjectId = newCauseId;
+        updates.activeSkipTarget = { type: "fundraiser", id: newCauseId };
+      }
       const balanceTransfer: Record<string, number> = {};
       let totalTransferred = 0;
 
