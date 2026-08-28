@@ -127,27 +127,6 @@ function ChallengeImage({ challenge, className }: { challenge: ChallengeView; cl
   );
 }
 
-function ProgressBar({ challenge }: { challenge: ChallengeView }) {
-  const pct = challenge.goal > 0 ? Math.min(100, Math.round((challenge.raised / challenge.goal) * 100)) : 0;
-  return (
-    <div>
-      <div className="flex justify-between gap-3 text-sm font-black mb-2">
-        <span style={{ color: "var(--green-primary)" }}>Pledged {formatCurrency(challenge.raised)}</span>
-        <span style={{ color: "var(--text-muted)" }}>{pct}%</span>
-      </div>
-      <div className="h-3 rounded-full overflow-hidden" style={{ background: "var(--bg-surface-3)" }}>
-        <div
-          className="h-full rounded-full"
-          style={{ width: `${pct}%`, background: "linear-gradient(135deg, var(--green-primary), var(--green-grad-end))" }}
-        />
-      </div>
-      <p className="text-xs font-semibold mt-2 text-right" style={{ color: "var(--text-muted)" }}>
-        Goal {formatCurrency(challenge.goal)}
-      </p>
-    </div>
-  );
-}
-
 function SkipChallenge({ project }: { project: Project }) {
   const milestones = project.skipMilestones;
   if (!milestones) return null;
@@ -269,19 +248,7 @@ export default function JoinChallengePage() {
     return () => { cancelled = true; };
   }, [challengeId, requestedProjectId]);
 
-  const [reconciledTotal, setReconciledTotal] = useState<number | null>(null);
-
-  useEffect(() => {
-    if (!challengeId) return;
-    let cancelled = false;
-    void fetch(`/api/challenges/${challengeId}/public-totals`)
-      .then((response) => response.ok ? response.json() : Promise.reject(new Error("Unable to load totals")))
-      .then((data: { total?: number }) => { if (!cancelled) setReconciledTotal(Number(data.total) || 0); })
-      .catch(() => { if (!cancelled) setReconciledTotal(null); });
-    return () => { cancelled = true; };
-  }, [challengeId]);
-
-  const challenge = useMemo(() => projectData ? challengeFromProject(projectData, reconciledTotal ?? undefined) : null, [projectData, reconciledTotal]);
+  const challenge = useMemo(() => projectData ? challengeFromProject(projectData) : null, [projectData]);
 
   const inviteDestination = `/challenges/${resolvedChallengeId || challengeId}?invite=1`;
   const signUpHref = `/sign-in?mode=signup&redirect=${encodeURIComponent(inviteDestination)}`;
@@ -343,8 +310,6 @@ export default function JoinChallengePage() {
             {/* Badges */}
             <div className="flex flex-wrap gap-2 mb-3">
               <Badge>{challenge.trustLabel}</Badge>
-              <Badge>{challenge.category}</Badge>
-              <Badge>{challenge.visibilityLabel}</Badge>
               {countdown.isExpired && (
                 <span className="px-2 py-0.5 rounded-full text-xs font-bold" style={{ background: "rgba(239,68,68,0.1)", color: "#EF4444" }}>
                   Ended
@@ -373,7 +338,10 @@ export default function JoinChallengePage() {
 
             <div className="mt-5">
               {challenge.goal > 0 ? (
-                <ProgressBar challenge={challenge} />
+                <div className="flex items-center justify-between rounded-xl px-4 py-3" style={{ background: "var(--bg-surface-2)", border: "1px solid var(--border-default)" }}>
+                  <p className="text-xs uppercase tracking-wide font-black" style={{ color: "var(--text-muted)" }}>Fundraiser goal</p>
+                  <p className="text-lg font-black" style={{ color: "var(--green-primary)" }}>{formatCurrency(challenge.goal)}</p>
+                </div>
               ) : (
                 <div className={`grid gap-3 rounded-xl p-4 ${hasUnits ? "grid-cols-3" : "grid-cols-2"}`} style={{ background: "var(--bg-surface-2)", border: "1px solid var(--border-default)" }}>
                   <div className="text-center">
