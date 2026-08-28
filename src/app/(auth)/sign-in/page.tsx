@@ -3,7 +3,7 @@ import { useEffect, useState, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { toast } from "sonner";
-import { signInWithGoogle, signUpWithEmail, signInWithEmail, resetPassword } from "@/lib/services/firebase/auth";
+import { signInWithGoogle, signInWithGoogleRedirect, completeGoogleRedirectSignIn, signUpWithEmail, signInWithEmail, resetPassword } from "@/lib/services/firebase/auth";
 import { useAuthStore } from "@/store/authStore";
 
 const previewSkips = [
@@ -83,6 +83,29 @@ function SignInPage() {
   }, [user, isLoading, emailSignupInProgress, router, postAuthDestination]);
 
   useEffect(() => {
+    let cancelled = false;
+    const isMobile = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
+    if (!isMobile) return;
+
+    setGoogleLoading(true);
+    completeGoogleRedirectSignIn()
+      .then((redirectUser) => {
+        if (!cancelled && redirectUser) router.replace(postAuthDestination);
+      })
+      .catch((e: any) => {
+        if (!cancelled) {
+          setError(friendlyAuthError(e));
+          setGoogleLoading(false);
+        }
+      })
+      .finally(() => {
+        if (!cancelled) setGoogleLoading(false);
+      });
+
+    return () => { cancelled = true; };
+  }, [router, postAuthDestination]);
+
+  useEffect(() => {
     const t = setTimeout(() => setCardsVisible(true), 200);
     return () => clearTimeout(t);
   }, []);
@@ -101,6 +124,11 @@ function SignInPage() {
     setError(null);
     setGoogleLoading(true);
     try {
+      const isMobile = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
+      if (isMobile) {
+        await signInWithGoogleRedirect();
+        return;
+      }
       await signInWithGoogle();
       router.replace(postAuthDestination);
     } catch (e: any) {

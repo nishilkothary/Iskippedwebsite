@@ -1,6 +1,8 @@
 import {
   GoogleAuthProvider,
   signInWithPopup,
+  signInWithRedirect,
+  getRedirectResult,
   signOut as firebaseSignOut,
   onAuthStateChanged,
   createUserWithEmailAndPassword,
@@ -28,12 +30,27 @@ async function attributeReferralIfNew(isNew: boolean, uid: string): Promise<void
   }
 }
 
+async function finishGoogleSignIn(user: User): Promise<User> {
+  const isNew = await createOrUpdateUser(user);
+  await attributeReferralIfNew(isNew, user.uid);
+  return user;
+}
+
 export async function signInWithGoogle(): Promise<User> {
   const provider = new GoogleAuthProvider();
   const result = await signInWithPopup(auth, provider);
-  const isNew = await createOrUpdateUser(result.user);
-  await attributeReferralIfNew(isNew, result.user.uid);
-  return result.user;
+  return finishGoogleSignIn(result.user);
+}
+
+/** Starts the mobile-safe Google flow. The browser returns to the current URL. */
+export async function signInWithGoogleRedirect(): Promise<void> {
+  await signInWithRedirect(auth, new GoogleAuthProvider());
+}
+
+/** Completes a redirect-based Google sign-in after the page loads again. */
+export async function completeGoogleRedirectSignIn(): Promise<User | null> {
+  const result = await getRedirectResult(auth);
+  return result ? finishGoogleSignIn(result.user) : null;
 }
 
 export async function signUpWithEmail(
