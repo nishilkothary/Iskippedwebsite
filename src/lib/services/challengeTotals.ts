@@ -1,4 +1,6 @@
 import type { Firestore } from "firebase-admin/firestore";
+import { getSkipBalanceSummary } from "@/lib/utils/skipBalances";
+import type { UserProfile } from "@/lib/types/models";
 
 export type ChallengeTotals = {
   totalPledged: number;
@@ -21,7 +23,8 @@ export async function getChallengeTotals(
 
   const totalPledged = jarUsers.docs.reduce((sum, user) => {
     const amount = Number(user.data().causeJarBalances?.[projectId] ?? 0);
-    return sum + (Number.isFinite(amount) && amount > 0 ? amount : 0);
+    const availableFromSkips = getSkipBalanceSummary(user.data() as UserProfile).availableFromSkips;
+    return sum + (Number.isFinite(amount) && amount > 0 ? Math.min(amount, availableFromSkips) : 0);
   }, 0);
 
   const donations = new Map<string, number>();

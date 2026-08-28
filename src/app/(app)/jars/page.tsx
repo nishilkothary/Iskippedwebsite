@@ -329,16 +329,11 @@ function JarsPageInner() {
   const [groupProgress, setGroupProgress] = useState<Record<string, number>>({});
   useEffect(() => {
     const activeProjects = projects.filter((project) => !isProjectEnded(project));
-    // Group fundraiser progress is cumulative: a donation moves money from
-    // an individual's current jar into the completed-donation total, so the
-    // group number must never go down. Keep the highest value already shown
-    // while project snapshots and the live totals request catch up.
+    // Seed the card while the canonical totals request is loading. Cached
+    // project counters can be stale or reflect an older accounting model.
     setGroupProgress((previous) => Object.fromEntries(activeProjects.map((project) => [
       project.id,
-      Math.max(
-        previous[project.id] ?? 0,
-        Number(project.totalRaised ?? 0) + Number(project.totalDonated ?? 0),
-      ),
+      previous[project.id] ?? Math.max(0, Number(project.totalRaised ?? 0) + Number(project.totalDonated ?? 0)),
     ])));
     let cancelled = false;
     void Promise.all(activeProjects.map(async (project) => {
@@ -347,8 +342,7 @@ function JarsPageInner() {
         return [project.id, totals.total] as const;
       } catch {
         // The project counters are reconciled cache fields. Use them only as
-        // a visible fallback if the live totals request is unavailable; never
-        // turn a temporary request failure into a misleading $0 card.
+        // a visible fallback if the live totals request is unavailable.
         const cachedTotal = Math.max(0, Number(project.totalRaised ?? 0) + Number(project.totalDonated ?? 0));
         return [project.id, cachedTotal] as const;
       }
@@ -356,7 +350,7 @@ function JarsPageInner() {
       if (!cancelled) {
         setGroupProgress((previous) => Object.fromEntries(entries.map(([projectId, total]) => [
           projectId,
-          Math.max(previous[projectId] ?? 0, total),
+          total,
         ])));
       }
     });

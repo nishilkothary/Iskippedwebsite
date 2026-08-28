@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getAdminAuth, getAdminDb } from "@/lib/services/firebaseAdmin";
 import { DESIGNATED_ADMIN_EMAIL } from "@/lib/constants/admin";
 import { getChallengeTotals } from "@/lib/services/challengeTotals";
+import { getSkipBalanceSummary } from "@/lib/utils/skipBalances";
 
 type MemberProfile = {
   uid?: string;
@@ -9,6 +10,11 @@ type MemberProfile = {
   email?: string;
   photoURL?: string | null;
   emailVerified?: boolean;
+  totalSaved?: number;
+  totalSpent?: number;
+  totalDonated?: number;
+  totalDonatedFromSkips?: number;
+  goalJarBalances?: Record<string, number>;
   causeJarBalances?: Record<string, number>;
   joinedProjectIds?: string[];
   challengeEmailConsents?: Record<string, boolean>;
@@ -113,7 +119,17 @@ export async function GET(req: NextRequest, context: { params: Promise<{ id: str
           email: emailShared ? data.email || "" : "",
           photoURL: data.photoURL ?? null,
           emailVerified: data.emailVerified ?? null,
-          pledged: Math.max(0, Number(data.causeJarBalances?.[challengeId] ?? 0) || 0),
+          pledged: Math.min(
+            Math.max(0, Number(data.causeJarBalances?.[challengeId] ?? 0) || 0),
+            getSkipBalanceSummary({
+              totalSaved: data.totalSaved ?? 0,
+              totalSpent: data.totalSpent ?? 0,
+              totalDonated: data.totalDonated ?? 0,
+              totalDonatedFromSkips: data.totalDonatedFromSkips,
+              causeJarBalances: data.causeJarBalances,
+              goalJarBalances: data.goalJarBalances,
+            }).availableFromSkips,
+          ),
           donated: donatedByUid.get(snap.id) ?? donatedByUid.get(uid) ?? 0,
           joinedChallenge: data.joinedProjectIds?.includes(challengeId) ?? true,
           joinedAt: data.createdAt?.toDate?.().toISOString() ?? null,

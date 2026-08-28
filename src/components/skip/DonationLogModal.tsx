@@ -28,7 +28,10 @@ export function DonationLogModal({ projectId, projectTitle, onClose, initialAmou
   const dialogRef = useModalA11y(onClose);
   const parsedAmount = parseFloat(amount);
   const cleanAmount = Number.isFinite(parsedAmount) ? parsedAmount : 0;
-  const jarBalance = Math.max(0, profile?.causeJarBalances?.[projectId] ?? 0);
+  const jarBalance = Math.min(
+    Math.max(0, profile?.causeJarBalances?.[projectId] ?? 0),
+    getSkipBalanceSummary(profile).availableFromSkips,
+  );
   const unassignedSkipBucks = unassignedSkipBucksProp ?? getSkipBalanceSummary(profile).unassignedSkipBank;
   const totalAvailable = jarBalance + unassignedSkipBucks;
   const jarUsed = Math.min(cleanAmount, jarBalance);

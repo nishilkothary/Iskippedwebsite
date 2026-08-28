@@ -1342,7 +1342,14 @@ export default function HomePage() {
     : null;
   const skipBalance = getSkipBalanceSummary(profile);
 
-  const givingBalance = activeProject ? Math.max(0, profile.causeJarBalances?.[activeProject.id] ?? 0) : 0;
+  // A jar is a view of this account's unspent Skip Bucks. Older/stale jar
+  // fields must never make a personal jar exceed the account-wide balance.
+  const givingBalance = activeProject
+    ? Math.min(
+        Math.max(0, profile.causeJarBalances?.[activeProject.id] ?? 0),
+        skipBalance.availableFromSkips,
+      )
+    : 0;
   const spendingBalance = activeGoal ? Math.max(0, profile.goalJarBalances?.[activeGoal.id] ?? 0) : 0;
 
 

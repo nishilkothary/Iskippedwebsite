@@ -25,8 +25,14 @@ export async function POST(req: NextRequest) {
       const profile = userSnap.data() as UserProfile | undefined;
       if (!profile) throw new ApiError(404, "User not found");
       const skipLots = cloneLots(profile);
-      const currentBal = Math.max(0, profile?.causeJarBalances?.[projectId] ?? 0);
-      const unassignedSkipBank = getSkipBalanceSummary(profile).unassignedSkipBank;
+      const skipBalanceSummary = getSkipBalanceSummary(profile);
+      // Never let a stale/corrupt jar field make more Skip Bucks spendable
+      // than the account's actual unspent lifetime savings.
+      const currentBal = Math.min(
+        Math.max(0, profile?.causeJarBalances?.[projectId] ?? 0),
+        skipBalanceSummary.availableFromSkips,
+      );
+      const unassignedSkipBank = skipBalanceSummary.unassignedSkipBank;
       const usableFromSkips = currentBal + unassignedSkipBank;
       const amountFromSkips = Math.min(amount, usableFromSkips);
       const jarDecrease = Math.min(amountFromSkips, currentBal);
@@ -34,6 +40,14 @@ export async function POST(req: NextRequest) {
       const outsideContribution = Math.max(0, amount - amountFromSkips);
       const consumption = consumeLots(skipLots, amountFromSkips, [locationKey({ type: "fundraiser", id: projectId }), "unassigned"]);
       const nextBalances = balancesFromLots(skipLots);
+      // The affected personal jar is authoritative from the current profile
+      // balance and this transaction's funding breakdown. Rebuilding the
+      // whole map from legacy lots can resurrect unrelated stale dollars.
+      if (currentBal - jarDecrease > 0) {
+        nextBalances.causeJarBalances[projectId] = currentBal - jarDecrease;
+      } else {
+        delete nextBalances.causeJarBalances[projectId];
+      }
 
       tx.set(donationRef, {
         causeId: projectId,

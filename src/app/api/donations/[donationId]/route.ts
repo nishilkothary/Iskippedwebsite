@@ -4,6 +4,7 @@ import { getAdminDb } from "@/lib/services/firebaseAdmin";
 import { requireUid, ApiError, handleApiError } from "@/lib/services/apiAuth";
 import { UserProfile, DonationEvent } from "@/lib/types/models";
 import { addSkipLot, balancesFromLots, cloneLots, restoreConsumedLots } from "@/lib/utils/skipLedger";
+import { getSkipBalanceSummary } from "@/lib/utils/skipBalances";
 
 type RouteContext = { params: Promise<{ donationId: string }> };
 
@@ -30,7 +31,12 @@ export async function DELETE(req: NextRequest, ctx: RouteContext) {
       const skipBucksDecrease = Math.max(0, donation.skipBucksDecrease ?? Math.max(0, amountFromSkips - jarDecrease));
       const causeId = donation.causeId;
       const profile = userSnap.data() as UserProfile | undefined;
-      const currentBal = Math.max(0, profile?.causeJarBalances?.[causeId] ?? 0);
+      // A stale jar field must not be treated as spendable balance during a
+      // rollback. The account-wide unspent total is the hard upper bound.
+      const currentBal = Math.min(
+        Math.max(0, profile?.causeJarBalances?.[causeId] ?? 0),
+        getSkipBalanceSummary(profile).availableFromSkips,
+      );
       const skipLots = profile?.skipLots ? cloneLots(profile) : null;
       if (skipLots) {
         if (donation.ledgerConsumption) restoreConsumedLots(skipLots, donation.ledgerConsumption);
@@ -39,6 +45,15 @@ export async function DELETE(req: NextRequest, ctx: RouteContext) {
 
       tx.delete(donationRef);
       const nextBalances = skipLots ? balancesFromLots(skipLots) : null;
+      if (nextBalances) {
+        // Restore this donation's jar portion explicitly. This prevents a
+        // stale/legacy lot from recreating an unrelated larger jar balance.
+        if (currentBal + jarDecrease > 0) {
+          nextBalances.causeJarBalances[causeId] = currentBal + jarDecrease;
+        } else {
+          delete nextBalances.causeJarBalances[causeId];
+        }
+      }
       tx.update(userRef, {
         totalDonated: FieldValue.increment(-amount),
         totalDonatedFromSkips: profile?.totalDonatedFromSkips === undefined

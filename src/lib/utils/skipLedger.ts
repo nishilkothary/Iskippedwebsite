@@ -9,29 +9,46 @@ export function locationKey(target: SkipAllocationTarget | null | undefined): st
 
 export function cloneLots(profile: Pick<UserProfile, "skipLots" | "totalSaved" | "totalSpent" | "totalDonated" | "causeJarBalances" | "goalJarBalances">): Record<string, SkipLot> {
   if (profile.skipLots && Object.keys(profile.skipLots).length > 0) {
-    return Object.fromEntries(Object.entries(profile.skipLots).map(([id, lot]) => [id, {
+    const lots = Object.fromEntries(Object.entries(profile.skipLots).map(([id, lot]) => [id, {
       ...lot,
       balances: { ...(lot.balances ?? {}) },
     }]));
+    const ledgerTotal = Object.values(lots).reduce((sum, lot) => sum + totalLot(lot), 0);
+    const availableFromSkips = getSkipBalanceSummary(profile).availableFromSkips;
+    if (ledgerTotal <= availableFromSkips + 0.001) return lots;
+
+    // Legacy/stale lots must never create more spendable money than the
+    // account's actual unspent savings. Rebuild conservatively when the
+    // ledger is inconsistent.
+    return buildLegacyLots(profile, availableFromSkips);
   }
 
+  return buildLegacyLots(profile, getSkipBalanceSummary(profile).availableFromSkips);
+}
+
+function buildLegacyLots(
+  profile: Pick<UserProfile, "totalSaved" | "totalSpent" | "totalDonated" | "causeJarBalances" | "goalJarBalances">,
+  availableFromSkips: number,
+) {
   // Exact provenance predates this field, so preserve existing balances as
   // synthetic lots rather than inventing which historical skip funded them.
   const lots: Record<string, SkipLot> = {};
+  let remaining = Math.max(0, availableFromSkips);
   const addLegacy = (location: string, amount: number) => {
-    if (amount <= 0) return;
+    const safeAmount = Math.min(Math.max(0, amount), remaining);
+    if (safeAmount <= 0) return;
     const id = `legacy:${location}`;
     lots[id] = {
       skipId: id,
       createdAtMs: 0,
       originalLocation: location,
-      balances: { [location]: Math.round(amount * 100) / 100 },
+      balances: { [location]: Math.round(safeAmount * 100) / 100 },
     };
+    remaining = Math.max(0, Math.round((remaining - safeAmount) * 100) / 100);
   };
   for (const [id, amount] of Object.entries(profile.goalJarBalances ?? {})) addLegacy(`goal:${id}`, Math.max(0, Number(amount) || 0));
   for (const [id, amount] of Object.entries(profile.causeJarBalances ?? {})) addLegacy(`fundraiser:${id}`, Math.max(0, Number(amount) || 0));
-  const summary = getSkipBalanceSummary(profile);
-  addLegacy(UNASSIGNED_LOCATION, summary.unassignedSkipBank);
+  addLegacy(UNASSIGNED_LOCATION, remaining);
   return lots;
 }
 
