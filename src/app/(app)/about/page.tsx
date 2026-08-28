@@ -33,12 +33,16 @@ const STEPS = [
 
 const FAQ_ITEMS = [
   {
-    q: "What are Skip Bucks?",
-    a: "Skip Bucks are the part of your skipped-money savings that isn’t committed to a jar. They include skips you haven’t dedicated to a cause or reward jar, plus money you’ve moved from a jar back into Skip Bucks. Use Skip Bucks to reach an existing goal faster, give a new goal a head start, or keep them saved until you’re ready to spend them.",
+    q: "What are Skipping Jars and Skip Bucks?",
+    a: "A Skipping Jar is a savings goal for the money you save by skipping everyday purchases. It can be for something personal you want to buy or for a donation you hope to make. Your active jar is the one shown on your Home page and the default destination for new skips — think of it as your digital piggy bank. Each time you log a skip, it goes into your active jar unless you choose a different destination first. Skip Bucks are saved money that isn’t in a jar yet. You can move them into a reward or fundraiser whenever you’re ready, or leave them available until you choose a purpose for them.",
   },
   {
-    q: "How do I use my Skip Bucks?",
-    a: "Skip Bucks are savings that are not in a jar yet. Choose a reward or fundraiser, then use the Skip Bucks option to move as much of that available balance as you want into it. You can also leave them available until you are ready to choose a purpose for them.",
+    q: "How do I spend or donate what’s in my jar?",
+    a: "iSkipped is a tracking tool for the savings you’ve worked hard to build — it does not process payments or donations directly, and it never holds your money. To use your savings, tap the Spend or Donate button below the relevant jar on your Home page. iSkipped will guide you through the next steps with the retailer or fundraiser. Once you complete the purchase or donation, return to iSkipped and log it so your jar balance and savings history update correctly.",
+  },
+  {
+    q: "Does iSkipped process donations or purchases?",
+    a: "No. Donations are completed directly with the external organization, and purchases happen with the retailer you choose. iSkipped does not hold funds, process payments, verify outside transactions, or control how organizations use donations.",
   },
   {
     q: "Does money move when I log a skip?",
@@ -57,16 +61,8 @@ const FAQ_ITEMS = [
     a: "Yes. Open Manage Jars, tap the pencil on your current jar, and enter a new goal amount. Your saved balance stays in the jar, and future skips keep filling it toward the updated goal.",
   },
   {
-    q: "What happens when I spend or donate from a jar?",
-    a: "iSkipped takes you to the retailer or fundraiser first. After you complete the purchase or donation outside iSkipped, return and log the amount. Your jar balance and total unspent savings then update to match what you confirmed.",
-  },
-  {
     q: "What happens if I change or deactivate a jar?",
     a: "You can keep the balance parked in that jar, move it to a new jar, or return it to Skip Bucks. Deactivating a jar does not delete saved money unless you choose to move or release it.",
-  },
-  {
-    q: "Does iSkipped process donations or purchases?",
-    a: "No. Donations are completed directly with the external organization, and purchases happen with the retailer you choose. iSkipped does not hold funds, process payments, verify outside transactions, or control how organizations use donations.",
   },
   {
     q: "Can I join or create a fundraiser?",
@@ -90,10 +86,14 @@ const FAQ_ITEMS = [
   },
 ];
 
+const INITIAL_FAQ_COUNT = 7;
+
 export default function AboutPage() {
   const router = useRouter();
   const [openFaq, setOpenFaq] = useState<number | null>(null);
+  const [showAllFaqs, setShowAllFaqs] = useState(false);
   const [storyExpanded, setStoryExpanded] = useState(false);
+  const visibleFaqs = showAllFaqs ? FAQ_ITEMS : FAQ_ITEMS.slice(0, INITIAL_FAQ_COUNT);
 
   return (
     <main className="min-h-screen pb-24" style={{ background: "var(--bg-base)" }}>
@@ -233,7 +233,7 @@ export default function AboutPage() {
             className="rounded-2xl overflow-hidden"
             style={{ background: "var(--bg-surface-1)", border: "1px solid var(--border-default)" }}
           >
-            {FAQ_ITEMS.map((item, i) => (
+            {visibleFaqs.map((item, i) => (
               <div key={i} style={{ borderTop: i === 0 ? "none" : "1px solid var(--border-default)" }}>
                 <button
                   className="w-full text-left px-5 py-4 flex items-start justify-between gap-3"
@@ -253,7 +253,7 @@ export default function AboutPage() {
                         <Link href="/jars" className="mt-3 inline-block font-black underline" style={{ color: "var(--green-primary)" }}>Open Manage Jars -&gt;</Link>
                       </>
                     ) : item.a}
-                    {item.q === "What are Skip Bucks?" && (
+                    {item.q === "What are Skipping Jars and Skip Bucks?" && (
                       <>
                         <br />
                         <Link href="/jar-activity" className="underline" style={{ color: "var(--green-primary)" }}>View Jar Activity for a breakdown</Link>.
@@ -264,6 +264,16 @@ export default function AboutPage() {
               </div>
             ))}
           </div>
+          {FAQ_ITEMS.length > INITIAL_FAQ_COUNT && (
+            <button
+              type="button"
+              onClick={() => setShowAllFaqs((expanded) => !expanded)}
+              className="mt-3 w-full rounded-xl py-3 text-sm font-black"
+              style={{ border: "1px solid var(--border-default)", color: "var(--green-primary)", background: "transparent" }}
+            >
+              {showAllFaqs ? "Show fewer FAQs" : "Show all FAQs"}
+            </button>
+          )}
         </section>
 
         {/* How iSkipped works note */}

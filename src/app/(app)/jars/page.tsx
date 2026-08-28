@@ -329,9 +329,17 @@ function JarsPageInner() {
   const [groupProgress, setGroupProgress] = useState<Record<string, number>>({});
   useEffect(() => {
     const activeProjects = projects.filter((project) => !isProjectEnded(project));
-    // Seed immediately from the cached project value, then replace it with
-    // the authoritative sum of current jars plus donations.
-    setGroupProgress(Object.fromEntries(activeProjects.map((project) => [project.id, 0])));
+    // Group fundraiser progress is cumulative: a donation moves money from
+    // an individual's current jar into the completed-donation total, so the
+    // group number must never go down. Keep the highest value already shown
+    // while project snapshots and the live totals request catch up.
+    setGroupProgress((previous) => Object.fromEntries(activeProjects.map((project) => [
+      project.id,
+      Math.max(
+        previous[project.id] ?? 0,
+        Number(project.totalRaised ?? 0) + Number(project.totalDonated ?? 0),
+      ),
+    ])));
     let cancelled = false;
     void Promise.all(activeProjects.map(async (project) => {
       try {
@@ -345,7 +353,12 @@ function JarsPageInner() {
         return [project.id, cachedTotal] as const;
       }
     })).then((entries) => {
-      if (!cancelled) setGroupProgress(Object.fromEntries(entries));
+      if (!cancelled) {
+        setGroupProgress((previous) => Object.fromEntries(entries.map(([projectId, total]) => [
+          projectId,
+          Math.max(previous[projectId] ?? 0, total),
+        ])));
+      }
     });
     return () => { cancelled = true; };
   }, [projects]);
@@ -3338,7 +3351,7 @@ function JarBrowser({
                       <div>
                         <div>
                           <div className="flex items-center justify-between gap-3 text-[10px] font-black uppercase tracking-wide" style={{ color: "#7DD3FC" }}>
-                            <span>{formatCurrency(groupRaised)} group skips</span>
+                            <span>{formatCurrency(groupRaised)} group progress</span>
                             <span>
                               {groupGoal > 0
                                 ? `${formatCurrency(groupGoal)} goal`

@@ -79,6 +79,7 @@ interface DonationReminderPrompt {
 }
 
 const DONATION_REMINDER_MIN_BALANCE = 5;
+const DONATION_REMINDER_COOLDOWN_DAYS = 30;
 
 function rewardDefaultImage(label: string, explicitCategory?: string) {
   const normalized = `${label} ${explicitCategory ?? ""}`.toLowerCase();
@@ -284,7 +285,9 @@ function DonationReminderController({
   const dismissedDaysAgo = dismissedAt
     ? Math.floor((Date.now() - parseInt(dismissedAt)) / 86400_000)
     : Infinity;
-  const isDismissed = !!dismissKey && (dismissedPromptKey === dismissKey || dismissedDaysAgo < 30);
+  const isDismissed = !!dismissKey && (
+    dismissedPromptKey === dismissKey || dismissedDaysAgo < DONATION_REMINDER_COOLDOWN_DAYS
+  );
 
   useEffect(() => {
     if (!prompt || !dismissKey || blocked || isDismissed) {
@@ -1188,6 +1191,7 @@ export default function HomePage() {
   const [liveFeedIndex, setLiveFeedIndex] = useState(0);
   const [liveChallengeTotalRaised, setLiveChallengeTotalRaised] = useState<number>(0);
   const [liveChallengeTotalDonated, setLiveChallengeTotalDonated] = useState<number>(0);
+  const [liveChallengeTotalsLoading, setLiveChallengeTotalsLoading] = useState(false);
   const [liveChallengeContributorCount, setLiveChallengeContributorCount] = useState<number>(0);
   const [liveChallengeTotalSkips, setLiveChallengeTotalSkips] = useState<number>(0);
   const [showContributionModal, setShowContributionModal] = useState(false);
@@ -1282,9 +1286,13 @@ export default function HomePage() {
 
   useEffect(() => {
     const activeProjectId = profile?.activeProjectId;
-    if (!activeProjectId) { setLiveChallengeTotalRaised(0); setLiveChallengeTotalDonated(0); setLiveChallengeContributorCount(0); setLiveChallengeTotalSkips(0); return; }
+    if (!activeProjectId) { setLiveChallengeTotalsLoading(false); setLiveChallengeTotalRaised(0); setLiveChallengeTotalDonated(0); setLiveChallengeContributorCount(0); setLiveChallengeTotalSkips(0); return; }
     const proj = projects.find((p) => p.id === activeProjectId);
-    if (!proj) { setLiveChallengeTotalRaised(0); setLiveChallengeTotalDonated(0); setLiveChallengeContributorCount(0); setLiveChallengeTotalSkips(0); return; }
+    if (!proj) { setLiveChallengeTotalsLoading(false); setLiveChallengeTotalRaised(0); setLiveChallengeTotalDonated(0); setLiveChallengeContributorCount(0); setLiveChallengeTotalSkips(0); return; }
+    // Wait for the live group total before evaluating the donation reminder.
+    // This prevents the initial $0 placeholder from briefly opening a prompt
+    // that disappears when the real total arrives.
+    setLiveChallengeTotalsLoading(true);
     setLiveChallengeTotalRaised(0);
     setLiveChallengeTotalDonated(0);
     const syncProjectTotals = (project: Project | null) => {
@@ -1298,11 +1306,13 @@ export default function HomePage() {
         if (!cancelled) {
           setLiveChallengeTotalRaised(Math.max(0, totals.total));
           setLiveChallengeTotalDonated(Math.max(0, totals.totalDonated));
+          setLiveChallengeTotalsLoading(false);
         }
       })
       .catch(() => {
         // The live project snapshot remains a useful fallback if reconciliation
         // is temporarily unavailable.
+        if (!cancelled) setLiveChallengeTotalsLoading(false);
       });
     const unsubscribe = subscribeToProject(activeProjectId, (p) => {
       syncProjectTotals(p);
@@ -1503,7 +1513,7 @@ export default function HomePage() {
     ? `You have ${formatCurrency(givingBalance)} saved for ${activeProject.groupName ?? activeProject.title}.`
     : "";
   const donationReminderPrompt: DonationReminderPrompt | null = (() => {
-    if (!activeProject || !hasReminderReadyBalance) return null;
+    if (!activeProject || !hasReminderReadyBalance || liveChallengeTotalsLoading) return null;
     if (challengeEnded) {
       return {
         kind: "challenge-ended",
