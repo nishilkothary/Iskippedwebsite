@@ -12,6 +12,7 @@ import { formatCurrency } from "@/lib/utils/currency";
 import { getSkipBalanceSummary } from "@/lib/utils/skipBalances";
 import { Project } from "@/lib/types/models";
 import { SkipBucksBill } from "@/components/SkipBucksBill";
+import { ExtensionSync } from "@/components/ExtensionSync";
 
 const NAV_ITEMS = [
   { href: "/home",        label: "Home",       emoji: "🏠", tab: null },
@@ -328,6 +329,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
 
   return (
     <div className="flex h-screen" style={{ background: "var(--bg-base)" }}>
+      <ExtensionSync />
       <Suspense fallback={
         <aside className="w-60 flex-shrink-0 hidden md:flex flex-col" style={{ background: "linear-gradient(180deg, #10241B, #0B1A14)", borderRight: "1px solid var(--border-default)" }} />
       }>
