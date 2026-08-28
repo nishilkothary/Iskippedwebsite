@@ -364,19 +364,12 @@ export default function JoinChallengePage() {
               You&apos;ve been invited
             </p>
             <h1 className="text-3xl font-black leading-tight" style={{ color: "var(--text-primary)" }}>
-              Skip expenses for {challenge.title}
+              {challenge.project.groupName?.trim() || challenge.project.title}
             </h1>
             <p className="text-sm mt-2 leading-relaxed" style={{ color: "var(--text-secondary)" }}>
               Instead of asking you to donate upfront, this fundraiser asks you to skip everyday expenses and save those dollars for {causePhrase}.
             </p>
             <p className="text-sm mt-1" style={{ color: "var(--text-muted)" }}>{challenge.organizerLine}</p>
-
-            <section className="mt-4">
-              <p className="text-xs uppercase tracking-wide font-bold mb-2" style={{ color: "var(--text-muted)" }}>About this cause</p>
-              <p className="text-base leading-relaxed whitespace-pre-line" style={{ color: "var(--text-secondary)" }}>
-                {challenge.project.description || "Skip anything. Your small choices help this move."}
-              </p>
-            </section>
 
             <div className="mt-5">
               {challenge.goal > 0 ? (
