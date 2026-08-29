@@ -17,6 +17,34 @@ const trustPills = [
   "Money stays in your control",
 ];
 
+const POST_AUTH_DESTINATION_KEY = "iskipped:post-auth-destination";
+
+function safeDestination(value: string | null | undefined): string | null {
+  return value?.startsWith("/") && !value.startsWith("//") ? value : null;
+}
+
+function postAuthDestinationFrom(redirectParam: string | null): string {
+  const fromQuery = safeDestination(redirectParam);
+  if (fromQuery) return fromQuery;
+  if (typeof window !== "undefined") {
+    const remembered = safeDestination(window.sessionStorage.getItem(POST_AUTH_DESTINATION_KEY));
+    if (remembered) return remembered;
+  }
+  return "/home";
+}
+
+function rememberPostAuthDestination(destination: string) {
+  if (typeof window !== "undefined") {
+    window.sessionStorage.setItem(POST_AUTH_DESTINATION_KEY, destination);
+  }
+}
+
+function forgetPostAuthDestination() {
+  if (typeof window !== "undefined") {
+    window.sessionStorage.removeItem(POST_AUTH_DESTINATION_KEY);
+  }
+}
+
 function friendlyAuthError(e: any): string {
   const code = e?.code ?? "";
   const message = typeof e?.message === "string" ? e.message : "";
@@ -75,31 +103,30 @@ function SignInPage() {
   const [emailSignupInProgress, setEmailSignupInProgress] = useState(false);
 
   const redirectParam = searchParams.get("redirect");
-  const postAuthDestination = redirectParam?.startsWith("/") ? redirectParam : "/home";
+  const postAuthDestination = postAuthDestinationFrom(redirectParam);
   const isChallengeRedirect = postAuthDestination.startsWith("/challenges/");
 
+  function finishAuthNavigation() {
+    forgetPostAuthDestination();
+    router.replace(postAuthDestination);
+  }
+
   useEffect(() => {
-    if (!isLoading && user && !emailSignupInProgress) router.replace(postAuthDestination);
+    if (!isLoading && user && !emailSignupInProgress) finishAuthNavigation();
   }, [user, isLoading, emailSignupInProgress, router, postAuthDestination]);
 
   useEffect(() => {
     let cancelled = false;
-    const isMobile = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
-    if (!isMobile) return;
-
-    setGoogleLoading(true);
-    completeGoogleRedirectSignIn()
+    // getRedirectResult is safe when no redirect is pending. Always check it:
+    // some mobile/in-app browsers return without their original query string.
+    void completeGoogleRedirectSignIn()
       .then((redirectUser) => {
-        if (!cancelled && redirectUser) router.replace(postAuthDestination);
+        if (!cancelled && redirectUser) finishAuthNavigation();
       })
       .catch((e: any) => {
         if (!cancelled) {
           setError(friendlyAuthError(e));
-          setGoogleLoading(false);
         }
-      })
-      .finally(() => {
-        if (!cancelled) setGoogleLoading(false);
       });
 
     return () => { cancelled = true; };
@@ -124,13 +151,16 @@ function SignInPage() {
     setError(null);
     setGoogleLoading(true);
     try {
+      // Firebase's redirect return can discard page query parameters. Keep the
+      // intended invite destination in the same browser session as a fallback.
+      rememberPostAuthDestination(postAuthDestination);
       const isMobile = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
       if (isMobile) {
         await signInWithGoogleRedirect();
         return;
       }
       await signInWithGoogle();
-      router.replace(postAuthDestination);
+      finishAuthNavigation();
     } catch (e: any) {
       setError(friendlyAuthError(e));
       setGoogleLoading(false);
@@ -148,10 +178,10 @@ function SignInPage() {
       if (mode === "signup") {
         await signUpWithEmail(email, password, name.trim());
         toast.success("Account created.");
-        router.replace(postAuthDestination);
+        finishAuthNavigation();
       } else {
         await signInWithEmail(email, password);
-        router.replace(postAuthDestination);
+        finishAuthNavigation();
       }
     } catch (e: any) {
       setError(friendlyAuthError(e));
