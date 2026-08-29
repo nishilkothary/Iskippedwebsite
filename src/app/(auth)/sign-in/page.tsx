@@ -83,8 +83,11 @@ function SignInPage() {
   }
 
   useEffect(() => {
-    if (!isLoading && user && !emailSignupInProgress) finishAuthNavigation();
-  }, [user, isLoading, emailSignupInProgress, router, postAuthDestination]);
+    // Google popup sign-in updates Firebase auth state before the popup's
+    // callback has fully completed on some mobile browsers. Navigating the
+    // opener at that moment strands the callback tab on an error screen.
+    if (!isLoading && user && !emailSignupInProgress && !googleLoading) finishAuthNavigation();
+  }, [user, isLoading, emailSignupInProgress, googleLoading, router, postAuthDestination]);
 
   useEffect(() => {
     const t = setTimeout(() => setCardsVisible(true), 200);
