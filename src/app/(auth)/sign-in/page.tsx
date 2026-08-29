@@ -18,6 +18,7 @@ const trustPills = [
 ];
 
 const POST_AUTH_DESTINATION_KEY = "iskipped:post-auth-destination";
+const POST_AUTH_DESTINATION_COOKIE = "iskipped_post_auth_destination";
 
 function safeDestination(value: string | null | undefined): string | null {
   return value?.startsWith("/") && !value.startsWith("//") ? value : null;
@@ -27,21 +28,38 @@ function postAuthDestinationFrom(redirectParam: string | null): string {
   const fromQuery = safeDestination(redirectParam);
   if (fromQuery) return fromQuery;
   if (typeof window !== "undefined") {
-    const remembered = safeDestination(window.sessionStorage.getItem(POST_AUTH_DESTINATION_KEY));
+    const remembered = safeDestination(window.sessionStorage.getItem(POST_AUTH_DESTINATION_KEY))
+      ?? safeDestination(window.localStorage.getItem(POST_AUTH_DESTINATION_KEY))
+      ?? safeDestination(readPostAuthCookie());
     if (remembered) return remembered;
   }
   return "/home";
 }
 
+function readPostAuthCookie(): string | null {
+  const prefix = `${POST_AUTH_DESTINATION_COOKIE}=`;
+  const entry = document.cookie.split("; ").find((cookie) => cookie.startsWith(prefix));
+  if (!entry) return null;
+  try {
+    return decodeURIComponent(entry.slice(prefix.length));
+  } catch {
+    return null;
+  }
+}
+
 function rememberPostAuthDestination(destination: string) {
   if (typeof window !== "undefined") {
     window.sessionStorage.setItem(POST_AUTH_DESTINATION_KEY, destination);
+    window.localStorage.setItem(POST_AUTH_DESTINATION_KEY, destination);
+    document.cookie = `${POST_AUTH_DESTINATION_COOKIE}=${encodeURIComponent(destination)}; Path=/; Max-Age=600; SameSite=Lax; Secure`;
   }
 }
 
 function forgetPostAuthDestination() {
   if (typeof window !== "undefined") {
     window.sessionStorage.removeItem(POST_AUTH_DESTINATION_KEY);
+    window.localStorage.removeItem(POST_AUTH_DESTINATION_KEY);
+    document.cookie = `${POST_AUTH_DESTINATION_COOKIE}=; Path=/; Max-Age=0; SameSite=Lax; Secure`;
   }
 }
 
