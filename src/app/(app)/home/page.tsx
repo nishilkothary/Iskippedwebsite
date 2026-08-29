@@ -82,7 +82,7 @@ interface DonationReminderPrompt {
 }
 
 const DONATION_REMINDER_MIN_BALANCE = 5;
-const DONATION_REMINDER_COOLDOWN_DAYS = 30;
+const DONATION_REMINDER_COOLDOWN_DAYS = 7;
 
 function rewardDefaultImage(label: string, explicitCategory?: string) {
   const normalized = `${label} ${explicitCategory ?? ""}`.toLowerCase();
@@ -266,6 +266,7 @@ function DonationReminderController({
   prompt,
   userId,
   projectId,
+  personalGoalReached,
   blocked,
   onDonate,
   onAlreadyDonated,
@@ -273,24 +274,40 @@ function DonationReminderController({
   prompt: DonationReminderPrompt | null;
   userId?: string;
   projectId?: string | null;
+  personalGoalReached: boolean;
   blocked: boolean;
   onDonate: () => void;
   onAlreadyDonated: () => void;
 }) {
   const [open, setOpen] = useState(false);
-  const [dismissedPromptKey, setDismissedPromptKey] = useState<string | null>(null);
+  const [, refreshDismissal] = useState(0);
   const dismissKey = prompt && userId
     ? `iskipped_donation_prompt_dismissed_${userId}_${projectId ?? "none"}_${prompt.kind}`
     : null;
   const dismissedAt = dismissKey && typeof window !== "undefined"
     ? localStorage.getItem(dismissKey)
     : null;
-  const dismissedDaysAgo = dismissedAt
-    ? Math.floor((Date.now() - parseInt(dismissedAt)) / 86400_000)
-    : Infinity;
-  const isDismissed = !!dismissKey && (
-    dismissedPromptKey === dismissKey || dismissedDaysAgo < DONATION_REMINDER_COOLDOWN_DAYS
-  );
+  const dismissedAtMs = dismissedAt ? Number.parseInt(dismissedAt, 10) : 0;
+  const cooldownRemainingMs = dismissedAtMs > 0
+    ? Math.max(0, dismissedAtMs + DONATION_REMINDER_COOLDOWN_DAYS * 86400_000 - Date.now())
+    : 0;
+  const isDismissed = !!dismissKey && cooldownRemainingMs > 0;
+
+  useEffect(() => {
+    if (!userId || !projectId || personalGoalReached || typeof window === "undefined") return;
+    const personalGoalDismissKey = `iskipped_donation_prompt_dismissed_${userId}_${projectId}_personal-goal`;
+    window.localStorage.removeItem(personalGoalDismissKey);
+    refreshDismissal((revision) => revision + 1);
+  }, [personalGoalReached, projectId, userId]);
+
+  useEffect(() => {
+    if (!isDismissed || cooldownRemainingMs <= 0) return;
+    const timer = window.setTimeout(
+      () => refreshDismissal((revision) => revision + 1),
+      cooldownRemainingMs + 50,
+    );
+    return () => window.clearTimeout(timer);
+  }, [cooldownRemainingMs, isDismissed]);
 
   useEffect(() => {
     if (!prompt || !dismissKey || blocked || isDismissed) {
@@ -305,7 +322,7 @@ function DonationReminderController({
   function dismiss() {
     if (dismissKey && typeof window !== "undefined") {
       localStorage.setItem(dismissKey, Date.now().toString());
-      setDismissedPromptKey(dismissKey);
+      refreshDismissal((revision) => revision + 1);
     }
     setOpen(false);
   }
@@ -1532,8 +1549,9 @@ export default function HomePage() {
   const displayedStreak = getConsecutiveWeeklyStreak(recentSkips.map((skip) => skip.date));
   const streakChipValue = hasSkippedThisWeek ? Math.max(displayedStreak, profile.streak ?? 0) : profile.streak ?? 0;
   const activeCountdown = activeProject && isActiveChallenge ? getChallengeCountdown(activeProject) : null;
-  const personalGoalAmt = activeProject ? (profile.causeGoalAmounts?.[activeProject.id] ?? 0) : 0;
-  const personalGoalReached = personalGoalAmt > 0 && userChallengeBalance >= personalGoalAmt;
+  const personalGoalReached = hasPersonalGivingGoal
+    && personalGoalRemaining > 0
+    && userChallengeBalance >= personalGoalRemaining;
   const challengeEnded = activeProject?.status === "ended";
   const hasReminderReadyBalance = Boolean(activeProject) && givingBalance >= DONATION_REMINDER_MIN_BALANCE;
   const readyToDonateText = activeProject
@@ -2464,7 +2482,7 @@ export default function HomePage() {
                     centerValueOverride={hasPersonalGivingGoal && personalGoalRemaining <= 0 ? "✓" : `${personalFundraiserPercent}%`}
                     centerLabelOverride={hasPersonalGivingGoal
                       ? personalGoalRemaining > 0
-                        ? "ready"
+                        ? "ready\nto donate"
                         : "goal reached"
                       : "to goal"}
                     topLabel={hasPersonalGivingGoal ? `Your ${formatCurrencyRounded(personalGoal)} goal` : "Your goal"}
@@ -3176,6 +3194,7 @@ export default function HomePage() {
         prompt={donationReminderPrompt}
         userId={user?.uid}
         projectId={profile.activeProjectId}
+        personalGoalReached={personalGoalReached}
         blocked={showSkipPicker || editingSkip != null || homeFundraiserSetup != null || homeFundingTarget != null || showContributionModal || showSpendModal}
         onDonate={() => {
           if (donationReminderPrompt?.donationURL) {
