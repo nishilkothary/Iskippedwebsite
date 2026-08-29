@@ -36,6 +36,52 @@ export async function DELETE(req: NextRequest) {
     const userSnap = await userRef.get();
     if (!userSnap.exists) throw new ApiError(404, "User not found");
     const profile = userSnap.data() as UserProfile;
+    const [skipSnap, donationSnap] = await Promise.all([
+      userRef.collection("skips").get(),
+      userRef.collection("donations").get(),
+    ]);
+
+    // Reconcile every cached project counter before removing the canonical
+    // records. Group money totals are normally derived from user jars and
+    // donations, but these counters remain important fallbacks and feed the
+    // group skip count.
+    const projectDeltas = new Map<string, { pledged: number; donated: number; skips: number }>();
+    const deltaFor = (projectId: string) => {
+      const current = projectDeltas.get(projectId) ?? { pledged: 0, donated: 0, skips: 0 };
+      projectDeltas.set(projectId, current);
+      return current;
+    };
+    for (const [projectId, amount] of Object.entries(profile.causeJarBalances ?? {})) {
+      if (Number(amount) > 0) deltaFor(projectId).pledged += Number(amount);
+    }
+    let actualSaved = 0;
+    for (const skipDoc of skipSnap.docs) {
+      const skip = skipDoc.data();
+      actualSaved += Math.max(0, Number(skip.amount) || 0);
+      const projectId = skip.allocationTarget?.type === "fundraiser"
+        ? skip.allocationTarget.id
+        : (typeof skip.projectId === "string" ? skip.projectId : "");
+      if (projectId) deltaFor(projectId).skips += 1;
+    }
+    for (const donationDoc of donationSnap.docs) {
+      const causeId = donationDoc.get("causeId");
+      const amount = Math.max(0, Number(donationDoc.get("amount")) || 0);
+      if (typeof causeId === "string" && causeId && amount > 0) deltaFor(causeId).donated += amount;
+    }
+
+    for (const [projectId, delta] of projectDeltas) {
+      const projectRef = db.collection("projects").doc(projectId);
+      await db.runTransaction(async (tx) => {
+        const projectSnap = await tx.get(projectRef);
+        if (!projectSnap.exists) return;
+        const project = projectSnap.data() ?? {};
+        tx.update(projectRef, {
+          totalRaised: Math.max(0, Number(project.totalRaised ?? 0) - delta.pledged),
+          totalDonated: Math.max(0, Number(project.totalDonated ?? 0) - delta.donated),
+          totalSkips: Math.max(0, Number(project.totalSkips ?? 0) - delta.skips),
+        });
+      });
+    }
 
     // Community feed entries this user posted
     await deleteMatchingDocs(db, db.collection("communityFeed").where("uid", "==", uid));
@@ -53,7 +99,7 @@ export async function DELETE(req: NextRequest) {
     }
 
     // Best-effort: remove this user's contribution from the sitewide counters
-    await adjustGlobalStats(-(profile.totalSaved || 0), -(profile.totalSkips || 0));
+    await adjustGlobalStats(-actualSaved, -skipSnap.size, -1);
 
     // Deletes the user doc plus every subcollection (skips, donations, spendingHistory, following)
     await db.recursiveDelete(userRef);

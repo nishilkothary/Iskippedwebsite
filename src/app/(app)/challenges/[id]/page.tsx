@@ -118,7 +118,7 @@ function challengeFromProject(project: Project, reconciledTotal?: number): Chall
   const category = challengeCategory(project);
   const fallback = fallbackForCategory(category);
   const goal = getDisplayGoalAmount(project);
-  const raised = Math.min(goal, Math.max(0, reconciledTotal ?? 0));
+  const raised = Math.max(0, reconciledTotal ?? 0);
   const progressPct = goal > 0 ? Math.min(100, Math.round((raised / goal) * 100)) : 0;
 
   return {
@@ -168,12 +168,12 @@ function ChallengeImage({ challenge, className }: { challenge: ChallengeView; cl
   );
 }
 
-function ProgressBar({ challenge, pledgedAmount = challenge.raised }: { challenge: ChallengeView; pledgedAmount?: number }) {
-  const progressPct = challenge.goal > 0 ? Math.min(100, Math.round((pledgedAmount / challenge.goal) * 100)) : 0;
+function ProgressBar({ challenge, groupTotal = challenge.raised }: { challenge: ChallengeView; groupTotal?: number }) {
+  const progressPct = challenge.goal > 0 ? Math.min(100, Math.round((groupTotal / challenge.goal) * 100)) : 0;
   return (
     <div>
       <div className="flex justify-between gap-3 text-sm font-black mb-2">
-        <span style={{ color: "var(--green-primary)" }}>Skipped {formatCurrency(pledgedAmount)}</span>
+        <span style={{ color: "var(--green-primary)" }}>Raised {formatCurrency(groupTotal)}</span>
         <span style={{ color: "var(--text-muted)" }}>{progressPct}%</span>
       </div>
       <div className="h-3 rounded-full overflow-hidden" style={{ background: "var(--bg-surface-3)" }}>
@@ -382,7 +382,7 @@ export default function ChallengeDetailPage() {
   const canManageChallenge = challenge.project.createdBy === user?.uid
     || (profile?.email ?? "").trim().toLowerCase() === DESIGNATED_ADMIN_EMAIL;
   const profileChallengeBalance = Math.max(0, profile?.causeJarBalances?.[challenge.project.id] ?? 0);
-  const pledgedAmount = challengeTotals?.totalPledged ?? 0;
+  const groupTotal = challengeTotals?.total ?? 0;
   const challengeUrl = appendRefParam(
     typeof window !== "undefined" ? `${window.location.origin}${getChallengeSharePath(challenge.project)}` : getChallengeSharePath(challenge.project),
     user?.uid
@@ -646,7 +646,7 @@ export default function ChallengeDetailPage() {
           <div className="mt-5">
             {challenge.goal > 0 ? (
               <section className="rounded-xl px-4 py-4" style={{ background: "var(--bg-surface-2)", border: "1px solid var(--border-default)" }}>
-                <ProgressBar challenge={challenge} pledgedAmount={profile !== null ? pledgedAmount : 0} />
+                <ProgressBar challenge={challenge} groupTotal={profile !== null ? groupTotal : 0} />
               </section>
             ) : (
               /* Partner / open-ended challenge — show aggregate stats instead of a progress bar */
@@ -659,9 +659,9 @@ export default function ChallengeDetailPage() {
                     ? challenge.project.unitDisplay + " funded"
                     : challenge.project.unitName.split(" ").slice(-1)[0].toLowerCase() + "s funded")
                   : "units funded";
-                // Wait for profile so pledgedAmount includes jar balance (not just totalRaised)
+                // Wait for profile so the reconciled total includes current jars and donations.
                 const statsReady = profile !== null;
-                const unitsCount = hasUnits && statsReady ? Math.floor(pledgedAmount / unitCost) : 0;
+                const unitsCount = hasUnits && statsReady ? Math.floor(groupTotal / unitCost) : 0;
                 return (
                   <div className={`grid gap-3 rounded-xl p-4 ${hasUnits ? "grid-cols-3" : "grid-cols-2"}`} style={{ background: "var(--bg-surface-2)", border: "1px solid var(--border-default)" }}>
                     <div className="text-center">
@@ -675,7 +675,7 @@ export default function ChallengeDetailPage() {
                       </div>
                     )}
                     <div className="text-center">
-                      <p className="text-xl font-black" style={{ color: "var(--coral-primary)" }}>{statsReady ? formatCurrency(pledgedAmount) : "—"}</p>
+                      <p className="text-xl font-black" style={{ color: "var(--coral-primary)" }}>{statsReady ? formatCurrency(groupTotal) : "—"}</p>
                       <p className="text-xs mt-0.5" style={{ color: "var(--text-muted)" }}>raised</p>
                     </div>
                   </div>

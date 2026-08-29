@@ -30,9 +30,15 @@ service cloud.firestore {
         && incomingData().uid == uid
         && incomingData().keys().hasAll(["uid", "displayName", "email",
                                          "totalSaved", "totalSkips", "streak"])
-        && isPositiveNumber(incomingData().totalSaved)
-        && isPositiveNumber(incomingData().totalSkips)
-        && isPositiveNumber(incomingData().streak)
+        && incomingData().totalSaved == 0
+        && incomingData().totalSkips == 0
+        && incomingData().streak == 0
+        && incomingData().get("totalDonated", 0) == 0
+        && incomingData().get("totalSpent", 0) == 0
+        && incomingData().get("savedTowardActiveCause", 0) == 0
+        && !incomingData().keys().hasAny([
+             "totalDonatedFromSkips", "causeJarBalances", "goalJarBalances", "skipLots"
+           ])
         // referredBy/referralCount/pushOptIn/fcmTokens are set exclusively by server routes
         // (Admin SDK, bypasses these rules) — never by the client's initial write.
         && !incomingData().keys().hasAny(["referredBy", "referralCount", "pushOptIn", "fcmTokens"]);
@@ -43,10 +49,10 @@ service cloud.firestore {
         // bypass these rules). Clients may no longer touch them directly — this keeps
         // referredBy immutable and self-referral-proof once attributed.
         && !incomingData().diff(resource.data).affectedKeys().hasAny([
-             "totalSaved", "totalSkips", "totalDonated", "totalSpent",
+             "totalSaved", "totalSkips", "totalDonated", "totalDonatedFromSkips", "totalSpent",
              "totalGiveAllocated", "totalLiveAllocated", "savedTowardActiveCause",
              "xp", "level", "streak", "longestStreak", "lastSkipDate",
-             "causeJarBalances", "goalJarBalances", "causeJarOverflowCounts",
+             "causeJarBalances", "goalJarBalances", "skipLots", "causeJarOverflowCounts",
              "referredBy", "referralCount", "pushOptIn", "fcmTokens"
            ]);
       allow delete: if false;
@@ -93,13 +99,18 @@ service cloud.firestore {
         && incomingData().isCustom == true
         && incomingData().createdBy == request.auth.uid
         && incomingData().title is string
-        && incomingData().title.size() > 0;
+        && incomingData().title.size() > 0
+        && incomingData().totalRaised == 0
+        && incomingData().get("totalDonated", 0) == 0
+        && incomingData().get("totalSkips", 0) == 0
+        && incomingData().memberUids is list
+        && incomingData().memberUids.size() == 0;
       // totalRaised and totalSkips are exclusively server-computed (Admin SDK writes via
       // /api/skips, /api/causes/*, /api/goals/* bypass these rules) — clients may no longer
       // touch them directly, closing the prior "any authenticated user can mutate any
       // project's totalRaised" gap.
       allow update: if isSignedIn()
-        && !incomingData().diff(resource.data).affectedKeys().hasAny(["totalRaised", "totalSkips"])
+        && !incomingData().diff(resource.data).affectedKeys().hasAny(["totalRaised", "totalDonated", "totalSkips"])
         && (
           // Owner can edit their custom cause
           (resource.data.isCustom == true && resource.data.createdBy == request.auth.uid)

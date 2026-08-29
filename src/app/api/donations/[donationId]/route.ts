@@ -59,7 +59,7 @@ export async function DELETE(req: NextRequest, ctx: RouteContext) {
         totalDonatedFromSkips: profile?.totalDonatedFromSkips === undefined
           ? Math.max(0, Number(profile?.totalDonated ?? 0) - amountFromSkips)
           : FieldValue.increment(-amountFromSkips),
-        ...(nextBalances ? { causeJarBalances: nextBalances.causeJarBalances, goalJarBalances: nextBalances.goalJarBalances, skipLots } : { [`causeJarBalances.${causeId}`]: currentBal + amount }),
+        ...(nextBalances ? { causeJarBalances: nextBalances.causeJarBalances, goalJarBalances: nextBalances.goalJarBalances, skipLots } : { [`causeJarBalances.${causeId}`]: currentBal + jarDecrease }),
       });
       tx.set(db.collection("projects").doc(causeId), {
         // Restore the amount that was held in the fundraiser jar. Donations

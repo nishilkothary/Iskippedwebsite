@@ -68,7 +68,7 @@ function challengeFromProject(project: Project, reconciledTotal?: number): Chall
   const category = challengeCategory(project);
   const fallback = fallbackForCategory(category);
   const goal = project.goalAmount > 0 ? project.goalAmount : 0;
-  const raised = Math.min(goal > 0 ? goal : Infinity, Math.max(0, reconciledTotal ?? 0));
+  const raised = Math.max(0, reconciledTotal ?? 0);
   const progressPct = goal > 0 ? Math.min(100, Math.round((raised / goal) * 100)) : 0;
   return {
     project,
@@ -173,6 +173,8 @@ export default function JoinChallengePage() {
   }, [searchParams]);
   const [projectData, setProjectData] = useState<Project | null>(null);
   const [resolvedChallengeId, setResolvedChallengeId] = useState("");
+  const [reconciledTotal, setReconciledTotal] = useState<number | null>(null);
+  const [totalsLoading, setTotalsLoading] = useState(true);
   const [loading, setLoading] = useState(true);
   const [notFound, setNotFound] = useState(false);
 
@@ -248,13 +250,39 @@ export default function JoinChallengePage() {
     return () => { cancelled = true; };
   }, [challengeId, requestedProjectId]);
 
-  const challenge = useMemo(() => projectData ? challengeFromProject(projectData) : null, [projectData]);
+  useEffect(() => {
+    if (!resolvedChallengeId) return;
+    let cancelled = false;
+    setTotalsLoading(true);
+    void fetch(`/api/challenges/${encodeURIComponent(resolvedChallengeId)}/public-totals`)
+      .then(async (response) => {
+        if (!response.ok) throw new Error("Unable to load fundraiser totals");
+        return response.json() as Promise<{ total: number }>;
+      })
+      .then((totals) => {
+        if (!cancelled) setReconciledTotal(Math.max(0, Number(totals.total) || 0));
+      })
+      .catch(() => {
+        if (!cancelled) {
+          const fallback = Math.max(0, Number(projectData?.totalRaised ?? 0))
+            + Math.max(0, Number(projectData?.totalDonated ?? 0));
+          setReconciledTotal(fallback);
+        }
+      })
+      .finally(() => { if (!cancelled) setTotalsLoading(false); });
+    return () => { cancelled = true; };
+  }, [resolvedChallengeId, projectData?.totalRaised, projectData?.totalDonated]);
+
+  const challenge = useMemo(
+    () => projectData ? challengeFromProject(projectData, reconciledTotal ?? undefined) : null,
+    [projectData, reconciledTotal],
+  );
 
   const inviteDestination = `/challenges/${resolvedChallengeId || challengeId}?invite=1`;
   const signUpHref = `/sign-in?mode=signup&redirect=${encodeURIComponent(inviteDestination)}`;
   const signInHref = `/sign-in?mode=signin&redirect=${encodeURIComponent(inviteDestination)}`;
 
-  if (loading || authLoading) {
+  if (loading || authLoading || (Boolean(resolvedChallengeId) && totalsLoading)) {
     return (
       <div className="min-h-screen flex items-center justify-center" style={{ background: "var(--bg-base)" }}>
         <div className="w-8 h-8 border-4 border-t-transparent rounded-full animate-spin" style={{ borderColor: "var(--green-primary)", borderTopColor: "transparent" }} />
@@ -278,7 +306,7 @@ export default function JoinChallengePage() {
 
   const countdown = getChallengeCountdown(challenge.project);
   const totalSkips = challenge.project.totalSkips ?? 0;
-  const displayedRaised = challenge.raised; // already Math.min(goal, totalRaised) from challengeFromProject
+  const displayedRaised = challenge.raised;
   const causePhrase = getChallengeCausePhrase(challenge.project);
   const unitCost = challenge.project.unitCost ?? 0;
   const hasUnits = unitCost > 0;
@@ -338,9 +366,23 @@ export default function JoinChallengePage() {
 
             <div className="mt-5">
               {challenge.goal > 0 ? (
-                <div className="flex items-center justify-between rounded-xl px-4 py-3" style={{ background: "var(--bg-surface-2)", border: "1px solid var(--border-default)" }}>
-                  <p className="text-xs uppercase tracking-wide font-black" style={{ color: "var(--text-muted)" }}>Fundraiser goal</p>
-                  <p className="text-lg font-black" style={{ color: "var(--green-primary)" }}>{formatCurrency(challenge.goal)}</p>
+                <div className="rounded-xl px-4 py-3" style={{ background: "var(--bg-surface-2)", border: "1px solid var(--border-default)" }}>
+                  <div className="flex items-center justify-between gap-3">
+                    <div>
+                      <p className="text-xs uppercase tracking-wide font-black" style={{ color: "var(--text-muted)" }}>Group progress</p>
+                      <p className="text-lg font-black" style={{ color: "var(--green-primary)" }}>{formatCurrency(displayedRaised)} raised</p>
+                    </div>
+                    <p className="text-sm font-black text-right" style={{ color: "var(--text-primary)" }}>
+                      {challenge.progressPct}%<br />
+                      <span className="text-xs font-semibold" style={{ color: "var(--text-muted)" }}>of {formatCurrency(challenge.goal)}</span>
+                    </p>
+                  </div>
+                  <div className="mt-3 h-2 rounded-full overflow-hidden" style={{ background: "var(--bg-surface-3)" }}>
+                    <div
+                      className="h-full rounded-full"
+                      style={{ width: `${challenge.progressPct}%`, background: "linear-gradient(135deg, var(--green-primary), var(--green-grad-end))" }}
+                    />
+                  </div>
                 </div>
               ) : (
                 <div className={`grid gap-3 rounded-xl p-4 ${hasUnits ? "grid-cols-3" : "grid-cols-2"}`} style={{ background: "var(--bg-surface-2)", border: "1px solid var(--border-default)" }}>

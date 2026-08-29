@@ -59,15 +59,25 @@ export async function PATCH(req: NextRequest, ctx: RouteContext) {
         if (delta > currentBal + unassignedSkipBank) {
           throw new ApiError(400, "Purchase exceeds available skipped savings");
         }
-        jarDecreaseDelta = delta > 0
-          ? Math.min(delta, currentBal)
-          : delta;
-        nextGoalBalance = Math.max(0, currentBal - jarDecreaseDelta);
+        if (nextBalances) {
+          nextGoalBalance = Math.max(0, nextBalances.goalJarBalances[goalId] ?? 0);
+          jarDecreaseDelta = currentBal - nextGoalBalance;
+        } else {
+          jarDecreaseDelta = delta > 0
+            ? Math.min(delta, currentBal)
+            : Math.max(delta, -oldJarDecrease);
+          nextGoalBalance = Math.max(0, currentBal - jarDecreaseDelta);
+        }
       }
 
+      const nextJarDecrease = Math.max(0, oldJarDecrease + jarDecreaseDelta);
+      const nextSkipBucksDecrease = Math.max(0, newAmountSaved - nextJarDecrease);
+      const outsideContribution = Math.max(0, event.outsideContribution ?? 0);
       tx.update(eventRef, {
         amountSaved: newAmountSaved,
-        jarDecrease: Math.max(0, oldJarDecrease + jarDecreaseDelta),
+        totalAmount: newAmountSaved + outsideContribution,
+        jarDecrease: nextJarDecrease,
+        skipBucksDecrease: nextSkipBucksDecrease,
         ...(nextConsumption ? { ledgerConsumption: nextConsumption } : {}),
       });
       if (delta !== 0) {
@@ -79,7 +89,7 @@ export async function PATCH(req: NextRequest, ctx: RouteContext) {
         } else if (goalId && jarDecreaseDelta !== 0 && nextGoalBalance !== null) updates[`goalJarBalances.${goalId}`] = nextGoalBalance;
         tx.update(userRef, updates);
       }
-      return { jarDecrease: Math.max(0, oldJarDecrease + jarDecreaseDelta) };
+      return { jarDecrease: nextJarDecrease, goalBalance: nextGoalBalance };
     });
 
     return NextResponse.json(result);

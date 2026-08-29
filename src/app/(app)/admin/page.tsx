@@ -113,7 +113,7 @@ export default function AdminPage() {
       {/* Stats row */}
       <div className="grid grid-cols-3 gap-4 mb-8">
         {[
-          { label: "Total Users", value: stats?.totalUsers ?? "—" },
+          { label: "Total Users", value: users.length },
           { label: "Total Skips", value: stats?.totalSkips ?? "—" },
           { label: "Total Saved", value: stats ? fmt(stats.totalSaved) : "—" },
         ].map((card) => (

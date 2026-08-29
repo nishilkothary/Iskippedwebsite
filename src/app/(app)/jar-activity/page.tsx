@@ -1011,14 +1011,14 @@ function JarActivityPageInner() {
       : delta;
     setHistoryWorkingId(`purchase-${event.id}`);
     try {
-      await updateSpendingHistory(user.uid, event.id, nextAmount, event.amountSaved);
+      const result = await updateSpendingHistory(user.uid, event.id, nextAmount, event.amountSaved);
       updateProfile({
         totalSpent: Math.max(0, (profileData.totalSpent ?? 0) + delta),
         ...(event.goalId
           ? {
               goalJarBalances: {
                 ...(profileData.goalJarBalances ?? {}),
-                [event.goalId]: Math.max(0, currentBal - jarDecreaseDelta),
+                [event.goalId]: result.goalBalance ?? Math.max(0, currentBal - jarDecreaseDelta),
               },
             }
           : {}),
@@ -1071,7 +1071,7 @@ function JarActivityPageInner() {
           ? {
               goalJarBalances: {
                 ...(profileData.goalJarBalances ?? {}),
-                [event.goalId]: Math.max(0, profileData.goalJarBalances?.[event.goalId] ?? 0) + Math.max(0, event.amountSaved),
+                [event.goalId]: Math.max(0, profileData.goalJarBalances?.[event.goalId] ?? 0) + Math.max(0, event.jarDecrease ?? event.amountSaved),
               },
             }
           : {}),

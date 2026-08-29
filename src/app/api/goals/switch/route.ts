@@ -3,6 +3,7 @@ import { getAdminDb } from "@/lib/services/firebaseAdmin";
 import { requireUid, ApiError, handleApiError } from "@/lib/services/apiAuth";
 import { validateNonEmptyString } from "@/lib/services/serverProfileDefaults";
 import { UserProfile } from "@/lib/types/models";
+import { balancesFromLots, cloneLots, locationKey, transferLots } from "@/lib/utils/skipLedger";
 
 export async function POST(req: NextRequest) {
   try {
@@ -20,18 +21,27 @@ export async function POST(req: NextRequest) {
       if (!userSnap.exists) throw new ApiError(404, "User not found");
       const profile = userSnap.data() as UserProfile;
       const goals = profile.spendingGoals ?? [];
+      const skipLots = cloneLots(profile);
 
       const updates: Record<string, unknown> = {
         activeSpendingGoalId: newGoalId,
         spendingGoals: goals,
       };
       let balanceTransfer: Record<string, number> | null = null;
-      if (moveFunds && oldGoalId) {
+      if (moveFunds && oldGoalId && oldGoalId !== newGoalId) {
         const oldBal = Math.max(0, profile.goalJarBalances?.[oldGoalId] ?? 0);
         if (oldBal > 0) {
           const existingNewBalance = Math.max(0, profile.goalJarBalances?.[newGoalId] ?? 0);
-          updates[`goalJarBalances.${newGoalId}`] = existingNewBalance + oldBal;
-          updates[`goalJarBalances.${oldGoalId}`] = 0;
+          transferLots(
+            skipLots,
+            oldBal,
+            [locationKey({ type: "goal", id: oldGoalId })],
+            locationKey({ type: "goal", id: newGoalId }),
+          );
+          const nextBalances = balancesFromLots(skipLots);
+          updates.goalJarBalances = nextBalances.goalJarBalances;
+          updates.causeJarBalances = nextBalances.causeJarBalances;
+          updates.skipLots = skipLots;
           balanceTransfer = { [oldGoalId]: 0, [newGoalId]: existingNewBalance + oldBal };
         }
       }

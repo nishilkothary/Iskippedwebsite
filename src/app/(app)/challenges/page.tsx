@@ -160,7 +160,7 @@ function challengeFromProject(project: Project, reconciledTotal?: number): Chall
   const category = challengeCategory(project);
   const fallback = fallbackForCategory(category);
   const goal = getChallengeGoal(project);
-  const raised = Math.min(goal, Math.max(0, reconciledTotal ?? 0));
+  const raised = Math.max(0, reconciledTotal ?? 0);
   const progressPct = goal > 0 ? Math.min(100, Math.round((raised / goal) * 100)) : 0;
   const unitCost = project.unitCost ?? 0;
   const hasUnits = unitCost > 0 && goal > 0;

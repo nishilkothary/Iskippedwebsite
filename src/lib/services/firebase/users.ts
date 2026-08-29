@@ -67,8 +67,8 @@ export async function completeGoal(
   amountSaved: number,
   currentGoals: SpendingGoal[],
   currentActiveGoalId: string | null
-): Promise<void> {
-  await apiRequest("/api/goals/complete", "POST", { goalId, label, targetAmount });
+): Promise<{ amountFromSkips: number; jarDecrease: number; skipBucksDecrease: number }> {
+  return apiRequest("/api/goals/complete", "POST", { goalId, label, targetAmount });
 }
 
 export async function createOrUpdateUser(user: User): Promise<boolean> {
@@ -103,6 +103,13 @@ export async function createOrUpdateUser(user: User): Promise<boolean> {
     };
     await setDoc(ref, profile);
   }
+
+  // Keep the public/global user metric derived from the canonical users
+  // collection. This endpoint is idempotent, so returning users also repair
+  // any missed update without risking a double increment.
+  await apiRequest("/api/users/sync-count", "POST", {}).catch((error) => {
+    console.warn("Could not synchronize global user count", error);
+  });
   return isNew;
 }
 
@@ -332,8 +339,8 @@ export async function updateSpendingHistory(
   eventId: string,
   newAmountSaved: number,
   oldAmountSaved: number
-): Promise<{ jarDecrease: number }> {
-  return apiRequest<{ jarDecrease: number }>(`/api/spending-history/${eventId}`, "PATCH", { newAmountSaved });
+): Promise<{ jarDecrease: number; goalBalance: number | null }> {
+  return apiRequest<{ jarDecrease: number; goalBalance: number | null }>(`/api/spending-history/${eventId}`, "PATCH", { newAmountSaved });
 }
 
 export async function deleteSpendingHistory(

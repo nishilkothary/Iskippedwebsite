@@ -509,8 +509,9 @@ function JarsPageInner() {
   async function handleCompleteGoal(goalId: string) {
     const goal = spendingGoals.find((g) => g.id === goalId);
     if (!goal) return;
+    let result: Awaited<ReturnType<typeof completeGoal>>;
     try {
-      await completeGoal(
+      result = await completeGoal(
         user!.uid,
         goalId,
         goal.label,
@@ -528,10 +529,10 @@ function JarsPageInner() {
     const newActiveId =
       activeSpendingGoalId === goalId ? (newGoals[0]?.id ?? null) : activeSpendingGoalId;
     updateProfile({
-      totalSpent: (profile!.totalSpent ?? 0) + spendingBalance,
+      totalSpent: (profile!.totalSpent ?? 0) + result.amountFromSkips,
       spendingGoals: newGoals,
       activeSpendingGoalId: newActiveId,
-      goalJarBalances: { ...(profile!.goalJarBalances ?? {}), [goalId]: 0 },
+      goalJarBalances: { ...(profile!.goalJarBalances ?? {}), [goalId]: Math.max(0, (profile!.goalJarBalances?.[goalId] ?? 0) - result.jarDecrease) },
     });
   }
 

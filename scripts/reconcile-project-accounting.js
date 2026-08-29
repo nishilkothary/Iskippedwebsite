@@ -19,20 +19,41 @@ const money = (value) => Number.isFinite(Number(value)) ? Math.round(Number(valu
     db.collectionGroup("donations").get(),
   ]);
   const donations = donationDocs.docs.map((doc) => ({ doc, ...doc.data() }));
+  const skipCounts = new Map();
+  await Promise.all(users.docs.map(async (user) => {
+    const skips = await user.ref.collection("skips").get();
+    for (const skipDoc of skips.docs) {
+      const skip = skipDoc.data();
+      const projectId = skip.allocationTarget?.type === "fundraiser"
+        ? skip.allocationTarget.id
+        : (typeof skip.projectId === "string" ? skip.projectId : "");
+      if (projectId) skipCounts.set(projectId, (skipCounts.get(projectId) ?? 0) + 1);
+    }
+  }));
 
   for (const projectDoc of projects.docs) {
     const project = projectDoc.data();
     const title = typeof project.title === "string" ? project.title : "";
-    const pledged = money(users.docs.reduce((sum, user) => sum + Math.max(0, money(user.data().causeJarBalances?.[projectDoc.id])), 0));
+    const pledged = money(users.docs.reduce((sum, user) => {
+      const profile = user.data();
+      const lifetimeSaved = Math.max(0, money(profile.totalSaved));
+      const spentFromSkips = Math.max(0, money(profile.totalSpent));
+      const donatedFromSkips = Math.max(0, money(profile.totalDonatedFromSkips ?? profile.totalDonated));
+      const availableFromSkips = Math.max(0, money(lifetimeSaved - spentFromSkips - donatedFromSkips));
+      const jarAmount = Math.max(0, money(profile.causeJarBalances?.[projectDoc.id]));
+      return sum + Math.min(jarAmount, availableFromSkips);
+    }, 0));
     const donated = money(donations
       .filter(({ causeId, causeTitle }) => causeId === projectDoc.id || (!causeId && title && causeTitle === title))
       .reduce((sum, donation) => sum + Math.max(0, money(donation.amount)), 0));
     const oldRaised = money(project.totalRaised);
     const oldDonated = money(project.totalDonated);
-    if (oldRaised === pledged && oldDonated === donated) continue;
-    console.log(`${projectDoc.id} ${title || "(untitled)"}: totalRaised ${oldRaised} -> ${pledged}; totalDonated ${oldDonated} -> ${donated}`);
+    const oldSkips = Math.max(0, Number(project.totalSkips) || 0);
+    const totalSkips = skipCounts.get(projectDoc.id) ?? 0;
+    if (oldRaised === pledged && oldDonated === donated && oldSkips === totalSkips) continue;
+    console.log(`${projectDoc.id} ${title || "(untitled)"}: totalRaised ${oldRaised} -> ${pledged}; totalDonated ${oldDonated} -> ${donated}; totalSkips ${oldSkips} -> ${totalSkips}`);
     if (apply) {
-      await projectDoc.ref.set({ totalRaised: pledged, totalDonated: donated }, { merge: true });
+      await projectDoc.ref.set({ totalRaised: pledged, totalDonated: donated, totalSkips }, { merge: true });
     }
   }
   console.log(apply ? "Applied." : "Dry run only. Re-run with --apply to write these fields.");

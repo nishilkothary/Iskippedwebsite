@@ -116,9 +116,10 @@ export default function ManageChallengePage() {
 
   // Merge live stats over static challenge data
   const totalDonated = liveProgress?.totalDonated ?? membersTotalDonated ?? 0;
-  const totalRaised = liveProgress?.totalPledged
+  const totalPledged = liveProgress?.totalPledged
     ?? membersTotalPledged
     ?? 0;
+  const totalRaised = liveProgress?.total ?? (totalPledged + totalDonated);
   const totalSkips = liveProject?.totalSkips ?? challenge.totalSkips ?? 0;
   const memberUids = liveProject?.memberUids ?? challenge.memberUids ?? [];
 
@@ -231,13 +232,13 @@ export default function ManageChallengePage() {
         <p className="text-xs uppercase tracking-wide font-bold mb-3" style={{ color: "var(--text-muted)" }}>
           Challenge Stats
         </p>
-        <div className="grid grid-cols-3 gap-4 mb-4">
+        <div className="grid grid-cols-2 gap-4 mb-4">
           <div>
             <p className="text-2xl font-black" style={{ color: "var(--green-primary)" }}>
-              {formatCurrency(totalRaised)}
+              {formatCurrency(totalPledged)}
             </p>
             <p className="text-xs mt-0.5" style={{ color: "var(--text-muted)" }}>
-              {challenge.goalAmount > 0 ? `of ${formatCurrency(challenge.goalAmount)} goal` : "raised"}
+              pledged in jars
             </p>
           </div>
           <div>
@@ -245,6 +246,12 @@ export default function ManageChallengePage() {
               {formatCurrency(totalDonated)}
             </p>
             <p className="text-xs mt-0.5" style={{ color: "var(--text-muted)" }}>donated</p>
+          </div>
+          <div>
+            <p className="text-2xl font-black" style={{ color: "var(--text-primary)" }}>
+              {formatCurrency(totalRaised)}
+            </p>
+            <p className="text-xs mt-0.5" style={{ color: "var(--text-muted)" }}>total progress</p>
           </div>
           <div>
             <p className="text-2xl font-black" style={{ color: "var(--text-primary)" }}>
@@ -261,7 +268,9 @@ export default function ManageChallengePage() {
                 style={{ width: `${progressPct}%`, background: "var(--green-primary)" }}
               />
             </div>
-            <p className="text-xs mt-1 text-right" style={{ color: "var(--text-muted)" }}>{progressPct}%</p>
+            <p className="text-xs mt-1 text-right" style={{ color: "var(--text-muted)" }}>
+              {formatCurrency(totalRaised)} of {formatCurrency(challenge.goalAmount)} · {progressPct}%
+            </p>
           </div>
         )}
         {displayedMemberCount > 0 && (
