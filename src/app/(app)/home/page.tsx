@@ -1380,7 +1380,7 @@ export default function HomePage() {
     : 0;
   const groupContributorCount = isActiveGroupFundraiser ? liveChallengeContributorCount : 0;
   const fundraiserParticipantCopy = groupContributorCount > 1
-    ? `You and ${groupContributorCount - 1} ${groupContributorCount === 2 ? "other" : "others"} are skipping.`
+    ? `${groupContributorCount} people are skipping.`
     : "You're the first one skipping.";
   const communityGoal = activeProject && isActiveGroupFundraiser ? getCommunityGoal(activeProject) : 0;
   const fundraiserUnitCost = activeProject?.unitCost && activeProject.unitCost > 0 ? activeProject.unitCost : null;
@@ -2476,7 +2476,7 @@ export default function HomePage() {
                   />
                   {hasCommunityUnit && personalUnitCountDisplay !== null && (
                     <p style={{ marginTop: 6, textAlign: "center", fontSize: 12, fontWeight: 900, color: "#A7F3D0", lineHeight: 1.25 }}>
-                      ~ {personalUnitCountDisplay} {communityUnitLabel} from you
+                      ~ {personalUnitCountDisplay} {communityUnitLabel}
                     </p>
                   )}
                 </div>
@@ -2499,12 +2499,12 @@ export default function HomePage() {
                   />
                   {hasCommunityUnit && communityUnitCountDisplay !== null && (
                     <p style={{ marginTop: 6, textAlign: "center", fontSize: 12, fontWeight: 900, color: "#A7FFF0", lineHeight: 1.25 }}>
-                      ~ {communityUnitCountDisplay} {communityUnitLabel} together
+                      ~ {communityUnitCountDisplay} {communityUnitLabel}
                     </p>
                   )}
                 </div>
               </div>
-              <div style={{ display: "flex", justifyContent: "center", marginBottom: 14 }}>
+              <div style={{ display: "flex", justifyContent: "center", marginTop: 6, marginBottom: 14 }}>
                 <button
                   onClick={() => {
                     if (activeProject) {
@@ -2522,7 +2522,7 @@ export default function HomePage() {
                 <div className="home-live-progress-panel">
                   <div className="home-group-impact" style={{ borderRadius: 0, padding: "4px 0 0", marginBottom: 10, background: "transparent", border: "none" }}>
                     <p style={{ fontSize: 16, fontWeight: 950, color: groupGoalReached ? "#A7FFF0" : "var(--text-primary)" }}>
-                      {groupGoalReached ? "🎉 Group goal reached!" : `${formatCurrencyRounded(groupGoalRemainingAmount)} Until we hit our Group Goal`}
+                      {groupGoalReached ? "🎉 Group goal reached!" : `${formatCurrencyRounded(groupGoalRemainingAmount)} Until We Hit Our Group Goal`}
                     </p>
                     {groupGoalReached && (
                       <p style={{ marginTop: 4, fontSize: 11, lineHeight: 1.4, color: "var(--text-secondary)" }}>
@@ -2530,10 +2530,6 @@ export default function HomePage() {
                       </p>
                     )}
                     {!groupGoalReached && (
-                    <>
-                      <p style={{ marginTop: 4, fontSize: 11, lineHeight: 1.4, color: "var(--text-secondary)" }}>
-                        That&apos;s about:
-                      </p>
                       <div className="home-group-impact-items" style={{ display: "flex", flexWrap: "wrap", gap: 7, marginTop: 10 }}>
                         {groupGoalSkipEstimates.map((category) => (
                           <span key={category.key} className="home-group-impact-counter" style={{ color: "var(--text-primary)", fontWeight: 850 }}>
@@ -2545,7 +2541,6 @@ export default function HomePage() {
                           </span>
                         ))}
                       </div>
-                    </>
                     )}
                   </div>
                   <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, marginTop: 12, marginBottom: 8, paddingTop: 12, borderTop: "1px solid rgba(237,245,240,0.08)" }}>
