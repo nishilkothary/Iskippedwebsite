@@ -1,8 +1,6 @@
 import {
   GoogleAuthProvider,
   signInWithPopup,
-  signInWithRedirect,
-  getRedirectResult,
   signOut as firebaseSignOut,
   onAuthStateChanged,
   createUserWithEmailAndPassword,
@@ -39,17 +37,6 @@ export async function signInWithGoogle(): Promise<User> {
   const provider = new GoogleAuthProvider();
   const result = await signInWithPopup(auth, provider);
   return finishGoogleSignIn(result.user);
-}
-
-/** Starts the mobile-safe Google flow. The browser returns to the current URL. */
-export async function signInWithGoogleRedirect(): Promise<void> {
-  await signInWithRedirect(auth, new GoogleAuthProvider());
-}
-
-/** Completes a redirect-based Google sign-in after the page loads again. */
-export async function completeGoogleRedirectSignIn(): Promise<User | null> {
-  const result = await getRedirectResult(auth);
-  return result ? finishGoogleSignIn(result.user) : null;
 }
 
 export async function signUpWithEmail(

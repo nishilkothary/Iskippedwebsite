@@ -3,7 +3,7 @@ import { useEffect, useState, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { toast } from "sonner";
-import { signInWithGoogle, signInWithGoogleRedirect, completeGoogleRedirectSignIn, signUpWithEmail, signInWithEmail, resetPassword } from "@/lib/services/firebase/auth";
+import { signInWithGoogle, signUpWithEmail, signInWithEmail, resetPassword } from "@/lib/services/firebase/auth";
 import { useAuthStore } from "@/store/authStore";
 
 const previewSkips = [
@@ -16,52 +16,6 @@ const trustPills = [
   "No bank accounts or credit cards",
   "Money stays in your control",
 ];
-
-const POST_AUTH_DESTINATION_KEY = "iskipped:post-auth-destination";
-const POST_AUTH_DESTINATION_COOKIE = "iskipped_post_auth_destination";
-
-function safeDestination(value: string | null | undefined): string | null {
-  return value?.startsWith("/") && !value.startsWith("//") ? value : null;
-}
-
-function postAuthDestinationFrom(redirectParam: string | null): string {
-  const fromQuery = safeDestination(redirectParam);
-  if (fromQuery) return fromQuery;
-  if (typeof window !== "undefined") {
-    const remembered = safeDestination(window.sessionStorage.getItem(POST_AUTH_DESTINATION_KEY))
-      ?? safeDestination(window.localStorage.getItem(POST_AUTH_DESTINATION_KEY))
-      ?? safeDestination(readPostAuthCookie());
-    if (remembered) return remembered;
-  }
-  return "/home";
-}
-
-function readPostAuthCookie(): string | null {
-  const prefix = `${POST_AUTH_DESTINATION_COOKIE}=`;
-  const entry = document.cookie.split("; ").find((cookie) => cookie.startsWith(prefix));
-  if (!entry) return null;
-  try {
-    return decodeURIComponent(entry.slice(prefix.length));
-  } catch {
-    return null;
-  }
-}
-
-function rememberPostAuthDestination(destination: string) {
-  if (typeof window !== "undefined") {
-    window.sessionStorage.setItem(POST_AUTH_DESTINATION_KEY, destination);
-    window.localStorage.setItem(POST_AUTH_DESTINATION_KEY, destination);
-    document.cookie = `${POST_AUTH_DESTINATION_COOKIE}=${encodeURIComponent(destination)}; Path=/; Max-Age=600; SameSite=Lax; Secure`;
-  }
-}
-
-function forgetPostAuthDestination() {
-  if (typeof window !== "undefined") {
-    window.sessionStorage.removeItem(POST_AUTH_DESTINATION_KEY);
-    window.localStorage.removeItem(POST_AUTH_DESTINATION_KEY);
-    document.cookie = `${POST_AUTH_DESTINATION_COOKIE}=; Path=/; Max-Age=0; SameSite=Lax; Secure`;
-  }
-}
 
 function friendlyAuthError(e: any): string {
   const code = e?.code ?? "";
@@ -121,34 +75,16 @@ function SignInPage() {
   const [emailSignupInProgress, setEmailSignupInProgress] = useState(false);
 
   const redirectParam = searchParams.get("redirect");
-  const postAuthDestination = postAuthDestinationFrom(redirectParam);
+  const postAuthDestination = redirectParam?.startsWith("/") && !redirectParam.startsWith("//") ? redirectParam : "/home";
   const isChallengeRedirect = postAuthDestination.startsWith("/challenges/");
 
   function finishAuthNavigation() {
-    forgetPostAuthDestination();
     router.replace(postAuthDestination);
   }
 
   useEffect(() => {
     if (!isLoading && user && !emailSignupInProgress) finishAuthNavigation();
   }, [user, isLoading, emailSignupInProgress, router, postAuthDestination]);
-
-  useEffect(() => {
-    let cancelled = false;
-    // getRedirectResult is safe when no redirect is pending. Always check it:
-    // some mobile/in-app browsers return without their original query string.
-    void completeGoogleRedirectSignIn()
-      .then((redirectUser) => {
-        if (!cancelled && redirectUser) finishAuthNavigation();
-      })
-      .catch((e: any) => {
-        if (!cancelled) {
-          setError(friendlyAuthError(e));
-        }
-      });
-
-    return () => { cancelled = true; };
-  }, [router, postAuthDestination]);
 
   useEffect(() => {
     const t = setTimeout(() => setCardsVisible(true), 200);
@@ -169,14 +105,9 @@ function SignInPage() {
     setError(null);
     setGoogleLoading(true);
     try {
-      // Firebase's redirect return can discard page query parameters. Keep the
-      // intended invite destination in the same browser session as a fallback.
-      rememberPostAuthDestination(postAuthDestination);
-      const isMobile = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
-      if (isMobile) {
-        await signInWithGoogleRedirect();
-        return;
-      }
+      // Redirect sign-in is blocked by modern mobile browsers when Firebase's
+      // helper runs on firebaseapp.com. A user-initiated popup works across
+      // desktop and mobile without depending on third-party storage.
       await signInWithGoogle();
       finishAuthNavigation();
     } catch (e: any) {
