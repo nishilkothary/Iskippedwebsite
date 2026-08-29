@@ -55,7 +55,7 @@ export function formatAggregateImpactUnitsDecimal(
  * Singular form of a unit name. `unitName` is meant to be singular already, but some
  * cause docs were saved with a plural ("Chromebooks"), so fold those back.
  */
-export function singularUnit(unitName: string): string {
+function singularUnit(unitName: string): string {
   const fromMap = Object.entries(PLURAL_MAP).find(([, plural]) => plural === unitName)?.[0];
   if (fromMap) return fromMap;
   if (/(?:ss|us|is)$/i.test(unitName)) return unitName;

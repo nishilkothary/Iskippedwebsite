@@ -38,12 +38,6 @@ export function today(): string {
   return new Date().toISOString().split("T")[0];
 }
 
-export function yesterday(): string {
-  const d = new Date();
-  d.setDate(d.getDate() - 1);
-  return d.toISOString().split("T")[0];
-}
-
 function dateKeyToUtcDate(dateKey: string): Date {
   const [year, month, day] = dateKey.split("-").map(Number);
   return new Date(Date.UTC(year, month - 1, day));
@@ -56,7 +50,7 @@ function addDaysToDateKey(dateKey: string, days: number): string {
 }
 
 /** Date string (YYYY-MM-DD) for Monday of the current week. */
-export function startOfWeek(dateKey = today()): string {
+function startOfWeek(dateKey = today()): string {
   const d = dateKeyToUtcDate(dateKey);
   const day = d.getUTCDay(); // 0=Sun..6=Sat
   const diffToMonday = day === 0 ? 6 : day - 1;
@@ -64,16 +58,12 @@ export function startOfWeek(dateKey = today()): string {
   return d.toISOString().split("T")[0];
 }
 
-export function previousWeekStart(dateKey = today()): string {
+function previousWeekStart(dateKey = today()): string {
   return addDaysToDateKey(startOfWeek(dateKey), -7);
 }
 
 export function isSameWeek(dateKey: string | null | undefined, referenceDateKey = today()): boolean {
   return !!dateKey && startOfWeek(dateKey) === startOfWeek(referenceDateKey);
-}
-
-export function isPreviousWeek(dateKey: string | null | undefined, referenceDateKey = today()): boolean {
-  return !!dateKey && startOfWeek(dateKey) === previousWeekStart(referenceDateKey);
 }
 
 export function getConsecutiveWeeklyStreak(dateKeys: Array<string | null | undefined>, referenceDateKey = today()): number {

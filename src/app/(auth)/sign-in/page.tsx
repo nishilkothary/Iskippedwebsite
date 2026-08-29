@@ -146,12 +146,8 @@ function SignInPage() {
     setEmailSignupInProgress(mode === "signup");
     try {
       if (mode === "signup") {
-        const { verificationEmailSent } = await signUpWithEmail(email, password, name.trim());
-        if (verificationEmailSent) {
-          toast.success("Account created. Check your inbox when you can to verify your email.");
-        } else {
-          toast.success("Account created.");
-        }
+        await signUpWithEmail(email, password, name.trim());
+        toast.success("Account created.");
         router.replace(postAuthDestination);
       } else {
         await signInWithEmail(email, password);

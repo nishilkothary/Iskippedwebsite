@@ -16,7 +16,7 @@ export function slugifyChallengeName(value: string): string {
     .replace(/^-+|-+$/g, "") || "challenge";
 }
 
-export function getChallengeSlug(project: { title: string; groupName?: string }): string {
+function getChallengeSlug(project: { title: string; groupName?: string }): string {
   return slugifyChallengeName(project.groupName?.trim() || project.title);
 }
 

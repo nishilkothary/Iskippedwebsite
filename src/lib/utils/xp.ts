@@ -1,4 +1,4 @@
-export function xpForLevel(level: number): number {
+function xpForLevel(level: number): number {
   return level * level * 100;
 }
 

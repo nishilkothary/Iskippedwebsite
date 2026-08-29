@@ -328,7 +328,7 @@ export default function ChallengeDetailPage() {
   }, [challengeId]);
 
   useEffect(() => {
-    if (!user || !challenge || searchParams.get("invite") !== "1" || inviteFlowSeenFor === challenge.project.id) return;
+    if (!user || !profile || !challenge || searchParams.get("invite") !== "1" || inviteFlowSeenFor === challenge.project.id) return;
     setInviteFlowSeenFor(challenge.project.id);
     // A fundraiser join must never prefill a personal goal from an older jar.
     setPersonalGoalInput("");
@@ -341,7 +341,7 @@ export default function ChallengeDetailPage() {
           ? "already-joined"
           : "intro",
     );
-  }, [user, challenge, searchParams, inviteFlowSeenFor, profile?.activeProjectId, profile?.causeGoalAmounts]);
+  }, [user, profile, challenge, searchParams, inviteFlowSeenFor]);
 
   if (!challenge) {
     if (projectsLoading || !fallbackChecked) {

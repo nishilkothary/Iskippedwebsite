@@ -332,18 +332,6 @@ export async function updateCustomProject(
   });
 }
 
-export async function setChallengeDeadline(
-  uid: string,
-  projectId: string,
-  endDate: Date | null
-): Promise<void> {
-  const snap = await getDoc(doc(db, "projects", projectId));
-  if (!snap.exists() || snap.data().createdBy !== uid) throw new Error("Not authorized");
-  await updateDoc(doc(db, "projects", projectId), {
-    endDate: endDate ? Timestamp.fromDate(endDate) : null,
-  });
-}
-
 export async function endChallenge(uid: string, projectId: string): Promise<void> {
   const snap = await getDoc(doc(db, "projects", projectId));
   if (!snap.exists() || snap.data().createdBy !== uid) throw new Error("Not authorized");

@@ -13,14 +13,3 @@ export function getImpactMessage(amount: number): string {
   if (amount < 200) return `$${amount.toFixed(2)} = women's health education 👩‍⚕️`;
   return `$${amount.toFixed(2)} = educate a child for a year! 🎓`;
 }
-
-export const MILESTONE_MESSAGES: Record<number, string> = {
-  10: "Your first $10! A child has clean water today. 💧",
-  25: "$25 saved! That's 5 school meals. 🍽️",
-  50: "$50 saved! You've funded a month of vitamins. 💊",
-  100: "$100 saved! A child's school supplies covered. 🎒",
-  150: "$150 saved! A mobile library can visit a village. 📖",
-  180: "$180 saved! A child can go to school for a year. 🎓",
-  200: "$200 saved! Life-changing impact. You're a hero. 🌟",
-  500: "$500! You've changed multiple lives. 🌍",
-};

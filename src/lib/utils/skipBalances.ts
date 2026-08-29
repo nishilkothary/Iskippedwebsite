@@ -75,7 +75,7 @@ export function removeUnspentSkipValue(
   return { causeJarBalances, goalJarBalances };
 }
 
-export function sumMoneyRecord(record: Record<string, number> | undefined | null): number {
+function sumMoneyRecord(record: Record<string, number> | undefined | null): number {
   if (!record) return 0;
   return Object.values(record).reduce((sum, value) => (
     typeof value === "number" && Number.isFinite(value) ? sum + Math.max(0, value) : sum

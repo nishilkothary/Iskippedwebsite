@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { FieldValue } from "firebase-admin/firestore";
-import { getAdminDb, getAdminRtdb } from "@/lib/services/firebaseAdmin";
+import { getAdminDb } from "@/lib/services/firebaseAdmin";
 import { requireUid, ApiError, handleApiError } from "@/lib/services/apiAuth";
 import { validateAmount, validateNonEmptyString } from "@/lib/services/serverProfileDefaults";
 import { getImpactMessage } from "@/lib/constants/impactMessages";
@@ -42,7 +42,6 @@ export async function POST(req: NextRequest) {
     const db = getAdminDb();
     const userRef = db.collection("users").doc(uid);
     const skipRef = userRef.collection("skips").doc();
-    const feedRef = db.collection("feed").doc(uid).collection("items").doc();
 
     const todayStr = today();
 
@@ -138,19 +137,6 @@ export async function POST(req: NextRequest) {
         }, { merge: true });
       }
 
-      tx.set(feedRef, {
-        uid,
-        displayName: displayName || "Skipper",
-        ...(photoURL ? { photoURL } : {}),
-        type: "skip",
-        skipAmount: amount,
-        skipCategory: category,
-        skipEmoji: categoryEmoji,
-        projectTitle,
-        message,
-        createdAt: FieldValue.serverTimestamp(),
-      });
-
       // Credit the inviter: roll up fundraiser skip dollars into their Impact Score;
       // on the invitee's first skip only, also grant the one-time XP + Friends-Joined bonus.
       if (referrerRef && referrerProfile && isFirstSkip) {
@@ -194,10 +180,6 @@ export async function POST(req: NextRequest) {
         createdAt: FieldValue.serverTimestamp(),
       });
 
-      if (shareWithCommunity) {
-        const causeTotalRef = getAdminRtdb().ref(`causeTotals/${result.allocationTarget.id}`);
-        await causeTotalRef.transaction((current) => (current || 0) + amount);
-      }
     } catch {
       // Non-critical, continue
     }

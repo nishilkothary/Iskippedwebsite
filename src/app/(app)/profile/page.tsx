@@ -7,7 +7,6 @@ import { useAuthStore } from "@/store/authStore";
 import { signOut } from "@/lib/services/firebase/auth";
 import { deleteAccount } from "@/lib/services/firebase/account";
 import { formatCurrency } from "@/lib/utils/currency";
-import { impactScore } from "@/lib/utils/impactScore";
 import { setShareSkipsByDefault } from "@/lib/services/firebase/users";
 import { isPushSupported, registerForPush, unregisterPush } from "@/lib/services/firebase/push";
 import { useSkips } from "@/hooks/useSkips";
@@ -196,28 +195,6 @@ export default function ProfilePage() {
               <p className="text-[10px] font-black uppercase tracking-[0.12em]" style={{ color: "var(--text-secondary)" }}>{s.label}</p>
               <p className={i === 0 ? "mt-1 text-2xl font-black md:text-xl" : "mt-1 text-lg font-black sm:text-xl"} style={{ color: s.color }}>{s.value}</p>
               <p className="mt-0.5 text-[10px] sm:text-xs" style={{ color: "var(--text-muted)" }}>{s.note}</p>
-            </div>
-          ))}
-        </div>
-        <div className="hidden">
-          <div>
-            <p className="text-xs font-semibold uppercase tracking-wide" style={{ color: "var(--text-secondary)" }}>⚡ Impact Score</p>
-            <p className="text-xs mt-0.5" style={{ color: "var(--text-muted)" }}>
-              1 point for every $1 you donate
-            </p>
-          </div>
-          <p className="text-2xl font-black" style={{ color: "var(--green-primary)" }}>{impactScore(profile).toLocaleString()}</p>
-        </div>
-        <div className="hidden">
-          {[
-            { emoji: "💚", label: "donated", value: formatCurrency(profile.totalDonated), color: "var(--green-primary)" },
-            { emoji: "🛍️", label: "spent", value: formatCurrency(profile.totalSpent ?? 0), color: "#8B5CF6" },
-            { emoji: "🫙", label: "in jars", value: formatCurrency(Math.max(0, profile.totalSaved - profile.totalDonated - (profile.totalSpent ?? 0))), color: "#F59E0B" },
-          ].map((s) => (
-            <div key={s.label} className="p-3 text-center" style={cardStyle}>
-              <p className="text-base">{s.emoji}</p>
-              <p className="text-sm font-bold" style={{ color: s.color }}>{s.value}</p>
-              <p className="text-xs" style={{ color: "var(--text-secondary)" }}>{s.label}</p>
             </div>
           ))}
         </div>

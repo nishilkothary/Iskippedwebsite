@@ -6,6 +6,12 @@ A prioritized assessment of the app based on a full codebase review (July 2026).
 >
 > **Status:** ✅ 1.2 (error handling) and the manifest half of 2.4 are done — see those sections.
 
+## Post-event follow-ups
+
+- [ ] Upgrade Firebase/Google server dependencies on a separate branch, then rerun the complete accounting, signup, jar, transfer, donation, edit, and deletion test suite. The current audit reports eight moderate transitive dependency warnings; none are high or critical.
+- [ ] Add an authenticated end-to-end event test covering invite → signup → join → first skip → edit → transfer → donate → delete.
+- [ ] Replace per-request fundraiser donation scans with a server-maintained canonical aggregate before usage grows substantially.
+
 ---
 
 ## Top 5 Most Important

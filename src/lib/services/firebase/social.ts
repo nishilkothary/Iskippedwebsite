@@ -9,7 +9,6 @@ import {
   where,
   doc,
   deleteDoc,
-  updateDoc,
   Timestamp,
   QuerySnapshot,
 } from "firebase/firestore";
@@ -73,25 +72,6 @@ export function subscribeToGlobalStats(callback: (stats: GlobalStats) => void): 
       callback(snap.val() as GlobalStats);
     }
   });
-}
-
-export async function deleteCommunityFeedItem(skipId: string): Promise<void> {
-  try {
-    await deleteDoc(doc(db, "communityFeed", skipId));
-  } catch {
-    // Doc may not exist (old skips or not shared)
-  }
-}
-
-export async function updateCommunityFeedItem(
-  skipId: string,
-  updates: Partial<Pick<FeedItem, "skipAmount" | "message">>
-): Promise<void> {
-  try {
-    await updateDoc(doc(db, "communityFeed", skipId), updates);
-  } catch {
-    // Doc may not exist
-  }
 }
 
 export async function deleteOldCommunityFeedItems(beforeDate: Date): Promise<number> {

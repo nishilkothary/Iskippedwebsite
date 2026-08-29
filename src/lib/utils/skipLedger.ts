@@ -1,7 +1,7 @@
 import type { SkipAllocationTarget, SkipLot, UserProfile } from "@/lib/types/models";
 import { getSkipBalanceSummary } from "./skipBalances";
 
-export const UNASSIGNED_LOCATION = "unassigned";
+const UNASSIGNED_LOCATION = "unassigned";
 
 export function locationKey(target: SkipAllocationTarget | null | undefined): string {
   return target ? `${target.type}:${target.id}` : UNASSIGNED_LOCATION;

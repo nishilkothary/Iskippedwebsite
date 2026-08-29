@@ -10,7 +10,6 @@ import {
   limit,
   onSnapshot,
   Unsubscribe,
-  getDocs,
   arrayUnion,
   arrayRemove,
   deleteField,
@@ -98,7 +97,6 @@ export async function createOrUpdateUser(user: User): Promise<boolean> {
       favoriteCauseIds: [],
       shareSkipsByDefault: true,
       emailVerified: user.emailVerified,
-      onboardingCompletedAt: null,
       createdAt: serverTimestamp(),
     };
     await setDoc(ref, profile);
@@ -111,10 +109,6 @@ export async function createOrUpdateUser(user: User): Promise<boolean> {
     console.warn("Could not synchronize global user count", error);
   });
   return isNew;
-}
-
-export async function completeOnboarding(uid: string): Promise<void> {
-  await updateDoc(doc(db, "users", uid), { onboardingCompletedAt: serverTimestamp() });
 }
 
 export async function dismissSetupPrompt(uid: string): Promise<void> {
@@ -310,12 +304,6 @@ export function subscribeToDonations(uid: string, callback: (donations: Donation
   return onSnapshot(q, (snap) => callback(snap.docs.map((d) => ({ id: d.id, ...d.data() } as DonationEvent))));
 }
 
-export async function updateDonation(uid: string, donationId: string, newAmount: number, oldAmount: number, causeId: string, date?: string): Promise<void> {
-  const delta = newAmount - oldAmount;
-  if (delta === 0 && date === undefined) return;
-  await apiRequest(`/api/donations/${donationId}`, "PATCH", { newAmount, date });
-}
-
 export async function deleteDonation(uid: string, donationId: string, amount: number, causeId: string): Promise<DonationFundingBreakdown> {
   return apiRequest<DonationFundingBreakdown>(`/api/donations/${donationId}`, "DELETE");
 }
@@ -358,10 +346,4 @@ export async function resetActiveProjectIfRemoved(uid: string, activeProjectId: 
   const snap = await getDoc(doc(db, "projects", activeProjectId));
   if (snap.exists()) return;
   await updateDoc(doc(db, "users", uid), { activeProjectId: null });
-}
-
-export async function getAllUsers(): Promise<UserProfile[]> {
-  const q = query(collection(db, "users"), orderBy("createdAt", "desc"));
-  const snap = await getDocs(q);
-  return snap.docs.map((d) => d.data() as UserProfile);
 }
