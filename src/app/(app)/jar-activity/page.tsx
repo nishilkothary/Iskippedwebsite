@@ -29,6 +29,7 @@ import {
 import { getSkipBalanceSummary } from "@/lib/utils/skipBalances";
 import { DonationEvent, Project, SpendingGoal, SpendingHistoryEvent } from "@/lib/types/models";
 import { DonationLogModal } from "@/components/skip/DonationLogModal";
+import { getPersonalFundraiserGoalProgress } from "@/lib/utils/fundraiserGoals";
 
 const SKIP_BUCKS_DESTINATION = "skip-bucks";
 
@@ -42,6 +43,9 @@ type JarActivityItem =
       goalAmount: number;
       active: boolean;
       project: Project | null;
+      donated: number;
+      remainingGoal: number | null;
+      completed: boolean;
     }
   | {
       type: "goal";
@@ -74,6 +78,15 @@ function progressPercent(balance: number, goalAmount: number) {
 
 function cents(value: number) {
   return Math.round(value * 100) / 100;
+}
+
+function formatCompactCurrency(amount: number) {
+  return new Intl.NumberFormat("en-US", {
+    style: "currency",
+    currency: "USD",
+    minimumFractionDigits: Number.isInteger(amount) ? 0 : 2,
+    maximumFractionDigits: 2,
+  }).format(amount);
 }
 
 function amountInputValue(value: number) {
@@ -213,6 +226,11 @@ function JarActivityCard({
       </div>
 
       <div ref={menuRef} className="jar-activity-card-manage relative mt-3">
+        {item.type === "fundraiser" && item.remainingGoal !== null && (
+          <p className="mb-2 whitespace-nowrap text-[10px] font-bold" style={{ color: "var(--text-secondary)" }}>
+            {formatCompactCurrency(item.donated)} donated · {formatCompactCurrency(item.remainingGoal)} left to goal
+          </p>
+        )}
         <button
           type="button"
           onClick={() => setMenuOpen((open) => !open)}
@@ -553,6 +571,7 @@ function JarActivityPageInner() {
   const [purchaseWorking, setPurchaseWorking] = useState(false);
   const [purchaseDone, setPurchaseDone] = useState<"logged" | "emptied" | null>(null);
   const [editingJarGoal, setEditingJarGoal] = useState<JarActivityItem | null>(null);
+  const [restartingCompletedGoal, setRestartingCompletedGoal] = useState(false);
   const [jarGoalAmount, setJarGoalAmount] = useState("");
   const [jarGoalWorking, setJarGoalWorking] = useState(false);
   const [deactivatePrompt, setDeactivatePrompt] = useState<JarActivityItem | null>(null);
@@ -585,20 +604,37 @@ function JarActivityPageInner() {
       ...(profile.parkedSkipTargets ?? [])
         .filter((target) => target.type === "fundraiser" && Math.max(0, profile.causeJarBalances?.[target.id] ?? 0) > 0)
         .map((target) => target.id),
+      ...Object.entries(profile.causeStats ?? {}).filter(([, stats]) => Math.max(0, stats.donated ?? 0) > 0).map(([id]) => id),
+      ...donations.map((donation) => donation.causeId).filter(Boolean),
       ...(activeTarget?.type === "fundraiser" ? [activeTarget.id] : []),
     ]);
     const fundraiserItems: JarActivityItem[] = Array.from(fundraiserIds).map((id) => {
       const project = projects.find((candidate) => candidate.id === id) ?? null;
       const title = project?.groupName ?? project?.title ?? "Fundraiser jar";
+      const balance = Math.max(0, profile.causeJarBalances?.[id] ?? 0);
+      const goalAmount = Math.max(0, profile.causeGoalAmounts?.[id] ?? 0);
+      const visibleDonationTotal = donations
+        .filter((donation) => donation.causeId === id)
+        .reduce((sum, donation) => sum + Math.max(0, donation.amount), 0);
+      const donated = Math.max(visibleDonationTotal, Math.max(0, profile.causeStats?.[id]?.donated ?? 0));
+      const { remainingGoal } = getPersonalFundraiserGoalProgress(
+        goalAmount,
+        donated,
+        profile.causeGoalDonationBaselines?.[id],
+      );
+      const active = activeTarget?.type === "fundraiser" && activeTarget.id === id;
       return {
         type: "fundraiser",
         id,
         title,
         subtitle: project?.sponsor ? `by ${project.sponsor}` : "Saved for this cause",
-        balance: Math.max(0, profile.causeJarBalances?.[id] ?? 0),
-        goalAmount: profile.causeGoalAmounts?.[id] ?? project?.goalAmount ?? 0,
-        active: activeTarget?.type === "fundraiser" && activeTarget.id === id,
+        balance,
+        goalAmount,
+        active,
         project,
+        donated,
+        remainingGoal,
+        completed: !active && donated > 0 && remainingGoal === 0 && balance <= 0,
       };
     });
 
@@ -624,12 +660,14 @@ function JarActivityPageInner() {
       }));
 
     return [...fundraiserItems, ...rewardItems].sort((a, b) => Number(b.active) - Number(a.active) || b.balance - a.balance);
-  }, [profile, projects, activeTarget?.type, activeTarget?.id, spendingGoals]);
+  }, [profile, projects, activeTarget?.type, activeTarget?.id, spendingGoals, donations]);
 
   const inJars = cents(items.reduce((sum, item) => sum + item.balance, 0));
   const unassignedSkipBucks = Math.max(0, cents(totalSkipBucks - inJars));
-  const activeItems = items.filter((item) => item.active);
-  const inactiveItems = items.filter((item) => !item.active);
+  const completedItems = items.filter((item): item is Extract<JarActivityItem, { type: "fundraiser" }> => item.type === "fundraiser" && item.completed);
+  const jarItems = items.filter((item) => item.type !== "fundraiser" || !item.completed);
+  const activeItems = jarItems.filter((item) => item.active);
+  const inactiveItems = jarItems.filter((item) => !item.active);
   const spentSkipEvents = useMemo<SpentSkipEvent[]>(() => {
     const donationEvents: SpentSkipEvent[] = donations.map((event) => ({
       kind: "donation",
@@ -801,13 +839,15 @@ function JarActivityPageInner() {
     setPurchaseDone(null);
   }
 
-  function beginEditJarGoal(item: JarActivityItem) {
+  function beginEditJarGoal(item: JarActivityItem, restart = false) {
     setEditingJarGoal(item);
-    setJarGoalAmount(item.goalAmount > 0 ? amountInputValue(item.goalAmount) : "");
+    setRestartingCompletedGoal(restart);
+    setJarGoalAmount(restart ? "" : item.goalAmount > 0 ? amountInputValue(item.goalAmount) : "");
   }
 
   function closeJarGoalEditor() {
     setEditingJarGoal(null);
+    setRestartingCompletedGoal(false);
     setJarGoalAmount("");
     setJarGoalWorking(false);
   }
@@ -822,12 +862,16 @@ function JarActivityPageInner() {
     setJarGoalWorking(true);
     try {
       if (editingJarGoal.type === "fundraiser") {
-        await setUserCauseGoal(user.uid, editingJarGoal.id, nextAmount);
+        const donationBaseline = restartingCompletedGoal ? editingJarGoal.donated : undefined;
+        await setUserCauseGoal(user.uid, editingJarGoal.id, nextAmount, donationBaseline);
         updateProfile({
           causeGoalAmounts: {
             ...(profileData.causeGoalAmounts ?? {}),
             [editingJarGoal.id]: nextAmount,
           },
+          ...(donationBaseline !== undefined
+            ? { causeGoalDonationBaselines: { ...(profileData.causeGoalDonationBaselines ?? {}), [editingJarGoal.id]: donationBaseline } }
+            : {}),
         });
       } else {
         const nextGoals = spendingGoals.map((goal) =>
@@ -836,7 +880,7 @@ function JarActivityPageInner() {
         await updateSpendingGoals(user.uid, nextGoals, activeSpendingGoalId);
         updateProfile({ spendingGoals: nextGoals });
       }
-      toast.success("Jar goal updated.");
+      toast.success(restartingCompletedGoal ? "New personal goal set. Reactivate this fundraiser when you’re ready." : "Jar goal updated.");
       closeJarGoalEditor();
     } catch {
       toast.error("Could not update that goal. Try again.");
@@ -1045,12 +1089,24 @@ function JarActivityPageInner() {
       updateProfile({
         totalDonated: Math.max(0, (profileData.totalDonated ?? 0) - event.amount),
         totalDonatedFromSkips: Math.max(0, (profileData.totalDonatedFromSkips ?? profileData.totalDonated ?? 0) - funding.amountFromSkips),
+        causeStats: {
+          ...(profileData.causeStats ?? {}),
+          [event.causeId]: {
+            donated: Math.max(0, (profileData.causeStats?.[event.causeId]?.donated ?? 0) - event.amount),
+          },
+        },
         causeJarBalances: {
           ...(profileData.causeJarBalances ?? {}),
-          [event.causeId]: currentBal + funding.jarDecrease,
+          [event.causeId]: funding.causeJarBalance ?? currentBal + funding.jarDecrease,
         },
       });
-      toast.success("Donation deleted.");
+      const restoredParts = [
+        funding.jarDecrease > 0 ? `${formatCurrency(funding.jarDecrease)} to the ${event.causeTitle} jar` : "",
+        funding.skipBucksDecrease > 0 ? `${formatCurrency(funding.skipBucksDecrease)} to Skip Bucks` : "",
+      ].filter(Boolean);
+      toast.success(restoredParts.length > 0
+        ? `Donation deleted. Restored ${restoredParts.join(" and ")}.`
+        : "Donation record deleted. It was logged as an outside contribution, so no Skip Bucks were restored.");
     } catch {
       toast.error("Could not delete donation.");
     } finally {
@@ -1133,19 +1189,19 @@ function JarActivityPageInner() {
           <div>
             <h2 className="text-lg font-black" style={{ color: "var(--text-primary)" }}>Your jars</h2>
           </div>
-          {items.length > 0 && (
+          {jarItems.length > 0 && (
             <span className="jar-shelf-count rounded-full px-2.5 py-1 text-[11px] font-black" style={{ background: "rgba(46,204,113,0.1)", color: "var(--green-primary)" }}>
-              {items.length}
+              {jarItems.length}
             </span>
           )}
         </div>
-        {items.length === 0 ? (
+        {jarItems.length === 0 ? (
           <p className="text-sm" style={{ color: "var(--text-muted)" }}>
             No jars yet. Choose a reward or fundraiser when you are ready.
           </p>
         ) : (
           <div className="jar-shelf-grid flex flex-wrap gap-x-8 gap-y-6">
-            {items.map((item) => (
+            {jarItems.map((item) => (
               <JarActivityCard
                 key={`${item.type}-${item.id}`}
                 item={item}
@@ -1162,7 +1218,38 @@ function JarActivityPageInner() {
         )}
       </section>
 
-      <section className="mt-8 pt-6" style={{ borderTop: "1px solid rgba(237,245,240,0.12)" }}>
+      {completedItems.length > 0 && (
+        <section className="mb-8">
+          <div className="mb-3 flex items-end justify-between gap-3">
+            <div>
+              <h2 className="text-lg font-black" style={{ color: "var(--text-primary)" }}>Your Completed Goals</h2>
+              <p className="mt-1 text-sm" style={{ color: "var(--text-muted)" }}>Personal donation goals you reached.</p>
+            </div>
+            <span className="rounded-full px-2.5 py-1 text-[11px] font-black" style={{ background: "rgba(46,204,113,0.1)", color: "var(--green-primary)" }}>
+              {completedItems.length}
+            </span>
+          </div>
+          <div className="grid gap-3 sm:grid-cols-2">
+            {completedItems.map((item) => (
+              <article key={`completed-${item.id}`} className="rounded-2xl p-4" style={{ background: "var(--bg-surface-1)", border: "1px solid rgba(46,204,113,0.28)" }}>
+                <p className="text-[10px] font-black uppercase tracking-[0.14em]" style={{ color: "#A7F3D0" }}>✓ Your goal reached</p>
+                <h3 className="mt-2 text-base font-black" style={{ color: "var(--text-primary)" }}>{item.title}</h3>
+                <p className="mt-1 text-sm font-black" style={{ color: "var(--green-primary)" }}>{formatCurrency(item.donated)} donated</p>
+                <div className="mt-4 flex gap-2">
+                  <a href="#activity-history" className="flex-1 rounded-lg py-2 text-center text-xs font-black" style={{ border: "1px solid rgba(46,204,113,0.3)", color: "#A7F3D0", textDecoration: "none" }}>
+                    View activity
+                  </a>
+                  <button type="button" onClick={() => beginEditJarGoal(item, true)} className="flex-1 rounded-lg py-2 text-xs font-black" style={{ background: "rgba(46,204,113,0.16)", color: "#A7F3D0" }}>
+                    Set a new goal
+                  </button>
+                </div>
+              </article>
+            ))}
+          </div>
+        </section>
+      )}
+
+      <section id="activity-history" className="mt-8 scroll-mt-6 pt-6" style={{ borderTop: "1px solid rgba(237,245,240,0.12)" }}>
         <div className="mb-4 flex items-center gap-3">
           <span className="h-9 w-1 rounded-full" style={{ background: "var(--green-primary)" }} aria-hidden="true" />
           <div>
@@ -1415,19 +1502,24 @@ function JarActivityPageInner() {
                 ×
               </button>
               <p id="jar-goal-edit-title" className="text-lg font-black leading-tight" style={{ color: "var(--text-primary)" }}>
-                Edit jar goal
+                {restartingCompletedGoal ? "Set a new personal goal" : "Edit jar goal"}
               </p>
               <p className="mt-1 text-xs font-bold leading-relaxed" style={{ color: "var(--text-muted)" }}>
                 {editingJarGoal.title}
               </p>
             </div>
             <div className="space-y-4 p-5">
-              <div>
+              {!restartingCompletedGoal && <div>
                 <p className="text-xs font-black uppercase tracking-wide" style={{ color: "var(--text-muted)" }}>Current progress</p>
                 <p className="mt-1 text-sm font-bold" style={{ color: "var(--text-primary)" }}>
                   {formatCurrency(editingJarGoal.balance)} saved toward {editingJarGoal.goalAmount > 0 ? formatCurrency(editingJarGoal.goalAmount) : "an open goal"}
                 </p>
-              </div>
+              </div>}
+              {restartingCompletedGoal && editingJarGoal.type === "fundraiser" && (
+                <p className="text-sm leading-relaxed" style={{ color: "var(--text-secondary)" }}>
+                  You already donated {formatCurrency(editingJarGoal.donated)}. This starts a fresh personal goal for future skips.
+                </p>
+              )}
               <div>
                 <label className="mb-1.5 block text-xs font-black uppercase tracking-wide" style={{ color: "var(--text-muted)" }} htmlFor="jar-goal-amount">
                   Goal amount
@@ -1455,7 +1547,7 @@ function JarActivityPageInner() {
                   className="flex-1 rounded-xl py-3 text-sm font-black disabled:opacity-50"
                   style={{ background: editingJarGoal.type === "fundraiser" ? "var(--green-primary)" : "#8B5CF6", color: editingJarGoal.type === "fundraiser" ? "#071B14" : "white" }}
                 >
-                  {jarGoalWorking ? "Saving..." : "Save goal"}
+                  {jarGoalWorking ? "Saving..." : restartingCompletedGoal ? "Set new goal" : "Save goal"}
                 </button>
                 <button
                   type="button"

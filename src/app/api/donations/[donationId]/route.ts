@@ -59,6 +59,9 @@ export async function DELETE(req: NextRequest, ctx: RouteContext) {
         totalDonatedFromSkips: profile?.totalDonatedFromSkips === undefined
           ? Math.max(0, Number(profile?.totalDonated ?? 0) - amountFromSkips)
           : FieldValue.increment(-amountFromSkips),
+        ...(profile?.causeStats?.[causeId]?.donated !== undefined
+          ? { [`causeStats.${causeId}.donated`]: Math.max(0, profile.causeStats[causeId].donated - amount) }
+          : {}),
         ...(nextBalances ? { causeJarBalances: nextBalances.causeJarBalances, goalJarBalances: nextBalances.goalJarBalances, skipLots } : { [`causeJarBalances.${causeId}`]: currentBal + jarDecrease }),
       });
       tx.set(db.collection("projects").doc(causeId), {
@@ -68,7 +71,14 @@ export async function DELETE(req: NextRequest, ctx: RouteContext) {
         totalDonated: FieldValue.increment(-amount),
       }, { merge: true });
 
-      return { amount, amountFromSkips, jarDecrease, skipBucksDecrease, causeId };
+      return {
+        amount,
+        amountFromSkips,
+        jarDecrease,
+        skipBucksDecrease,
+        causeId,
+        causeJarBalance: Math.max(0, nextBalances?.causeJarBalances[causeId] ?? currentBal + jarDecrease),
+      };
     });
 
     return NextResponse.json(result);

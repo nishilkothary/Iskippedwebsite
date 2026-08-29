@@ -105,7 +105,10 @@ export function useSkips() {
         totalDonated: profile.totalDonated + amount,
         totalDonatedFromSkips: (profile.totalDonatedFromSkips ?? profile.totalDonated) + funding.amountFromSkips,
         causeStats: { ...profile.causeStats, [projectId]: { donated: prevDonated + amount } },
-        causeJarBalances: { ...profile.causeJarBalances, [projectId]: Math.max(0, prevJarBal - funding.jarDecrease) },
+        causeJarBalances: {
+          ...profile.causeJarBalances,
+          [projectId]: funding.causeJarBalance ?? Math.max(0, prevJarBal - funding.jarDecrease),
+        },
         causeJarOverflowCounts: { ...(profile.causeJarOverflowCounts ?? {}), [projectId]: 0 },
       });
     } catch (err) {
@@ -169,9 +172,14 @@ export function useSkips() {
     updateProfile({
       totalDonated: Math.max(0, profile.totalDonated - donation.amount),
       totalDonatedFromSkips: Math.max(0, (profile.totalDonatedFromSkips ?? profile.totalDonated) - funding.amountFromSkips),
+      causeStats: {
+        ...(profile.causeStats ?? {}),
+        [donation.causeId]: { donated: Math.max(0, (profile.causeStats?.[donation.causeId]?.donated ?? 0) - donation.amount) },
+      },
       causeJarBalances: {
         ...(profile.causeJarBalances ?? {}),
-        [donation.causeId]: Math.max(0, profile.causeJarBalances?.[donation.causeId] ?? 0) + funding.jarDecrease,
+        [donation.causeId]: funding.causeJarBalance
+          ?? Math.max(0, profile.causeJarBalances?.[donation.causeId] ?? 0) + funding.jarDecrease,
       },
     });
   }

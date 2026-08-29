@@ -33,6 +33,7 @@ import { getChallengeCausePhrase } from "@/lib/utils/challengeShareCopy";
 import { Project, SpendingGoal, DonationEvent, SkipAllocationTarget } from "@/lib/types/models";
 import { DonationLogModal } from "@/components/skip/DonationLogModal";
 import { apiRequest } from "@/lib/services/firebase/apiClient";
+import { getPersonalFundraiserGoalProgress } from "@/lib/utils/fundraiserGoals";
 
 const rewardArtwork = [
   { background: "linear-gradient(135deg, #4C1D95 0%, #8B5CF6 48%, #E9D5FF 140%)", accent: "#E9D5FF" },
@@ -224,18 +225,28 @@ function rewardSkipEquivalentLine(balance: number, target: number) {
   return `~${coffees.toLocaleString()} coffee skips`;
 }
 
-function JarStatusBadge({ status, tone = "green" }: { status: "active" | "paused"; tone?: "green" | "purple" }) {
+function JarStatusBadge({ status, tone = "green" }: { status: "active" | "paused" | "completed"; tone?: "green" | "purple" }) {
   const purple = tone === "purple";
+  const label = status === "active" ? "Active" : status === "paused" ? "Paused" : "Your goal reached";
   return (
     <span
       className="inline-flex shrink-0 items-center gap-1 rounded-full px-2 py-1 text-[9px] font-black uppercase tracking-wide text-white shadow-sm"
       style={{ background: purple ? "rgba(139,92,246,0.86)" : "rgba(7,27,20,0.72)" }}
-      aria-label={status === "active" ? "Active jar" : "Paused jar"}
+      aria-label={status === "active" ? "Active jar" : status === "paused" ? "Paused jar" : "Your personal goal reached"}
     >
-      <span aria-hidden="true" className="text-[10px] leading-none">{status === "active" ? "✓" : "Ⅱ"}</span>
-      {status === "active" ? "Active" : "Paused"}
+      <span aria-hidden="true" className="text-[10px] leading-none">{status === "paused" ? "Ⅱ" : "✓"}</span>
+      {label}
     </span>
   );
+}
+
+function formatCompactCurrency(amount: number) {
+  return new Intl.NumberFormat("en-US", {
+    style: "currency",
+    currency: "USD",
+    minimumFractionDigits: Number.isInteger(amount) ? 0 : 2,
+    maximumFractionDigits: 2,
+  }).format(amount);
 }
 
 function RewardArtwork({ label, amount, link, imageURL, imagePosition, category: categoryLabel, featured = false, status }: { label: string; amount?: number; link?: string; imageURL?: string; imagePosition?: string; category?: string; featured?: boolean; status?: "active" | "paused" }) {
@@ -434,9 +445,14 @@ function JarsPageInner() {
     updateProfile({ activeProjectId: project.id, causeJarBalances: newCauseJarBalances });
   }
 
-  async function handleSetCauseGoal(causeId: string, amount: number) {
-    await setUserCauseGoal(user!.uid, causeId, amount);
-    updateProfile({ causeGoalAmounts: { ...profile!.causeGoalAmounts, [causeId]: amount } });
+  async function handleSetCauseGoal(causeId: string, amount: number, donationBaseline?: number) {
+    await setUserCauseGoal(user!.uid, causeId, amount, donationBaseline);
+    updateProfile({
+      causeGoalAmounts: { ...profile!.causeGoalAmounts, [causeId]: amount },
+      ...(donationBaseline !== undefined
+        ? { causeGoalDonationBaselines: { ...(profile!.causeGoalDonationBaselines ?? {}), [causeId]: donationBaseline } }
+        : {}),
+    });
   }
 
   async function handleAddCause(title: string, sponsor: string, location: string | undefined, goalAmount: number, donationURL?: string, description?: string, tags?: string[]) {
@@ -556,6 +572,8 @@ function JarsPageInner() {
     goalJarBalances: profile.goalJarBalances,
     causeJarBalances: profile.causeJarBalances,
     causeGoalAmounts: profile.causeGoalAmounts,
+    causeGoalDonationBaselines: profile.causeGoalDonationBaselines,
+    donations,
     groupProgress,
     onAddGoal: handleAddGoal,
     onEditGoal: handleEditGoal,
@@ -1495,6 +1513,8 @@ function JarBrowser({
   goalJarBalances,
   causeJarBalances,
   causeGoalAmounts,
+  causeGoalDonationBaselines,
+  donations,
   groupProgress,
   onAddGoal,
   onEditGoal,
@@ -1530,6 +1550,8 @@ function JarBrowser({
   goalJarBalances: Record<string, number> | undefined;
   causeJarBalances: Record<string, number> | undefined;
   causeGoalAmounts: Record<string, number> | undefined;
+  causeGoalDonationBaselines: Record<string, number> | undefined;
+  donations: DonationEvent[];
   groupProgress: Record<string, number>;
   onAddGoal: (goal: Omit<SpendingGoal, "id">, activate?: boolean) => Promise<string>;
   onEditGoal: (goalId: string, updates: Partial<SpendingGoal>) => Promise<void>;
@@ -1540,7 +1562,7 @@ function JarBrowser({
   onPurchase: (amount: number) => Promise<boolean>;
   onSetSkipTarget: (target: SkipAllocationTarget | null) => Promise<void>;
   onAddCause: (title: string, sponsor: string, location: string | undefined, goalAmount: number, donationURL?: string, description?: string, tags?: string[]) => Promise<void>;
-  onSetFundraiserGoal: (fundraiserId: string, amount: number) => Promise<void>;
+  onSetFundraiserGoal: (fundraiserId: string, amount: number, donationBaseline?: number) => Promise<void>;
   onApplySkipBank: (target: SkipAllocationTarget, amount: number) => Promise<number>;
   onReleaseJar: (target: SkipAllocationTarget) => Promise<number>;
   onMoveJarBalance: (source: SkipAllocationTarget, destination: SkipAllocationTarget, amount: number) => Promise<number>;
@@ -1610,6 +1632,7 @@ function JarBrowser({
   const [switchConfirmAction, setSwitchConfirmAction] = useState<"move" | "release" | null>(null);
   const [jarDecisionWorking, setJarDecisionWorking] = useState<"switch" | "move" | "release" | "deactivate-park" | "deactivate-release" | null>(null);
   const [fundraiserSetup, setFundraiserSetup] = useState<Project | null>(null);
+  const [fundraiserRestartBaseline, setFundraiserRestartBaseline] = useState<number | undefined>(undefined);
   const [donatingProject, setDonatingProject] = useState<Project | null>(null);
   const [fundraiserGoalStr, setFundraiserGoalStr] = useState("");
   const [fundraiserSetupWorking, setFundraiserSetupWorking] = useState(false);
@@ -1642,6 +1665,7 @@ function JarBrowser({
   useEffect(() => {
     if (!fundraiserSetup) {
       setFundraiserGoalStr("");
+      setFundraiserRestartBaseline(undefined);
     }
   }, [fundraiserSetup]);
 
@@ -1724,18 +1748,58 @@ function JarBrowser({
     return Math.max(0, causeJarBalances?.[project.id] ?? 0);
   }
 
+  function fundraiserDonationTotal(projectId: string) {
+    const visibleDonationTotal = donations
+      .filter((donation) => donation.causeId === projectId)
+      .reduce((sum, donation) => sum + Math.max(0, donation.amount), 0);
+    return Math.max(visibleDonationTotal, Math.max(0, profile?.causeStats?.[projectId]?.donated ?? 0));
+  }
+
+  function fundraiserDonatedTowardGoal(projectId: string) {
+    return getPersonalFundraiserGoalProgress(
+      causeGoalAmounts?.[projectId],
+      fundraiserDonationTotal(projectId),
+      causeGoalDonationBaselines?.[projectId],
+    ).donatedTowardGoal;
+  }
+
+  function fundraiserRemainingGoal(project: Project) {
+    return getPersonalFundraiserGoalProgress(
+      causeGoalAmounts?.[project.id],
+      fundraiserDonationTotal(project.id),
+      causeGoalDonationBaselines?.[project.id],
+    ).remainingGoal;
+  }
+
+  function isCompletedFundraiserGoal(project: Project) {
+    const remaining = fundraiserRemainingGoal(project);
+    return remaining === 0
+      && fundraiserDonationTotal(project.id) > 0
+      && fundraiserJar(project) <= 0;
+  }
+
   const participatingFundraisers = fundraisers
-    .filter((project) =>
-      (activeSkipTarget?.type === "fundraiser" && activeSkipTarget.id === project.id)
-      || isPausedTarget({ type: "fundraiser", id: project.id })
-    )
+    .filter((project) => {
+      const isActive = activeSkipTarget?.type === "fundraiser" && activeSkipTarget.id === project.id;
+      if (isActive || isCompletedFundraiserGoal(project)) return false;
+      return fundraiserJar(project) > 0 || fundraiserDonationTotal(project.id) > 0;
+    })
     .sort((a, b) => {
       const aIsActive = activeSkipTarget?.type === "fundraiser" && activeSkipTarget.id === a.id;
       const bIsActive = activeSkipTarget?.type === "fundraiser" && activeSkipTarget.id === b.id;
       return Number(bIsActive) - Number(aIsActive);
     });
-  const otherFundraisers = fundraisers.filter((project) => !participatingFundraisers.includes(project));
-  const orderedFundraisers = [...participatingFundraisers, ...otherFundraisers];
+  const activeFundraisers = fundraisers.filter((project) => activeSkipTarget?.type === "fundraiser" && activeSkipTarget.id === project.id);
+  const completedFundraisers = fundraisers.filter((project) =>
+    !(activeSkipTarget?.type === "fundraiser" && activeSkipTarget.id === project.id)
+    && isCompletedFundraiserGoal(project)
+  );
+  const yourFundraisers = [...activeFundraisers, ...participatingFundraisers, ...completedFundraisers];
+  const otherFundraisers = fundraisers.filter((project) => !yourFundraisers.includes(project));
+  const orderedFundraisers = [...yourFundraisers, ...otherFundraisers];
+  const fundraiserSectionLabels = new Map<string, string>();
+  if (yourFundraisers[0]) fundraiserSectionLabels.set(yourFundraisers[0].id, "Your Fundraisers");
+  if (otherFundraisers[0]) fundraiserSectionLabels.set(otherFundraisers[0].id, "Explore Fundraisers");
 
   const endedFundraisers = (profile?.joinedProjectIds ?? [])
     .map((id) => projects.find((project) => project.id === id))
@@ -1797,8 +1861,14 @@ function JarBrowser({
   function isPausedTarget(target: SkipAllocationTarget) {
     // Balances created before parkedSkipTargets was introduced are still
     // paused in practice when they are not the active destination.
-    return parkedSkipTargets.some((parked) => parked.type === target.type && parked.id === target.id)
-      || targetBalance(target) > 0;
+    if (parkedSkipTargets.some((parked) => parked.type === target.type && parked.id === target.id) || targetBalance(target) > 0) {
+      return true;
+    }
+    if (target.type === "fundraiser") {
+      const project = projects.find((candidate) => candidate.id === target.id);
+      return Boolean(project && fundraiserDonationTotal(target.id) > 0 && !isCompletedFundraiserGoal(project));
+    }
+    return false;
   }
 
   async function reactivateTarget(target: SkipAllocationTarget) {
@@ -1904,6 +1974,7 @@ function JarBrowser({
     if (target.type === "fundraiser") {
       const project = projects.find((candidate) => candidate.id === target.id);
       if (project) {
+        setFundraiserRestartBaseline(undefined);
         setFundraiserSetup(project);
         setFundraiserGoalStr("");
         setFundraiserShareEmail(profile?.challengeEmailConsents?.[project.id] ?? true);
@@ -1921,6 +1992,12 @@ function JarBrowser({
     if (!goalAmount || goalAmount <= 0) return;
     setFundraiserSetupWorking(true);
     try {
+      if (fundraiserRestartBaseline !== undefined) {
+        await onSetFundraiserGoal(fundraiserSetup.id, goalAmount, fundraiserRestartBaseline);
+        setFundraiserSetup(null);
+        toast.success("New personal goal set. Reactivate this fundraiser when you’re ready to skip for it.");
+        return;
+      }
       // Activate the fundraiser first. Optional profile writes must not block
       // the existing Jars-page join from completing.
       await onSetSkipTarget(target);
@@ -1935,7 +2012,7 @@ function JarBrowser({
 
       // Persist the optional setup details after the join succeeds.
       void Promise.all([
-        onSetFundraiserGoal(fundraiserSetup.id, goalAmount),
+        onSetFundraiserGoal(fundraiserSetup.id, goalAmount, fundraiserRestartBaseline),
         ...(user && profile?.challengeEmailConsents?.[fundraiserSetup.id] !== fundraiserShareEmail
           ? [setChallengeEmailConsent(user.uid, fundraiserSetup.id, fundraiserShareEmail)]
           : []),
@@ -3261,18 +3338,21 @@ function JarBrowser({
             </div>
           ) : (
             <div className="grid gap-x-3 gap-y-5 sm:grid-cols-2">
-              {orderedFundraisers.map((project, index) => {
+              {orderedFundraisers.map((project) => {
                 const isActiveFundraiser = activeSkipTarget?.type === "fundraiser" && activeSkipTarget.id === project.id;
-                const isPausedFundraiser = !isActiveFundraiser && isPausedTarget({ type: "fundraiser", id: project.id });
+                const isCompletedFundraiser = !isActiveFundraiser && isCompletedFundraiserGoal(project);
+                const isPausedFundraiser = !isActiveFundraiser && !isCompletedFundraiser && participatingFundraisers.includes(project);
                 const groupGoal = project.goalAmount ?? 0;
                 const ownJarBalance = Math.max(0, causeJarBalances?.[project.id] ?? 0);
+                const donatedTotal = fundraiserDonationTotal(project.id);
+                const remainingPersonalGoal = fundraiserRemainingGoal(project);
                 const groupRaised = groupProgress[project.id] ?? 0;
                 const groupPct = groupGoal > 0 ? Math.min(100, Math.round((groupRaised / groupGoal) * 100)) : 0;
                 return (
                   <Fragment key={`fundraiser-section-${project.id}`}>
-                  {(index === 0 || (index === participatingFundraisers.length && otherFundraisers.length > 0)) && (
-                    <p className="col-span-full mb-[-4px] mt-1 text-xs font-black uppercase tracking-[0.16em]" style={{ color: "#2ECC71" }}>
-                      {participatingFundraisers.length > 0 && index === 0 ? "Fundraisers I’m Participating In" : "Explore Fundraisers"}
+                  {fundraiserSectionLabels.get(project.id) && (
+                    <p className={`col-span-full text-xs font-black uppercase tracking-[0.16em] ${project.id === orderedFundraisers[0]?.id ? "mb-[-4px] mt-1" : "mb-0 mt-6"}`} style={{ color: "#2ECC71" }}>
+                      {fundraiserSectionLabels.get(project.id)}
                     </p>
                   )}
                   <div
@@ -3297,9 +3377,9 @@ function JarBrowser({
                       )}
                       <div className="relative flex h-full flex-col justify-between p-4">
                         <div className="relative flex items-start justify-end gap-2">
-                          {(isActiveFundraiser || isPausedFundraiser) && (
+                          {(isActiveFundraiser || isPausedFundraiser || isCompletedFundraiser) && (
                             <div className="absolute left-0 top-0">
-                              <JarStatusBadge status={isActiveFundraiser ? "active" : "paused"} />
+                              <JarStatusBadge status={isActiveFundraiser ? "active" : isCompletedFundraiser ? "completed" : "paused"} />
                             </div>
                           )}
                           <div className="flex shrink-0 flex-col items-end gap-1">
@@ -3359,13 +3439,35 @@ function JarBrowser({
                         </div>
                       </div>
 
+                      {(isActiveFundraiser || isPausedFundraiser || isCompletedFundraiser) && (
+                        <div className="rounded-lg px-3 py-2" style={{ background: "rgba(46,204,113,0.06)", border: "1px solid rgba(46,204,113,0.14)" }}>
+                          <p className="text-[9px] font-black uppercase tracking-[0.14em]" style={{ color: "var(--text-muted)" }}>Your progress</p>
+                          <p className="mt-1 text-xs font-black" style={{ color: isCompletedFundraiser ? "#A7F3D0" : "var(--text-primary)" }}>
+                            {formatCompactCurrency(ownJarBalance)} in jar · {formatCompactCurrency(donatedTotal)} donated
+                            {isCompletedFundraiser
+                              ? " · Personal goal reached"
+                              : remainingPersonalGoal !== null
+                                ? ` · ${formatCompactCurrency(remainingPersonalGoal)} to goal`
+                                : ""}
+                          </p>
+                        </div>
+                      )}
+
                       <div className="flex gap-2">
                         <button
-                          onClick={() => handleSkipFor({ type: "fundraiser", id: project.id })}
+                          onClick={() => {
+                            if (isCompletedFundraiser) {
+                              setFundraiserRestartBaseline(donatedTotal);
+                              setFundraiserGoalStr("");
+                              setFundraiserSetup(project);
+                              return;
+                            }
+                            void handleSkipFor({ type: "fundraiser", id: project.id });
+                          }}
                           className="jars-card-action flex-1 rounded-lg py-2 text-[10px] font-black uppercase tracking-wide"
                           style={{ background: isActiveFundraiser ? "#2ECC71" : "rgba(46,204,113,0.16)", color: isActiveFundraiser ? "#071B14" : "#A7F3D0" }}
                         >
-                          {isActiveFundraiser ? "Deactivate" : isPausedFundraiser ? "Reactivate" : "Skip for this"}
+                          {isActiveFundraiser ? "Deactivate" : isCompletedFundraiser ? "Set a new goal" : isPausedFundraiser ? "Reactivate" : "Skip for this"}
                         </button>
                         {ownJarBalance > 0 && (
                           <button

@@ -6,6 +6,9 @@ import { today } from "@/lib/utils/dates";
 import { formatCurrency } from "@/lib/utils/currency";
 import { useAuthStore } from "@/store/authStore";
 import { getSkipBalanceSummary } from "@/lib/utils/skipBalances";
+import { formatAggregateImpactUnitsDecimal } from "@/lib/utils/impact";
+import { ShareButton } from "@/components/share/ShareButton";
+import { getPersonalFundraiserGoalProgress } from "@/lib/utils/fundraiserGoals";
 
 interface Props {
   projectId: string;
@@ -16,15 +19,39 @@ interface Props {
   donationRecipient?: string;
   unassignedSkipBucks?: number;
   onLogged?: () => void | Promise<void>;
+  personalGoal?: number;
+  donatedTowardGoal?: number;
+  totalDonatedBefore?: number;
+  impactUnitCost?: number;
+  impactUnitName?: string;
+  impactUnitDisplay?: string;
+  impactUnitIsGoal?: boolean;
+  shareUrl?: string;
+  onStartNewGoal?: (amount: number, donationBaseline: number) => void | Promise<void>;
+  onChooseNewJar?: () => void | Promise<void>;
 }
 
-export function DonationLogModal({ projectId, projectTitle, onClose, initialAmount, donationURL, donationRecipient, unassignedSkipBucks: unassignedSkipBucksProp, onLogged }: Props) {
+function formatGoalCurrency(amount: number): string {
+  return new Intl.NumberFormat("en-US", {
+    style: "currency",
+    currency: "USD",
+    minimumFractionDigits: 0,
+    maximumFractionDigits: 2,
+  }).format(amount);
+}
+
+export function DonationLogModal({ projectId, projectTitle, onClose, initialAmount, donationURL, donationRecipient, unassignedSkipBucks: unassignedSkipBucksProp, onLogged, personalGoal, donatedTowardGoal = 0, totalDonatedBefore = 0, impactUnitCost, impactUnitName, impactUnitDisplay, impactUnitIsGoal, shareUrl, onStartNewGoal, onChooseNewJar }: Props) {
   const { donate } = useSkips();
   const { profile } = useAuthStore();
   const [amount, setAmount] = useState(initialAmount && initialAmount > 0 ? String(initialAmount) : "");
   const [date, setDate] = useState(today());
   const [loading, setLoading] = useState(false);
   const [done, setDone] = useState<"logged" | "emptied" | null>(null);
+  const [showNewGoal, setShowNewGoal] = useState(false);
+  const [newGoalAmount, setNewGoalAmount] = useState("");
+  const [savingNewGoal, setSavingNewGoal] = useState(false);
+  const [donatedTowardGoalBeforeLog] = useState(donatedTowardGoal);
+  const [lifetimeDonatedBeforeLog] = useState(totalDonatedBefore);
   const dialogRef = useModalA11y(onClose);
   const parsedAmount = parseFloat(amount);
   const cleanAmount = Number.isFinite(parsedAmount) ? parsedAmount : 0;
@@ -39,6 +66,18 @@ export function DonationLogModal({ projectId, projectTitle, onClose, initialAmou
   const outsideContribution = Math.max(0, cleanAmount - jarUsed - skipBucksUsed);
   const emptiesJar = jarBalance > 0 && cleanAmount >= jarBalance;
   const recipientLabel = donationRecipient?.trim() || projectTitle;
+  const { remainingGoal } = getPersonalFundraiserGoalProgress(
+    personalGoal,
+    donatedTowardGoalBeforeLog + cleanAmount,
+    0,
+  );
+  const impactText = impactUnitCost && impactUnitCost > 0 && impactUnitName && cleanAmount > 0
+    ? formatAggregateImpactUnitsDecimal(cleanAmount, impactUnitCost, impactUnitName, impactUnitDisplay, impactUnitIsGoal)
+    : null;
+  const impactShareSentence = impactText ? ` That’s about ${impactText} of impact!` : "";
+  const shareText = remainingGoal === 0 && personalGoal
+    ? `I skipped everyday spending and donated ${formatGoalCurrency(cleanAmount)} to ${projectTitle}.${impactShareSentence} I reached my ${formatGoalCurrency(personalGoal)} Donation Goal!`
+    : `I skipped everyday spending and donated ${formatGoalCurrency(cleanAmount)} to ${projectTitle}.${impactShareSentence}${remainingGoal !== null && personalGoal ? ` I have ${formatGoalCurrency(remainingGoal)} left to reach my ${formatGoalCurrency(personalGoal)} Donation Goal.` : ""}`;
 
   async function handleLog() {
     const num = cleanAmount;
@@ -47,15 +86,8 @@ export function DonationLogModal({ projectId, projectTitle, onClose, initialAmou
     try {
       const ok = await donate(num, projectId, projectTitle, date);
       if (ok) {
-        if (emptiesJar) {
-          setDone("emptied");
-        } else {
-          setDone("logged");
-          setTimeout(async () => {
-            await onLogged?.();
-            onClose();
-          }, 1400);
-        }
+        setDone(emptiesJar ? "emptied" : "logged");
+        await onLogged?.();
       }
     } finally {
       setLoading(false);
@@ -70,14 +102,14 @@ export function DonationLogModal({ projectId, projectTitle, onClose, initialAmou
         aria-modal="true"
         aria-labelledby="donation-log-title"
         tabIndex={-1}
-        className="rounded-2xl shadow-2xl w-full max-w-sm"
+        className="max-h-[calc(100dvh-2rem)] overflow-y-auto rounded-2xl shadow-2xl w-full max-w-sm"
         style={{ background: "var(--bg-surface-1)", border: "1px solid var(--border-default)", outline: "none" }}
         onClick={(e) => e.stopPropagation()}
       >
         <div className="flex items-center justify-between px-6 py-5" style={{ borderBottom: "1px solid var(--border-default)" }}>
           <div>
             <h2 id="donation-log-title" className="text-lg font-bold" style={{ color: "var(--text-primary)" }}>
-              {done === "emptied" ? "Jar emptied" : "Donate my skips"}
+              {done ? (remainingGoal === 0 ? "Goal reached" : "Your donation impact") : "Donate my skips"}
             </h2>
             {done === null && (
               <p className="mt-1 text-xs font-black" style={{ color: "var(--green-primary)" }}>
@@ -89,47 +121,92 @@ export function DonationLogModal({ projectId, projectTitle, onClose, initialAmou
         </div>
 
         <div className="px-6 py-5">
-          {done === "logged" ? (
-            <div className="text-center py-4">
-              <p className="text-2xl mb-2">✓</p>
-              <p className="font-semibold" style={{ color: "var(--text-primary)" }}>Donation logged!</p>
-            </div>
-          ) : done === "emptied" ? (
+          {done ? (
             <div className="space-y-4">
               <div className="rounded-xl p-4 text-center" style={{ background: "rgba(46,204,113,0.08)", border: "1px solid rgba(46,204,113,0.22)" }}>
-                <p className="text-2xl mb-2">✓</p>
-                <p className="font-black" style={{ color: "var(--text-primary)" }}>Donation logged.</p>
-                <p className="mt-1 text-sm leading-relaxed" style={{ color: "var(--text-secondary)" }}>
-                  You used everything saved in {projectTitle}.
+                <p className="text-3xl mb-2">{remainingGoal === 0 ? "🎉" : "✓"}</p>
+                <p className="text-xl font-black" style={{ color: "var(--text-primary)" }}>
+                  You donated {formatCurrency(cleanAmount)}
                 </p>
+                <p className="mt-1 text-sm leading-relaxed" style={{ color: "var(--text-secondary)" }}>to {recipientLabel}</p>
+                {impactText && (
+                  <p className="mt-3 text-sm font-black leading-relaxed" style={{ color: "#A7F3D0" }}>
+                    That&apos;s about {impactText} of impact.
+                  </p>
+                )}
               </div>
-              <p className="text-sm font-bold leading-relaxed" style={{ color: "var(--text-secondary)" }}>
-                Keep this as your active jar for future skips?
-              </p>
-              <div className="space-y-2">
-                <button
-                  type="button"
-                  onClick={async () => {
-                    await onLogged?.();
-                    onClose();
-                  }}
-                  className="w-full rounded-xl py-3 text-sm font-black"
-                  style={{ background: "#2ECC71", color: "#071B14" }}
-                >
-                  Keep this active
+              {remainingGoal !== null && (
+                <div className="rounded-xl px-4 py-3" style={{ background: "var(--bg-surface-2)", border: "1px solid var(--border-default)" }}>
+                  <p className="text-sm font-black" style={{ color: "var(--text-primary)" }}>
+                    {remainingGoal > 0
+                      ? `${formatGoalCurrency(remainingGoal)} left of your ${formatGoalCurrency(personalGoal!)} Donation Goal`
+                      : `You reached your ${formatGoalCurrency(personalGoal!)} Donation Goal`}
+                  </p>
+                  {remainingGoal > 0 && emptiesJar && (
+                    <p className="mt-1 text-xs leading-relaxed" style={{ color: "var(--text-secondary)" }}>
+                      Your jar is empty and ready for your next skips.
+                    </p>
+                  )}
+                </div>
+              )}
+              {shareUrl && <ShareButton url={shareUrl} text={shareText} title={`My iSkipped impact for ${projectTitle}`} label="Share my impact" />}
+
+              {remainingGoal === 0 && personalGoal ? (
+                showNewGoal ? (
+                  <div className="space-y-3 rounded-xl p-4" style={{ background: "rgba(46,204,113,0.07)", border: "1px solid rgba(46,204,113,0.18)" }}>
+                    <div>
+                      <label className="text-xs font-black uppercase tracking-wide" style={{ color: "#A7F3D0" }}>New personal goal</label>
+                      <div className="relative mt-2">
+                        <span className="absolute left-4 top-1/2 -translate-y-1/2" style={{ color: "var(--text-muted)" }}>$</span>
+                        <input
+                          type="number"
+                          min="1"
+                          value={newGoalAmount}
+                          onChange={(event) => setNewGoalAmount(event.target.value)}
+                          placeholder="100"
+                          className="w-full rounded-xl py-3 pl-8 pr-4 text-sm focus:outline-none"
+                          style={{ background: "var(--bg-surface-2)", border: "1px solid var(--border-default)", color: "var(--text-primary)" }}
+                          autoFocus
+                        />
+                      </div>
+                    </div>
+                    <button
+                      type="button"
+                      disabled={savingNewGoal || !newGoalAmount || parseFloat(newGoalAmount) <= 0}
+                      onClick={async () => {
+                        const nextGoal = parseFloat(newGoalAmount);
+                        if (!nextGoal || nextGoal <= 0 || !onStartNewGoal) return;
+                        setSavingNewGoal(true);
+                        await onStartNewGoal(nextGoal, lifetimeDonatedBeforeLog + cleanAmount);
+                        setSavingNewGoal(false);
+                        onClose();
+                      }}
+                      className="w-full rounded-xl py-3 text-sm font-black disabled:opacity-50"
+                      style={{ background: "#2ECC71", color: "#071B14" }}
+                    >
+                      {savingNewGoal ? "Setting goal..." : "Set goal and keep skipping"}
+                    </button>
+                  </div>
+                ) : (
+                  <div className="space-y-2">
+                    <button type="button" onClick={() => setShowNewGoal(true)} className="w-full rounded-xl py-3 text-sm font-black" style={{ background: "#2ECC71", color: "#071B14" }}>
+                      Skip for this jar again
+                    </button>
+                    <button
+                      type="button"
+                      onClick={async () => { onClose(); await onChooseNewJar?.(); }}
+                      className="w-full rounded-xl py-3 text-sm font-black"
+                      style={{ background: "rgba(237,245,240,0.05)", border: "1px solid rgba(237,245,240,0.1)", color: "var(--text-secondary)" }}
+                    >
+                      Choose a new jar
+                    </button>
+                  </div>
+                )
+              ) : (
+                <button type="button" onClick={onClose} className="w-full rounded-xl py-3 text-sm font-black" style={{ background: "#2ECC71", color: "#071B14" }}>
+                  Done
                 </button>
-                <button
-                  type="button"
-                  onClick={async () => {
-                    await onLogged?.();
-                    onClose();
-                  }}
-                  className="w-full rounded-xl py-3 text-sm font-black"
-                  style={{ background: "rgba(237,245,240,0.05)", border: "1px solid rgba(237,245,240,0.1)", color: "var(--text-secondary)" }}
-                >
-                  Pick a new jar
-                </button>
-              </div>
+              )}
             </div>
           ) : (
             <>

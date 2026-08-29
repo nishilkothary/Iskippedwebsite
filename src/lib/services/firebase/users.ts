@@ -212,8 +212,13 @@ export async function setChallengeEmailConsent(uid: string, projectId: string, s
   await updateDoc(doc(db, "users", uid), { [`challengeEmailConsents.${projectId}`]: shareEmail });
 }
 
-export async function setUserCauseGoal(uid: string, causeId: string, amount: number): Promise<void> {
-  await updateDoc(doc(db, "users", uid), { [`causeGoalAmounts.${causeId}`]: amount });
+export async function setUserCauseGoal(uid: string, causeId: string, amount: number, donationBaseline?: number): Promise<void> {
+  await updateDoc(doc(db, "users", uid), {
+    [`causeGoalAmounts.${causeId}`]: amount,
+    ...(donationBaseline !== undefined
+      ? { [`causeGoalDonationBaselines.${causeId}`]: Math.max(0, donationBaseline) }
+      : {}),
+  });
 }
 
 export async function setFavoriteCause(uid: string, causeId: string, favorite: boolean): Promise<void> {
@@ -275,6 +280,8 @@ export type DonationFundingBreakdown = {
   skipBucksDecrease: number;
   outsideContribution: number;
   amountFromSkips: number;
+  /** Authoritative balance of the affected fundraiser jar after the write. */
+  causeJarBalance?: number;
 };
 
 export async function recordDonation(uid: string, amount: number, projectId: string, projectTitle: string, date?: string): Promise<DonationFundingBreakdown> {

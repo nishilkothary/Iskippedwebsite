@@ -73,6 +73,8 @@ export interface UserProfile {
   /** Marks a profile that has been through the one-time skip-pot jar migration. */
   jarMigrationVersion?: string;
   causeGoalAmounts?: Record<string, number>; // per-cause personal dollar goal set by user
+  /** Donation total already completed when the current personal fundraiser goal was started. */
+  causeGoalDonationBaselines?: Record<string, number>;
   causeJarOverflowCounts?: Record<string, number>; // skips taken while a fundraiser jar is at or above its goal
   deletedFundraiserNotices?: Record<string, { title: string; amount: number; deletedAt: Timestamp }>;
   weeklyEmailOptOut?: boolean;

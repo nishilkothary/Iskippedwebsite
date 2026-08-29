@@ -34,6 +34,7 @@ import { getSkipBalanceSummary } from "@/lib/utils/skipBalances";
 import { useModalA11y } from "@/hooks/useModalA11y";
 import { SKIP_CATEGORIES } from "@/lib/constants/skipCategories";
 import { apiRequest } from "@/lib/services/firebase/apiClient";
+import { getPersonalFundraiserGoalProgress } from "@/lib/utils/fundraiserGoals";
 
 function normalizeExternalLink(link: string): string {
   const trimmed = link.trim();
@@ -62,6 +63,7 @@ interface JarProps {
   centerLabelOverride?: string; // overrides the default "to goal" / "saved" center label
   prominentLabel?: boolean;
   topLabel?: string;
+  topDetail?: string;
   topLabelColor?: string;
   hideBottomLabel?: boolean;
   paused?: boolean;
@@ -325,7 +327,7 @@ function DonationReminderController({
   );
 }
 
-function Jar({ fillPercent, color, gradEnd, label, amount, emoji, causeLabel, goalAmount, emptyLabel, href, onClick, actionLabel, actionOnClick, actionColor, unitDisplay, unitCount, centerValueOverride, centerLabelOverride, prominentLabel, topLabel, topLabelColor, hideBottomLabel, paused = false }: JarProps) {
+function Jar({ fillPercent, color, gradEnd, label, amount, emoji, causeLabel, goalAmount, emptyLabel, href, onClick, actionLabel, actionOnClick, actionColor, unitDisplay, unitCount, centerValueOverride, centerLabelOverride, prominentLabel, topLabel, topDetail, topLabelColor, hideBottomLabel, paused = false }: JarProps) {
   const [visibleFillPercent, setVisibleFillPercent] = useState(fillPercent);
 
   useEffect(() => {
@@ -387,6 +389,11 @@ function Jar({ fillPercent, color, gradEnd, label, amount, emoji, causeLabel, go
         <div style={{ fontSize: topLabel ? 12 : prominentLabel ? 22 : 13, fontWeight: topLabel ? 800 : prominentLabel ? 900 : causeLabel ? 700 : 600, fontStyle: topDisplayLabel ? "normal" : "italic", color: topLabelColor ?? (topLabel ? "var(--text-secondary)" : prominentLabel ? "var(--text-primary)" : color), lineHeight: prominentLabel && !topLabel ? 1.1 : 1.35, letterSpacing: topLabel ? 1.5 : 0.2, textTransform: topLabel ? "uppercase" : "none", display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", overflow: "hidden", textAlign: "center" }}>
           {topDisplayLabel ?? "Tap to pick a jar"}
         </div>
+        {topDetail && (
+          <div style={{ marginTop: 5, fontSize: 10, fontWeight: 800, lineHeight: 1.25, color: "var(--text-secondary)", whiteSpace: "nowrap" }}>
+            {topDetail}
+          </div>
+        )}
       </div>
       <svg width={w} height={h} viewBox={`0 0 ${w} ${h}`}>
         <defs>
@@ -1181,7 +1188,7 @@ export default function HomePage() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const { user, profile, updateProfile } = useAuthStore();
-  const { recentSkips, donate } = useSkips();
+  const { recentSkips, donate, donations: donationHistory } = useSkips();
   const { projects, loading: projectsLoading } = useProjects();
   const { showSkipPicker, setShowSkipPicker } = useUIStore();
   const [editingSkip, setEditingSkip] = useState<Skip | null>(null);
@@ -1194,6 +1201,7 @@ export default function HomePage() {
   const [liveChallengeTotalsLoading, setLiveChallengeTotalsLoading] = useState(false);
   const [liveChallengeContributorCount, setLiveChallengeContributorCount] = useState<number>(0);
   const [liveChallengeTotalSkips, setLiveChallengeTotalSkips] = useState<number>(0);
+  const [challengeTotalsRefreshKey, setChallengeTotalsRefreshKey] = useState(0);
   const [showContributionModal, setShowContributionModal] = useState(false);
   const [contributionMode, setContributionMode] = useState<"contribute" | "log">("contribute");
   const [showSpendModal, setShowSpendModal] = useState(false);
@@ -1254,7 +1262,7 @@ export default function HomePage() {
       return;
     }
     return subscribeToChallengeFeed(activeProjectId, setActiveChallengeFeed);
-  }, [profile?.activeProjectId, projects]);
+  }, [profile?.activeProjectId, projects, challengeTotalsRefreshKey]);
 
   useEffect(() => {
     const unsubscribe = subscribeToGlobalStats(setGlobalStats);
@@ -1403,8 +1411,22 @@ export default function HomePage() {
   const personalGoal = profile.causeGoalAmounts?.[activeProject?.id ?? ""]
     ?? (!isActiveChallenge ? activeProject?.goalAmount ?? 0 : 0);
   const hasPersonalGivingGoal = personalGoal > 0;
-  const personalFundraiserPercent = hasPersonalGivingGoal
-    ? Math.min(100, Math.round((givingBalance / personalGoal) * 100))
+  const challengeDonationHistoryTotal = activeProject && isActiveGroupFundraiser
+    ? donationHistory
+        .filter((donation) => donation.causeId === activeProject.id)
+        .reduce((sum, donation) => sum + Math.max(0, donation.amount), 0)
+    : 0;
+  const challengeDonated = activeProject && isActiveGroupFundraiser
+    ? Math.max(challengeDonationHistoryTotal, profile.causeStats?.[activeProject.id]?.donated ?? 0)
+    : 0;
+  const challengeDonationBaseline = activeProject
+    ? profile.causeGoalDonationBaselines?.[activeProject.id] ?? 0
+    : 0;
+  const personalGoalProgress = getPersonalFundraiserGoalProgress(personalGoal, challengeDonated, challengeDonationBaseline);
+  const challengeDonatedTowardGoal = personalGoalProgress.donatedTowardGoal;
+  const personalGoalRemaining = personalGoalProgress.remainingGoal ?? 0;
+  const personalFundraiserPercent = personalGoalRemaining > 0
+    ? Math.min(100, Math.round((givingBalance / personalGoalRemaining) * 100))
     : 0;
   const groupFundraiserPercent = fundraiserGoalAmount > 0
     ? Math.min(100, Math.round((displayedGroupTotal / fundraiserGoalAmount) * 100))
@@ -1456,9 +1478,6 @@ export default function HomePage() {
     ? `of ${oneUnitPhrase(activeProject.unitName)}`
     : activeProject?.unitDisplay || activeProject?.unitName || "units";
   const communityUnitSuffix = activeProject?.unitIsGoal && communityUnitCount > 0 && communityUnitCount < 1 ? "" : " Funded";
-  const challengeDonated = activeProject && isActiveGroupFundraiser
-    ? profile.causeStats?.[activeProject.id]?.donated ?? 0
-    : 0;
   const challengeFeedAllItems = activeProject && isActiveGroupFundraiser
     ? [...ownChallengeFeedItems, ...activeChallengeFeed.filter((item) => !challengeSkips.some((skip) => skip.id === item.skipId))]
         .sort((a, b) => b.createdAt.toMillis() - a.createdAt.toMillis())
@@ -2433,7 +2452,7 @@ export default function HomePage() {
               <div className="home-fundraiser-jars" style={{ display: "grid", gridTemplateColumns: "minmax(0, 1fr) minmax(0, 1fr)", gap: 4, alignItems: "end", width: "min(100%, 430px)", margin: "0 auto 14px" }}>
               <div>
                   <Jar
-                    fillPercent={hasPersonalGivingGoal ? Math.min(100, (givingBalance / personalGoal) * 100) : (givingBalance > 0 ? 18 : 0)}
+                    fillPercent={personalGoalRemaining > 0 ? Math.min(100, (givingBalance / personalGoalRemaining) * 100) : 0}
                     paused={showSkipPicker}
                     color="#2ECC71"
                     gradEnd="#1E9485"
@@ -2441,10 +2460,16 @@ export default function HomePage() {
                     amount={formatCurrency(givingBalance)}
                     emoji=""
                     causeLabel={activeProject.title}
-                    goalAmount={hasPersonalGivingGoal ? personalGoal : undefined}
-                    centerValueOverride={`${personalFundraiserPercent}%`}
-                    centerLabelOverride="to goal"
-                    topLabel="Your goal"
+                    centerValueOverride={hasPersonalGivingGoal && personalGoalRemaining <= 0 ? "✓" : `${personalFundraiserPercent}%`}
+                    centerLabelOverride={hasPersonalGivingGoal
+                      ? personalGoalRemaining > 0
+                        ? "ready"
+                        : "goal reached"
+                      : "to goal"}
+                    topLabel={hasPersonalGivingGoal ? `Your ${formatCurrencyRounded(personalGoal)} goal` : "Your goal"}
+                    topDetail={hasPersonalGivingGoal
+                      ? `${formatCurrencyRounded(challengeDonatedTowardGoal)} donated · ${formatCurrencyRounded(personalGoalRemaining)} left`
+                      : undefined}
                     topLabelColor="#A7F3D0"
                     hideBottomLabel
                     href="/jar-activity"
@@ -2465,10 +2490,9 @@ export default function HomePage() {
                     amount={formatCurrency(displayedGroupTotal)}
                     emoji=""
                     causeLabel={activeProject.title}
-                    goalAmount={fundraiserGoalAmount > 0 ? fundraiserGoalAmount : undefined}
                     centerValueOverride={`${groupFundraiserPercent}%`}
                     centerLabelOverride="to goal"
-                    topLabel="Fundraiser goal"
+                    topLabel={fundraiserGoalAmount > 0 ? `Fundraiser goal ${formatCurrencyRounded(fundraiserGoalAmount)}` : "Fundraiser goal"}
                     topLabelColor="#A7FFF0"
                     hideBottomLabel
                     href="/jar-activity"
@@ -2498,7 +2522,7 @@ export default function HomePage() {
                 <div className="home-live-progress-panel">
                   <div className="home-group-impact" style={{ borderRadius: 0, padding: "4px 0 0", marginBottom: 10, background: "transparent", border: "none" }}>
                     <p style={{ fontSize: 16, fontWeight: 950, color: groupGoalReached ? "#A7FFF0" : "var(--text-primary)" }}>
-                      {groupGoalReached ? "🎉 Group goal reached!" : `Only ${formatCurrencyRounded(groupGoalRemainingAmount)} to go`}
+                      {groupGoalReached ? "🎉 Group goal reached!" : `${formatCurrencyRounded(groupGoalRemainingAmount)} Until we hit our Group Goal`}
                     </p>
                     {groupGoalReached && (
                       <p style={{ marginTop: 4, fontSize: 11, lineHeight: 1.4, color: "var(--text-secondary)" }}>
@@ -3462,6 +3486,24 @@ export default function HomePage() {
           initialAmount={givingBalance}
           donationURL={activeProject.donationURL ?? undefined}
           donationRecipient={activeProject.sponsor || activeProject.groupName || activeProject.title}
+          personalGoal={hasPersonalGivingGoal ? personalGoal : undefined}
+          donatedTowardGoal={challengeDonatedTowardGoal}
+          totalDonatedBefore={challengeDonated}
+          impactUnitCost={activeProject.unitCost ?? undefined}
+          impactUnitName={activeProject.unitName || activeProject.unitDisplay || undefined}
+          impactUnitDisplay={activeProject.unitDisplay ?? undefined}
+          impactUnitIsGoal={activeProject.unitIsGoal}
+          shareUrl={appendRefParam(`${typeof window !== "undefined" ? window.location.origin : "https://iskipped.com"}${getChallengeSharePath(activeProject)}`, user?.uid)}
+          onLogged={() => setChallengeTotalsRefreshKey((key) => key + 1)}
+          onStartNewGoal={async (amount, donationBaseline) => {
+            if (!user) return;
+            await setUserCauseGoal(user.uid, activeProject.id, amount, donationBaseline);
+            updateProfile({
+              causeGoalAmounts: { ...(profile.causeGoalAmounts ?? {}), [activeProject.id]: amount },
+              causeGoalDonationBaselines: { ...(profile.causeGoalDonationBaselines ?? {}), [activeProject.id]: donationBaseline },
+            });
+          }}
+          onChooseNewJar={() => router.push("/jars")}
           onClose={() => setShowContributionModal(false)}
         />
       )}

@@ -71,6 +71,7 @@ export async function POST(req: NextRequest) {
         goalJarBalances: nextBalances.goalJarBalances,
         skipLots,
         [`causeJarOverflowCounts.${projectId}`]: 0,
+        [`causeStats.${projectId}.donated`]: FieldValue.increment(amount),
       });
       tx.set(db.collection("projects").doc(projectId), {
         // A donation moves money out of the fundraiser jars into the
@@ -78,7 +79,13 @@ export async function POST(req: NextRequest) {
         totalRaised: FieldValue.increment(-jarDecrease),
         totalDonated: FieldValue.increment(amount),
       }, { merge: true });
-      return { jarDecrease, skipBucksDecrease, outsideContribution, amountFromSkips };
+      return {
+        jarDecrease,
+        skipBucksDecrease,
+        outsideContribution,
+        amountFromSkips,
+        causeJarBalance: Math.max(0, nextBalances.causeJarBalances[projectId] ?? 0),
+      };
     });
 
     userRef.update({ lastDonationDate: new Date().toISOString().slice(0, 10) }).catch(() => {});
