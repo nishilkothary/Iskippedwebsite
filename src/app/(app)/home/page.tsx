@@ -35,6 +35,7 @@ import { useModalA11y } from "@/hooks/useModalA11y";
 import { SKIP_CATEGORIES } from "@/lib/constants/skipCategories";
 import { apiRequest } from "@/lib/services/firebase/apiClient";
 import { getPersonalFundraiserGoalProgress } from "@/lib/utils/fundraiserGoals";
+import { isSharedFundraiserSkip } from "@/lib/utils/feedPrivacy";
 
 function normalizeExternalLink(link: string): string {
   const trimmed = link.trim();
@@ -1447,7 +1448,7 @@ export default function HomePage() {
   const challengeSkips = activeProject && isActiveGroupFundraiser
     ? recentSkips.filter((skip) => skip.projectId === activeProject.id)
     : [];
-  const ownChallengeFeedItems: FeedItem[] = challengeSkips.map((skip) => ({
+  const ownChallengeFeedItems: FeedItem[] = challengeSkips.filter(isSharedFundraiserSkip).map((skip) => ({
     id: `local-${skip.id}`,
     uid: skip.uid,
     displayName: profile.displayName || "You",
@@ -2508,6 +2509,7 @@ export default function HomePage() {
                 <button
                   onClick={() => {
                     if (activeProject) {
+                      setContributionMode("contribute");
                       setShowContributionModal(true);
                       return;
                     }
@@ -3182,7 +3184,10 @@ export default function HomePage() {
           }
           router.push("/jars?tab=cause");
         }}
-        onAlreadyDonated={() => router.push("/jars?tab=cause&donate=1")}
+        onAlreadyDonated={() => {
+          setContributionMode("log");
+          setShowContributionModal(true);
+        }}
       />
 
       {homeFundraiserSetup && (
@@ -3478,28 +3483,30 @@ export default function HomePage() {
         <DonationLogModal
           projectId={activeProject.id}
           projectTitle={activeProject.title}
-          initialAmount={givingBalance}
+          mode={contributionMode === "log" ? "log" : "donate"}
+          initialAmount={contributionMode === "log" ? undefined : givingBalance}
           donationURL={activeProject.donationURL ?? undefined}
           donationRecipient={activeProject.sponsor || activeProject.groupName || activeProject.title}
           personalGoal={hasPersonalGivingGoal ? personalGoal : undefined}
           donatedTowardGoal={challengeDonatedTowardGoal}
-          totalDonatedBefore={challengeDonated}
           impactUnitCost={activeProject.unitCost ?? undefined}
           impactUnitName={activeProject.unitName || activeProject.unitDisplay || undefined}
           impactUnitDisplay={activeProject.unitDisplay ?? undefined}
           impactUnitIsGoal={activeProject.unitIsGoal}
           shareUrl={appendRefParam(`${typeof window !== "undefined" ? window.location.origin : "https://iskipped.com"}${getChallengeSharePath(activeProject)}`, user?.uid)}
           onLogged={() => setChallengeTotalsRefreshKey((key) => key + 1)}
-          onStartNewGoal={async (amount, donationBaseline) => {
+          onRaiseGoal={async (amount) => {
             if (!user) return;
-            await setUserCauseGoal(user.uid, activeProject.id, amount, donationBaseline);
+            await setUserCauseGoal(user.uid, activeProject.id, amount);
             updateProfile({
               causeGoalAmounts: { ...(profile.causeGoalAmounts ?? {}), [activeProject.id]: amount },
-              causeGoalDonationBaselines: { ...(profile.causeGoalDonationBaselines ?? {}), [activeProject.id]: donationBaseline },
             });
           }}
           onChooseNewJar={() => router.push("/jars")}
-          onClose={() => setShowContributionModal(false)}
+          onClose={() => {
+            setShowContributionModal(false);
+            setContributionMode("contribute");
+          }}
         />
       )}
 

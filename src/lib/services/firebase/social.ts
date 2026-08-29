@@ -15,6 +15,7 @@ import {
 import { ref, onValue } from "firebase/database";
 import { db, rtdb } from "./config";
 import { FeedItem, GlobalStats } from "@/lib/types/models";
+import { isVisibleGroupFeedItem } from "@/lib/utils/feedPrivacy";
 
 export function subscribeToChallengeFeed(projectId: string, callback: (items: FeedItem[]) => void): Unsubscribe {
   const feedCollection = collection(db, "communityFeed");
@@ -25,7 +26,9 @@ export function subscribeToChallengeFeed(projectId: string, callback: (items: Fe
     limit(50)
   );
   const publish = (snap: QuerySnapshot) => {
-    const items = snap.docs.map((d) => ({ id: d.id, ...d.data() } as FeedItem));
+    const items = snap.docs
+      .map((d) => ({ id: d.id, ...d.data() } as FeedItem))
+      .filter(isVisibleGroupFeedItem);
     items.sort((a, b) => (b.createdAt?.toMillis?.() ?? 0) - (a.createdAt?.toMillis?.() ?? 0));
     callback(items.slice(0, 50));
   };
@@ -60,7 +63,9 @@ export function subscribeToCommunityFeed(callback: (items: FeedItem[]) => void):
     limit(15)
   );
   return onSnapshot(q, (snap) => {
-    const items = snap.docs.map((d) => ({ id: d.id, ...d.data() } as FeedItem));
+    const items = snap.docs
+      .map((d) => ({ id: d.id, ...d.data() } as FeedItem))
+      .filter(isVisibleGroupFeedItem);
     callback(items);
   });
 }

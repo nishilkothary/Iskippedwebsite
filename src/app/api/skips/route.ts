@@ -103,6 +103,7 @@ export async function POST(req: NextRequest) {
         projectId: resolvedProjectId,
         projectTitle,
         impactMessage,
+        shareWithCommunity: allocationTarget?.type === "fundraiser" && shareWithCommunity,
         allocationMode: "skip-pot",
         ...(allocationTarget ? { allocationTarget } : {}),
         createdAt: FieldValue.serverTimestamp(),
@@ -160,12 +161,12 @@ export async function POST(req: NextRequest) {
     await adjustGlobalStats(amount, 1);
 
     // Community/group sharing only applies to fundraiser-targeted skips.
-    if (result.allocationTarget?.type === "fundraiser") try {
+    if (result.allocationTarget?.type === "fundraiser" && shareWithCommunity) try {
       const communityFeedRef = db.collection("communityFeed").doc(skipRef.id);
       await communityFeedRef.set({
         uid,
-        displayName: shareWithCommunity ? (displayName || "Skipper") : "Anonymous",
-        ...(shareWithCommunity && photoURL ? { photoURL } : {}),
+        displayName: displayName || "Skipper",
+        ...(photoURL ? { photoURL } : {}),
         type: "skip",
         skipId: skipRef.id,
         skipAmount: amount,
@@ -175,7 +176,7 @@ export async function POST(req: NextRequest) {
         projectId: result.allocationTarget.id,
         projectTitle,
         ...(projectLocation ? { projectLocation } : {}),
-        shareName: shareWithCommunity,
+        shareName: true,
         message: result.message,
         createdAt: FieldValue.serverTimestamp(),
       });

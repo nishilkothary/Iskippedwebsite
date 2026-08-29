@@ -30,7 +30,12 @@ export function cloneLots(profile: Pick<UserProfile, "skipLots" | "totalSaved" |
           balances: { [UNASSIGNED_LOCATION]: remainder },
         };
       }
-      return lots;
+      if (lotLocationsMatchBalances(lots, profile)) return lots;
+
+      // A reversal can leave the aggregate jar maps correct while an older
+      // lot is missing or assigned to the wrong location. Rebuild the
+      // provenance conservatively so a displayed balance is always movable.
+      return buildLegacyLots(profile, availableFromSkips);
     }
 
     // Legacy/stale lots must never create more spendable money than the
@@ -40,6 +45,21 @@ export function cloneLots(profile: Pick<UserProfile, "skipLots" | "totalSaved" |
   }
 
   return buildLegacyLots(profile, getSkipBalanceSummary(profile).availableFromSkips);
+}
+
+function lotLocationsMatchBalances(
+  lots: Record<string, SkipLot>,
+  profile: Pick<UserProfile, "causeJarBalances" | "goalJarBalances">,
+) {
+  const ledgerBalances = balancesFromLots(lots);
+  const recordsMatch = (actual: Record<string, number>, expected: Record<string, number> | undefined) => {
+    const keys = new Set([...Object.keys(actual), ...Object.keys(expected ?? {})]);
+    return Array.from(keys).every((key) => (
+      Math.abs(roundMoney(actual[key] ?? 0) - roundMoney(Math.max(0, Number(expected?.[key]) || 0))) <= 0.001
+    ));
+  };
+  return recordsMatch(ledgerBalances.causeJarBalances, profile.causeJarBalances)
+    && recordsMatch(ledgerBalances.goalJarBalances, profile.goalJarBalances);
 }
 
 function buildLegacyLots(
@@ -141,9 +161,17 @@ export function consumeLots(lots: Record<string, SkipLot>, amount: number, sourc
 
 export function restoreConsumedLots(lots: Record<string, SkipLot>, consumedByLot: Record<string, Record<string, number>> | undefined) {
   for (const [skipId, locations] of Object.entries(consumedByLot ?? {})) {
-    const lot = lots[skipId];
-    if (!lot) continue;
-    for (const [location, amount] of Object.entries(locations)) {
+    const restorableLocations = Object.entries(locations)
+      .filter(([, amount]) => Math.max(0, Number(amount) || 0) > 0);
+    if (restorableLocations.length === 0) continue;
+    const lot = lots[skipId] ?? {
+      skipId,
+      createdAtMs: 0,
+      originalLocation: restorableLocations[0][0],
+      balances: {},
+    };
+    lots[skipId] = lot;
+    for (const [location, amount] of restorableLocations) {
       lot.balances[location] = roundMoney((lot.balances[location] ?? 0) + Math.max(0, Number(amount) || 0));
     }
   }

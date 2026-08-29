@@ -22,3 +22,13 @@ export function getPersonalFundraiserGoalProgress(
     goalReached: remainingGoal === 0 && donatedTowardGoal > 0,
   };
 }
+
+/** A raised total goal must preserve both the prior target and all progress in this goal cycle. */
+export function isValidRaisedFundraiserGoal(
+  nextGoalAmount: number | undefined,
+  currentGoalAmount: number | undefined,
+  donatedTowardGoal: number | undefined,
+): boolean {
+  const nextGoal = money(nextGoalAmount);
+  return nextGoal > Math.max(money(currentGoalAmount), money(donatedTowardGoal));
+}

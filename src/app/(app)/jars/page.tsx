@@ -33,7 +33,7 @@ import { getChallengeCausePhrase } from "@/lib/utils/challengeShareCopy";
 import { Project, SpendingGoal, DonationEvent, SkipAllocationTarget } from "@/lib/types/models";
 import { DonationLogModal } from "@/components/skip/DonationLogModal";
 import { apiRequest } from "@/lib/services/firebase/apiClient";
-import { getPersonalFundraiserGoalProgress } from "@/lib/utils/fundraiserGoals";
+import { getPersonalFundraiserGoalProgress, isValidRaisedFundraiserGoal } from "@/lib/utils/fundraiserGoals";
 
 const rewardArtwork = [
   { background: "linear-gradient(135deg, #4C1D95 0%, #8B5CF6 48%, #E9D5FF 140%)", accent: "#E9D5FF" },
@@ -1632,7 +1632,7 @@ function JarBrowser({
   const [switchConfirmAction, setSwitchConfirmAction] = useState<"move" | "release" | null>(null);
   const [jarDecisionWorking, setJarDecisionWorking] = useState<"switch" | "move" | "release" | "deactivate-park" | "deactivate-release" | null>(null);
   const [fundraiserSetup, setFundraiserSetup] = useState<Project | null>(null);
-  const [fundraiserRestartBaseline, setFundraiserRestartBaseline] = useState<number | undefined>(undefined);
+  const [fundraiserRaiseProgress, setFundraiserRaiseProgress] = useState<number | undefined>(undefined);
   const [donatingProject, setDonatingProject] = useState<Project | null>(null);
   const [fundraiserGoalStr, setFundraiserGoalStr] = useState("");
   const [fundraiserSetupWorking, setFundraiserSetupWorking] = useState(false);
@@ -1665,7 +1665,7 @@ function JarBrowser({
   useEffect(() => {
     if (!fundraiserSetup) {
       setFundraiserGoalStr("");
-      setFundraiserRestartBaseline(undefined);
+      setFundraiserRaiseProgress(undefined);
     }
   }, [fundraiserSetup]);
 
@@ -1974,7 +1974,7 @@ function JarBrowser({
     if (target.type === "fundraiser") {
       const project = projects.find((candidate) => candidate.id === target.id);
       if (project) {
-        setFundraiserRestartBaseline(undefined);
+        setFundraiserRaiseProgress(undefined);
         setFundraiserSetup(project);
         setFundraiserGoalStr("");
         setFundraiserShareEmail(profile?.challengeEmailConsents?.[project.id] ?? true);
@@ -1990,12 +1990,20 @@ function JarBrowser({
     const target: SkipAllocationTarget = { type: "fundraiser", id: fundraiserSetup.id };
     const goalAmount = parseFloat(fundraiserGoalStr);
     if (!goalAmount || goalAmount <= 0) return;
+    const currentGoal = causeGoalAmounts?.[fundraiserSetup.id] ?? 0;
+    if (
+      fundraiserRaiseProgress !== undefined
+      && !isValidRaisedFundraiserGoal(goalAmount, currentGoal, fundraiserRaiseProgress)
+    ) {
+      toast.error(`Enter a total greater than ${formatCurrency(Math.max(currentGoal, fundraiserRaiseProgress))}.`);
+      return;
+    }
     setFundraiserSetupWorking(true);
     try {
-      if (fundraiserRestartBaseline !== undefined) {
-        await onSetFundraiserGoal(fundraiserSetup.id, goalAmount, fundraiserRestartBaseline);
+      if (fundraiserRaiseProgress !== undefined) {
+        await onSetFundraiserGoal(fundraiserSetup.id, goalAmount);
         setFundraiserSetup(null);
-        toast.success("New personal goal set. Reactivate this fundraiser when you’re ready to skip for it.");
+        toast.success("Goal raised. Reactivate this fundraiser when you’re ready to skip for it.");
         return;
       }
       // Activate the fundraiser first. Optional profile writes must not block
@@ -2012,7 +2020,7 @@ function JarBrowser({
 
       // Persist the optional setup details after the join succeeds.
       void Promise.all([
-        onSetFundraiserGoal(fundraiserSetup.id, goalAmount, fundraiserRestartBaseline),
+        onSetFundraiserGoal(fundraiserSetup.id, goalAmount),
         ...(user && profile?.challengeEmailConsents?.[fundraiserSetup.id] !== fundraiserShareEmail
           ? [setChallengeEmailConsent(user.uid, fundraiserSetup.id, fundraiserShareEmail)]
           : []),
@@ -2753,10 +2761,12 @@ function JarBrowser({
           <div className="max-h-[calc(100dvh-2rem)] w-full max-w-sm overflow-y-auto rounded-2xl shadow-2xl" style={{ background: "var(--bg-surface-1)", border: "1px solid var(--border-default)" }} onClick={(e) => e.stopPropagation()}>
             <div className="relative px-5 pt-5 pb-4 pr-12" style={{ borderBottom: "1px solid var(--border-default)" }}>
               <p className="text-lg font-black leading-tight" style={{ color: "var(--text-primary)" }}>
-                Set a Personal Savings Goal for {fundraiserSetup.groupName ?? fundraiserSetup.title}
+                {fundraiserRaiseProgress !== undefined ? "Raise Your Donation Goal" : "Set a Personal Savings Goal"} for {fundraiserSetup.groupName ?? fundraiserSetup.title}
               </p>
               <p className="mt-1 text-xs font-bold" style={{ color: "var(--text-muted)" }}>
-                {fundraiserGroupGoalLine(fundraiserSetup)}
+                {fundraiserRaiseProgress !== undefined
+                  ? `${formatCurrency(fundraiserRaiseProgress)} donated toward your current goal`
+                  : fundraiserGroupGoalLine(fundraiserSetup)}
               </p>
               <button
                 type="button"
@@ -2774,7 +2784,10 @@ function JarBrowser({
                   <span className="absolute left-4 top-1/2 -translate-y-1/2 text-sm" style={{ color: "var(--text-muted)" }}>$</span>
                   <input
                     type="number"
-                    min="1"
+                    min={fundraiserRaiseProgress !== undefined
+                      ? Math.floor(Math.max(causeGoalAmounts?.[fundraiserSetup.id] ?? 0, fundraiserRaiseProgress) * 100 + 1) / 100
+                      : 1}
+                    step="0.01"
                     value={fundraiserGoalStr}
                     onChange={(event) => setFundraiserGoalStr(event.target.value)}
                     placeholder="100"
@@ -2783,6 +2796,16 @@ function JarBrowser({
                     autoFocus
                   />
                 </div>
+                {fundraiserRaiseProgress !== undefined && fundraiserGoalStr && (
+                  <p
+                    className="mt-2 text-xs font-bold"
+                    style={{ color: isValidRaisedFundraiserGoal(parseFloat(fundraiserGoalStr), causeGoalAmounts?.[fundraiserSetup.id], fundraiserRaiseProgress) ? "#A7F3D0" : "#FCA5A5" }}
+                  >
+                    {isValidRaisedFundraiserGoal(parseFloat(fundraiserGoalStr), causeGoalAmounts?.[fundraiserSetup.id], fundraiserRaiseProgress)
+                      ? `${formatCurrency(parseFloat(fundraiserGoalStr) - fundraiserRaiseProgress)} to go`
+                      : `Enter a total greater than ${formatCurrency(Math.max(causeGoalAmounts?.[fundraiserSetup.id] ?? 0, fundraiserRaiseProgress))}.`}
+                  </p>
+                )}
                 {fundraiserSetup?.unitCost && fundraiserGoalUnitPreview && (
                   <p className="mt-2 text-xs font-bold" style={{ color: "#A7F3D0" }}>
                     About {fundraiserGoalUnitPreview}.
@@ -2803,11 +2826,14 @@ function JarBrowser({
               </label>
               <button
                 onClick={confirmFundraiserSetup}
-                disabled={fundraiserSetupWorking || !fundraiserGoalStr || parseFloat(fundraiserGoalStr) <= 0}
+                disabled={fundraiserSetupWorking || !fundraiserGoalStr || parseFloat(fundraiserGoalStr) <= 0 || (
+                  fundraiserRaiseProgress !== undefined
+                  && !isValidRaisedFundraiserGoal(parseFloat(fundraiserGoalStr), causeGoalAmounts?.[fundraiserSetup.id], fundraiserRaiseProgress)
+                )}
                 className="w-full rounded-xl py-3 text-sm font-black disabled:opacity-50"
                 style={{ background: "#2ECC71", color: "#071B14" }}
               >
-                {fundraiserSetupWorking ? "Setting up..." : "Set Goal"}
+                {fundraiserSetupWorking ? "Saving..." : fundraiserRaiseProgress !== undefined ? "Raise Goal" : "Set Goal"}
               </button>
             </div>
           </div>
@@ -3344,7 +3370,7 @@ function JarBrowser({
                 const isPausedFundraiser = !isActiveFundraiser && !isCompletedFundraiser && participatingFundraisers.includes(project);
                 const groupGoal = project.goalAmount ?? 0;
                 const ownJarBalance = Math.max(0, causeJarBalances?.[project.id] ?? 0);
-                const donatedTotal = fundraiserDonationTotal(project.id);
+                const donatedTowardGoal = fundraiserDonatedTowardGoal(project.id);
                 const remainingPersonalGoal = fundraiserRemainingGoal(project);
                 const groupRaised = groupProgress[project.id] ?? 0;
                 const groupPct = groupGoal > 0 ? Math.min(100, Math.round((groupRaised / groupGoal) * 100)) : 0;
@@ -3439,25 +3465,11 @@ function JarBrowser({
                         </div>
                       </div>
 
-                      {(isActiveFundraiser || isPausedFundraiser || isCompletedFundraiser) && (
-                        <div className="rounded-lg px-3 py-2" style={{ background: "rgba(46,204,113,0.06)", border: "1px solid rgba(46,204,113,0.14)" }}>
-                          <p className="text-[9px] font-black uppercase tracking-[0.14em]" style={{ color: "var(--text-muted)" }}>Your progress</p>
-                          <p className="mt-1 text-xs font-black" style={{ color: isCompletedFundraiser ? "#A7F3D0" : "var(--text-primary)" }}>
-                            {formatCompactCurrency(ownJarBalance)} in jar · {formatCompactCurrency(donatedTotal)} donated
-                            {isCompletedFundraiser
-                              ? " · Personal goal reached"
-                              : remainingPersonalGoal !== null
-                                ? ` · ${formatCompactCurrency(remainingPersonalGoal)} to goal`
-                                : ""}
-                          </p>
-                        </div>
-                      )}
-
                       <div className="flex gap-2">
                         <button
                           onClick={() => {
                             if (isCompletedFundraiser) {
-                              setFundraiserRestartBaseline(donatedTotal);
+                              setFundraiserRaiseProgress(donatedTowardGoal);
                               setFundraiserGoalStr("");
                               setFundraiserSetup(project);
                               return;
@@ -3467,7 +3479,7 @@ function JarBrowser({
                           className="jars-card-action flex-1 rounded-lg py-2 text-[10px] font-black uppercase tracking-wide"
                           style={{ background: isActiveFundraiser ? "#2ECC71" : "rgba(46,204,113,0.16)", color: isActiveFundraiser ? "#071B14" : "#A7F3D0" }}
                         >
-                          {isActiveFundraiser ? "Deactivate" : isCompletedFundraiser ? "Set a new goal" : isPausedFundraiser ? "Reactivate" : "Skip for this"}
+                          {isActiveFundraiser ? "Deactivate" : isCompletedFundraiser ? "Raise your goal" : isPausedFundraiser ? "Reactivate" : "Skip for this"}
                         </button>
                         {ownJarBalance > 0 && (
                           <button
@@ -3487,6 +3499,20 @@ function JarBrowser({
                           Details
                         </button>
                       </div>
+
+                      {(isActiveFundraiser || isPausedFundraiser || isCompletedFundraiser) && (
+                        <div className="rounded-lg px-3 py-2" style={{ background: "rgba(46,204,113,0.06)", border: "1px solid rgba(46,204,113,0.14)" }}>
+                          <p className="text-[9px] font-black uppercase tracking-[0.14em]" style={{ color: "var(--text-muted)" }}>Your progress</p>
+                          <p className="mt-1 text-xs font-black" style={{ color: isCompletedFundraiser ? "#A7F3D0" : "var(--text-primary)" }}>
+                            {formatCompactCurrency(ownJarBalance)} in jar · {formatCompactCurrency(donatedTowardGoal)} donated
+                            {isCompletedFundraiser
+                              ? " · Personal goal reached"
+                              : remainingPersonalGoal !== null
+                                ? ` · ${formatCompactCurrency(remainingPersonalGoal)} to goal`
+                                : ""}
+                          </p>
+                        </div>
+                      )}
                     </div>
                   </div>
                   </Fragment>

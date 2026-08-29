@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { getPersonalFundraiserGoalProgress } from "./fundraiserGoals";
+import { getPersonalFundraiserGoalProgress, isValidRaisedFundraiserGoal } from "./fundraiserGoals";
 
 describe("personal fundraiser goal progress", () => {
   it("counts each donation once when it is deleted and logged again", () => {
@@ -33,5 +33,11 @@ describe("personal fundraiser goal progress", () => {
       remainingGoal: 0,
       goalReached: true,
     });
+  });
+
+  it("requires a raised total goal to exceed the amount already donated", () => {
+    expect(isValidRaisedFundraiserGoal(175, 150, 175)).toBe(false);
+    expect(isValidRaisedFundraiserGoal(150, 150, 175)).toBe(false);
+    expect(isValidRaisedFundraiserGoal(200, 150, 175)).toBe(true);
   });
 });

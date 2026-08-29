@@ -63,6 +63,31 @@ describe("skip lot ledger invariants", () => {
     expect(lots["legacy:unassigned:remainder"].balances.unassigned).toBe(30);
   });
 
+  it("repairs a ledger whose locations disagree with the displayed jar balances", () => {
+    const lots = cloneLots({
+      totalSaved: 50,
+      totalSpent: 0,
+      totalDonated: 0,
+      totalDonatedFromSkips: 0,
+      causeJarBalances: { cause: 20 },
+      goalJarBalances: {},
+      skipLots: {
+        stale: {
+          skipId: "stale",
+          createdAtMs: 1,
+          originalLocation: "unassigned",
+          balances: { unassigned: 50 },
+        },
+      },
+    });
+
+    expect(balancesFromLots(lots).causeJarBalances.cause).toBe(20);
+    expect(Object.values(lots).flatMap((lot) => Object.values(lot.balances)).reduce((sum, amount) => sum + amount, 0)).toBe(50);
+
+    transferLots(lots, 15, [locationKey({ type: "fundraiser", id: "cause" })], "unassigned");
+    expect(balancesFromLots(lots).causeJarBalances.cause).toBe(5);
+  });
+
   it("rebuilds an oversized stale ledger without creating spendable money", () => {
     const lots = cloneLots({
       totalSaved: 50,
@@ -112,5 +137,17 @@ describe("skip lot ledger invariants", () => {
     restoreConsumedLots(lots, consumption.consumedByLot);
     expect(balancesFromLots(lots).causeJarBalances.cause).toBe(12);
     expect(lots["bank-skip"].balances.unassigned).toBe(8);
+  });
+
+  it("recreates ledger backing when a donation is reversed after its skip was deleted", () => {
+    const lots: Record<string, SkipLot> = {};
+    addSkipLot(lots, "deleted-skip", 150, { type: "fundraiser", id: "cause" }, 1);
+    const donation = consumeLots(lots, 150, [locationKey({ type: "fundraiser", id: "cause" })]);
+
+    delete lots["deleted-skip"];
+    restoreConsumedLots(lots, donation.consumedByLot);
+
+    expect(balancesFromLots(lots).causeJarBalances.cause).toBe(150);
+    expect(Object.values(lots).flatMap((lot) => Object.values(lot.balances)).reduce((sum, amount) => sum + amount, 0)).toBe(150);
   });
 });

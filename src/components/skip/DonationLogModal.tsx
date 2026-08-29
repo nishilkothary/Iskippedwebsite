@@ -8,12 +8,13 @@ import { useAuthStore } from "@/store/authStore";
 import { getSkipBalanceSummary } from "@/lib/utils/skipBalances";
 import { formatAggregateImpactUnitsDecimal } from "@/lib/utils/impact";
 import { ShareButton } from "@/components/share/ShareButton";
-import { getPersonalFundraiserGoalProgress } from "@/lib/utils/fundraiserGoals";
+import { getPersonalFundraiserGoalProgress, isValidRaisedFundraiserGoal } from "@/lib/utils/fundraiserGoals";
 
 interface Props {
   projectId: string;
   projectTitle: string;
   onClose: () => void;
+  mode?: "donate" | "log";
   initialAmount?: number;
   donationURL?: string;
   donationRecipient?: string;
@@ -21,13 +22,12 @@ interface Props {
   onLogged?: () => void | Promise<void>;
   personalGoal?: number;
   donatedTowardGoal?: number;
-  totalDonatedBefore?: number;
   impactUnitCost?: number;
   impactUnitName?: string;
   impactUnitDisplay?: string;
   impactUnitIsGoal?: boolean;
   shareUrl?: string;
-  onStartNewGoal?: (amount: number, donationBaseline: number) => void | Promise<void>;
+  onRaiseGoal?: (amount: number) => void | Promise<void>;
   onChooseNewJar?: () => void | Promise<void>;
 }
 
@@ -40,7 +40,7 @@ function formatGoalCurrency(amount: number): string {
   }).format(amount);
 }
 
-export function DonationLogModal({ projectId, projectTitle, onClose, initialAmount, donationURL, donationRecipient, unassignedSkipBucks: unassignedSkipBucksProp, onLogged, personalGoal, donatedTowardGoal = 0, totalDonatedBefore = 0, impactUnitCost, impactUnitName, impactUnitDisplay, impactUnitIsGoal, shareUrl, onStartNewGoal, onChooseNewJar }: Props) {
+export function DonationLogModal({ projectId, projectTitle, onClose, mode = "donate", initialAmount, donationURL, donationRecipient, unassignedSkipBucks: unassignedSkipBucksProp, onLogged, personalGoal, donatedTowardGoal = 0, impactUnitCost, impactUnitName, impactUnitDisplay, impactUnitIsGoal, shareUrl, onRaiseGoal, onChooseNewJar }: Props) {
   const { donate } = useSkips();
   const { profile } = useAuthStore();
   const [amount, setAmount] = useState(initialAmount && initialAmount > 0 ? String(initialAmount) : "");
@@ -51,7 +51,6 @@ export function DonationLogModal({ projectId, projectTitle, onClose, initialAmou
   const [newGoalAmount, setNewGoalAmount] = useState("");
   const [savingNewGoal, setSavingNewGoal] = useState(false);
   const [donatedTowardGoalBeforeLog] = useState(donatedTowardGoal);
-  const [lifetimeDonatedBeforeLog] = useState(totalDonatedBefore);
   const dialogRef = useModalA11y(onClose);
   const parsedAmount = parseFloat(amount);
   const cleanAmount = Number.isFinite(parsedAmount) ? parsedAmount : 0;
@@ -71,6 +70,10 @@ export function DonationLogModal({ projectId, projectTitle, onClose, initialAmou
     donatedTowardGoalBeforeLog + cleanAmount,
     0,
   );
+  const donatedAfterLog = donatedTowardGoalBeforeLog + cleanAmount;
+  const parsedNewGoal = parseFloat(newGoalAmount);
+  const validRaisedGoal = isValidRaisedFundraiserGoal(parsedNewGoal, personalGoal, donatedAfterLog);
+  const raisedGoalRemaining = validRaisedGoal ? Math.max(0, parsedNewGoal - donatedAfterLog) : null;
   const impactText = impactUnitCost && impactUnitCost > 0 && impactUnitName && cleanAmount > 0
     ? formatAggregateImpactUnitsDecimal(cleanAmount, impactUnitCost, impactUnitName, impactUnitDisplay, impactUnitIsGoal)
     : null;
@@ -109,7 +112,7 @@ export function DonationLogModal({ projectId, projectTitle, onClose, initialAmou
         <div className="flex items-center justify-between px-6 py-5" style={{ borderBottom: "1px solid var(--border-default)" }}>
           <div>
             <h2 id="donation-log-title" className="text-lg font-bold" style={{ color: "var(--text-primary)" }}>
-              {done ? (remainingGoal === 0 ? "Goal reached" : "Your donation impact") : "Donate my skips"}
+              {done ? (remainingGoal === 0 ? "Goal reached" : "Your donation impact") : mode === "log" ? "Log donation" : "Donate my skips"}
             </h2>
             {done === null && (
               <p className="mt-1 text-xs font-black" style={{ color: "var(--green-primary)" }}>
@@ -155,42 +158,57 @@ export function DonationLogModal({ projectId, projectTitle, onClose, initialAmou
                 showNewGoal ? (
                   <div className="space-y-3 rounded-xl p-4" style={{ background: "rgba(46,204,113,0.07)", border: "1px solid rgba(46,204,113,0.18)" }}>
                     <div>
-                      <label className="text-xs font-black uppercase tracking-wide" style={{ color: "#A7F3D0" }}>New personal goal</label>
+                      <label className="text-xs font-black uppercase tracking-wide" style={{ color: "#A7F3D0" }}>Raise your goal</label>
+                      <p className="mt-1 text-sm font-bold" style={{ color: "var(--text-primary)" }}>
+                        {formatGoalCurrency(donatedAfterLog)} donated so far
+                      </p>
+                      <p className="mt-3 text-xs font-bold" style={{ color: "var(--text-muted)" }}>New total donation goal</p>
                       <div className="relative mt-2">
                         <span className="absolute left-4 top-1/2 -translate-y-1/2" style={{ color: "var(--text-muted)" }}>$</span>
                         <input
                           type="number"
-                          min="1"
+                          min={Math.floor(donatedAfterLog * 100 + 1) / 100}
+                          step="0.01"
                           value={newGoalAmount}
                           onChange={(event) => setNewGoalAmount(event.target.value)}
-                          placeholder="100"
+                          placeholder={String(Math.ceil((Math.max(personalGoal, donatedAfterLog) + 1) / 50) * 50)}
                           className="w-full rounded-xl py-3 pl-8 pr-4 text-sm focus:outline-none"
                           style={{ background: "var(--bg-surface-2)", border: "1px solid var(--border-default)", color: "var(--text-primary)" }}
                           autoFocus
                         />
                       </div>
+                      {newGoalAmount && !validRaisedGoal && (
+                        <p className="mt-2 text-xs font-bold" style={{ color: "#FCA5A5" }}>
+                          Enter a total greater than {formatGoalCurrency(Math.max(personalGoal, donatedAfterLog))}.
+                        </p>
+                      )}
+                      {raisedGoalRemaining !== null && (
+                        <p className="mt-2 text-xs font-bold" style={{ color: "#A7F3D0" }}>
+                          You&apos;ll have {formatGoalCurrency(raisedGoalRemaining)} to go.
+                        </p>
+                      )}
                     </div>
                     <button
                       type="button"
-                      disabled={savingNewGoal || !newGoalAmount || parseFloat(newGoalAmount) <= 0}
+                      disabled={savingNewGoal || !validRaisedGoal}
                       onClick={async () => {
                         const nextGoal = parseFloat(newGoalAmount);
-                        if (!nextGoal || nextGoal <= 0 || !onStartNewGoal) return;
+                        if (!isValidRaisedFundraiserGoal(nextGoal, personalGoal, donatedAfterLog) || !onRaiseGoal) return;
                         setSavingNewGoal(true);
-                        await onStartNewGoal(nextGoal, lifetimeDonatedBeforeLog + cleanAmount);
+                        await onRaiseGoal(nextGoal);
                         setSavingNewGoal(false);
                         onClose();
                       }}
                       className="w-full rounded-xl py-3 text-sm font-black disabled:opacity-50"
                       style={{ background: "#2ECC71", color: "#071B14" }}
                     >
-                      {savingNewGoal ? "Setting goal..." : "Set goal and keep skipping"}
+                      {savingNewGoal ? "Raising goal..." : "Raise goal and keep skipping"}
                     </button>
                   </div>
                 ) : (
                   <div className="space-y-2">
                     <button type="button" onClick={() => setShowNewGoal(true)} className="w-full rounded-xl py-3 text-sm font-black" style={{ background: "#2ECC71", color: "#071B14" }}>
-                      Skip for this jar again
+                      Raise your goal
                     </button>
                     <button
                       type="button"
@@ -210,6 +228,7 @@ export function DonationLogModal({ projectId, projectTitle, onClose, initialAmou
             </div>
           ) : (
             <>
+              {mode === "donate" && (
               <div className="mb-5 rounded-xl p-4" style={{ background: "rgba(46,204,113,0.07)", border: "1px solid rgba(46,204,113,0.18)" }}>
                 <p className="text-xs font-black uppercase tracking-wide" style={{ color: "#A7F3D0" }}>Step 1</p>
                 <p className="mt-1 text-sm font-black" style={{ color: "var(--text-primary)" }}>Donate to {recipientLabel}</p>
@@ -232,10 +251,11 @@ export function DonationLogModal({ projectId, projectTitle, onClose, initialAmou
                   iSkipped does not process, verify, or manage outside donations.
                 </p>
               </div>
+              )}
               <div className="mb-4">
-                <p className="text-xs font-black uppercase tracking-wide" style={{ color: "var(--text-muted)" }}>Step 2</p>
+                <p className="text-xs font-black uppercase tracking-wide" style={{ color: "var(--text-muted)" }}>{mode === "log" ? "Donation details" : "Step 2"}</p>
                 <p className="mt-1 text-sm" style={{ color: "var(--text-secondary)" }}>
-                  After donating, log the amount here.
+                  {mode === "log" ? `How much did you donate to ${recipientLabel}?` : "After donating, log the amount here."}
                 </p>
               </div>
               <div className="space-y-3 mb-5">

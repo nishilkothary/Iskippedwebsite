@@ -125,6 +125,8 @@ export interface Skip {
   whatSkipped?: string;
   notes?: string;
   allocationTarget?: SkipAllocationTarget | null;
+  /** Whether this fundraiser skip may appear in the fundraiser group feed. */
+  shareWithCommunity?: boolean;
 }
 
 export interface Project {
