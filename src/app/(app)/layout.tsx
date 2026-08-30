@@ -13,6 +13,7 @@ import { getSkipBalanceSummary } from "@/lib/utils/skipBalances";
 import { Project } from "@/lib/types/models";
 import { SkipBucksBill } from "@/components/SkipBucksBill";
 import { ExtensionSync } from "@/components/ExtensionSync";
+import { signInHrefFor } from "@/lib/utils/authRedirect";
 
 const NAV_ITEMS = [
   { href: "/home",        label: "Home",       emoji: "🏠", tab: null },
@@ -313,11 +314,12 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
 
   useEffect(() => {
     if (!isLoading && !user) {
-      router.replace("/sign-in");
+      const destination = `${window.location.pathname}${window.location.search}${window.location.hash}`;
+      router.replace(signInHrefFor(destination));
     }
   }, [user, isLoading, router]);
 
-  if (isLoading && !profile) {
+  if (isLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center" style={{ background: "var(--bg-base)" }}>
         <div className="w-8 h-8 border-4 border-t-transparent rounded-full animate-spin" style={{ borderColor: "var(--green-primary)", borderTopColor: "transparent" }} />

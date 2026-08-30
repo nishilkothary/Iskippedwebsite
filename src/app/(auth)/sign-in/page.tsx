@@ -1,10 +1,11 @@
 "use client";
-import { useEffect, useState, Suspense } from "react";
+import { useEffect, useRef, useState, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { toast } from "sonner";
 import { signInWithGoogle, signUpWithEmail, signInWithEmail, resetPassword } from "@/lib/services/firebase/auth";
 import { useAuthStore } from "@/store/authStore";
+import { safeAuthDestination } from "@/lib/utils/authRedirect";
 
 const previewSkips = [
   { emoji: "☕", label: "Morning Latte", amount: "+$5.50", sub: "Added to Skip Bucks", delay: "0s" },
@@ -43,7 +44,7 @@ function friendlyAuthError(e: any): string {
   if (code === "auth/email-already-in-use")
     return "That email is already registered. Try signing in instead.";
   if (code === "auth/wrong-password" || code === "auth/invalid-credential")
-    return "Incorrect email or password. Please try again.";
+    return "That email and password didn't match. If you originally used Google, choose Google above. Otherwise, reset your password.";
   if (code === "auth/user-not-found")
     return "No account found with that email. Try signing up.";
   if (code === "auth/weak-password")
@@ -52,9 +53,13 @@ function friendlyAuthError(e: any): string {
     return "Please enter a valid email address.";
   if (code === "auth/popup-blocked")
     return "Popup was blocked by your browser. Please allow popups and try again.";
+  if (code === "auth/network-request-failed")
+    return "We couldn't reach the sign-in service. Check your connection and try again.";
+  if (code === "auth/user-disabled")
+    return "This account has been disabled. Please contact support.";
   if (code === "auth/too-many-requests")
     return "Too many attempts. Please wait a moment and try again.";
-  return e?.message || "Something went wrong. Please try again.";
+  return "We couldn't sign you in. Please try again or reset your password.";
 }
 
 function SignInPage() {
@@ -68,17 +73,21 @@ function SignInPage() {
   const [mode, setMode] = useState<"signup" | "signin" | "forgot">(initialMode);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
   const [name, setName] = useState("");
   const [cardsVisible, setCardsVisible] = useState(false);
   const [resetLoading, setResetLoading] = useState(false);
   const [resetSent, setResetSent] = useState(false);
   const [emailSignupInProgress, setEmailSignupInProgress] = useState(false);
+  const navigationStarted = useRef(false);
 
   const redirectParam = searchParams.get("redirect");
-  const postAuthDestination = redirectParam?.startsWith("/") && !redirectParam.startsWith("//") ? redirectParam : "/home";
+  const postAuthDestination = safeAuthDestination(redirectParam);
   const isChallengeRedirect = postAuthDestination.startsWith("/challenges/");
 
   function finishAuthNavigation() {
+    if (navigationStarted.current) return;
+    navigationStarted.current = true;
     router.replace(postAuthDestination);
   }
 
@@ -86,8 +95,8 @@ function SignInPage() {
     // Google popup sign-in updates Firebase auth state before the popup's
     // callback has fully completed on some mobile browsers. Navigating the
     // opener at that moment strands the callback tab on an error screen.
-    if (!isLoading && user && !emailSignupInProgress && !googleLoading) finishAuthNavigation();
-  }, [user, isLoading, emailSignupInProgress, googleLoading, router, postAuthDestination]);
+    if (!isLoading && user && !emailSignupInProgress && !googleLoading && !emailLoading) finishAuthNavigation();
+  }, [user, isLoading, emailSignupInProgress, googleLoading, emailLoading, router, postAuthDestination]);
 
   useEffect(() => {
     const t = setTimeout(() => setCardsVisible(true), 200);
@@ -112,7 +121,9 @@ function SignInPage() {
       // helper runs on firebaseapp.com. A user-initiated popup works across
       // desktop and mobile without depending on third-party storage.
       await signInWithGoogle();
-      finishAuthNavigation();
+      // The shared auth listener owns navigation readiness. It waits until the
+      // authenticated user and their profile agree before this effect moves on.
+      setGoogleLoading(false);
     } catch (e: any) {
       setError(friendlyAuthError(e));
       setGoogleLoading(false);
@@ -128,12 +139,10 @@ function SignInPage() {
     setEmailSignupInProgress(mode === "signup");
     try {
       if (mode === "signup") {
-        await signUpWithEmail(email, password, name.trim());
+        await signUpWithEmail(email.trim(), password, name.trim());
         toast.success("Account created.");
-        finishAuthNavigation();
       } else {
-        await signInWithEmail(email, password);
-        finishAuthNavigation();
+        await signInWithEmail(email.trim(), password);
       }
     } catch (e: any) {
       setError(friendlyAuthError(e));
@@ -148,10 +157,11 @@ function SignInPage() {
     if (!email.trim()) { setError("Please enter your email address."); return; }
     setResetLoading(true);
     try {
-      await resetPassword(email);
+      await resetPassword(email.trim());
       setResetSent(true);
     } catch (e: any) {
       setError(friendlyAuthError(e));
+    } finally {
       setResetLoading(false);
     }
   }
@@ -207,13 +217,17 @@ function SignInPage() {
         <div className="space-y-3">
           {resetSent ? (
             <div className="p-4 bg-emerald-50 border border-emerald-200 rounded-xl text-sm text-emerald-700 text-center">
-              Check your inbox. We sent a reset link to <span className="font-semibold">{email}</span>.
+              <span className="font-semibold block">Check your inbox for your password reset link.</span>
+              <span className="block mt-1">
+                We sent it to {email}. If it isn&apos;t there within a few minutes, check Spam or Junk and mark it as not spam.
+              </span>
             </div>
           ) : (
             <>
               <p className="text-sm text-[#6B7280] mb-1">Enter your email and we&apos;ll send you a reset link.</p>
               <input
                 type="email"
+                autoComplete="email"
                 placeholder="Email"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
@@ -264,6 +278,7 @@ function SignInPage() {
             {mode === "signup" && (
               <input
                 type="text"
+                autoComplete="name"
                 placeholder="Your name"
                 value={name}
                 onChange={(e) => setName(e.target.value)}
@@ -274,6 +289,7 @@ function SignInPage() {
             )}
             <input
               type="email"
+              autoComplete="email"
               placeholder="Email"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
@@ -281,15 +297,26 @@ function SignInPage() {
               maxLength={254}
               className="w-full px-4 py-3 border border-[#E5E7EB] rounded-xl text-sm text-[#111827] focus:outline-none focus:ring-2 focus:ring-[#3D8B68]"
             />
-            <input
-              type="password"
-              placeholder="Password"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              onKeyDown={handleKeyDown}
-              maxLength={128}
-              className="w-full px-4 py-3 border border-[#E5E7EB] rounded-xl text-sm text-[#111827] focus:outline-none focus:ring-2 focus:ring-[#3D8B68]"
-            />
+            <div className="relative">
+              <input
+                type={showPassword ? "text" : "password"}
+                autoComplete={mode === "signup" ? "new-password" : "current-password"}
+                placeholder="Password"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                onKeyDown={handleKeyDown}
+                maxLength={128}
+                className="w-full pl-4 pr-16 py-3 border border-[#E5E7EB] rounded-xl text-sm text-[#111827] focus:outline-none focus:ring-2 focus:ring-[#3D8B68]"
+              />
+              <button
+                type="button"
+                onClick={() => setShowPassword((visible) => !visible)}
+                className="absolute inset-y-0 right-0 px-4 text-xs font-semibold text-[#6B7280] hover:text-[#3D8B68]"
+                aria-label={showPassword ? "Hide password" : "Show password"}
+              >
+                {showPassword ? "Hide" : "Show"}
+              </button>
+            </div>
             {mode === "signin" && (
               <div className="text-right">
                 <button

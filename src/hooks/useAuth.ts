@@ -21,12 +21,19 @@ export function useAuth() {
       unsubProfileRef.current?.();
       unsubProfileRef.current = null;
 
+      // A later sign-in can arrive after the initial signed-out callback has
+      // already set loading to false. Settle every auth transition afresh so a
+      // protected route never races ahead of the matching profile.
+      setLoading(true);
       setUser(authUser);
       causeChecked.current = false;
       if (!authUser) {
         setProfile(null);
         setLoading(false);
         return;
+      }
+      if (useAuthStore.getState().profile?.uid !== authUser.uid) {
+        setProfile(null);
       }
       unsubProfileRef.current = onSnapshot(
         doc(db, "users", authUser.uid),
@@ -44,6 +51,8 @@ export function useAuth() {
               resetActiveProjectIfRemoved(authUser.uid, data.activeProjectId);
             }
             setProfile(data);
+          } else {
+            setProfile(null);
           }
           setLoading(false);
         },
