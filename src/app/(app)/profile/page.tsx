@@ -379,9 +379,9 @@ export default function ProfilePage() {
           <div className="p-5" style={{ ...cardStyle, borderRadius: 20 }}>
             <div className="flex items-center justify-between gap-4">
               <div>
-                <p className="text-sm font-bold" style={{ color: "var(--text-primary)" }}>🔔 Allow weekly push reminders to log a skip</p>
+                <p className="text-sm font-bold" style={{ color: "var(--text-primary)" }}>🔔 Allow weekly push reminders</p>
                 <p className="text-xs mt-1" style={{ color: "var(--text-secondary)" }}>
-                  Streak reminders and challenge activity, sent to this device.
+                  Friday reminders to plan your weekend skips, plus challenge activity, sent to this device.
                 </p>
               </div>
               <button

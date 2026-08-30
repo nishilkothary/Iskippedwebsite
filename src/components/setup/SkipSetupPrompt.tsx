@@ -284,7 +284,7 @@ export function SkipSetupPrompt({ mode, onClose }: Props) {
           </h2>
           <p className="mt-2 text-sm leading-relaxed" style={{ color: "var(--text-secondary)" }}>
             {notificationPrompt
-              ? "We’ll check in every Sunday so you can log your skips and watch your savings grow."
+              ? "We’ll check in every Friday to help you spot expenses you could skip over the weekend."
               : "Add iSkipped to your Home Screen for quick access whenever you skip something."}
           </p>
 
@@ -392,7 +392,7 @@ export function SkipSetupPrompt({ mode, onClose }: Props) {
           <p className="text-xs font-black" style={{ color: "var(--text-primary)" }}>Keep this going next week</p>
           <p className="text-[11px] mt-0.5 leading-relaxed" style={{ color: "var(--text-secondary)" }}>
             {notificationPrompt
-              ? "Allow one Sunday reminder to log your skips."
+              ? "Allow one Friday reminder to plan your weekend skips."
               : "Add iSkipped to your phone for quick access."}
           </p>
         </div>

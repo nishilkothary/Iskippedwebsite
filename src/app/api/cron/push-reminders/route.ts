@@ -13,8 +13,10 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  const dayOfWeek = new Date().getDay(); // 0=Sun (server runs in UTC on Vercel)
-  const isWeeklyReminderDay = dayOfWeek === 0;
+  const dayOfWeek = new Date().getUTCDay(); // Match the cron's UTC schedule: 5=Fri.
+  if (dayOfWeek !== 5) {
+    return NextResponse.json({ checked: 0, weeklyNudges: 0, failed: 0 });
+  }
 
   const db = getAdminDb();
   const snap = await db.collection("users").where("pushOptIn", "==", true).get();
@@ -29,10 +31,9 @@ export async function GET(req: NextRequest) {
       batch.map(async (u) => {
         if (!u.fcmTokens?.length) return;
         try {
-          if (!isWeeklyReminderDay) return;
           await sendPushToUser(u.uid, {
-            title: "Did you skip anything this week?",
-            body: "Don’t forget to log your skips and watch your savings grow.",
+            title: "Any expenses you can skip this weekend?",
+            body: "Find a little saving this weekend. Log what you skip and watch your savings grow.",
             url: "/home",
           });
           weeklyNudges++;
