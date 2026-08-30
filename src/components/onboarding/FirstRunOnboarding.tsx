@@ -11,6 +11,7 @@ import {
   type SavingMotivation,
 } from "@/lib/services/firebase/users";
 import { getActiveSkipTarget } from "@/lib/utils/skipTargets";
+import { ONBOARDING_REWARD_HREF } from "@/lib/utils/rewardFormNavigation";
 
 const GENERAL_COPY = "Start by logging something you decided not to buy. Your Skip Scoreboard will show how those savings add up. Whenever you’re ready, choose a cause or reward to save for in the Skip Jars tab.";
 
@@ -112,10 +113,10 @@ export function FirstRunOnboarding() {
 
   if (motivation === "reward") {
     return (
-      <OnboardingModal title="Choose something worth saving for">
-        <p className="text-sm leading-relaxed" style={{ color: "var(--text-secondary)" }}>Add the purchase or experience you want your skipped spending to help pay for.</p>
+      <OnboardingModal title="Great! Let’s get you started on your goal.">
+        <p className="text-sm leading-relaxed" style={{ color: "var(--text-secondary)" }}>Add an item, experience, or goal you want your savings to help pay for.</p>
         <div className="space-y-2">
-          <PrimaryButton onClick={() => router.push("/jars?tab=live&add=reward&skip=1&onboarding=choose")}>Add What I&apos;m Saving For</PrimaryButton>
+          <PrimaryButton onClick={() => router.push(ONBOARDING_REWARD_HREF)}>Add What I&apos;m Saving For</PrimaryButton>
           <LaterButton onClick={() => void decideLater()} />
         </div>
       </OnboardingModal>
@@ -136,7 +137,7 @@ export function FirstRunOnboarding() {
 
   if (motivation === "save-more" || motivation === "decide-later") {
     return (
-      <OnboardingModal title="See how your savings add up">
+      <OnboardingModal title="See Your Savings Grow" compactTitle onClose={() => void dismissOnboarding()}>
         <p className="text-sm leading-relaxed" style={{ color: "var(--text-secondary)" }}>{GENERAL_COPY}</p>
         <PrimaryButton onClick={() => void logFirstSkip()}>Log Your First Skip</PrimaryButton>
       </OnboardingModal>
@@ -163,7 +164,7 @@ export function FirstRunOnboarding() {
   );
 }
 
-function OnboardingModal({ eyebrow, title, children, onClose }: { eyebrow?: string; title: string; children: React.ReactNode; onClose?: () => void }) {
+function OnboardingModal({ eyebrow, title, children, onClose, compactTitle = false }: { eyebrow?: string; title: string; children: React.ReactNode; onClose?: () => void; compactTitle?: boolean }) {
   return (
     <div className="fixed inset-0 z-[55] flex items-center justify-center bg-black/70 p-4">
       <section role="dialog" aria-modal="true" aria-labelledby="first-run-title" className="relative w-full max-w-lg rounded-3xl p-5 shadow-2xl sm:p-6" style={{ background: "var(--bg-surface-1)", border: "1px solid var(--border-emphasis)" }}>
@@ -179,7 +180,7 @@ function OnboardingModal({ eyebrow, title, children, onClose }: { eyebrow?: stri
           </button>
         )}
         {eyebrow && <p className="text-[11px] font-black uppercase tracking-[0.18em]" style={{ color: "var(--green-primary)" }}>{eyebrow}</p>}
-        <h1 id="first-run-title" className={`${eyebrow ? "mt-2 " : ""}${onClose ? "pr-10 " : ""}text-2xl font-black leading-tight sm:text-3xl`} style={{ color: "var(--text-primary)" }}>{title}</h1>
+        <h1 id="first-run-title" className={`${eyebrow ? "mt-2 " : ""}${onClose ? "pr-10 " : ""}${compactTitle ? "text-[clamp(1rem,5vw,1.5rem)]" : "text-2xl"} font-black leading-tight sm:text-3xl`} style={{ color: "var(--text-primary)" }}>{title}</h1>
         <div className="mt-3 space-y-4">{children}</div>
       </section>
     </div>

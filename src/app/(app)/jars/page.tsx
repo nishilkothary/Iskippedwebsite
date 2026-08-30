@@ -34,6 +34,7 @@ import { Project, SpendingGoal, DonationEvent, SkipAllocationTarget } from "@/li
 import { DonationLogModal } from "@/components/skip/DonationLogModal";
 import { apiRequest } from "@/lib/services/firebase/apiClient";
 import { getPersonalFundraiserGoalProgress, isValidRaisedFundraiserGoal } from "@/lib/utils/fundraiserGoals";
+import { rewardFormReadyHref } from "@/lib/utils/rewardFormNavigation";
 
 const rewardArtwork = [
   { background: "linear-gradient(135deg, #4C1D95 0%, #8B5CF6 48%, #E9D5FF 140%)", accent: "#E9D5FF" },
@@ -1579,6 +1580,7 @@ function JarBrowser({
   const [shopView, setShopView] = useState<"rewards" | "fundraisers">(
     searchParams.get("tab") === "live" || activeSkipTarget?.type === "goal" ? "rewards" : "fundraisers"
   );
+  const rewardFormReadyUrl = rewardFormReadyHref(searchParams.get("onboarding") === "choose");
   const [showAddForm, setShowAddForm] = useState(false);
   const [addLabel, setAddLabel] = useState("");
   const [addAmount, setAddAmount] = useState("");
@@ -1691,8 +1693,8 @@ function JarBrowser({
     setAddImageSource(image ? "manual" : null);
     setProductPreviewStatus("idle");
     setAddImageError("");
-    router.replace("/jars?tab=live");
-  }, [autoOpenRewardAmount, autoOpenRewardCategory, autoOpenRewardForm, autoOpenRewardLabel, autoOpenRewardSkip, router]);
+    router.replace(rewardFormReadyUrl);
+  }, [autoOpenRewardAmount, autoOpenRewardCategory, autoOpenRewardForm, autoOpenRewardLabel, autoOpenRewardSkip, rewardFormReadyUrl, router]);
 
   useEffect(() => {
     if (!autoOpenFundraiserForm) return;
