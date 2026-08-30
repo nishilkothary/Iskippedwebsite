@@ -65,7 +65,7 @@ function friendlyAuthError(e: any): string {
 function SignInPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const { user, isLoading } = useAuthStore();
+  const { user, profile, isLoading } = useAuthStore();
   const [error, setError] = useState<string | null>(null);
   const [googleLoading, setGoogleLoading] = useState(false);
   const [emailLoading, setEmailLoading] = useState(false);
@@ -80,6 +80,7 @@ function SignInPage() {
   const [resetSent, setResetSent] = useState(false);
   const [emailSignupInProgress, setEmailSignupInProgress] = useState(false);
   const navigationStarted = useRef(false);
+  const googleRecoveryTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const redirectParam = searchParams.get("redirect");
   const postAuthDestination = safeAuthDestination(redirectParam);
@@ -95,8 +96,8 @@ function SignInPage() {
     // Google popup sign-in updates Firebase auth state before the popup's
     // callback has fully completed on some mobile browsers. Navigating the
     // opener at that moment strands the callback tab on an error screen.
-    if (!isLoading && user && !emailSignupInProgress && !googleLoading && !emailLoading) finishAuthNavigation();
-  }, [user, isLoading, emailSignupInProgress, googleLoading, emailLoading, router, postAuthDestination]);
+    if (!isLoading && user && profile?.uid === user.uid && !emailSignupInProgress && !googleLoading && !emailLoading) finishAuthNavigation();
+  }, [user, profile, isLoading, emailSignupInProgress, googleLoading, emailLoading, router, postAuthDestination]);
 
   useEffect(() => {
     const t = setTimeout(() => setCardsVisible(true), 200);
@@ -105,17 +106,27 @@ function SignInPage() {
 
   useEffect(() => {
     function handlePageShow() {
+      if (googleRecoveryTimer.current) clearTimeout(googleRecoveryTimer.current);
+      googleRecoveryTimer.current = null;
       setGoogleLoading(false);
     }
 
     window.addEventListener("pageshow", handlePageShow);
-    return () => window.removeEventListener("pageshow", handlePageShow);
+    return () => {
+      window.removeEventListener("pageshow", handlePageShow);
+      if (googleRecoveryTimer.current) clearTimeout(googleRecoveryTimer.current);
+    };
   }, []);
 
   async function handleGoogleSignIn() {
     if (googleLoading) return;
     setError(null);
     setGoogleLoading(true);
+    googleRecoveryTimer.current = setTimeout(() => {
+      setGoogleLoading(false);
+      setError("Google sign-in is taking longer than expected. You can try again, choose another Google account, or use email below.");
+      googleRecoveryTimer.current = null;
+    }, 15000);
     try {
       // Redirect sign-in is blocked by modern mobile browsers when Firebase's
       // helper runs on firebaseapp.com. A user-initiated popup works across
@@ -127,6 +138,9 @@ function SignInPage() {
     } catch (e: any) {
       setError(friendlyAuthError(e));
       setGoogleLoading(false);
+    } finally {
+      if (googleRecoveryTimer.current) clearTimeout(googleRecoveryTimer.current);
+      googleRecoveryTimer.current = null;
     }
   }
 

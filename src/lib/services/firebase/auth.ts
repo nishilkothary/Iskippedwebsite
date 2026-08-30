@@ -38,8 +38,17 @@ async function finishGoogleSignIn(user: User): Promise<User> {
 
 export async function signInWithGoogle(): Promise<User> {
   const provider = new GoogleAuthProvider();
+  // Always let people choose the Google account they intend to use. Without
+  // this, mobile browsers often silently reuse the device's last Google account.
+  provider.setCustomParameters({ prompt: "select_account" });
   const result = await signInWithPopup(auth, provider);
-  return finishGoogleSignIn(result.user);
+  // The Firebase credential is now valid. Profile creation, referral
+  // attribution, and install handoff must never keep the sign-in screen stuck
+  // if Firestore or a non-critical API is temporarily slow.
+  void finishGoogleSignIn(result.user).catch((error) => {
+    console.warn("Google sign-in follow-up could not finish yet", error);
+  });
+  return result.user;
 }
 
 export async function signUpWithEmail(
