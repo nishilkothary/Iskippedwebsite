@@ -929,24 +929,6 @@ export function SkipModal({ onClose }: Props) {
     const meterBeforeAmount = progressTarget > 0 ? jarBalanceBefore : Math.max(0, successSkipBank - amount);
     const meterAfterAmount = progressTarget > 0 ? successJarBalance : successSkipBank;
     const hasImpactProgress = Boolean(successActiveProject && successProjectUnitCost);
-    const impactProgressLabel = hasImpactProgress
-      ? formatSuccessImpactUnits(
-          successJarBalance,
-          successProjectUnitCost!,
-          unitLabel,
-          successProjectUnitDisplay,
-          successActiveProject?.unitIsGoal
-        )
-      : "";
-    const impactAddedLabel = hasImpactProgress
-      ? `+${formatSuccessImpactUnits(
-          amount,
-          successProjectUnitCost!,
-          unitLabel,
-          successProjectUnitDisplay,
-          successActiveProject?.unitIsGoal
-        )}`
-      : "";
     const impactAddedValue = hasImpactProgress
       ? formatSuccessImpactUnits(
           amount,
@@ -956,11 +938,6 @@ export function SkipModal({ onClose }: Props) {
           successActiveProject?.unitIsGoal
         )
       : "";
-    const progressLabel = progressTarget > 0
-      ? hasImpactProgress
-        ? impactProgressLabel
-        : `${beforeCoverage}% -> ${afterCoverage}%`
-      : formatCurrency(successSkipBank);
     const impactProof = successActiveProject && successProjectUnitCost
       ? `About ${unitPhrase}`
       : activeGoal && progressTarget > 0
@@ -1032,52 +1009,35 @@ export function SkipModal({ onClose }: Props) {
                   <p className="mt-1 text-[1.35rem] font-black leading-tight" style={{ color: successAccent }}>
                     {impactAddedValue}
                   </p>
-                  <p className="mt-2 text-xs font-bold leading-snug" style={{ color: "var(--text-muted)" }}>
-                    {progressLabel} saved in this jar.
-                  </p>
                 </div>
               ) : (
-                <div className="flex items-center justify-between gap-3">
-                  <div>
-                    <p className="text-[10px] font-black uppercase tracking-[0.16em]" style={{ color: "var(--text-muted)" }}>
-                      {progressTarget > 0 ? "Jar progress" : "Skip Bucks"}
-                    </p>
-                    <p className="mt-1 text-xl font-black" style={{ color: "var(--text-primary)" }}>
-                      {progressLabel}
-                    </p>
-                  </div>
-                  <div className="text-right">
-                    <p className="text-[10px] font-black uppercase tracking-[0.16em]" style={{ color: "var(--text-muted)" }}>
-                      Added
-                    </p>
-                    <p className="mt-1 text-2xl font-black" style={{ color: successAccent }}>
-                      +{formatCurrency(amount)}
-                    </p>
-                  </div>
+                <div>
+                  <p className="text-[10px] font-black uppercase tracking-[0.16em]" style={{ color: "var(--text-muted)" }}>
+                    {progressTarget > 0 ? "Added to your jar" : "Added to Skip Bucks"}
+                  </p>
+                  <p className="mt-1 text-2xl font-black" style={{ color: successAccent }}>
+                    +{formatCurrency(amount)}
+                  </p>
                 </div>
               )}
-              <div className="mt-3 h-3 overflow-hidden rounded-full" style={{ background: "rgba(237,245,240,0.1)" }}>
-                <div
-                  className="h-full rounded-full iskip-success-fill"
-                  style={{
-                    "--fill-from": `${progressTarget > 0 ? beforeCoverage : 0}%`,
-                    "--fill-to": `${progressTarget > 0 ? afterCoverage : 100}%`,
-                    background: successAccent,
-                  } as CSSProperties}
-                />
-              </div>
+              {!successActiveProject && (
+                <div className="mt-3 h-3 overflow-hidden rounded-full" style={{ background: "rgba(237,245,240,0.1)" }}>
+                  <div
+                    className="h-full rounded-full iskip-success-fill"
+                    style={{
+                      "--fill-from": `${progressTarget > 0 ? beforeCoverage : 0}%`,
+                      "--fill-to": `${progressTarget > 0 ? afterCoverage : 100}%`,
+                      background: successAccent,
+                    } as CSSProperties}
+                  />
+                </div>
+              )}
             </div>
 
             {successHighlight === "largest" && (
               <div className="mt-3 rounded-xl px-3 py-2 text-left" style={{ background: "var(--bg-surface-2)" }}>
                 <p className="text-[10px] font-black uppercase tracking-[0.12em]" style={{ color: "var(--text-muted)" }}>Largest skip</p>
                 <p className="mt-0.5 text-sm font-black" style={{ color: "var(--text-primary)" }}>{formatCurrency(amount)}</p>
-              </div>
-            )}
-            {successHighlight === "skip-number" && (
-              <div className="mt-3 rounded-xl px-3 py-2 text-left" style={{ background: "var(--bg-surface-2)" }}>
-                <p className="text-[10px] font-black uppercase tracking-[0.12em]" style={{ color: "var(--text-muted)" }}>Skip milestone</p>
-                <p className="mt-0.5 text-sm font-black" style={{ color: "var(--text-primary)" }}>#{postLogSkipCount}</p>
               </div>
             )}
             <div className="mt-4 rounded-2xl px-4 py-3 text-left" style={{ background: "var(--bg-surface-2)" }}>
