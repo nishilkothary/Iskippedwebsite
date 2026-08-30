@@ -97,6 +97,7 @@ export async function createOrUpdateUser(user: User): Promise<boolean> {
       favoriteCauseIds: [],
       shareSkipsByDefault: true,
       emailVerified: user.emailVerified,
+      onboardingCompletedAt: null,
       createdAt: serverTimestamp(),
     };
     await setDoc(ref, profile);
@@ -109,6 +110,16 @@ export async function createOrUpdateUser(user: User): Promise<boolean> {
     console.warn("Could not synchronize global user count", error);
   });
   return isNew;
+}
+
+export type SavingMotivation = NonNullable<UserProfile["savingMotivation"]>;
+
+export async function setSavingMotivation(uid: string, savingMotivation: SavingMotivation): Promise<void> {
+  await updateDoc(doc(db, "users", uid), { savingMotivation });
+}
+
+export async function completeFirstRunOnboarding(uid: string): Promise<void> {
+  await updateDoc(doc(db, "users", uid), { onboardingCompletedAt: serverTimestamp() });
 }
 
 export async function dismissSetupPrompt(uid: string): Promise<void> {

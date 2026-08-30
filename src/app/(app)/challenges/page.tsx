@@ -406,6 +406,14 @@ export default function ChallengesPage() {
         groupName: data.groupName,
         tags: ["custom", "challenge", data.category, visibilityTagFor(data.visibility), ...(data.isOrganization ? ["organization"] : [])],
       });
+      if (profile?.onboardingCompletedAt === null && profile.savingMotivation === "fundraiser") {
+        await pinProjectToHome(user.uid, projectId);
+        updateProfile({
+          activeProjectId: projectId,
+          activeSkipTarget: { type: "fundraiser", id: projectId },
+          joinedProjectIds: Array.from(new Set([...(profile.joinedProjectIds ?? []), projectId])),
+        });
+      }
       await refetch();
       setShowCreateForm(false);
       router.push(`/challenges/${projectId}/manage`);

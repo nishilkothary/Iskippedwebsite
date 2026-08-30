@@ -14,6 +14,7 @@ import { Project } from "@/lib/types/models";
 import { SkipBucksBill } from "@/components/SkipBucksBill";
 import { ExtensionSync } from "@/components/ExtensionSync";
 import { signInHrefFor } from "@/lib/utils/authRedirect";
+import { FirstRunOnboarding } from "@/components/onboarding/FirstRunOnboarding";
 
 const NAV_ITEMS = [
   { href: "/home",        label: "Home",       emoji: "🏠", tab: null },
@@ -345,6 +346,9 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
       </main>
 
       {showSkipPicker && <SkipModal onClose={() => setShowSkipPicker(false)} />}
+      <Suspense fallback={null}>
+        <FirstRunOnboarding />
+      </Suspense>
 
       <Suspense fallback={null}>
         <MobileBottomNav onLogSkip={() => setShowSkipPicker(true)} />

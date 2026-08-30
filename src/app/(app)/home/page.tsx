@@ -1234,7 +1234,6 @@ export default function HomePage() {
   const [jarCarouselIndex, setJarCarouselIndex] = useState(0);
   const jarCarouselSwipe = useRef<{ x: number; y: number; pointerId: number } | null>(null);
   const suppressCarouselClick = useRef(false);
-  const [dismissedJarCarousel, setDismissedJarCarousel] = useState(false);
   const [homeFundingTarget, setHomeFundingTarget] = useState<SkipAllocationTarget | null>(null);
   const [homeFundingAmountStr, setHomeFundingAmountStr] = useState("");
   const [homeFundingWorking, setHomeFundingWorking] = useState(false);
@@ -1242,14 +1241,6 @@ export default function HomePage() {
   const [homeFundraiserGoalStr, setHomeFundraiserGoalStr] = useState("");
   const [homeFundraiserWorking, setHomeFundraiserWorking] = useState(false);
   const handledContributionQuery = useRef<string | null>(null);
-
-  useEffect(() => {
-    try {
-      setDismissedJarCarousel(window.localStorage.getItem("iskipped.dismissedNoJarCarousel") === "true");
-    } catch {
-      setDismissedJarCarousel(false);
-    }
-  }, []);
 
   useEffect(() => {
     const requestedMode = searchParams.get("contribute");
@@ -1691,12 +1682,12 @@ export default function HomePage() {
   }
 
   useEffect(() => {
-    if (projectsLoading || activeGoal || activeProject || dismissedJarCarousel || jarCarouselItems.length < 2) return;
+    if (projectsLoading || activeGoal || activeProject || jarCarouselItems.length < 2) return;
     const id = window.setInterval(() => {
       setJarCarouselIndex((current) => (current + 1) % jarCarouselItems.length);
     }, 6500);
     return () => window.clearInterval(id);
-  }, [activeGoal, activeProject, dismissedJarCarousel, jarCarouselItems.length, projectsLoading]);
+  }, [activeGoal, activeProject, jarCarouselItems.length, projectsLoading]);
 
   const cardStyle: React.CSSProperties = {
     background: "var(--bg-surface-1)",
@@ -2232,22 +2223,9 @@ export default function HomePage() {
 
       {/* What it could become */}
       <div style={{ marginTop: 32, marginBottom: 28 }}>
-        {!projectsLoading && !activeGoal && !activeProject && !dismissedJarCarousel && activeJarCarouselItem && (
+        {!projectsLoading && !activeGoal && !activeProject && activeJarCarouselItem && (
           <div className="home-suggestion-card" style={{ ...cardStyle, padding: 18, overflow: "hidden", background: "linear-gradient(180deg, rgba(237,245,240,0.055), var(--bg-surface-1))", border: "1px solid rgba(237,245,240,0.11)", position: "relative" }}>
-            <button
-              type="button"
-              aria-label="Hide jar suggestions"
-              onClick={() => {
-                setDismissedJarCarousel(true);
-                try {
-                  window.localStorage.setItem("iskipped.dismissedNoJarCarousel", "true");
-                } catch {}
-              }}
-              style={{ position: "absolute", top: 14, right: 14, width: 24, height: 24, borderRadius: 999, background: "rgba(237,245,240,0.055)", border: "1px solid rgba(237,245,240,0.1)", color: "var(--text-muted)", fontSize: 13, fontWeight: 900, lineHeight: 1 }}
-            >
-              x
-            </button>
-            <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 14, marginBottom: 14, paddingRight: 34 }}>
+            <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 14, marginBottom: 14 }}>
               <div style={{ minWidth: 0 }}>
                 <p className="home-suggestion-title" style={{ fontWeight: 950, color: "var(--text-primary)", lineHeight: 1.05 }}>
                   Need Motivation to Skip?

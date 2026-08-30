@@ -44,6 +44,7 @@ function timestampMs(value: any): number | null {
 export function SkipSetupPrompt({ mode, onClose }: Props) {
   const { user, profile, updateProfile } = useAuthStore();
   const [isMobile, setIsMobile] = useState(false);
+  const [installed, setInstalled] = useState(false);
   const [pushSupported, setPushSupported] = useState(false);
   const [pushBusy, setPushBusy] = useState(false);
   const [installPlatform, setInstallPlatform] = useState<InstallPlatform>(null);
@@ -70,7 +71,9 @@ export function SkipSetupPrompt({ mode, onClose }: Props) {
       if (active) setPushSupported(supported);
     });
 
-    if (isStandalone()) {
+    const standalone = isStandalone();
+    setInstalled(standalone);
+    if (standalone) {
       setReady(true);
       return () => {
         active = false;
@@ -109,11 +112,12 @@ export function SkipSetupPrompt({ mode, onClose }: Props) {
   const completed = !!profile?.setupPromptCompletedAt;
   const weeklyReminderDismissed = !!profile?.weeklyReminderPromptDismissedAt;
   const notificationDenied = typeof window !== "undefined" && "Notification" in window && Notification.permission === "denied";
-  const showPushAction = isMobile && pushSupported && !notificationDenied && !profile?.pushOptIn;
-  const showInstallAction = isMobile && installPlatform !== null;
+  const showPushAction = isMobile && installed && pushSupported && !notificationDenied && !profile?.pushOptIn;
+  const showInstallAction = isMobile && !installed && installPlatform !== null;
   const setupEligible = isMobile && !!user && !!profile && !completed && !snoozed && (showPushAction || showInstallAction);
   const reminderOnly = isMobile && !!user && !!profile && completed && showPushAction && !showInstallAction && !weeklyReminderDismissed;
   const eligible = setupEligible || reminderOnly;
+  const notificationPrompt = showPushAction && !showInstallAction;
 
   useEffect(() => {
     if ((mode === "inline" || mode === "modal") && ready && !eligible) {
@@ -183,16 +187,6 @@ export function SkipSetupPrompt({ mode, onClose }: Props) {
       if (!showPushAction) {
         await complete();
       }
-    }
-  }
-
-  async function handlePrimarySetup() {
-    if (showInstallAction) {
-      await handleInstall();
-      return;
-    }
-    if (showPushAction) {
-      await handlePush();
     }
   }
 
@@ -270,16 +264,13 @@ export function SkipSetupPrompt({ mode, onClose }: Props) {
           >
             🔥
           </div>
-          <p className="text-[11px] font-black uppercase tracking-[0.18em]" style={{ color: "var(--green-primary)" }}>
-            {reminderOnly ? "Weekly check-in" : "Keep the streak going"}
-          </p>
-          <h2 id="skip-setup-title" className="mt-2 text-2xl font-black leading-tight" style={{ color: "var(--text-primary)" }}>
-            {reminderOnly ? "Allow one weekly reminder?" : "Make next week easy"}
+          <h2 id="skip-setup-title" className="text-2xl font-black leading-tight" style={{ color: "var(--text-primary)" }}>
+            {notificationPrompt ? "Get one weekly reminder?" : "Keep the savings going"}
           </h2>
           <p className="mt-2 text-sm leading-relaxed" style={{ color: "var(--text-secondary)" }}>
-            {reminderOnly
-              ? "We'll remind you once a week to log anything you skipped."
-              : "Add iSkipped to your Home Screen and get one weekly reminder to log a skip."}
+            {notificationPrompt
+              ? "We’ll check in every Sunday so you can log your skips and watch your savings grow."
+              : "Add iSkipped to your Home Screen for quick access whenever you skip something."}
           </p>
 
           <div className="mt-5 space-y-3 text-left">
@@ -295,9 +286,6 @@ export function SkipSetupPrompt({ mode, onClose }: Props) {
                 </span>
                 <span className="min-w-0">
                   <span className="block text-sm font-black" style={{ color: "var(--text-primary)" }}>Add to Home Screen</span>
-                  <span className="block text-xs mt-1 leading-relaxed" style={{ color: "var(--text-muted)" }}>
-                    Quick access when you&apos;re ready to skip something.
-                  </span>
                 </span>
               </button>
             )}
@@ -315,9 +303,6 @@ export function SkipSetupPrompt({ mode, onClose }: Props) {
                 <span className="min-w-0">
                   <span className="block text-sm font-black" style={{ color: "var(--text-primary)" }}>
                     {pushBusy ? "Turning on..." : "Allow one weekly reminder"}
-                  </span>
-                  <span className="block text-xs mt-1 leading-relaxed" style={{ color: "var(--text-muted)" }}>
-                    Did you skip anything this week? We&apos;ll remind you on Sunday.
                   </span>
                 </span>
               </button>
@@ -345,17 +330,8 @@ export function SkipSetupPrompt({ mode, onClose }: Props) {
 
           <button
             type="button"
-            onClick={handlePrimarySetup}
-            disabled={pushBusy}
-            className="mt-5 w-full rounded-xl py-3 text-base font-black disabled:opacity-60"
-            style={{ background: "linear-gradient(135deg, var(--green-primary), var(--green-grad-end))", color: "#071b12" }}
-          >
-            {reminderOnly ? "Allow weekly reminder" : "Set this up"}
-          </button>
-          <button
-            type="button"
             onClick={dismiss}
-            className="mt-3 px-3 py-2 text-xs font-bold"
+            className="mt-5 px-3 py-2 text-xs font-bold"
             style={{ color: "var(--text-muted)" }}
           >
             Maybe later
@@ -398,9 +374,9 @@ export function SkipSetupPrompt({ mode, onClose }: Props) {
         <div>
           <p className="text-xs font-black" style={{ color: "var(--text-primary)" }}>Keep this going next week</p>
           <p className="text-[11px] mt-0.5 leading-relaxed" style={{ color: "var(--text-secondary)" }}>
-            {reminderOnly
-              ? "Allow one weekly reminder to log anything you skipped."
-              : "Add iSkipped to your phone or get one weekly reminder."}
+            {notificationPrompt
+              ? "Allow one Sunday reminder to log your skips."
+              : "Add iSkipped to your phone for quick access."}
           </p>
         </div>
         <button

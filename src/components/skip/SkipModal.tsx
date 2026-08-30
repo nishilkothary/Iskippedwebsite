@@ -7,7 +7,7 @@ import { useModalA11y } from "@/hooks/useModalA11y";
 import { useAuthStore } from "@/store/authStore";
 import { SKIP_CATEGORIES } from "@/lib/constants/skipCategories";
 import { formatCurrency } from "@/lib/utils/currency";
-import { normalizeSpendingGoals } from "@/lib/services/firebase/users";
+import { completeFirstRunOnboarding, normalizeSpendingGoals } from "@/lib/services/firebase/users";
 import { getActiveSkipTarget } from "@/lib/utils/skipTargets";
 import { formatAggregateImpactUnitsDecimal, formatUnits, oneUnitPhrase } from "@/lib/utils/impact";
 import { getChallengeCountdown } from "@/lib/utils/dates";
@@ -62,7 +62,7 @@ export function SkipModal({ onClose }: Props) {
   const router = useRouter();
   const { log, isLogging, recentSkips } = useSkips();
   const { projects } = useProjects();
-  const { profile } = useAuthStore();
+  const { user, profile, updateProfile } = useAuthStore();
 
   const defaultCat = SKIP_CATEGORIES[0];
   const [selectedCat, setSelectedCat] = useState(defaultCat);
@@ -232,6 +232,15 @@ export function SkipModal({ onClose }: Props) {
       allocationTarget: skipAllocationTarget,
     });
     if (result) {
+      if (user && profile?.onboardingCompletedAt === null) {
+        try {
+          await completeFirstRunOnboarding(user.uid);
+          updateProfile({ onboardingCompletedAt: new Date() as any });
+        } catch {
+          // The skip is still valid. Keep onboarding incomplete so the user can
+          // resume the first-run flow if this optional profile write failed.
+        }
+      }
       setSuccessStreak(result.newStreak ?? profile?.streak ?? 0);
       setSuccessProject(effectiveProjectId ? selectedProject ?? null : null);
       setSuccessProjectUnitName(selectedProject?.unitName ?? null);

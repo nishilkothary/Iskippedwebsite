@@ -1584,12 +1584,11 @@ function JarBrowser({
   const [addAmount, setAddAmount] = useState("");
   const [addCategory, setAddCategory] = useState("");
   const [addLink, setAddLink] = useState("");
-  const [addNoShoppingLink, setAddNoShoppingLink] = useState(false);
   const [addMerchant, setAddMerchant] = useState("");
   const [addImageURL, setAddImageURL] = useState("");
   const [addImagePosition, setAddImagePosition] = useState({ x: 50, y: 50 });
   const [addImageSource, setAddImageSource] = useState<"manual" | "product" | null>(null);
-  const [productPreviewStatus, setProductPreviewStatus] = useState<"idle" | "loading" | "filled" | "partial" | "failed">("idle");
+  const [productPreviewStatus, setProductPreviewStatus] = useState<"idle" | "loading" | "filled" | "failed">("idle");
   const [addImageError, setAddImageError] = useState("");
   const [addAndSkipForThis, setAddAndSkipForThis] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -1685,7 +1684,6 @@ function JarBrowser({
     setAddAmount(autoOpenRewardAmount);
     setAddCategory(autoOpenRewardCategory);
     setAddLink("");
-    setAddNoShoppingLink(false);
     setAddMerchant("");
     const image = rewardDefaultImage(autoOpenRewardLabel, autoOpenRewardCategory);
     setAddImageURL(image ?? "");
@@ -2179,7 +2177,6 @@ function JarBrowser({
       const preview = await response.json() as ProductPreview;
       const updates: Partial<SpendingGoal> = {};
       if (preview.imageURL) updates.imageURL = preview.imageURL;
-      if (preview.merchant) updates.merchant = preview.merchant;
       if (Object.keys(updates).length > 0) await onEditGoal(goalId, updates);
     } catch {
       // Retailers may block preview requests; the artwork fallback remains visible.
@@ -2188,7 +2185,6 @@ function JarBrowser({
 
   async function previewProductImage() {
     if (!addLink.trim()) return;
-    if (addNoShoppingLink) return;
     setProductPreviewStatus("loading");
     try {
       const response = await fetch(`/api/product-preview?url=${encodeURIComponent(normalizeExternalLink(addLink))}`);
@@ -2197,35 +2193,14 @@ function JarBrowser({
         return;
       }
       const preview = await response.json() as ProductPreview;
-      let filled = 0;
-      let missing = 0;
-      if (preview.title && !addLabel.trim()) {
-        setAddLabel(preview.title);
-        filled += 1;
-      } else if (!addLabel.trim()) {
-        missing += 1;
-      }
-      if (preview.price && !addAmount.trim()) {
-        setAddAmount(preview.price.toFixed(2));
-        filled += 1;
-      } else if (!addAmount.trim()) {
-        missing += 1;
-      }
-      if (preview.merchant && !addMerchant.trim()) {
-        setAddMerchant(preview.merchant);
-        filled += 1;
-      } else if (!addMerchant.trim()) {
-        missing += 1;
-      }
       if (preview.imageURL && addImageSource !== "manual") {
         setAddImageURL(preview.imageURL);
         setAddImagePosition({ x: 50, y: 50 });
         setAddImageSource("product");
-        filled += 1;
-      } else if (!addImageURL && addImageSource !== "manual") {
-        missing += 1;
+        setProductPreviewStatus("filled");
+      } else {
+        setProductPreviewStatus("failed");
       }
-      setProductPreviewStatus(filled > 0 && missing === 0 ? "filled" : filled > 0 ? "partial" : "failed");
     } catch {
       setProductPreviewStatus("failed");
       // A reward can still be saved when a retailer blocks image previews.
@@ -2271,7 +2246,7 @@ function JarBrowser({
       type: "splurge",
     };
     if (addCategory.trim()) goal.category = addCategory.trim();
-    if (!addNoShoppingLink && addLink.trim()) goal.shoppingLink = normalizeExternalLink(addLink);
+    if (addLink.trim()) goal.shoppingLink = normalizeExternalLink(addLink);
     if (addMerchant.trim()) goal.merchant = addMerchant.trim();
     if (addImageURL) {
       goal.imageURL = addImageURL;
@@ -2279,12 +2254,10 @@ function JarBrowser({
     }
     const shouldSkipForThis = addAndSkipForThis;
     const goalId = await onAddGoal(goal);
-    if (goal.shoppingLink && !goal.imageURL) void enrichGoalImage(goalId, goal.shoppingLink);
     setAddLabel("");
     setAddAmount("");
     setAddCategory("");
     setAddLink("");
-    setAddNoShoppingLink(false);
     setAddMerchant("");
     setAddImageURL("");
     setAddImagePosition({ x: 50, y: 50 });
@@ -2295,7 +2268,13 @@ function JarBrowser({
     setShowAddForm(false);
     setSaving(false);
     if (shouldSkipForThis) {
-      await handleSkipFor({ type: "goal", id: goalId });
+      const target: SkipAllocationTarget = { type: "goal", id: goalId };
+      if (profile?.onboardingCompletedAt === null && availableSkipBankBalance <= 0) {
+        await onSetSkipTarget(target);
+        router.push("/home");
+        return;
+      }
+      await handleSkipFor(target);
       return;
     }
     toast.success("Reward added to your list.");
@@ -2316,7 +2295,6 @@ function JarBrowser({
     setAddAmount(String(amount));
     setAddCategory(category ?? rewardCategory(label).tag);
     setAddLink("");
-    setAddNoShoppingLink(false);
     setAddMerchant("");
     setAddImageURL(image ?? "");
     setAddImagePosition({ x: 50, y: 50 });
@@ -3614,13 +3592,43 @@ function JarBrowser({
             </p>
           </div>
           <div className="space-y-3 p-4">
+            <input
+              type="text"
+              placeholder="What are you saving for?"
+              value={addLabel}
+              onChange={(e) => setAddLabel(e.target.value)}
+              className="w-full rounded-xl px-4 py-3 text-sm focus:outline-none" style={{ background: "var(--bg-surface-2)", border: "1px solid var(--border-default)", color: "var(--text-primary)" }}
+            />
+          <div className="relative">
+            <span className="absolute left-4 top-1/2 -translate-y-1/2 text-sm text-[rgba(237,245,240,0.6)]">$</span>
+            <input
+              type="number"
+              placeholder="Cost"
+              value={addAmount}
+              onChange={(e) => setAddAmount(e.target.value)}
+              className="w-full pl-8 rounded-xl px-4 py-3 text-sm focus:outline-none" style={{ background: "var(--bg-surface-2)", border: "1px solid var(--border-default)", color: "var(--text-primary)" }}
+            />
+          </div>
+          <input
+            type="text"
+            placeholder="Category (optional), e.g. getaway, books, self-care"
+            value={addCategory}
+            onChange={(e) => setAddCategory(e.target.value)}
+            className="w-full rounded-xl px-4 py-3 text-sm focus:outline-none" style={{ background: "var(--bg-surface-2)", border: "1px solid var(--border-default)", color: "var(--text-primary)" }}
+          />
+          <input
+            type="text"
+            placeholder="Merchant (optional), e.g. Target"
+            value={addMerchant}
+            onChange={(e) => setAddMerchant(e.target.value)}
+            className="w-full rounded-xl px-4 py-3 text-sm focus:outline-none" style={{ background: "var(--bg-surface-2)", border: "1px solid var(--border-default)", color: "var(--text-primary)" }}
+          />
           <div>
             <div className="flex gap-2">
               <input
                 type="url"
-                placeholder="Paste product link"
+                placeholder="Purchase link (optional)"
                 value={addLink}
-                disabled={addNoShoppingLink}
                 onChange={(e) => {
                   setAddLink(e.target.value);
                   setProductPreviewStatus("idle");
@@ -3629,90 +3637,28 @@ function JarBrowser({
                     setAddImageSource(null);
                   }
                 }}
-                onBlur={() => void previewProductImage()}
-                className="min-w-0 flex-1 rounded-xl px-4 py-3 text-sm focus:outline-none disabled:opacity-50" style={{ background: "var(--bg-surface-2)", border: "1px solid rgba(139,92,246,0.4)", color: "var(--text-primary)" }}
+                className="min-w-0 flex-1 rounded-xl px-4 py-3 text-sm focus:outline-none"
+                style={{ background: "var(--bg-surface-2)", border: "1px solid rgba(139,92,246,0.4)", color: "var(--text-primary)" }}
               />
               <button
                 type="button"
                 onClick={() => void previewProductImage()}
-                disabled={addNoShoppingLink || !addLink.trim() || productPreviewStatus === "loading"}
+                disabled={!addLink.trim() || productPreviewStatus === "loading"}
                 className="rounded-xl px-4 py-3 text-sm font-black disabled:opacity-50"
                 style={{ background: "rgba(139,92,246,0.18)", border: "1px solid rgba(139,92,246,0.35)", color: "#DDD6FE" }}
               >
-                {productPreviewStatus === "loading" ? "Checking..." : "Autofill"}
+                {productPreviewStatus === "loading" ? "Loading..." : "Load Picture"}
               </button>
             </div>
-            <button
-              type="button"
-              onClick={() => {
-                const next = !addNoShoppingLink;
-                setAddNoShoppingLink(next);
-                setProductPreviewStatus("idle");
-                if (next) {
-                  setAddLink("");
-                  if (addImageSource === "product") {
-                    setAddImageURL("");
-                    setAddImageSource(null);
-                  }
-                }
-              }}
-              className="mt-2 text-xs font-black"
-              style={{ color: addNoShoppingLink ? "#C4B5FD" : "var(--text-muted)" }}
-            >
-              {addNoShoppingLink ? "No shopping link selected" : "No shopping link"}
-            </button>
-            {productPreviewStatus === "loading" && (
-              <p className="mt-2 text-xs font-bold" style={{ color: "#C4B5FD" }}>
-                Product loading... we&apos;ll fill what we can.
-              </p>
-            )}
             {productPreviewStatus === "filled" && (
-              <p className="mt-2 text-xs font-bold" style={{ color: "#A7F3D0" }}>
-                Autofilled from the link. You can edit anything before saving.
-              </p>
-            )}
-            {productPreviewStatus === "partial" && (
-              <p className="mt-2 text-xs font-bold" style={{ color: "#FBBF24" }}>
-                We found some details from this link. Add anything missing below.
-              </p>
+              <p className="mt-2 text-xs font-bold" style={{ color: "#A7F3D0" }}>Pic loaded.</p>
             )}
             {productPreviewStatus === "failed" && (
               <p className="mt-2 text-xs font-bold" style={{ color: "var(--text-muted)" }}>
-                We couldn&apos;t autofill this link. Fill in the reward details below.
+                Pic unable to load from merchant site.
               </p>
             )}
           </div>
-            <input
-              type="text"
-              placeholder="Reward name, e.g. headphones or a trip"
-              value={addLabel}
-              onChange={(e) => setAddLabel(e.target.value)}
-              className="w-full rounded-xl px-4 py-3 text-sm focus:outline-none" style={{ background: "var(--bg-surface-2)", border: "1px solid var(--border-default)", color: "var(--text-primary)" }}
-            />
-          <input
-            type="text"
-            placeholder="Category (optional), e.g. getaway, books, self-care"
-            value={addCategory}
-            onChange={(e) => setAddCategory(e.target.value)}
-            className="w-full rounded-xl px-4 py-3 text-sm focus:outline-none" style={{ background: "var(--bg-surface-2)", border: "1px solid var(--border-default)", color: "var(--text-primary)" }}
-          />
-          <div className="relative">
-            <span className="absolute left-4 top-1/2 -translate-y-1/2 text-sm text-[rgba(237,245,240,0.6)]">$</span>
-            <input
-              type="number"
-              placeholder="Skipped amount needed"
-              value={addAmount}
-              onChange={(e) => setAddAmount(e.target.value)}
-              className="w-full pl-8 rounded-xl px-4 py-3 text-sm focus:outline-none" style={{ background: "var(--bg-surface-2)", border: "1px solid var(--border-default)", color: "var(--text-primary)" }}
-            />
-          </div>
-          <input
-            type="text"
-            placeholder="Merchant (optional), e.g. Target"
-            value={addMerchant}
-            onChange={(e) => setAddMerchant(e.target.value)}
-            className="w-full rounded-xl px-4 py-3 text-sm focus:outline-none" style={{ background: "var(--bg-surface-2)", border: "1px solid var(--border-default)", color: "var(--text-primary)" }}
-          />
           <div>
             <p className="mb-2 text-xs font-black uppercase tracking-[0.14em]" style={{ color: "#C4B5FD" }}>Inspo pic</p>
             <div
@@ -3810,7 +3756,7 @@ function JarBrowser({
               {saving ? "Saving..." : addAndSkipForThis ? "Save and skip for this" : "Save to wishlist"}
             </button>
             <button
-              onClick={() => { setShowAddForm(false); setAddLabel(""); setAddAmount(""); setAddCategory(""); setAddLink(""); setAddNoShoppingLink(false); setAddMerchant(""); setAddImageURL(""); setAddImagePosition({ x: 50, y: 50 }); setAddImageSource(null); setProductPreviewStatus("idle"); setAddImageError(""); setAddAndSkipForThis(false); }}
+              onClick={() => { setShowAddForm(false); setAddLabel(""); setAddAmount(""); setAddCategory(""); setAddLink(""); setAddMerchant(""); setAddImageURL(""); setAddImagePosition({ x: 50, y: 50 }); setAddImageSource(null); setProductPreviewStatus("idle"); setAddImageError(""); setAddAndSkipForThis(false); }}
               className="px-5 py-3 text-[rgba(237,245,240,0.6)] font-semibold rounded-xl text-sm hover:text-[#EDF5F0] transition-colors"
               style={{ border: "1px solid rgba(139,92,246,0.12)" }}
             >

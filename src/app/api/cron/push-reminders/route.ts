@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getAdminDb } from "@/lib/services/firebaseAdmin";
 import { sendPushToUser } from "@/lib/services/push";
-import { isSameWeek } from "@/lib/utils/dates";
 
 export const maxDuration = 300;
 
@@ -31,17 +30,12 @@ export async function GET(req: NextRequest) {
         if (!u.fcmTokens?.length) return;
         try {
           if (!isWeeklyReminderDay) return;
-          const lastSkipDate = typeof u.lastSkipDate === "string" ? u.lastSkipDate : null;
-          const hasSkippedThisWeek = isSameWeek(lastSkipDate);
-
-          if (!hasSkippedThisWeek) {
-            await sendPushToUser(u.uid, {
-              title: "Did you skip anything this week?",
-              body: "Don't forget to add anything you said no to buying and keep your progress going.",
-              url: "/home",
-            });
-            weeklyNudges++;
-          }
+          await sendPushToUser(u.uid, {
+            title: "Did you skip anything this week?",
+            body: "Don’t forget to log your skips and watch your savings grow.",
+            url: "/home",
+          });
+          weeklyNudges++;
         } catch {
           failed++;
         }
