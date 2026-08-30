@@ -223,7 +223,7 @@ function SignInPage() {
       )}
       {isChallengeRedirect && mode !== "forgot" && (
         <div className="mb-4 rounded-xl px-4 py-3 text-sm" style={{ background: "#ECFDF3", border: "1px solid #BBF7D0", color: "#166534" }}>
-          Create an account or sign in to join this skip challenge. You&apos;ll come right back after this.
+          Create an account or sign in to join this skip challenge.
         </div>
       )}
 

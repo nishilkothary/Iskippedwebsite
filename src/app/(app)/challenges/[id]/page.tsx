@@ -890,7 +890,7 @@ function InviteFlowModal({
               : step === "active-choice"
                 ? `You are currently skipping for ${activeJarLabel}`
                 : step === "goal"
-                  ? `Set a Personal Savings Goal for ${challenge.project.groupName ?? challenge.title}`
+                  ? `Set a Personal Donation Goal for ${challenge.project.groupName ?? challenge.title}`
               : step === "already-active"
                     ? `You are currently skipping for ${challenge.project.groupName ?? challenge.title}`
                     : step === "already-joined"

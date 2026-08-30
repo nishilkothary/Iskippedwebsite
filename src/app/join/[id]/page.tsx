@@ -372,10 +372,10 @@ export default function JoinChallengePage() {
                       <p className="text-xs uppercase tracking-wide font-black" style={{ color: "var(--text-muted)" }}>Group progress</p>
                       <p className="text-lg font-black" style={{ color: "var(--green-primary)" }}>{formatCurrency(displayedRaised)} raised</p>
                     </div>
-                    <p className="text-sm font-black text-right" style={{ color: "var(--text-primary)" }}>
-                      {challenge.progressPct}%<br />
-                      <span className="text-xs font-semibold" style={{ color: "var(--text-muted)" }}>of {formatCurrency(challenge.goal)}</span>
-                    </p>
+                    <div className="text-right">
+                      <p className="text-xs uppercase tracking-wide font-black" style={{ color: "var(--text-muted)" }}>Goal</p>
+                      <p className="text-lg font-black" style={{ color: "var(--text-primary)" }}>{formatCurrency(challenge.goal)}</p>
+                    </div>
                   </div>
                   <div className="mt-3 h-2 rounded-full overflow-hidden" style={{ background: "var(--bg-surface-3)" }}>
                     <div
