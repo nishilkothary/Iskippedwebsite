@@ -85,6 +85,8 @@ export async function DELETE(req: NextRequest) {
 
     // Community feed entries this user posted
     await deleteMatchingDocs(db, db.collection("communityFeed").where("uid", "==", uid));
+    // Invalidate any pending sign-in transfer to a newly installed Home Screen app.
+    await deleteMatchingDocs(db, db.collection("installHandoffs").where("uid", "==", uid));
 
     // Custom causes/challenges this user created
     await deleteMatchingDocs(db, db.collection("projects").where("createdBy", "==", uid));

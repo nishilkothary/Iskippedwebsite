@@ -5,11 +5,13 @@ import { useProjects } from "@/hooks/useProjects";
 import { useAuthStore } from "@/store/authStore";
 import { useUIStore } from "@/store/uiStore";
 import {
+  completeFirstRunOnboarding,
   normalizeSpendingGoals,
   setSavingMotivation,
   type SavingMotivation,
 } from "@/lib/services/firebase/users";
 import { getActiveSkipTarget } from "@/lib/utils/skipTargets";
+import { formatCurrency } from "@/lib/utils/currency";
 
 const GENERAL_COPY = "Start by logging something you decided not to buy. Your Skip Scoreboard will show how your skipped spending adds up over time—so you can put those savings toward something more meaningful to you.";
 
@@ -40,13 +42,20 @@ export function FirstRunOnboarding() {
   const motivation = profile.savingMotivation;
   const activeTarget = getActiveSkipTarget(profile);
   const goals = normalizeSpendingGoals(profile).goals;
+  const activeGoal = activeTarget?.type === "goal"
+    ? goals.find((goal) => goal.id === activeTarget.id)
+    : undefined;
   const targetLabel = activeTarget?.type === "goal"
-    ? goals.find((goal) => goal.id === activeTarget.id)?.label ?? "your reward"
+    ? activeGoal?.label ?? "your reward"
     : activeTarget?.type === "fundraiser"
       ? projects.find((project) => project.id === activeTarget.id)?.groupName
         ?? projects.find((project) => project.id === activeTarget.id)?.title
         ?? "your fundraiser"
       : null;
+  const targetAmount = activeTarget?.type === "fundraiser"
+    ? profile.causeGoalAmounts?.[activeTarget.id]
+    : activeGoal?.targetAmount;
+  const targetAmountLabel = targetAmount && targetAmount > 0 ? formatCurrency(targetAmount) : null;
   const isInviteRoute = pathname.startsWith("/challenges/") && searchParams.get("invite") === "1";
   const isChoosingPurpose = searchParams.get("onboarding") === "choose"
     || (motivation === "fundraiser" && pathname === "/challenges" && searchParams.get("create") === "1");
@@ -73,40 +82,37 @@ export function FirstRunOnboarding() {
     setShowSkipPicker(true);
   }
 
+  async function dismissOnboarding() {
+    updateProfile({ onboardingCompletedAt: new Date() as any });
+    try {
+      await completeFirstRunOnboarding(uid);
+    } catch {
+      updateProfile({ onboardingCompletedAt: null });
+    }
+  }
+
   // An invited user should first see and join the fundraiser they came for.
   // As soon as it becomes their active target, the named first-skip prompt appears.
   if (isInviteRoute && activeTarget?.type !== "fundraiser") return null;
 
   if (activeTarget && targetLabel) {
     const purposeCopy = activeTarget.type === "fundraiser"
-      ? <>Log what you skip. Watch your savings grow. Donate when you&apos;re ready.</>
-      : <>Log what you skip. Watch your savings grow. Use them for your reward when you&apos;re ready.</>;
+      ? <>When you decide not to buy something, log it as a Skip. The amount will count toward your {targetAmountLabel ? `${targetAmountLabel} ` : ""}donation goal. When you&apos;re ready, donate what you&apos;ve saved.</>
+      : <>When you decide not to buy something, log it as a Skip. The amount will count toward your {targetAmountLabel ? `${targetAmountLabel} ` : ""}reward goal. When you&apos;re ready, use what you&apos;ve saved to buy your reward.</>;
     return (
-      <OnboardingModal title={`Start saving for ${targetLabel}`}>
+      <OnboardingModal title={`Start saving for ${targetLabel}`} onClose={() => void dismissOnboarding()}>
         <p className="text-sm leading-relaxed" style={{ color: "var(--text-secondary)" }}>
           {purposeCopy}
         </p>
-        <PrimaryButton onClick={() => void logFirstSkip()}>Log a Skip</PrimaryButton>
+        <PrimaryButton onClick={() => void logFirstSkip()}>Log Your First Skip</PrimaryButton>
       </OnboardingModal>
     );
   }
 
   if (isChoosingPurpose && (motivation === "reward" || motivation === "fundraiser")) {
-    return (
-      <div className="fixed bottom-24 left-4 right-4 z-50 mx-auto max-w-xl rounded-2xl p-4 shadow-2xl md:bottom-6" style={{ background: "var(--bg-surface-1)", border: "1px solid var(--border-emphasis)" }}>
-        <div className="flex items-center justify-between gap-4">
-          <div>
-            <p className="text-sm font-black" style={{ color: "var(--text-primary)" }}>
-              {motivation === "reward" ? "Choose a reward to save toward" : "Choose a fundraiser to support"}
-            </p>
-            <p className="mt-1 text-xs" style={{ color: "var(--text-secondary)" }}>Your first skip will be tracked toward it.</p>
-          </div>
-          <button type="button" onClick={() => void decideLater()} className="shrink-0 text-xs font-black underline" style={{ color: "var(--green-primary)" }}>
-            Decide later
-          </button>
-        </div>
-      </div>
-    );
+    // The destination page owns the reward/fundraiser selection UI. Keeping an
+    // onboarding layer here can cover mobile forms and their primary actions.
+    return null;
   }
 
   if (motivation === "reward") {
@@ -162,12 +168,23 @@ export function FirstRunOnboarding() {
   );
 }
 
-function OnboardingModal({ eyebrow, title, children }: { eyebrow?: string; title: string; children: React.ReactNode }) {
+function OnboardingModal({ eyebrow, title, children, onClose }: { eyebrow?: string; title: string; children: React.ReactNode; onClose?: () => void }) {
   return (
-    <div className="fixed inset-0 z-[55] flex items-end justify-center bg-black/70 p-4 sm:items-center">
-      <section role="dialog" aria-modal="true" aria-labelledby="first-run-title" className="w-full max-w-lg rounded-3xl p-5 shadow-2xl sm:p-6" style={{ background: "var(--bg-surface-1)", border: "1px solid var(--border-emphasis)" }}>
+    <div className="fixed inset-0 z-[55] flex items-center justify-center bg-black/70 p-4">
+      <section role="dialog" aria-modal="true" aria-labelledby="first-run-title" className="relative w-full max-w-lg rounded-3xl p-5 shadow-2xl sm:p-6" style={{ background: "var(--bg-surface-1)", border: "1px solid var(--border-emphasis)" }}>
+        {onClose && (
+          <button
+            type="button"
+            onClick={onClose}
+            aria-label="Close onboarding"
+            className="absolute right-4 top-4 flex h-9 w-9 items-center justify-center rounded-full text-2xl font-bold"
+            style={{ background: "var(--bg-surface-2)", color: "var(--text-secondary)" }}
+          >
+            ×
+          </button>
+        )}
         {eyebrow && <p className="text-[11px] font-black uppercase tracking-[0.18em]" style={{ color: "var(--green-primary)" }}>{eyebrow}</p>}
-        <h1 id="first-run-title" className={`${eyebrow ? "mt-2 " : ""}text-2xl font-black leading-tight sm:text-3xl`} style={{ color: "var(--text-primary)" }}>{title}</h1>
+        <h1 id="first-run-title" className={`${eyebrow ? "mt-2 " : ""}${onClose ? "pr-10 " : ""}text-2xl font-black leading-tight sm:text-3xl`} style={{ color: "var(--text-primary)" }}>{title}</h1>
         <div className="mt-3 space-y-4">{children}</div>
       </section>
     </div>

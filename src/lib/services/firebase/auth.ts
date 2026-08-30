@@ -13,6 +13,7 @@ import { auth } from "./config";
 import { createOrUpdateUser } from "./users";
 import { apiRequest } from "./apiClient";
 import { consumeReferralCode, clearReferralCode } from "@/lib/utils/referral";
+import { allowInstallHandoff, clearInstallHandoff, prepareInstallHandoff } from "./installHandoff";
 
 async function attributeReferralIfNew(isNew: boolean, uid: string): Promise<void> {
   if (!isNew) return;
@@ -28,7 +29,9 @@ async function attributeReferralIfNew(isNew: boolean, uid: string): Promise<void
 }
 
 async function finishGoogleSignIn(user: User): Promise<User> {
+  allowInstallHandoff();
   const isNew = await createOrUpdateUser(user);
+  void prepareInstallHandoff(user);
   await attributeReferralIfNew(isNew, user.uid);
   return user;
 }
@@ -45,16 +48,20 @@ export async function signUpWithEmail(
   name?: string
 ): Promise<User> {
   const result = await createUserWithEmailAndPassword(auth, email, password);
+  allowInstallHandoff();
   if (name?.trim()) {
     await updateProfile(result.user, { displayName: name.trim() });
   }
   const isNew = await createOrUpdateUser(result.user);
+  void prepareInstallHandoff(result.user);
   await attributeReferralIfNew(isNew, result.user.uid);
   return result.user;
 }
 
 export async function signInWithEmail(email: string, password: string): Promise<User> {
   const result = await signInWithEmailAndPassword(auth, email, password);
+  allowInstallHandoff();
+  void prepareInstallHandoff(result.user);
   return result.user;
 }
 
@@ -63,6 +70,7 @@ export async function resetPassword(email: string): Promise<void> {
 }
 
 export async function signOut(): Promise<void> {
+  await clearInstallHandoff();
   await firebaseSignOut(auth);
 }
 

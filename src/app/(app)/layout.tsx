@@ -15,6 +15,7 @@ import { SkipBucksBill } from "@/components/SkipBucksBill";
 import { ExtensionSync } from "@/components/ExtensionSync";
 import { signInHrefFor } from "@/lib/utils/authRedirect";
 import { FirstRunOnboarding } from "@/components/onboarding/FirstRunOnboarding";
+import { SkipSetupPrompt } from "@/components/setup/SkipSetupPrompt";
 
 const NAV_ITEMS = [
   { href: "/home",        label: "Home",       emoji: "🏠", tab: null },
@@ -346,6 +347,9 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
       </main>
 
       {showSkipPicker && <SkipModal onClose={() => setShowSkipPicker(false)} />}
+      {!showSkipPicker && profile && profile.onboardingCompletedAt !== null
+        && (profile.totalSkips > 0 || !!profile.setupPromptCompletedAt)
+        && <SkipSetupPrompt key={profile.uid} mode="launch" />}
       <Suspense fallback={null}>
         <FirstRunOnboarding />
       </Suspense>

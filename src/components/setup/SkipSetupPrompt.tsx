@@ -5,9 +5,11 @@ import { toast } from "sonner";
 import { useAuthStore } from "@/store/authStore";
 import { completeSetupPrompt, dismissSetupPrompt, dismissWeeklyReminderPrompt } from "@/lib/services/firebase/users";
 import { isPushSupported, registerForPush } from "@/lib/services/firebase/push";
+import { setupPromptAction } from "@/lib/utils/setupPrompt";
+import { prepareInstallHandoff } from "@/lib/services/firebase/installHandoff";
 
 type InstallPlatform = "ios" | "browser" | null;
-type PromptMode = "inline" | "footer" | "modal";
+type PromptMode = "inline" | "footer" | "modal" | "launch";
 const SETUP_PROMPT_SNOOZE_MS = 7 * 24 * 60 * 60 * 1000;
 
 interface Props {
@@ -47,11 +49,13 @@ export function SkipSetupPrompt({ mode, onClose }: Props) {
   const [installed, setInstalled] = useState(false);
   const [pushSupported, setPushSupported] = useState(false);
   const [pushBusy, setPushBusy] = useState(false);
+  const [installBusy, setInstallBusy] = useState(false);
   const [installPlatform, setInstallPlatform] = useState<InstallPlatform>(null);
   const [installPrompt, setInstallPrompt] = useState<any>(null);
   const [showIOSSteps, setShowIOSSteps] = useState(false);
   const [dismissedLocal, setDismissedLocal] = useState(false);
   const [ready, setReady] = useState(false);
+  const [pushChecked, setPushChecked] = useState(false);
 
   useEffect(() => {
     if (typeof window === "undefined") {
@@ -62,6 +66,7 @@ export function SkipSetupPrompt({ mode, onClose }: Props) {
     const mobile = isMobileDevice();
     setIsMobile(mobile);
     if (!mobile) {
+      setPushChecked(true);
       setReady(true);
       return;
     }
@@ -69,6 +74,8 @@ export function SkipSetupPrompt({ mode, onClose }: Props) {
     let active = true;
     isPushSupported().then((supported) => {
       if (active) setPushSupported(supported);
+    }).catch(() => {}).finally(() => {
+      if (active) setPushChecked(true);
     });
 
     const standalone = isStandalone();
@@ -81,7 +88,7 @@ export function SkipSetupPrompt({ mode, onClose }: Props) {
     }
 
     const ua = navigator.userAgent;
-    const isIOS = /iPhone|iPad|iPod/i.test(ua) && !(navigator as unknown as { standalone?: boolean }).standalone;
+    const isIOS = /iPhone|iPad|iPod/i.test(ua) || (/Macintosh/i.test(ua) && navigator.maxTouchPoints > 1);
     if (isIOS) {
       setInstallPlatform("ios");
       setReady(true);
@@ -112,24 +119,26 @@ export function SkipSetupPrompt({ mode, onClose }: Props) {
   const completed = !!profile?.setupPromptCompletedAt;
   const weeklyReminderDismissed = !!profile?.weeklyReminderPromptDismissedAt;
   const notificationDenied = typeof window !== "undefined" && "Notification" in window && Notification.permission === "denied";
-  const showPushAction = isMobile && installed && pushSupported && !notificationDenied && !profile?.pushOptIn;
-  const showInstallAction = isMobile && !installed && installPlatform !== null;
-  const setupEligible = isMobile && !!user && !!profile && !completed && !snoozed && (showPushAction || showInstallAction);
-  const reminderOnly = isMobile && !!user && !!profile && completed && showPushAction && !showInstallAction && !weeklyReminderDismissed;
-  const eligible = setupEligible || reminderOnly;
+  const action = setupPromptAction({ installed, canInstall: installPlatform !== null, pushSupported,
+    notificationDenied, pushOptIn: !!profile?.pushOptIn, installCompleted: completed,
+    installSnoozed: snoozed, reminderDismissed: weeklyReminderDismissed });
+  const showPushAction = action === "notifications";
+  const showInstallAction = action === "install";
+  const eligible = isMobile && !!user && !!profile && !dismissedLocal && action !== null
+    && (mode !== "launch" || showPushAction);
   const notificationPrompt = showPushAction && !showInstallAction;
 
   useEffect(() => {
-    if ((mode === "inline" || mode === "modal") && ready && !eligible) {
+    if ((mode === "inline" || mode === "modal") && ready && pushChecked && !eligible) {
       onClose?.();
     }
-  }, [eligible, mode, onClose, ready]);
+  }, [eligible, mode, onClose, ready, pushChecked]);
 
   async function dismiss() {
     setDismissedLocal(true);
     if (user) {
       try {
-        if (reminderOnly) {
+        if (notificationPrompt) {
           await dismissWeeklyReminderPrompt(user.uid);
         } else {
           await dismissSetupPrompt(user.uid);
@@ -138,7 +147,7 @@ export function SkipSetupPrompt({ mode, onClose }: Props) {
         // Local dismissal still prevents an immediate repeat if the network is flaky.
       }
     }
-    updateProfile(reminderOnly
+    updateProfile(notificationPrompt
       ? { weeklyReminderPromptDismissedAt: new Date() as any }
       : { setupPromptDismissedAt: new Date() as any });
     onClose?.();
@@ -174,6 +183,10 @@ export function SkipSetupPrompt({ mode, onClose }: Props) {
 
   async function handleInstall() {
     if (installPlatform === "ios") {
+      setInstallBusy(true);
+      const prepared = user ? await prepareInstallHandoff(user) : false;
+      setInstallBusy(false);
+      if (!prepared) toast.info("You may need to sign in once when you open the Home Screen app.");
       setShowIOSSteps(true);
       return;
     }
@@ -190,18 +203,19 @@ export function SkipSetupPrompt({ mode, onClose }: Props) {
     }
   }
 
-  if (!ready || !eligible) return null;
+  if (!ready || !pushChecked || !eligible) return null;
 
   const installButton = showInstallAction ? (
     <button
       type="button"
       onClick={handleInstall}
+      disabled={installBusy}
       className={mode === "footer" ? "font-bold underline-offset-4 hover:underline" : "rounded-full px-3 py-2 text-xs font-black"}
       style={mode === "footer"
         ? { color: "var(--green-primary)", background: "none", border: "none" }
         : { background: "var(--bg-surface-3)", color: "var(--text-primary)", border: "1px solid var(--border-default)" }}
     >
-      Add to Home Screen
+      {installBusy ? "Preparing..." : "Add to Home Screen"}
     </button>
   ) : null;
 
@@ -233,11 +247,12 @@ export function SkipSetupPrompt({ mode, onClose }: Props) {
         <li>Tap Share, or tap ... then Share.</li>
         <li>Choose Add to Home Screen.</li>
         <li>Tap Add.</li>
+        <li>Open iSkipped from its new Home Screen icon to finish setup.</li>
       </ol>
     </div>
   ) : null;
 
-  if (mode === "modal") {
+  if (mode === "modal" || mode === "launch") {
     return (
       <div className="fixed inset-0 bg-black/60 z-[60] flex items-center justify-center p-4" onClick={dismiss}>
         <div
@@ -278,6 +293,7 @@ export function SkipSetupPrompt({ mode, onClose }: Props) {
               <button
                 type="button"
                 onClick={handleInstall}
+                disabled={installBusy}
                 className="w-full rounded-xl p-4 flex items-start gap-3"
                 style={{ background: "var(--bg-surface-2)", border: "1px solid var(--border-default)" }}
               >
@@ -285,7 +301,7 @@ export function SkipSetupPrompt({ mode, onClose }: Props) {
                   🏠
                 </span>
                 <span className="min-w-0">
-                  <span className="block text-sm font-black" style={{ color: "var(--text-primary)" }}>Add to Home Screen</span>
+                  <span className="block text-sm font-black" style={{ color: "var(--text-primary)" }}>{installBusy ? "Preparing..." : "Add to Home Screen"}</span>
                 </span>
               </button>
             )}
@@ -316,6 +332,7 @@ export function SkipSetupPrompt({ mode, onClose }: Props) {
                 <li>Tap Share, or tap ... then Share.</li>
                 <li>Choose Add to Home Screen.</li>
                 <li>Tap Add.</li>
+                <li>Open iSkipped from its new Home Screen icon to finish setup.</li>
               </ol>
               <button
                 type="button"
