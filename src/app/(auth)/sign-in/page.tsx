@@ -44,7 +44,7 @@ function friendlyAuthError(e: any): string {
   if (code === "auth/email-already-in-use")
     return "That email is already registered. Try signing in instead.";
   if (code === "auth/wrong-password" || code === "auth/invalid-credential")
-    return "That email and password didn't match. If you originally used Google, choose Google above. Otherwise, reset your password.";
+    return "That email and password didn't match. If you originally signed up with Google, choose ‘Sign in with Google’ below. Otherwise, you can reset your password.";
   if (code === "auth/user-not-found")
     return "No account found with that email. Try signing up.";
   if (code === "auth/weak-password")
