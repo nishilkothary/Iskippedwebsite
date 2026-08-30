@@ -112,7 +112,10 @@ export async function GET(req: NextRequest, context: { params: Promise<{ id: str
         if (!snap.exists) continue;
         const data = snap.data() as MemberProfile;
         const uid = data.uid ?? snap.id;
-        const emailShared = isDesignatedAdmin || data.challengeEmailConsents?.[challengeId] === true;
+        // Consent applies to every fundraiser-dashboard viewer, including the
+        // designated site admin. Owner-level support access remains separate
+        // from this routine organizer-facing member list.
+        const emailShared = data.challengeEmailConsents?.[challengeId] === true;
         members.push({
           uid,
           displayName: data.displayName || "Member",

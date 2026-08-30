@@ -2821,7 +2821,7 @@ function JarBrowser({
                   className="mt-0.5 h-3 w-3 accent-[var(--green-primary)]"
                 />
                 <span className="text-[10px] leading-snug" style={{ color: "var(--text-muted)" }}>
-                  Allow {fundraiserSetup.sponsor?.trim() || fundraiserSetup.groupName?.trim() || "the organizer"} to email me challenge updates. You can change this anytime.
+                  Allow {fundraiserSetup.sponsor?.trim() || fundraiserSetup.groupName?.trim() || "the organizer"} to email me challenge updates. Manage this anytime in Profile.
                 </span>
               </label>
               <button

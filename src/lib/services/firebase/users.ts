@@ -127,6 +127,10 @@ export async function setShareSkipsByDefault(uid: string, shareSkipsByDefault: b
   await updateDoc(doc(db, "users", uid), { shareSkipsByDefault });
 }
 
+export async function setWeeklyEmailOptOut(uid: string, weeklyEmailOptOut: boolean): Promise<void> {
+  await updateDoc(doc(db, "users", uid), { weeklyEmailOptOut });
+}
+
 export async function setActiveProject(uid: string, projectId: string | null): Promise<void> {
   await updateDoc(doc(db, "users", uid), { activeProjectId: projectId });
 }

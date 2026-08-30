@@ -4,26 +4,37 @@ import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
 import { useAuthStore } from "@/store/authStore";
-import { signOut } from "@/lib/services/firebase/auth";
+import { resetPassword, signOut } from "@/lib/services/firebase/auth";
 import { deleteAccount } from "@/lib/services/firebase/account";
 import { formatCurrency } from "@/lib/utils/currency";
-import { setShareSkipsByDefault } from "@/lib/services/firebase/users";
+import { setChallengeEmailConsent, setShareSkipsByDefault, setWeeklyEmailOptOut } from "@/lib/services/firebase/users";
 import { isPushSupported, registerForPush, unregisterPush } from "@/lib/services/firebase/push";
 import { useSkips } from "@/hooks/useSkips";
+import { useProjects } from "@/hooks/useProjects";
 import { DeleteAccountModal } from "@/components/profile/DeleteAccountModal";
 import { getSkipBalanceSummary } from "@/lib/utils/skipBalances";
+import { isChallengeProject } from "@/lib/services/firebase/projects";
 
 export default function ProfilePage() {
   const router = useRouter();
   const { user, profile, setUser, setProfile, updateProfile } = useAuthStore();
   const { recentSkips } = useSkips();
+  const { projects } = useProjects();
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [pushSupported, setPushSupported] = useState(false);
   const [pushBusy, setPushBusy] = useState(false);
+  const [passwordResetBusy, setPasswordResetBusy] = useState(false);
+  const [weeklyEmailBusy, setWeeklyEmailBusy] = useState(false);
+  const [challengeEmailBusy, setChallengeEmailBusy] = useState<string | null>(null);
+  const [avatarFailed, setAvatarFailed] = useState(false);
 
   useEffect(() => {
     isPushSupported().then(setPushSupported);
   }, []);
+
+  useEffect(() => {
+    setAvatarFailed(false);
+  }, [profile?.photoURL]);
 
   async function handleTogglePush() {
     if (pushBusy) return;
@@ -67,6 +78,16 @@ export default function ProfilePage() {
   if (!profile || !user) return null;
 
   const skipBalance = getSkipBalanceSummary(profile);
+  const registeredEmail = user.email || profile.email;
+  const usesGoogle = user.providerData.some((provider) => provider.providerId === "google.com");
+  const challengeEmailIds = new Set([
+    ...(profile.joinedProjectIds ?? []),
+    ...Object.keys(profile.challengeEmailConsents ?? {}),
+    ...Object.keys(profile.causeGoalAmounts ?? {}),
+  ]);
+  const challengeEmailPreferences = projects.filter(
+    (project) => challengeEmailIds.has(project.id) && isChallengeProject(project)
+  );
   const formatWeeks = (weeks: number) => `${weeks} week${weeks === 1 ? "" : "s"}`;
 
   const weekStart = new Date();
@@ -121,6 +142,51 @@ export default function ProfilePage() {
     }
   }
 
+  async function handlePasswordReset() {
+    if (!registeredEmail || passwordResetBusy) return;
+    setPasswordResetBusy(true);
+    try {
+      await resetPassword(registeredEmail);
+      toast.success(`Password reset link sent to ${registeredEmail}. Check Spam or Junk if needed.`);
+    } catch (error: any) {
+      toast.error(error?.message || "Couldn't send a password reset link.");
+    } finally {
+      setPasswordResetBusy(false);
+    }
+  }
+
+  async function handleToggleWeeklyEmail() {
+    if (weeklyEmailBusy || !user || !profile) return;
+    const weeklyEmailOptOut = !profile.weeklyEmailOptOut;
+    setWeeklyEmailBusy(true);
+    try {
+      await setWeeklyEmailOptOut(user.uid, weeklyEmailOptOut);
+      updateProfile({ weeklyEmailOptOut });
+      toast.success(weeklyEmailOptOut ? "Weekly email check-ins turned off." : "Weekly email check-ins turned on.");
+    } catch {
+      toast.error("Couldn't update your weekly email preference.");
+    } finally {
+      setWeeklyEmailBusy(false);
+    }
+  }
+
+  async function handleToggleChallengeEmail(projectId: string) {
+    if (challengeEmailBusy || !user || !profile) return;
+    const shareEmail = profile.challengeEmailConsents?.[projectId] !== true;
+    setChallengeEmailBusy(projectId);
+    try {
+      await setChallengeEmailConsent(user.uid, projectId, shareEmail);
+      updateProfile({
+        challengeEmailConsents: { ...(profile.challengeEmailConsents ?? {}), [projectId]: shareEmail },
+      });
+      toast.success(shareEmail ? "Challenge email updates turned on." : "Challenge email updates turned off.");
+    } catch {
+      toast.error("Couldn't update this challenge email preference.");
+    } finally {
+      setChallengeEmailBusy(null);
+    }
+  }
+
   return (
     <div className="p-4 md:p-10 max-w-3xl mx-auto pb-28 md:pb-10">
       <div
@@ -137,8 +203,8 @@ export default function ProfilePage() {
               className="w-20 h-20 rounded-full flex items-center justify-center text-3xl flex-shrink-0 overflow-hidden"
               style={{ background: "rgba(237,245,240,0.08)", color: "var(--green-primary)", border: "1px solid rgba(237,245,240,0.15)" }}
             >
-              {profile.photoURL ? (
-                <img src={profile.photoURL} alt="" className="w-full h-full object-cover" />
+              {profile.photoURL && !avatarFailed ? (
+                <img src={profile.photoURL} alt="" className="w-full h-full object-cover" onError={() => setAvatarFailed(true)} />
               ) : (
                 profile.displayName.charAt(0).toUpperCase()
               )}
@@ -165,8 +231,8 @@ export default function ProfilePage() {
           className="w-20 h-20 rounded-full flex items-center justify-center text-3xl flex-shrink-0 overflow-hidden"
           style={{ background: "var(--bg-surface-2)", color: "var(--green-primary)" }}
         >
-          {profile.photoURL ? (
-            <img src={profile.photoURL} alt="" className="w-full h-full object-cover" />
+          {profile.photoURL && !avatarFailed ? (
+            <img src={profile.photoURL} alt="" className="w-full h-full object-cover" onError={() => setAvatarFailed(true)} />
           ) : (
             profile.displayName.charAt(0).toUpperCase()
           )}
@@ -250,11 +316,39 @@ export default function ProfilePage() {
       {/* Settings */}
       <div className="mb-8">
         <div className="p-5 mb-4" style={{ ...cardStyle, borderRadius: 20 }}>
+          <p className="text-xs font-black uppercase tracking-[0.14em]" style={{ color: "var(--green-primary)" }}>Account</p>
+          <p className="mt-1 text-lg font-black" style={{ color: "var(--text-primary)" }}>Sign-in details</p>
+          <div className="mt-4 rounded-xl p-4" style={{ background: "var(--bg-surface-2)", border: "1px solid var(--border-default)" }}>
+            <p className="text-xs font-bold" style={{ color: "var(--text-muted)" }}>Registered email</p>
+            <p className="mt-1 text-sm font-black break-all" style={{ color: "var(--text-primary)" }}>{registeredEmail || "No email on this account"}</p>
+          </div>
+          <div className="mt-3 flex items-center justify-between gap-4 rounded-xl p-4" style={{ background: "var(--bg-surface-2)", border: "1px solid var(--border-default)" }}>
+            <div>
+              <p className="text-sm font-bold" style={{ color: "var(--text-primary)" }}>Password</p>
+              <p className="mt-1 text-xs leading-relaxed" style={{ color: "var(--text-secondary)" }}>
+                {usesGoogle
+                  ? "You signed in with Google. Send a reset link if you would also like to use email and password."
+                  : "For security, your password is never shown. Send yourself a reset link to create a new one."}
+              </p>
+            </div>
+            <button
+              type="button"
+              onClick={handlePasswordReset}
+              disabled={!registeredEmail || passwordResetBusy}
+              className="shrink-0 rounded-full px-3 py-2 text-xs font-black disabled:opacity-50"
+              style={{ background: "var(--green-primary)", color: "var(--bg-base)" }}
+            >
+              {passwordResetBusy ? "Sending…" : "Reset password"}
+            </button>
+          </div>
+        </div>
+
+        <div className="p-5 mb-4" style={{ ...cardStyle, borderRadius: 20 }}>
           <div className="flex items-center justify-between gap-4">
             <div>
-              <p className="text-sm font-bold" style={{ color: "var(--text-primary)" }}>Share fundraiser skips</p>
+              <p className="text-sm font-bold" style={{ color: "var(--text-primary)" }}>Share fundraiser skips by default</p>
               <p className="text-xs mt-1" style={{ color: "var(--text-secondary)" }}>
-                When you skip for a fundraiser, the group can see your skip and amount. Reward skips stay private.
+                When on, new fundraiser skips are shared by default. You can change this for any individual skip. Reward skips stay private.
               </p>
             </div>
             <button
@@ -312,6 +406,59 @@ export default function ProfilePage() {
                   }}
                 />
               </button>
+            </div>
+          </div>
+        )}
+
+        <div className="p-5 mt-4" style={{ ...cardStyle, borderRadius: 20 }}>
+          <div className="flex items-center justify-between gap-4">
+            <div>
+              <p className="text-sm font-bold" style={{ color: "var(--text-primary)" }}>Weekly email check-in</p>
+              <p className="text-xs mt-1" style={{ color: "var(--text-secondary)" }}>A weekly reminder to log a skip, sent to your registered email.</p>
+            </div>
+            <button
+              type="button"
+              onClick={handleToggleWeeklyEmail}
+              disabled={weeklyEmailBusy}
+              role="switch"
+              aria-checked={!profile.weeklyEmailOptOut}
+              aria-label="Toggle weekly email check-ins"
+              className="relative flex-shrink-0 w-12 h-7 rounded-full transition-colors disabled:opacity-50"
+              style={{ background: !profile.weeklyEmailOptOut ? "var(--green-primary)" : "var(--bg-surface-3)", border: "1px solid var(--border-default)" }}
+            >
+              <span className="absolute top-0.5 w-5 h-5 rounded-full transition-transform" style={{ background: "#fff", left: 2, transform: !profile.weeklyEmailOptOut ? "translateX(20px)" : "translateX(0)" }} />
+            </button>
+          </div>
+        </div>
+
+        {challengeEmailPreferences.length > 0 && (
+          <div className="p-5 mt-4" style={{ ...cardStyle, borderRadius: 20 }}>
+            <p className="text-sm font-bold" style={{ color: "var(--text-primary)" }}>Fundraiser email updates</p>
+            <p className="text-xs mt-1" style={{ color: "var(--text-secondary)" }}>Choose which organizers may email you about their fundraiser.</p>
+            <div className="mt-3" style={{ borderTop: "1px solid var(--border-default)" }}>
+              {challengeEmailPreferences.map((project) => {
+                const enabled = profile.challengeEmailConsents?.[project.id] === true;
+                return (
+                  <div key={project.id} className="flex items-center justify-between gap-4 py-3" style={{ borderBottom: "1px solid var(--border-default)" }}>
+                    <span className="min-w-0">
+                      <span className="block text-sm font-black truncate" style={{ color: "var(--text-primary)" }}>{project.groupName || project.title}</span>
+                      <span className="block mt-0.5 text-xs" style={{ color: "var(--text-muted)" }}>{enabled ? "Updates allowed" : "Updates off"}</span>
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => handleToggleChallengeEmail(project.id)}
+                      disabled={challengeEmailBusy === project.id}
+                      role="switch"
+                      aria-checked={enabled}
+                      aria-label={`Toggle email updates for ${project.groupName || project.title}`}
+                      className="relative flex-shrink-0 w-12 h-7 rounded-full transition-colors disabled:opacity-50"
+                      style={{ background: enabled ? "var(--green-primary)" : "var(--bg-surface-3)", border: "1px solid var(--border-default)" }}
+                    >
+                      <span className="absolute top-0.5 w-5 h-5 rounded-full transition-transform" style={{ background: "#fff", left: 2, transform: enabled ? "translateX(20px)" : "translateX(0)" }} />
+                    </button>
+                  </div>
+                );
+              })}
             </div>
           </div>
         )}

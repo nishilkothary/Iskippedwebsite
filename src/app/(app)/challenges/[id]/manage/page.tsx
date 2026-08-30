@@ -10,7 +10,7 @@ import { formatCurrency } from "@/lib/utils/currency";
 import { formatAggregateImpactUnits } from "@/lib/utils/impact";
 import { Project, FeedItem } from "@/lib/types/models";
 import { appendRefParam, getChallengeSharePath } from "@/lib/utils/share";
-import { getDirectChallengeShareText } from "@/lib/utils/challengeShareCopy";
+import { getDirectChallengeShareText, getFundraiserProgressShareText } from "@/lib/utils/challengeShareCopy";
 import { ShareButton } from "@/components/share/ShareButton";
 import { apiRequest } from "@/lib/services/firebase/apiClient";
 import { DESIGNATED_ADMIN_EMAIL } from "@/lib/constants/admin";
@@ -154,6 +154,7 @@ export default function ManageChallengePage() {
     unitCost: challenge.unitCost,
     unitIsGoal: challenge.unitIsGoal,
   });
+  const shareProgressText = getFundraiserProgressShareText(challenge, totalRaised);
 
   async function handleArchive() {
     if (!challenge || !user) return;
@@ -373,7 +374,7 @@ export default function ManageChallengePage() {
 
       <SocialStatsSharePanel
         title={challenge.groupName ?? challenge.title}
-        shareText={progressUpdateText}
+        shareText={shareProgressText}
         url={challengeUrl}
         raised={totalRaised}
         goalAmount={challenge.goalAmount}

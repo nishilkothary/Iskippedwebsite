@@ -12,7 +12,7 @@ import { getActiveSkipTarget } from "@/lib/utils/skipTargets";
 import { formatAggregateImpactUnitsDecimal, formatUnits, oneUnitPhrase } from "@/lib/utils/impact";
 import { getChallengeCountdown } from "@/lib/utils/dates";
 import { appendRefParam, getChallengeSharePath } from "@/lib/utils/share";
-import { getChallengeCausePhrase, getPostSkipShareText } from "@/lib/utils/challengeShareCopy";
+import { getChallengeCausePhrase, getPersonalSkipShareText, getPostSkipShareText } from "@/lib/utils/challengeShareCopy";
 import { ShareButton } from "@/components/share/ShareButton";
 import { SkipSetupPrompt } from "@/components/setup/SkipSetupPrompt";
 import type { Project, SkipAllocationTarget } from "@/lib/types/models";
@@ -491,12 +491,13 @@ export function SkipModal({ onClose }: Props) {
           successActiveProject?.unitIsGoal
         )
       : "impact";
-    const rewardShareCopy = activeGoal
-      ? `I skipped ${itemLabel} and put ${formatCurrency(amount)} toward ${activeGoal.label}. Join me on iSkipped and start saving for your own goal.`
-      : `I skipped ${itemLabel} and saved ${formatCurrency(amount)}. Want to see what you can save? Join me on iSkipped!`;
+    const rewardShareCopy = getPersonalSkipShareText(itemLabel, amount, activeGoal?.label);
     const causeShareCopy = successActiveProject
       ? getPostSkipShareText(successActiveProject, itemLabel, amount)
-      : `I skipped ${itemLabel} and saved ${formatCurrency(amount)}. Want to see what you can save? Join me on iSkipped!`;
+      : getPersonalSkipShareText(itemLabel, amount);
+    const standardizedShareMessage = successActiveProject
+      ? causeShareCopy
+      : rewardShareCopy;
 
     function chooseVariableReward(candidates: VariableReward[], fallback: VariableReward): VariableReward {
       const pool = [fallback, ...candidates];
@@ -891,21 +892,21 @@ export function SkipModal({ onClose }: Props) {
 
       switch (selectedCat.id) {
         case "coffee":
-          return "Coffee Dodged";
+          return "Coffee Skipped!";
         case "food":
-          return "Takeout Skipped";
+          return "Takeout Skipped!";
         case "drinks":
-          return "Round Resisted";
+          return "Drinks Skipped!";
         case "streaming":
-          return "Stream Passed";
+          return "Night Out Skipped!";
         case "shopping":
-          return "Cart Resisted";
+          return "Shopping Skipped!";
         case "uber":
-          return "Ride Skipped";
+          return "Ride Skipped!";
         case "entertainment":
-          return "Night Out Banked";
+          return "Entertainment Skipped!";
         default:
-          return `${selectedCat.label} Skipped`;
+          return `${selectedCat.label} Skipped!`;
       }
     }
     const successAccent = variableReward.accent || (successActiveProject ? "var(--green-primary)" : "#A78BFA");
@@ -1090,7 +1091,7 @@ export function SkipModal({ onClose }: Props) {
                   tone="primary"
                   label={variableReward.buttonLabel}
                   url={shareURL}
-                  text={variableReward.shareMessage}
+                  text={standardizedShareMessage}
                   title={successActiveProject?.title ?? "iSkipped"}
                 />
               </div>

@@ -26,7 +26,7 @@ import { EditSkipModal } from "@/components/skip/EditSkipModal";
 import { DonationLogModal } from "@/components/skip/DonationLogModal";
 import { FeedItem, GlobalStats, Project, Skip, SkipAllocationTarget, SpendingGoal } from "@/lib/types/models";
 import { appendRefParam, getChallengeSharePath } from "@/lib/utils/share";
-import { getDirectChallengeShareText } from "@/lib/utils/challengeShareCopy";
+import { getChallengeCausePhrase, getDirectChallengeShareText } from "@/lib/utils/challengeShareCopy";
 import { ShareButton } from "@/components/share/ShareButton";
 import { SkipBucksBill } from "@/components/SkipBucksBill";
 import { formatAggregateImpactUnitsDecimal, oneUnitPhrase } from "@/lib/utils/impact";
@@ -3512,6 +3512,7 @@ export default function HomePage() {
           impactUnitName={activeProject.unitName || activeProject.unitDisplay || undefined}
           impactUnitDisplay={activeProject.unitDisplay ?? undefined}
           impactUnitIsGoal={activeProject.unitIsGoal}
+          shareCause={getChallengeCausePhrase(activeProject)}
           shareUrl={appendRefParam(`${typeof window !== "undefined" ? window.location.origin : "https://iskipped.com"}${getChallengeSharePath(activeProject)}`, user?.uid)}
           onLogged={() => setChallengeTotalsRefreshKey((key) => key + 1)}
           onRaiseGoal={async (amount) => {

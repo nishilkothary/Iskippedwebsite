@@ -9,6 +9,7 @@ import { getSkipBalanceSummary } from "@/lib/utils/skipBalances";
 import { formatAggregateImpactUnitsDecimal } from "@/lib/utils/impact";
 import { ShareButton } from "@/components/share/ShareButton";
 import { getPersonalFundraiserGoalProgress, isValidRaisedFundraiserGoal } from "@/lib/utils/fundraiserGoals";
+import { getDonationShareText } from "@/lib/utils/challengeShareCopy";
 
 interface Props {
   projectId: string;
@@ -29,6 +30,8 @@ interface Props {
   shareUrl?: string;
   onRaiseGoal?: (amount: number) => void | Promise<void>;
   onChooseNewJar?: () => void | Promise<void>;
+  /** Short description of the real-world outcome the donation supports. */
+  shareCause?: string;
 }
 
 function formatGoalCurrency(amount: number): string {
@@ -40,7 +43,7 @@ function formatGoalCurrency(amount: number): string {
   }).format(amount);
 }
 
-export function DonationLogModal({ projectId, projectTitle, onClose, mode = "donate", initialAmount, donationURL, donationRecipient, unassignedSkipBucks: unassignedSkipBucksProp, onLogged, personalGoal, donatedTowardGoal = 0, impactUnitCost, impactUnitName, impactUnitDisplay, impactUnitIsGoal, shareUrl, onRaiseGoal, onChooseNewJar }: Props) {
+export function DonationLogModal({ projectId, projectTitle, onClose, mode = "donate", initialAmount, donationURL, donationRecipient, unassignedSkipBucks: unassignedSkipBucksProp, onLogged, personalGoal, donatedTowardGoal = 0, impactUnitCost, impactUnitName, impactUnitDisplay, impactUnitIsGoal, shareUrl, onRaiseGoal, onChooseNewJar, shareCause }: Props) {
   const { donate } = useSkips();
   const { profile } = useAuthStore();
   const [amount, setAmount] = useState(initialAmount && initialAmount > 0 ? String(initialAmount) : "");
@@ -77,10 +80,7 @@ export function DonationLogModal({ projectId, projectTitle, onClose, mode = "don
   const impactText = impactUnitCost && impactUnitCost > 0 && impactUnitName && cleanAmount > 0
     ? formatAggregateImpactUnitsDecimal(cleanAmount, impactUnitCost, impactUnitName, impactUnitDisplay, impactUnitIsGoal)
     : null;
-  const impactShareSentence = impactText ? ` That’s about ${impactText} of impact!` : "";
-  const shareText = remainingGoal === 0 && personalGoal
-    ? `I skipped everyday spending and donated ${formatGoalCurrency(cleanAmount)} to ${projectTitle}.${impactShareSentence} I reached my ${formatGoalCurrency(personalGoal)} Donation Goal!`
-    : `I skipped everyday spending and donated ${formatGoalCurrency(cleanAmount)} to ${projectTitle}.${impactShareSentence}${remainingGoal !== null && personalGoal ? ` I have ${formatGoalCurrency(remainingGoal)} left to reach my ${formatGoalCurrency(personalGoal)} Donation Goal.` : ""}`;
+  const shareText = getDonationShareText(cleanAmount, shareCause || projectTitle);
 
   async function handleLog() {
     const num = cleanAmount;
