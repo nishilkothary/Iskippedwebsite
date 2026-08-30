@@ -83,7 +83,7 @@ describe("connected first-run onboarding", () => {
     const html = render();
     expect(html).toContain("Find a fundraiser to save for");
     expect(html).toContain("Skip for This");
-    expect(html).toContain("Then set your personal savings goal.");
+    expect(html).toContain("Then set your personal donation goal.");
   });
   it("acknowledges a fundraiser goal and explains donating", () => {
     state.target = { type: "fundraiser", id: "books" };

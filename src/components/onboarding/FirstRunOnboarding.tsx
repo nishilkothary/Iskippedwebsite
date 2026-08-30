@@ -126,7 +126,7 @@ export function FirstRunOnboarding() {
   if (motivation === "fundraiser") {
     return (
       <OnboardingModal title="Find a fundraiser to save for">
-        <p className="text-sm leading-relaxed" style={{ color: "var(--text-secondary)" }}>Browse fundraisers and tap <strong>Skip for This</strong> on one you&apos;d like to support. Then set your personal savings goal.</p>
+        <p className="text-sm leading-relaxed" style={{ color: "var(--text-secondary)" }}>Browse fundraisers and tap <strong>Skip for This</strong> on one you&apos;d like to support. Then set your personal donation goal.</p>
         <div className="space-y-2">
           <PrimaryButton onClick={() => router.push("/jars?tab=fundraisers&onboarding=choose")}>Browse Fundraisers</PrimaryButton>
           <LaterButton onClick={() => void decideLater()} />

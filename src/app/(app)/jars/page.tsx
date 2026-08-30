@@ -1018,7 +1018,7 @@ function CauseTab({
               <p className="text-lg font-extrabold leading-tight" style={{ color: "#2ECC71" }}>{formatCurrency(givingBalance)}</p>
             </div>
           </div>
-          {/* Personal giving goal */}
+          {/* Personal donation goal */}
           {editingGivingGoal ? (
             <div className="flex gap-2 mb-4">
               <div className="relative flex-1">
@@ -1056,7 +1056,7 @@ function CauseTab({
           ) : (
             <div className="flex items-center justify-between mb-4">
               <p className="text-xs" style={{ color: "var(--text-muted)" }}>
-                Giving goal:{" "}
+                Personal donation goal:{" "}
                 <span className="font-bold" style={{ color: "var(--text-primary)" }}>
                   {(causeGoalAmounts?.[activeProject.id] ?? 0) > 0
                     ? `$${causeGoalAmounts![activeProject.id].toLocaleString()}`
@@ -2741,7 +2741,7 @@ function JarBrowser({
           <div className="max-h-[calc(100dvh-2rem)] w-full max-w-sm overflow-y-auto rounded-2xl shadow-2xl" style={{ background: "var(--bg-surface-1)", border: "1px solid var(--border-default)" }} onClick={(e) => e.stopPropagation()}>
             <div className="relative px-5 pt-5 pb-4 pr-12" style={{ borderBottom: "1px solid var(--border-default)" }}>
               <p className="text-lg font-black leading-tight" style={{ color: "var(--text-primary)" }}>
-                {fundraiserRaiseProgress !== undefined ? "Raise Your Donation Goal" : "Set a Personal Savings Goal"} for {fundraiserSetup.groupName ?? fundraiserSetup.title}
+                {fundraiserRaiseProgress !== undefined ? "Raise Your Donation Goal" : "Set a Personal Donation Goal"} for {fundraiserSetup.groupName ?? fundraiserSetup.title}
               </p>
               <p className="mt-1 text-xs font-bold" style={{ color: "var(--text-muted)" }}>
                 {fundraiserRaiseProgress !== undefined

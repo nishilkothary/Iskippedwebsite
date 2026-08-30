@@ -3192,7 +3192,7 @@ export default function HomePage() {
           <div className="rounded-2xl w-full max-w-sm shadow-2xl" style={{ background: "var(--bg-surface-1)", border: "1px solid var(--border-default)" }} onClick={(event) => event.stopPropagation()}>
             <div className="relative px-5 pt-5 pb-4 pr-12" style={{ borderBottom: "1px solid var(--border-default)" }}>
               <p className="text-lg font-black leading-tight" style={{ color: "var(--text-primary)" }}>
-                Skip for {homeFundraiserSetup.groupName ?? homeFundraiserSetup.title}?
+                Set a Personal Donation Goal for {homeFundraiserSetup.groupName ?? homeFundraiserSetup.title}
               </p>
               {fundraiserGroupGoalLine(homeFundraiserSetup) && (
                 <p className="mt-1 text-xs font-bold" style={{ color: "var(--text-muted)" }}>
@@ -3212,7 +3212,7 @@ export default function HomePage() {
             <div className="space-y-4 p-5">
               <div>
                 <label className="mb-1.5 block text-xs font-black uppercase tracking-wide" style={{ color: "#A7F3D0" }}>
-                  Personal skipping goal
+                  Personal donation goal
                 </label>
                 <div className="relative">
                   <span className="absolute left-4 top-1/2 -translate-y-1/2 text-sm" style={{ color: "var(--text-muted)" }}>$</span>
