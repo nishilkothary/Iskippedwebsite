@@ -33,16 +33,16 @@ const STEPS = [
 
 const FAQ_ITEMS = [
   {
-    q: "What are Skipping Jars and Skip Bucks?",
-    a: "A Skipping Jar is a savings goal for the money you save by skipping everyday purchases. It can be for something personal you want to buy or for a donation you hope to make. Your active jar is the one shown on your Home page and the default destination for new skips — think of it as your digital piggy bank. Each time you log a skip, it goes into your active jar unless you choose a different destination first. Skip Bucks are saved money that isn’t in a jar yet. You can move them into a reward or fundraiser whenever you’re ready, or leave them available until you choose a purpose for them.",
+    q: "What are Skipping Jars?",
+    a: "A Skipping Jar is a savings goal for the money you save by skipping everyday purchases. It can be for something personal you want to buy or for a donation you hope to make. Your active jar is the one shown on your Home page and the default destination for new skips — think of it as your digital piggy bank. Each time you log a skip, it goes into your active jar unless you choose a different destination first.",
+  },
+  {
+    q: "What are Skip Bucks?",
+    a: "Skip Bucks are saved money that isn’t in a jar yet. You can move them into a reward or fundraiser whenever you’re ready, or leave them available until you choose a purpose for them.",
   },
   {
     q: "How do I spend or donate what’s in my jar?",
     a: "iSkipped is a tracking tool for the savings you’ve worked hard to build — it does not process payments or donations directly, and it never holds your money. To use your savings, tap the Spend or Donate button below the relevant jar on your Home page. iSkipped will guide you through the next steps with the retailer or fundraiser. Once you complete the purchase or donation, return to iSkipped and log it so your jar balance and savings history update correctly.",
-  },
-  {
-    q: "Does iSkipped process donations or purchases?",
-    a: "No. Donations are completed directly with the external organization, and purchases happen with the retailer you choose. iSkipped does not hold funds, process payments, verify outside transactions, or control how organizations use donations.",
   },
   {
     q: "Does money move when I log a skip?",
@@ -50,11 +50,11 @@ const FAQ_ITEMS = [
   },
   {
     q: "Can I skip for more than one reason?",
-    a: "You can keep multiple jars by pausing one and returning to it later. When you log a skip, it fills your active jar by default. Tap Change to send that individual skip to a parked jar or leave it as Skip Bucks. You can also move saved balances between jars from Jar Activity.",
+    a: "Yes. You can direct skipped savings to a paused jar by changing the destination for any given skip.",
   },
   {
-    q: "What does ‘Skip for this’ mean?",
-    a: "‘Skip for this’ makes that cause or reward your active jar. Future skips will go there by default until you choose a different jar. It does not move or delete money already saved in another jar.",
+    q: "Where can I see or change where my skipped money is?",
+    a: "Open Manage Jars to see where your skipped money is. From there, you can move balances between jars or delete a jar and move its savings back to your Skip Bucks.",
   },
   {
     q: "Can I increase a jar goal amount?",
@@ -63,6 +63,10 @@ const FAQ_ITEMS = [
   {
     q: "What happens if I change or deactivate a jar?",
     a: "You can keep the balance parked in that jar, move it to a new jar, or return it to Skip Bucks. Deactivating a jar does not delete saved money unless you choose to move or release it.",
+  },
+  {
+    q: "What does ‘Skip for this’ mean?",
+    a: "‘Skip for this’ makes that cause or reward your active jar. Future skips will go there by default until you choose a different jar. It does not move or delete money already saved in another jar.",
   },
   {
     q: "Can I join or create a fundraiser?",
@@ -122,35 +126,51 @@ export default function AboutPage() {
           className="rounded-2xl p-5"
           style={{ background: "var(--bg-surface-1)", border: "1px solid var(--border-default)" }}
         >
-          <p className="text-xs font-black uppercase tracking-[0.18em]" style={{ color: "var(--green-primary)" }}>
-            My story
-          </p>
-          <h2 className="mt-2 text-2xl font-black leading-tight" style={{ color: "var(--text-primary)", letterSpacing: 0 }}>
-            How iSkipped began
+          <h2 className="text-2xl font-black leading-tight" style={{ color: "var(--text-primary)", letterSpacing: 0 }}>
+            How iSkipped Began
           </h2>
-          <div className="mt-4 space-y-4 text-sm leading-relaxed" style={{ color: "var(--text-secondary)" }}>
+          <div
+            id="origin-story"
+            className="mt-4 space-y-4 text-sm leading-relaxed"
+            style={{ color: "var(--text-secondary)" }}
+          >
             <p>
-              The idea for iSkipped began during a backpacking trip through Asia. There, I met a local student who was using a hotel bench as a bed and eating plain white rice for dinner, all to try and save more money for college.
+              The idea for iSkipped began during a backpacking trip through Asia. It was there, in the incredible city of Luang Prabang, that I noticed something interesting. The receptionist at my hotel would sleep on an outdoor bench every night after his shift ended.
             </p>
             <p>
-              Amazed by his sacrifice, I asked how much his tuition would cost, expecting a relatively large number. His answer shocked me: &quot;$170,&quot; he said.
+              As I learned more about him over the course of my stay, I found out that he did have a home, but it was many miles away. Rather than spending money on transportation or more local lodging, sleeping on that uncomfortable bench was his way of saving more money for college tuition.
+            </p>
+            <p>
+              Amazed by his sacrifice, I decided to ask him how much his tuition would cost, expecting a relatively large number. His answer, however, shocked me.
+            </p>
+            <p className="text-lg font-black" style={{ color: "var(--text-primary)" }}>
+              &quot;$170,&quot; he said.
             </p>
             {storyExpanded ? (
               <>
                 <p>
-                  That number stayed with me. Back home, $170 could disappear into a few dinners out or some drinks with friends. For him, it meant a year of education and a lifetime of opportunity.
+                  That number stayed with me. Back home, $170 could disappear into a few dinners out or drinks with friends. For him, it meant a year of education and a lifetime of opportunity.
                 </p>
                 <p>
-                  For the rest of my trip, I started looking at every purchase through that frame of reference: if I did not buy this, how much closer could I get to funding his tuition? With that way of thinking, a few skipped expenses later, his $170 tuition was covered.
+                  For the rest of my trip, I started looking at every purchase through his frame of reference: <em>If I did not buy this, how much closer could I get to funding his tuition?</em>
+                </p>
+                <p>
+                  Incredibly, with that new mindset and a few skipped purchases, I saved the $170 he had been working so hard to put together.
                 </p>
                 <p className="font-black" style={{ color: "var(--text-primary)" }}>
-                  That transformation, from skipped expenses into a year of tuition, forever changed how I saw my own money.
+                  The day I sent him the money and saw my spending choices turn into someone else&apos;s hopes and dreams was the day I forever changed how I saw my own money.
                 </p>
                 <p>
-                  Deciding to spend became less about, &quot;Can I afford this?&quot; and more about, &quot;Do I really want this?&quot; If the answer was no, the choice became clear: skip it and use that money for something better.
+                  From that point on, deciding whether to spend became less about, &quot;Can I afford this?&quot; and more about, &quot;Do I really want this?&quot; If the answer was no, the choice was clear to me: skip it and use that money for something more meaningful.
                 </p>
                 <p>
-                  In a world where we are often celebrated for what we buy, own, and possess, my hope is that iSkipped helps you feel proud and accomplished anytime you choose not to buy something. Because whatever your skips go toward, whether it&apos;s a personal savings goal, something that brings you more happiness, or a donation to someone in need, there is power in being able to say:
+                  That way of seeing money is where iSkipped truly began, and it&apos;s the mindset I hope to share with you too.
+                </p>
+                <p>
+                  In a world where we are often encouraged to spend, buy, own, and possess, my hope is that iSkipped helps you feel proud and accomplished anytime you choose not to.
+                </p>
+                <p>
+                  Because whether you&apos;re skipping to help someone else or saving toward something that brings you more happiness, I have found that there is immense power in being able to actively choose to say:
                 </p>
                 <p className="text-xl font-black" style={{ color: "var(--green-primary)" }}>
                   I skipped.
@@ -159,10 +179,22 @@ export default function AboutPage() {
                   <span className="block text-base" style={{ fontFamily: "Georgia, serif", fontStyle: "italic" }}>Nishil Kothary</span>
                   <span className="mt-1 block text-xs font-black uppercase tracking-[0.18em]" style={{ color: "var(--text-muted)" }}>Founder of iSkipped</span>
                 </p>
+                <button
+                  type="button"
+                  aria-expanded="true"
+                  aria-controls="origin-story"
+                  onClick={() => setStoryExpanded(false)}
+                  className="ml-auto flex w-fit items-center text-sm font-black"
+                  style={{ color: "var(--text-muted)" }}
+                >
+                  Show less <span className="ml-1" aria-hidden="true">↑</span>
+                </button>
               </>
             ) : (
               <button
                 type="button"
+                aria-expanded="false"
+                aria-controls="origin-story"
                 onClick={() => setStoryExpanded(true)}
                 className="inline-flex items-center text-sm font-black"
                 style={{ color: "var(--green-primary)" }}
@@ -253,10 +285,16 @@ export default function AboutPage() {
                         <Link href="/jars" className="mt-3 inline-block font-black underline" style={{ color: "var(--green-primary)" }}>Open Manage Jars -&gt;</Link>
                       </>
                     ) : item.a}
-                    {item.q === "What are Skipping Jars and Skip Bucks?" && (
+                    {item.q === "What are Skip Bucks?" && (
                       <>
                         <br />
                         <Link href="/jar-activity" className="underline" style={{ color: "var(--green-primary)" }}>View Jar Activity for a breakdown</Link>.
+                      </>
+                    )}
+                    {item.q === "Where can I see or change where my skipped money is?" && (
+                      <>
+                        <br />
+                        <Link href="/jars" className="mt-3 inline-block font-black underline" style={{ color: "var(--green-primary)" }}>Open Manage Jars -&gt;</Link>
                       </>
                     )}
                   </p>
