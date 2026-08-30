@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getAdminAuth, getAdminDb } from "@/lib/services/firebaseAdmin";
 import { DESIGNATED_ADMIN_EMAIL } from "@/lib/constants/admin";
 import { getChallengeTotals } from "@/lib/services/challengeTotals";
+import { getFundraiserTitles } from "@/lib/utils/fundraiserDetails";
 import { getSkipBalanceSummary } from "@/lib/utils/skipBalances";
 
 type MemberProfile = {
@@ -61,7 +62,8 @@ export async function GET(req: NextRequest, context: { params: Promise<{ id: str
       return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }
     const challengeTitle = typeof project.title === "string" ? project.title : "";
-    const totals = await getChallengeTotals(db, challengeId, challengeTitle);
+    const challengeTitles = getFundraiserTitles(project);
+    const totals = await getChallengeTotals(db, challengeId, challengeTitle, project.previousTitles);
 
     const memberUids = Array.isArray(project.memberUids)
       ? project.memberUids.filter((uid): uid is string => typeof uid === "string")
@@ -87,7 +89,7 @@ export async function GET(req: NextRequest, context: { params: Promise<{ id: str
     const allDonationDocs = await db.collectionGroup("donations").get();
     const challengeDonationDocs = allDonationDocs.docs.filter((donation) => {
       const causeId = donation.get("causeId");
-      return causeId === challengeId || (!causeId && Boolean(challengeTitle) && donation.get("causeTitle") === challengeTitle);
+      return causeId === challengeId || (!causeId && challengeTitles.has(donation.get("causeTitle")));
     });
     for (const donation of challengeDonationDocs) {
       const uid = donation.ref.parent.parent?.id;

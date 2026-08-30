@@ -54,6 +54,11 @@ export default function ChallengeActivityPage() {
           {feed.map((item) => {
             const showName = item.shareName !== false;
             const firstName = item.displayName?.split(" ")[0] ?? "A friend";
+            const fundraiserName = item.projectTitle ?? project?.groupName ?? project?.title;
+            const legacySuffix = fundraiserName ? ` with ${fundraiserName}` : null;
+            const message = item.type === "skip" && legacySuffix && item.message.endsWith(legacySuffix)
+              ? `${item.message.slice(0, -legacySuffix.length)} for ${fundraiserName}`
+              : item.message;
             return (
               <div key={item.id} className="rounded-xl px-4 py-3 flex items-center gap-3" style={cardStyle}>
                 <div
@@ -65,9 +70,9 @@ export default function ChallengeActivityPage() {
                 <div className="flex-1 min-w-0">
                   <p className="text-sm font-bold truncate" style={{ color: "var(--text-primary)" }}>
                     {showName ? (
-                      <><span className="font-black">{firstName}</span> {item.message}</>
+                      <><span className="font-black">{firstName}</span> {message}</>
                     ) : (
-                      <>A friend {item.message}</>
+                      <>A friend {message}</>
                     )}
                   </p>
                   <p className="text-xs mt-0.5" style={{ color: "var(--text-muted)" }}>

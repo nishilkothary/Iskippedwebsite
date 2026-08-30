@@ -134,6 +134,8 @@ export interface Skip {
 
 export interface Project {
   id: string;
+  editedDetailFields?: string[];
+  previousTitles?: string[];
   projectKind?: "cause" | "challenge";
   parentProjectId?: string | null;
   title: string;

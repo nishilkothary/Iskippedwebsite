@@ -28,7 +28,7 @@ export async function GET(req: NextRequest, context: { params: Promise<{ id: str
     // private/unlisted visibility flag turn a valid group total into $0 in
     // the card.
 
-    const totals = await getChallengeTotals(db, projectId, typeof project.title === "string" ? project.title : "");
+    const totals = await getChallengeTotals(db, projectId, typeof project.title === "string" ? project.title : "", project.previousTitles);
 
     return NextResponse.json({
       totalPledged: totals.totalPledged,

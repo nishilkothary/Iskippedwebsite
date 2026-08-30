@@ -17,7 +17,7 @@ export async function GET(req: NextRequest, context: { params: Promise<{ id: str
     if (!projectSnap.exists) return NextResponse.json({ error: "Challenge not found" }, { status: 404 });
 
     const project = projectSnap.data() ?? {};
-    const totals = await getChallengeTotals(db, challengeId, typeof project.title === "string" ? project.title : "");
+    const totals = await getChallengeTotals(db, challengeId, typeof project.title === "string" ? project.title : "", project.previousTitles);
     const members = Array.isArray(project.memberUids)
       ? project.memberUids.filter((uid: unknown): uid is string => typeof uid === "string" && uid.length > 0)
       : [];

@@ -11,7 +11,7 @@ export async function GET(_request: Request, context: { params: Promise<{ id: st
     const projectSnap = await db.collection("projects").doc(id).get();
     if (!projectSnap.exists) return NextResponse.json({ error: "Challenge not found" }, { status: 404 });
     const project = projectSnap.data() ?? {};
-    const totals = await getChallengeTotals(db, id, typeof project.title === "string" ? project.title : undefined);
+    const totals = await getChallengeTotals(db, id, typeof project.title === "string" ? project.title : undefined, project.previousTitles);
     return NextResponse.json(totals);
   } catch (error) {
     console.error("[public challenge totals] failed", error);

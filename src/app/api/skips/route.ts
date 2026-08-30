@@ -75,7 +75,7 @@ export async function POST(req: NextRequest) {
       const newLongestStreak = getLongestWeeklyStreak(allSkipDates);
 
       let causeSuffix = "";
-      if (projectTitle) causeSuffix = ` with ${projectTitle}`;
+      if (projectTitle) causeSuffix = ` for ${projectTitle}`;
 
       const impactMessage = getImpactMessage(amount);
       const message = `skipped ${whatSkipped || categoryLabel}${causeSuffix}`;

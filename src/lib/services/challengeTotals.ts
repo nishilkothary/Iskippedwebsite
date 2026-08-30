@@ -1,6 +1,7 @@
 import type { Firestore } from "firebase-admin/firestore";
 import { getSkipBalanceSummary } from "@/lib/utils/skipBalances";
 import type { UserProfile } from "@/lib/types/models";
+import { getFundraiserTitles } from "@/lib/utils/fundraiserDetails";
 
 export type ChallengeTotals = {
   totalPledged: number;
@@ -13,7 +14,9 @@ export async function getChallengeTotals(
   db: Firestore,
   projectId: string,
   projectTitle?: string,
+  previousTitles?: unknown,
 ): Promise<ChallengeTotals> {
+  const titles = getFundraiserTitles({ title: projectTitle, previousTitles });
   const [jarUsers, allDonations] = await Promise.all([
     db.collection("users").where(`causeJarBalances.${projectId}`, ">", 0).get(),
     // A collection-group query without a filter does not require a Firestore
@@ -34,7 +37,7 @@ export async function getChallengeTotals(
     // Older donation records may not have a causeId. Only use the title as a
     // legacy fallback when causeId is actually missing; never let a matching
     // title override a donation explicitly assigned to another cause.
-    const matchesLegacyTitle = !causeId && Boolean(projectTitle) && donation.get("causeTitle") === projectTitle;
+    const matchesLegacyTitle = !causeId && titles.has(donation.get("causeTitle"));
     if (!matchesCause && !matchesLegacyTitle) continue;
     const amount = Number(donation.get("amount") ?? 0);
     if (!Number.isFinite(amount) || amount <= 0) continue;

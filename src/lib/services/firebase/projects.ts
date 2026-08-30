@@ -6,6 +6,8 @@ import {
   addDoc,
   setDoc,
   updateDoc,
+  runTransaction,
+  arrayUnion,
   serverTimestamp,
   onSnapshot,
   Timestamp,
@@ -14,6 +16,7 @@ import {
 import { db } from "./config";
 import { apiRequest } from "./apiClient";
 import { Project } from "@/lib/types/models";
+import { getFundraiserDetailOverrides } from "@/lib/utils/fundraiserDetails";
 
 export const OFFICIAL_PROJECTS: Project[] = [
   {
@@ -138,6 +141,7 @@ function mergeWithOfficials(firestoreDocs: Project[]): Project[] {
       ? {
           ...fs,
           ...p,
+          ...getFundraiserDetailOverrides(fs),
           totalRaised: fs.totalRaised ?? p.totalRaised,
           totalDonated: fs.totalDonated ?? p.totalDonated,
           totalSkips: fs.totalSkips ?? p.totalSkips,
@@ -197,11 +201,11 @@ export function isProjectEnded(project: Project): boolean {
 }
 
 export async function getProject(id: string): Promise<Project | null> {
-  // Check official projects first
   const official = OFFICIAL_PROJECTS.find((p) => p.id === id);
-  if (official) return official;
   const snap = await getDoc(doc(db, "projects", id));
-  return snap.exists() ? ({ id: snap.id, ...snap.data() } as Project) : null;
+  if (!snap.exists()) return official ?? null;
+  const saved = { ...snap.data(), id: snap.id } as Project;
+  return official ? mergeWithOfficials([saved]).find((p) => p.id === id) ?? null : saved;
 }
 
 export async function addCustomProject(
@@ -299,36 +303,42 @@ export async function updateCustomProject(
     groupName?: string;
   }
 ): Promise<void> {
-  const snap = await getDoc(doc(db, "projects", projectId));
-  if (!snap.exists() || snap.data().createdBy !== uid) throw new Error("Not authorized");
   const endDate =
     data.durationDays !== undefined
       ? data.durationDays
         ? Timestamp.fromMillis(Date.now() + data.durationDays * 86400_000)
         : null
       : undefined;
-  await updateDoc(doc(db, "projects", projectId), {
-    title: data.title,
-    groupName: data.groupName || null,
-    sponsor: data.sponsor || data.title,
-    location: data.location || null,
-    goalAmount: data.goalAmount,
-    donationURL: data.donationURL || null,
-    donationNote: data.donationNote || null,
-    learnMoreURL: data.learnMoreURL || null,
-    description: data.description || "",
-    imageURL: data.imageURL || null,
-    imagePosition: data.imagePosition || null,
-    unitName: data.unitName || null,
-    unitDisplay: data.unitDisplay || null,
-    unitCost: data.unitCost || null,
-    unitIsGoal: data.unitIsGoal || false,
-    unitPhrase: data.unitPhrase || null,
-    skipMilestones: data.skipMilestones || null,
-    visibility: data.visibility || "public",
-    password: data.password || null,
-    ...(data.tags ? { tags: data.tags } : {}),
-    ...(endDate !== undefined ? { endDate } : {}),
+  await runTransaction(db, async (tx) => {
+    const projectRef = doc(db, "projects", projectId);
+    const snap = await tx.get(projectRef);
+    if (!snap.exists() || snap.data().createdBy !== uid) throw new Error("Not authorized");
+    const oldTitle = snap.data().title;
+    tx.update(projectRef, {
+      title: data.title,
+      ...(typeof oldTitle === "string" && oldTitle && oldTitle !== data.title
+        ? { previousTitles: arrayUnion(oldTitle) } : {}),
+      groupName: data.groupName || null,
+      sponsor: data.sponsor || data.title,
+      location: data.location || null,
+      goalAmount: data.goalAmount,
+      donationURL: data.donationURL || null,
+      donationNote: data.donationNote || null,
+      learnMoreURL: data.learnMoreURL || null,
+      description: data.description || "",
+      imageURL: data.imageURL || null,
+      imagePosition: data.imagePosition || null,
+      unitName: data.unitName || null,
+      unitDisplay: data.unitDisplay || null,
+      unitCost: data.unitCost || null,
+      unitIsGoal: data.unitIsGoal || false,
+      unitPhrase: data.unitPhrase || null,
+      skipMilestones: data.skipMilestones || null,
+      visibility: data.visibility || "public",
+      password: data.password || null,
+      ...(data.tags ? { tags: data.tags } : {}),
+      ...(endDate !== undefined ? { endDate } : {}),
+    });
   });
 }
 

@@ -14,6 +14,8 @@ import { getDirectChallengeShareText, getFundraiserProgressShareText } from "@/l
 import { ShareButton } from "@/components/share/ShareButton";
 import { apiRequest } from "@/lib/services/firebase/apiClient";
 import { DESIGNATED_ADMIN_EMAIL } from "@/lib/constants/admin";
+import { FundraiserDetailsEditor } from "@/components/fundraisers/FundraiserDetailsEditor";
+import { getFundraiserTitles } from "@/lib/utils/fundraiserDetails";
 
 type ChallengeMember = {
   uid: string;
@@ -123,8 +125,9 @@ export default function ManageChallengePage() {
   const totalSkips = liveProject?.totalSkips ?? challenge.totalSkips ?? 0;
   const memberUids = liveProject?.memberUids ?? challenge.memberUids ?? [];
 
+  const challengeTitles = getFundraiserTitles(challenge);
   const allChallengeFeed = communityFeed
-    .filter((item) => item.projectId === challengeId || item.projectTitle === challenge.title);
+    .filter((item) => item.projectId === challengeId || (!item.projectId && Boolean(item.projectTitle) && challengeTitles.has(item.projectTitle!)));
   const challengeFeed = showAllActivity ? allChallengeFeed : allChallengeFeed.slice(0, 3);
   const displayedMemberCount = membersTotal || memberUids.length;
   const membersByUid = new Map(members.map((member) => [member.uid, member]));
@@ -418,22 +421,7 @@ export default function ManageChallengePage() {
         onLoadMembers={loadMembers}
       />
 
-      {/* Edit Details */}
-      <section className="rounded-2xl p-4 mb-4" style={{ background: "var(--bg-surface-2)", border: "1px solid var(--border-default)" }}>
-        <p className="text-xs uppercase tracking-wide font-bold mb-1" style={{ color: "var(--text-muted)" }}>
-          Edit Details
-        </p>
-        <p className="text-xs mb-3" style={{ color: "var(--text-secondary)" }}>
-          Update your challenge name, goal, impact unit, image, access settings, and more.
-        </p>
-        <button
-          onClick={() => router.push(`/challenges?edit=${challengeId}`)}
-          className="w-full py-2.5 rounded-xl text-sm font-bold"
-          style={{ background: "linear-gradient(135deg, var(--gold-cta), var(--gold-light))", color: "var(--bg-base)", boxShadow: "0 4px 18px var(--gold-glow)" }}
-        >
-          Edit Challenge Details
-        </button>
-      </section>
+      <FundraiserDetailsEditor key={challenge.id} project={challenge} />
 
       {/* End Challenge (archive) */}
       <section className="rounded-2xl p-4" style={{ background: "var(--bg-surface-2)", border: "1px solid var(--border-default)" }}>
