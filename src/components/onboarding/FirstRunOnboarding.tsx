@@ -11,9 +11,8 @@ import {
   type SavingMotivation,
 } from "@/lib/services/firebase/users";
 import { getActiveSkipTarget } from "@/lib/utils/skipTargets";
-import { formatCurrency } from "@/lib/utils/currency";
 
-const GENERAL_COPY = "Start by logging something you decided not to buy. Your Skip Scoreboard will show how your skipped spending adds up over time—so you can put those savings toward something more meaningful to you.";
+const GENERAL_COPY = "Start by logging something you decided not to buy. Your Skip Scoreboard will show how those savings add up. Whenever you’re ready, choose a cause or reward to save for in the Skip Jars tab.";
 
 const motivationOptions: Array<{
   value: SavingMotivation;
@@ -52,10 +51,6 @@ export function FirstRunOnboarding() {
         ?? projects.find((project) => project.id === activeTarget.id)?.title
         ?? "your fundraiser"
       : null;
-  const targetAmount = activeTarget?.type === "fundraiser"
-    ? profile.causeGoalAmounts?.[activeTarget.id]
-    : activeGoal?.targetAmount;
-  const targetAmountLabel = targetAmount && targetAmount > 0 ? formatCurrency(targetAmount) : null;
   const isInviteRoute = pathname.startsWith("/challenges/") && searchParams.get("invite") === "1";
   const isChoosingPurpose = searchParams.get("onboarding") === "choose"
     || (motivation === "fundraiser" && pathname === "/challenges" && searchParams.get("create") === "1");
@@ -91,16 +86,16 @@ export function FirstRunOnboarding() {
     }
   }
 
-  // An invited user should first see and join the fundraiser they came for.
-  // As soon as it becomes their active target, the named first-skip prompt appears.
-  if (isInviteRoute && activeTarget?.type !== "fundraiser") return null;
+  // The invite page owns its entire join/goal/first-skip sequence. Do not put
+  // another onboarding modal over it after the fundraiser becomes active.
+  if (isInviteRoute) return null;
 
   if (activeTarget && targetLabel) {
     const purposeCopy = activeTarget.type === "fundraiser"
-      ? <>When you decide not to buy something, log it as a Skip. The amount will count toward your {targetAmountLabel ? `${targetAmountLabel} ` : ""}donation goal. When you&apos;re ready, donate what you&apos;ve saved.</>
-      : <>When you decide not to buy something, log it as a Skip. The amount will count toward your {targetAmountLabel ? `${targetAmountLabel} ` : ""}reward goal. When you&apos;re ready, use what you&apos;ve saved to buy your reward.</>;
+      ? <>Now it&apos;s simple: skip an expense, log it here, and watch your savings toward <strong>{targetLabel}</strong> grow. You can donate what you&apos;ve saved at any time.</>
+      : <>Now it&apos;s simple: skip an expense, log it here, and watch your savings toward <strong>{targetLabel}</strong> grow. When you&apos;re ready, use what you&apos;ve saved to buy your reward.</>;
     return (
-      <OnboardingModal title={`Start saving for ${targetLabel}`} onClose={() => void dismissOnboarding()}>
+      <OnboardingModal title="You’ve set your goal!" onClose={() => void dismissOnboarding()}>
         <p className="text-sm leading-relaxed" style={{ color: "var(--text-secondary)" }}>
           {purposeCopy}
         </p>
@@ -117,7 +112,7 @@ export function FirstRunOnboarding() {
 
   if (motivation === "reward") {
     return (
-      <OnboardingModal eyebrow="Personal reward" title="Choose something worth saving for">
+      <OnboardingModal title="Choose something worth saving for">
         <p className="text-sm leading-relaxed" style={{ color: "var(--text-secondary)" }}>Add the purchase or experience you want your skipped spending to help pay for.</p>
         <div className="space-y-2">
           <PrimaryButton onClick={() => router.push("/jars?tab=live&add=reward&skip=1&onboarding=choose")}>Add What I&apos;m Saving For</PrimaryButton>
@@ -129,8 +124,8 @@ export function FirstRunOnboarding() {
 
   if (motivation === "fundraiser") {
     return (
-      <OnboardingModal eyebrow="Support a cause" title="Choose a fundraiser">
-        <p className="text-sm leading-relaxed" style={{ color: "var(--text-secondary)" }}>Browse fundraisers and choose a cause you want your skipped spending to support.</p>
+      <OnboardingModal title="Find a fundraiser to save for">
+        <p className="text-sm leading-relaxed" style={{ color: "var(--text-secondary)" }}>Browse fundraisers and tap <strong>Skip for This</strong> on one you&apos;d like to support. Then set your personal savings goal.</p>
         <div className="space-y-2">
           <PrimaryButton onClick={() => router.push("/jars?tab=fundraisers&onboarding=choose")}>Browse Fundraisers</PrimaryButton>
           <LaterButton onClick={() => void decideLater()} />
@@ -141,7 +136,7 @@ export function FirstRunOnboarding() {
 
   if (motivation === "save-more" || motivation === "decide-later") {
     return (
-      <OnboardingModal eyebrow={motivation === "save-more" ? "See what adds up" : "No goal needed yet"} title="Log your first skip">
+      <OnboardingModal title="See how your savings add up">
         <p className="text-sm leading-relaxed" style={{ color: "var(--text-secondary)" }}>{GENERAL_COPY}</p>
         <PrimaryButton onClick={() => void logFirstSkip()}>Log Your First Skip</PrimaryButton>
       </OnboardingModal>

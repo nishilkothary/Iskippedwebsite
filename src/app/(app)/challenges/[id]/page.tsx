@@ -7,7 +7,7 @@ import { useAuthStore } from "@/store/authStore";
 import { useUIStore } from "@/store/uiStore";
 import { useProjects } from "@/hooks/useProjects";
 import { Project, SkipAllocationTarget, UserProfile } from "@/lib/types/models";
-import { allocateSkipBankToJar, joinProject, pinProjectToHome, setChallengeEmailConsent, setUserCauseGoal } from "@/lib/services/firebase/users";
+import { allocateSkipBankToJar, completeFirstRunOnboarding, joinProject, pinProjectToHome, setChallengeEmailConsent, setUserCauseGoal } from "@/lib/services/firebase/users";
 import { isChallengeProject, getProject } from "@/lib/services/firebase/projects";
 import { formatCurrency } from "@/lib/utils/currency";
 import { getChallengeCountdown } from "@/lib/utils/dates";
@@ -549,7 +549,16 @@ export default function ChallengeDetailPage() {
     setInviteStep("goal");
   }
 
+  function dismissInviteFirstSkip() {
+    if (!user || profile?.onboardingCompletedAt !== null) return;
+    updateProfile({ onboardingCompletedAt: new Date() as any });
+    void completeFirstRunOnboarding(user.uid).catch(() => {
+      // Keep the local dismissal if saving the preference temporarily fails.
+    });
+  }
+
   function finishInvite(openSkipPicker: boolean) {
+    if (!openSkipPicker) dismissInviteFirstSkip();
     setInviteStep(null);
     if (openSkipPicker) setShowSkipPicker(true);
     router.push("/home");
@@ -794,7 +803,10 @@ export default function ChallengeDetailPage() {
           skipBucksValue={skipBucksInput}
           availableSkipBucks={getSkipBalanceSummary(profile).unassignedSkipBank}
           joining={joining}
-          onClose={() => setInviteStep(null)}
+          onClose={() => {
+            if (inviteStep === "first-skip") dismissInviteFirstSkip();
+            setInviteStep(null);
+          }}
           onStart={startInviteJoin}
           onActivate={completeJoin}
           activeJarLabel={activeJarLabel}
@@ -883,7 +895,9 @@ function InviteFlowModal({
                     ? `You are currently skipping for ${challenge.project.groupName ?? challenge.title}`
                     : step === "already-joined"
                       ? `You already joined ${challenge.project.groupName ?? challenge.title}`
-                    : "Use existing Skip Bucks?"}
+                      : step === "first-skip"
+                        ? "You’ve set your goal!"
+                        : "Use existing Skip Bucks?"}
           </p>
           {step === "goal" && (
             <p className="mt-1 text-xs font-bold" style={{ color: "var(--text-muted)" }}>
@@ -1066,7 +1080,7 @@ function InviteFlowModal({
           {step === "first-skip" && (
             <>
               <p className="text-sm leading-relaxed" style={{ color: "var(--text-secondary)" }}>
-                If there is an expense you already skipped, log it now and save that amount toward this cause.
+                Now it&apos;s simple: skip an expense, log it here, and watch your savings toward <strong>{challenge.project.groupName ?? challenge.title}</strong> grow. You can donate what you&apos;ve saved at any time.
               </p>
               <button
                 type="button"
@@ -1074,7 +1088,7 @@ function InviteFlowModal({
                 className="w-full rounded-full py-3 text-sm font-black"
                 style={{ background: "linear-gradient(135deg, var(--green-primary), var(--green-grad-end))", color: "var(--bg-base)" }}
               >
-                Log a skipped expense
+                Log Your First Skip
               </button>
               <button
                 type="button"
