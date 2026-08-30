@@ -1401,14 +1401,16 @@ export default function HomePage() {
       : communityGoal;
   const groupGoalReached = fundraiserGoalAmount > 0 && displayedGroupTotal >= fundraiserGoalAmount;
   const groupGoalRemainingAmount = Math.max(0, fundraiserGoalAmount - displayedGroupTotal);
-  const groupGoalSkipEstimates = [
+  const skipEstimateCategories = [
     { key: "coffee", label: "coffees", icon: "☕", amount: SKIP_CATEGORIES.find((category) => category.id === "coffee")?.defaultAmount ?? 5.5 },
     { key: "food", label: "takeouts", icon: "🍔", amount: SKIP_CATEGORIES.find((category) => category.id === "food")?.defaultAmount ?? 15 },
-    { key: "night-out", label: "night outs", icon: "🎟️", amount: SKIP_CATEGORIES.find((category) => category.id === "streaming")?.defaultAmount ?? 50 },
-  ].map((category) => ({
-    ...category,
-    count: Math.max(1, Math.ceil(groupGoalRemainingAmount / category.amount)),
-  }));
+    { key: "night-out", label: "nights out", icon: "🎟️", amount: SKIP_CATEGORIES.find((category) => category.id === "streaming")?.defaultAmount ?? 50 },
+  ];
+  const groupGoalSkipEstimates = skipEstimateCategories.map((category) => {
+    // Fundraiser estimates use their own prices; reward estimates stay unchanged.
+    const amount = category.key === "coffee" ? 6 : category.key === "food" ? 20 : 50;
+    return { ...category, amount, count: Math.max(1, Math.ceil(groupGoalRemainingAmount / amount)) };
+  });
   const fundraiserGoalUnits = fundraiserUnitCost && fundraiserGoalAmount > 0
     ? fundraiserGoalAmount / fundraiserUnitCost
     : null;
@@ -1533,7 +1535,7 @@ export default function HomePage() {
   const goalCoveredAmount = activeGoal ? Math.min(spendingBalance, activeGoal.targetAmount) : 0;
   const goalRemainingAmount = activeGoal ? Math.max(0, activeGoal.targetAmount - spendingBalance) : 0;
   const rewardGoalReached = Boolean(activeGoal) && goalRemainingAmount <= 0;
-  const rewardGoalSkipEstimates = groupGoalSkipEstimates.map((category) => ({
+  const rewardGoalSkipEstimates = skipEstimateCategories.map((category) => ({
     ...category,
     count: Math.max(1, Math.ceil(goalRemainingAmount / category.amount)),
   }));
