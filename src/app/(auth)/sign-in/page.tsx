@@ -373,7 +373,7 @@ function SignInPage() {
         {/* Brand */}
         <div>
           <p className="text-2xl font-black text-white tracking-tight">
-            i<span className="text-[#2ECC71]">skipped</span>
+            i<span className="text-[#2ECC71]">Skipped</span>
           </p>
         </div>
 
@@ -438,7 +438,7 @@ function SignInPage() {
         <div className="lg:hidden bg-gradient-to-br from-[#1a5c42] to-[#2d8b6a] px-6 pt-10 pb-8">
           <div className="flex justify-center mb-5">
             <p className="text-3xl font-black text-white tracking-tight">
-              i<span className="text-[#2ECC71]">skipped</span>
+              i<span className="text-[#2ECC71]">Skipped</span>
             </p>
           </div>
           <h1 className="text-2xl font-black text-white text-center leading-tight mb-2">

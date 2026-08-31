@@ -508,7 +508,7 @@ export default function ChallengesPage() {
     <div className="p-4 md:p-8 max-w-2xl mx-auto pb-24 md:pb-8">
       <div className="flex md:hidden items-center justify-between mb-5">
         <p className="text-3xl font-black tracking-tight" style={{ color: "var(--text-primary)" }}>
-          i<span style={{ color: "var(--green-primary)" }}>skipped</span>
+          i<span style={{ color: "var(--green-primary)" }}>Skipped</span>
         </p>
         <button
           type="button"

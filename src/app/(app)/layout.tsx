@@ -52,7 +52,7 @@ function SidebarNav({ onLogSkip }: { onLogSkip: () => void }) {
     >
       <div className="px-6 py-5" style={{ borderBottom: "1px solid var(--border-default)" }}>
         <p className="text-2xl font-black tracking-tight" style={{ color: "var(--text-primary)" }}>
-          i<span style={{ color: "var(--green-primary)" }}>skipped</span>
+          i<span style={{ color: "var(--green-primary)" }}>Skipped</span>
         </p>
       </div>
 
@@ -185,7 +185,7 @@ function MobileAppHeader({ skipBucks, paused }: { skipBucks: number; paused: boo
   return (
     <header className="mobile-app-header md:hidden">
       <Link href="/home" className="mobile-app-wordmark" aria-label="iSkipped home">
-        i<span>skipped</span>
+        i<span>Skipped</span>
       </Link>
       <div className="app-skip-bucks-counter" aria-label="Available Skip Bucks">
         <SkipBucksBill

@@ -344,57 +344,28 @@ export default function ProfilePage() {
         </div>
 
         <div className="p-5 mb-4" style={{ ...cardStyle, borderRadius: 20 }}>
-          <div className="flex items-center justify-between gap-4">
-            <div>
-              <p className="text-sm font-bold" style={{ color: "var(--text-primary)" }}>Share fundraiser skips by default</p>
-              <p className="text-xs mt-1" style={{ color: "var(--text-secondary)" }}>
-                When on, new fundraiser skips are shared by default. You can change this for any individual skip. Reward skips stay private.
-              </p>
-            </div>
-            <button
-              type="button"
-              onClick={handleToggleShareSkipsByDefault}
-              role="switch"
-              aria-checked={profile.shareSkipsByDefault !== false}
-              aria-label="Toggle sharing fundraiser skips by default"
-              className="relative flex-shrink-0 w-12 h-7 rounded-full transition-colors"
-              style={{
-                background: profile.shareSkipsByDefault !== false ? "var(--green-primary)" : "var(--bg-surface-3)",
-                border: "1px solid var(--border-default)",
-              }}
-            >
-              <span
-                className="absolute top-0.5 w-5 h-5 rounded-full transition-transform"
-                style={{
-                  background: "#fff",
-                  left: 2,
-                  transform: profile.shareSkipsByDefault !== false ? "translateX(20px)" : "translateX(0)",
-                }}
-              />
-            </button>
-          </div>
-        </div>
+          <p className="text-xs font-black uppercase tracking-[0.14em]" style={{ color: "var(--green-primary)" }}>Preferences</p>
+          <p className="mt-1 text-lg font-black" style={{ color: "var(--text-primary)" }}>Sharing & reminders</p>
 
-        {pushSupported && (
-          <div className="p-5" style={{ ...cardStyle, borderRadius: 20 }}>
+          <p className="mt-4 text-xs font-bold uppercase tracking-wider" style={{ color: "var(--text-muted)" }}>Sharing</p>
+          <div className="mt-2 rounded-xl p-4" style={{ background: "var(--bg-surface-2)", border: "1px solid var(--border-default)" }}>
             <div className="flex items-center justify-between gap-4">
               <div>
-                <p className="text-sm font-bold" style={{ color: "var(--text-primary)" }}>🔔 Allow weekly push reminders</p>
+                <p className="text-sm font-bold" style={{ color: "var(--text-primary)" }}>Share fundraiser skips by default</p>
                 <p className="text-xs mt-1" style={{ color: "var(--text-secondary)" }}>
-                  Friday reminders to plan your weekend skips, plus challenge activity, sent to this device.
+                  When on, new fundraiser skips are shared by default. You can change your default setting at any time before logging a skip. Reward skips stay private.
                 </p>
               </div>
               <button
-                onClick={handleTogglePush}
-                disabled={pushBusy}
+                type="button"
+                onClick={handleToggleShareSkipsByDefault}
                 role="switch"
-                aria-checked={!!profile.pushOptIn}
-                aria-label="Toggle push notifications"
-                className="relative flex-shrink-0 w-12 h-7 rounded-full transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                aria-checked={profile.shareSkipsByDefault !== false}
+                aria-label="Toggle sharing fundraiser skips by default"
+                className="relative flex-shrink-0 w-12 h-7 rounded-full transition-colors"
                 style={{
-                  background: profile.pushOptIn ? "var(--green-primary)" : "var(--bg-surface-3)",
+                  background: profile.shareSkipsByDefault !== false ? "var(--green-primary)" : "var(--bg-surface-3)",
                   border: "1px solid var(--border-default)",
-                  cursor: pushBusy ? "default" : "pointer",
                 }}
               >
                 <span
@@ -402,39 +373,76 @@ export default function ProfilePage() {
                   style={{
                     background: "#fff",
                     left: 2,
-                    transform: profile.pushOptIn ? "translateX(20px)" : "translateX(0)",
+                    transform: profile.shareSkipsByDefault !== false ? "translateX(20px)" : "translateX(0)",
                   }}
                 />
               </button>
             </div>
           </div>
-        )}
 
-        <div className="p-5 mt-4" style={{ ...cardStyle, borderRadius: 20 }}>
-          <div className="flex items-center justify-between gap-4">
-            <div>
-              <p className="text-sm font-bold" style={{ color: "var(--text-primary)" }}>Weekly email check-in</p>
-              <p className="text-xs mt-1" style={{ color: "var(--text-secondary)" }}>A weekly reminder to log a skip, sent to your registered email.</p>
+          <p className="mt-5 text-xs font-bold uppercase tracking-wider" style={{ color: "var(--text-muted)" }}>Reminders</p>
+          <div className="mt-2 overflow-hidden rounded-xl" style={{ background: "var(--bg-surface-2)", border: "1px solid var(--border-default)" }}>
+            {pushSupported && (
+              <div className="p-4" style={{ borderBottom: "1px solid var(--border-default)" }}>
+                <div className="flex items-center justify-between gap-4">
+                  <div>
+                    <p className="text-sm font-bold" style={{ color: "var(--text-primary)" }}>🔔 Allow weekly push reminder</p>
+                    <p className="text-xs mt-1" style={{ color: "var(--text-secondary)" }}>
+                      A weekly reminder on your phone to help keep your skip momentum going.
+                    </p>
+                  </div>
+                  <button
+                    onClick={handleTogglePush}
+                    disabled={pushBusy}
+                    role="switch"
+                    aria-checked={!!profile.pushOptIn}
+                    aria-label="Toggle push notifications"
+                    className="relative flex-shrink-0 w-12 h-7 rounded-full transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                    style={{
+                      background: profile.pushOptIn ? "var(--green-primary)" : "var(--bg-surface-3)",
+                      border: "1px solid var(--border-default)",
+                      cursor: pushBusy ? "default" : "pointer",
+                    }}
+                  >
+                    <span
+                      className="absolute top-0.5 w-5 h-5 rounded-full transition-transform"
+                      style={{
+                        background: "#fff",
+                        left: 2,
+                        transform: profile.pushOptIn ? "translateX(20px)" : "translateX(0)",
+                      }}
+                    />
+                  </button>
+                </div>
+              </div>
+            )}
+            <div className="p-4">
+              <div className="flex items-center justify-between gap-4">
+                <div>
+                  <p className="text-sm font-bold" style={{ color: "var(--text-primary)" }}>Weekly email check-in</p>
+                  <p className="text-xs mt-1" style={{ color: "var(--text-secondary)" }}>A weekly reminder to log a skip, sent to your registered email.</p>
+                </div>
+                <button
+                  type="button"
+                  onClick={handleToggleWeeklyEmail}
+                  disabled={weeklyEmailBusy}
+                  role="switch"
+                  aria-checked={!profile.weeklyEmailOptOut}
+                  aria-label="Toggle weekly email check-ins"
+                  className="relative flex-shrink-0 w-12 h-7 rounded-full transition-colors disabled:opacity-50"
+                  style={{ background: !profile.weeklyEmailOptOut ? "var(--green-primary)" : "var(--bg-surface-3)", border: "1px solid var(--border-default)" }}
+                >
+                  <span className="absolute top-0.5 w-5 h-5 rounded-full transition-transform" style={{ background: "#fff", left: 2, transform: !profile.weeklyEmailOptOut ? "translateX(20px)" : "translateX(0)" }} />
+                </button>
+              </div>
             </div>
-            <button
-              type="button"
-              onClick={handleToggleWeeklyEmail}
-              disabled={weeklyEmailBusy}
-              role="switch"
-              aria-checked={!profile.weeklyEmailOptOut}
-              aria-label="Toggle weekly email check-ins"
-              className="relative flex-shrink-0 w-12 h-7 rounded-full transition-colors disabled:opacity-50"
-              style={{ background: !profile.weeklyEmailOptOut ? "var(--green-primary)" : "var(--bg-surface-3)", border: "1px solid var(--border-default)" }}
-            >
-              <span className="absolute top-0.5 w-5 h-5 rounded-full transition-transform" style={{ background: "#fff", left: 2, transform: !profile.weeklyEmailOptOut ? "translateX(20px)" : "translateX(0)" }} />
-            </button>
           </div>
         </div>
 
         {challengeEmailPreferences.length > 0 && (
           <div className="p-5 mt-4" style={{ ...cardStyle, borderRadius: 20 }}>
-            <p className="text-sm font-bold" style={{ color: "var(--text-primary)" }}>Fundraiser email updates</p>
-            <p className="text-xs mt-1" style={{ color: "var(--text-secondary)" }}>Choose which organizers may email you about their fundraiser.</p>
+            <p className="text-sm font-bold" style={{ color: "var(--text-primary)" }}>Fundraiser email sharing</p>
+            <p className="text-xs mt-1" style={{ color: "var(--text-secondary)" }}>Choose which fundraiser organizers may contact you at your registered email.</p>
             <div className="mt-3" style={{ borderTop: "1px solid var(--border-default)" }}>
               {challengeEmailPreferences.map((project) => {
                 const enabled = profile.challengeEmailConsents?.[project.id] === true;
