@@ -16,7 +16,7 @@ const STEPS = [
   {
     number: "02",
     title: "Log It",
-    copy: "Log a skip and add that saved money to your Skip Bucks.",
+    copy: "Log your skipped expense on iskipped and watch your savings grow",
     body: "Coffee, takeout, impulse buy — anything you can do without. Log it in iSkipped and your active jar grows with every skip.",
     color: "var(--gold-cta)",
     bgColor: "rgba(255,183,0,0.10)",
@@ -24,7 +24,7 @@ const STEPS = [
   {
     number: "03",
     title: "Use It",
-    copy: "Give your Skip Bucks a purpose by moving them into a savings jar for a personal reward or group fundraiser.",
+    copy: "Repurpose your saved money for things that matter more to you",
     body: "Pick something you are saving toward, like a dinner out, concert tickets, or a small treat. Your skips fill the reward or fundraiser jar you choose, and you can change or park it anytime.",
     color: "#8B5CF6",
     bgColor: "rgba(139,92,246,0.10)",
@@ -33,28 +33,32 @@ const STEPS = [
 
 const FAQ_ITEMS = [
   {
+    q: "What Happens When I Log a Skip",
+    a: "Logging a skip is a virtual way of tracking money you have saved by choosing not to spend on something. No money is moved from your personal bank accounts, credit cards, or any other financial platform when you log a skip. Iskipped is simply a tracking and motivational tool to see the impact of your skipped expenses.",
+  },
+  {
     q: "What are Skipping Jars?",
-    a: "A Skipping Jar is a savings goal for the money you save by skipping everyday purchases. It can be for something personal you want to buy or for a donation you hope to make. Your active jar is the one shown on your Home page and the default destination for new skips — think of it as your digital piggy bank. Each time you log a skip, it goes into your active jar unless you choose a different destination first.",
+    a: "Think of it as your digital piggy bank. It is a savings goal that you hope to fund with your skipped expenses. These jars can be for something personal you want to buy or for a donation you hope to make. Anytime you log a skip, you can choose to put it in one of your jars to help see when you have hit your goal",
+  },
+  {
+    q: "How Do I Spend or Donate What's in My Jar",
+    a: "iSkipped is a tracking tool for the savings you’ve worked hard to build — it does not process payments or donations directly, and it never holds your money.\n\nWhen your jar is full, it means you have said Iskipped to enough expenses to cover your goal. That being said, you can purchase or donate whenever you wish.\n\nTo use your hard-earned savings, you simply have to buy/donate at the intended merchant/charity. Tapping the Spend/Donate button will help guide you there if a link has been provided.\n\nOnce you complete the purchase or donation, return to iSkipped and log it so your jar balance and savings history update accordingly.",
   },
   {
     q: "What are Skip Bucks?",
     a: "Skip Bucks are saved money that isn’t in a jar yet. You can move them into a reward or fundraiser whenever you’re ready, or leave them available until you choose a purpose for them.",
   },
   {
-    q: "How do I spend or donate what’s in my jar?",
-    a: "iSkipped is a tracking tool for the savings you’ve worked hard to build — it does not process payments or donations directly, and it never holds your money. To use your savings, tap the Spend or Donate button below the relevant jar on your Home page. iSkipped will guide you through the next steps with the retailer or fundraiser. Once you complete the purchase or donation, return to iSkipped and log it so your jar balance and savings history update correctly.",
-  },
-  {
-    q: "Does money move when I log a skip?",
-    a: "No. iSkipped helps you track the amount you chose not to spend. No money moves automatically into or through iSkipped.",
-  },
-  {
     q: "Can I skip for more than one reason?",
-    a: "Yes. You can direct skipped savings to a paused jar by changing the destination for any given skip.",
+    a: "Yes. You can have multiple jars with savings in it. Your active jar will be the jar that your skips fill by default; however you can choose to allocate any given skip to an inactive jar, or skipped bucks before logging it. Your inactive jars and their balance can be found in the",
   },
   {
     q: "Where can I see or change where my skipped money is?",
     a: "Open Manage Jars to see where your skipped money is. From there, you can move balances between jars or delete a jar and move its savings back to your Skip Bucks.",
+  },
+  {
+    q: "Is iSkipped a mobile app?",
+    a: "iSkipped is currently a web app, but you can add it to your phone’s Home Screen for quick access.\n\niPhone (Safari): Open iSkipped in Safari. Tap the More button (•••), then Share. If Share is already visible in your Safari layout, tap it directly. Scroll down and tap Add to Home Screen, then tap Add.\n\nAndroid (Chrome): Open iSkipped in Chrome, tap the three-dot More menu beside the address bar, tap Add to Home screen, choose Create shortcut, then tap Add.",
   },
   {
     q: "Can I increase a jar goal amount?",
@@ -75,14 +79,6 @@ const FAQ_ITEMS = [
   {
     q: "What does sharing a fundraiser skip do?",
     a: "When sharing is on, your first name and skip can appear in that fundraiser's group activity to motivate the group. Personal reward skips stay private. You can change the default in Profile.",
-  },
-  {
-    q: "How do weekly reminders work?",
-    a: "If you allow them, iSkipped sends one weekly reminder to log anything you skipped. Push reminders are managed on your device and in Profile; weekly email check-ins can be turned off from the email.",
-  },
-  {
-    q: "Is iSkipped a mobile app?",
-    a: "iSkipped is currently a web app. Add it to your phone's home screen for quick access, then allow notifications if you want weekly push reminders.",
   },
   {
     q: "My balance or jar progress looks wrong. What should I do?",
@@ -256,6 +252,20 @@ export default function AboutPage() {
           </button>
         </section>
 
+        {/* How iSkipped works note */}
+        <div
+          className="rounded-2xl p-4"
+          style={{ background: "var(--bg-surface-1)", border: "1px solid var(--border-default)" }}
+        >
+          <p className="text-xs font-bold uppercase tracking-widest mb-2" style={{ color: "var(--text-muted)" }}>Good to know</p>
+          <p className="text-sm leading-relaxed mb-3" style={{ color: "var(--text-secondary)" }}>
+            iSkipped is a <span className="font-semibold" style={{ color: "var(--text-primary)" }}>motivation and tracking tool</span> — it helps you log, visualize, and stay accountable to the money you save by skipping. No funds move automatically.
+          </p>
+          <p className="text-sm leading-relaxed" style={{ color: "var(--text-secondary)" }}>
+              When you&apos;re ready to use your savings, iSkipped links you to the retailer for a reward or the organization for a donation. <span className="font-semibold" style={{ color: "var(--text-primary)" }}>Purchases and donations are completed outside iSkipped</span> — we never hold or handle your funds.
+          </p>
+        </div>
+
         {/* FAQ */}
         <section>
           <p className="text-base font-black uppercase tracking-widest mb-4" style={{ color: "var(--text-primary)" }}>
@@ -277,7 +287,7 @@ export default function AboutPage() {
                   </span>
                 </button>
                 {openFaq === i && (
-                  <p className="px-5 pb-4 text-sm" style={{ color: "var(--text-secondary)" }}>
+                  <p className="whitespace-pre-line px-5 pb-4 text-sm" style={{ color: "var(--text-secondary)" }}>
                     {item.q === "Can I increase a jar goal amount?" ? (
                       <>
                         Yes. Open Manage Jars, tap the pencil on your current jar, and enter a new goal amount. Your saved balance stays in the jar, and future skips keep filling it toward the updated goal.
@@ -289,6 +299,12 @@ export default function AboutPage() {
                       <>
                         <br />
                         <Link href="/jar-activity" className="underline" style={{ color: "var(--green-primary)" }}>View Jar Activity for a breakdown</Link>.
+                      </>
+                    )}
+                    {item.q === "Can I skip for more than one reason?" && (
+                      <>
+                        {" "}
+                        <Link href="/jars" className="underline" style={{ color: "var(--green-primary)" }}>Manage Jars page</Link>.
                       </>
                     )}
                     {item.q === "Where can I see or change where my skipped money is?" && (
@@ -313,20 +329,6 @@ export default function AboutPage() {
             </button>
           )}
         </section>
-
-        {/* How iSkipped works note */}
-        <div
-          className="rounded-2xl p-4"
-          style={{ background: "var(--bg-surface-1)", border: "1px solid var(--border-default)" }}
-        >
-          <p className="text-xs font-bold uppercase tracking-widest mb-2" style={{ color: "var(--text-muted)" }}>Good to know</p>
-          <p className="text-sm leading-relaxed mb-3" style={{ color: "var(--text-secondary)" }}>
-            iSkipped is a <span className="font-semibold" style={{ color: "var(--text-primary)" }}>motivation and tracking tool</span> — it helps you log, visualize, and stay accountable to the money you save by skipping. No funds move automatically.
-          </p>
-          <p className="text-sm leading-relaxed" style={{ color: "var(--text-secondary)" }}>
-              When you&apos;re ready to use your savings, iSkipped links you to the retailer for a reward or the organization for a donation. <span className="font-semibold" style={{ color: "var(--text-primary)" }}>Purchases and donations are completed outside iSkipped</span> — we never hold or handle your funds.
-          </p>
-        </div>
 
         {/* Contact */}
         <div
