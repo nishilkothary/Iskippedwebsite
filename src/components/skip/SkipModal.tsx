@@ -13,6 +13,8 @@ import { formatAggregateImpactUnitsDecimal, formatUnits, oneUnitPhrase } from "@
 import { getChallengeCountdown } from "@/lib/utils/dates";
 import { appendRefParam, getChallengeSharePath } from "@/lib/utils/share";
 import { getChallengeCausePhrase, getPersonalSkipShareText, getPostSkipShareText } from "@/lib/utils/challengeShareCopy";
+import { MAX_LOGGED_AMOUNT } from "@/lib/constants/amountLimits";
+import { confirmLargeAmount } from "@/lib/utils/largeAmountConfirmation";
 import { ShareButton } from "@/components/share/ShareButton";
 import { SkipSetupPrompt } from "@/components/setup/SkipSetupPrompt";
 import type { Project, SkipAllocationTarget } from "@/lib/types/models";
@@ -177,6 +179,7 @@ export function SkipModal({ onClose }: Props) {
   ];
   const selectedTargetOption = skipTargetOptions.find((option) => option.key === targetKey(skipAllocationTarget))
     ?? skipTargetOptions[skipTargetOptions.length - 1];
+  const amountExceedsMaximum = amount > MAX_LOGGED_AMOUNT;
 
   function handleCatSelect(cat: typeof defaultCat) {
     setSelectedCat(cat);
@@ -296,6 +299,12 @@ export function SkipModal({ onClose }: Props) {
       }
       setSuccess(true);
     }
+  }
+
+  function handleSubmitRequest() {
+    if (amount <= 0 || amountExceedsMaximum || isLogging) return;
+    if (!confirmLargeAmount("skip", amount, selectedTargetOption.label)) return;
+    void handleSubmit();
   }
 
   if (success) {
@@ -1149,6 +1158,8 @@ export function SkipModal({ onClose }: Props) {
                 type="text"
                 inputMode="decimal"
                 value={amountStr}
+                aria-invalid={amountExceedsMaximum}
+                aria-describedby={amountExceedsMaximum ? "skip-amount-error" : undefined}
                 onChange={(e) => {
                   const raw = e.target.value;
                   if (raw === "" || /^\d*\.?\d{0,2}$/.test(raw)) {
@@ -1167,6 +1178,11 @@ export function SkipModal({ onClose }: Props) {
                 style={{ color: "var(--green-primary)", borderColor: "var(--green-primary)" }}
               />
             </div>
+            {amountExceedsMaximum && (
+              <p id="skip-amount-error" className="mt-2 text-xs font-bold" style={{ color: "var(--coral-primary)" }}>
+                Enter an amount of {formatCurrency(MAX_LOGGED_AMOUNT)} or less.
+              </p>
+            )}
           </div>
 
           {/* This Skip's Impact */}
@@ -1338,8 +1354,8 @@ export function SkipModal({ onClose }: Props) {
         {/* Submit */}
         <div className="px-6 pb-6">
           <button
-            onClick={handleSubmit}
-            disabled={isLogging || amount <= 0}
+            onClick={handleSubmitRequest}
+            disabled={isLogging || amount <= 0 || amountExceedsMaximum}
             className="w-full font-bold py-4 rounded-xl text-base transition-all disabled:opacity-60 disabled:cursor-not-allowed"
             style={{
               background: "linear-gradient(135deg, var(--gold-cta), var(--gold-light))",
@@ -1347,7 +1363,13 @@ export function SkipModal({ onClose }: Props) {
               boxShadow: amount > 0 ? "0 4px 18px var(--gold-glow)" : "none",
             }}
           >
-            {isLogging ? "Saving…" : amount > 0 ? `Skip ${formatCurrency(amount)}` : "Enter an amount"}
+            {isLogging
+              ? "Saving…"
+              : amountExceedsMaximum
+                ? `Maximum ${formatCurrency(MAX_LOGGED_AMOUNT)}`
+                : amount > 0
+                  ? `Skip ${formatCurrency(amount)}`
+                  : "Enter an amount"}
           </button>
         </div>
       </div>

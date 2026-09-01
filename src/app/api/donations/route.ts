@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { FieldValue } from "firebase-admin/firestore";
 import { getAdminDb } from "@/lib/services/firebaseAdmin";
 import { requireUid, ApiError, handleApiError } from "@/lib/services/apiAuth";
-import { validateAmount, validateNonEmptyString } from "@/lib/services/serverProfileDefaults";
+import { validateLoggedAmount, validateNonEmptyString } from "@/lib/services/serverProfileDefaults";
 import { parseSubmissionId, replayResult, submissionFingerprint } from "@/lib/services/submissionReceipts";
 import { getSkipBalanceSummary } from "@/lib/utils/skipBalances";
 import { UserProfile } from "@/lib/types/models";
@@ -23,7 +23,7 @@ export async function POST(req: NextRequest) {
   try {
     const uid = await requireUid(req);
     const body = await req.json();
-    const amount = validateAmount(body.amount);
+    const amount = validateLoggedAmount(body.amount);
     const projectId = validateNonEmptyString(body.projectId, "projectId");
     const projectTitle = validateNonEmptyString(body.projectTitle, "projectTitle");
     const date: string | undefined = typeof body.date === "string" ? body.date : undefined;

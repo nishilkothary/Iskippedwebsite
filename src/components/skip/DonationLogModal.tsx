@@ -10,6 +10,8 @@ import { formatAggregateImpactUnitsDecimal } from "@/lib/utils/impact";
 import { ShareButton } from "@/components/share/ShareButton";
 import { getPersonalFundraiserGoalProgress, isValidRaisedFundraiserGoal } from "@/lib/utils/fundraiserGoals";
 import { getDonationShareText } from "@/lib/utils/challengeShareCopy";
+import { MAX_LOGGED_AMOUNT } from "@/lib/constants/amountLimits";
+import { confirmLargeAmount } from "@/lib/utils/largeAmountConfirmation";
 
 interface Props {
   projectId: string;
@@ -55,8 +57,9 @@ export function DonationLogModal({ projectId, projectTitle, onClose, mode = "don
   const [savingNewGoal, setSavingNewGoal] = useState(false);
   const [donatedTowardGoalBeforeLog] = useState(donatedTowardGoal);
   const dialogRef = useModalA11y(onClose);
-  const parsedAmount = parseFloat(amount);
+  const parsedAmount = Number(amount);
   const cleanAmount = Number.isFinite(parsedAmount) ? parsedAmount : 0;
+  const amountExceedsMaximum = cleanAmount > MAX_LOGGED_AMOUNT;
   const jarBalance = Math.min(
     Math.max(0, profile?.causeJarBalances?.[projectId] ?? 0),
     getSkipBalanceSummary(profile).availableFromSkips,
@@ -94,6 +97,12 @@ export function DonationLogModal({ projectId, projectTitle, onClose, mode = "don
     } finally {
       setLoading(false);
     }
+  }
+
+  function handleLogRequest() {
+    if (cleanAmount < 1 || amountExceedsMaximum || loading) return;
+    if (!confirmLargeAmount("donation", cleanAmount, recipientLabel)) return;
+    void handleLog();
   }
 
   return (
@@ -265,7 +274,10 @@ export function DonationLogModal({ projectId, projectTitle, onClose, mode = "don
                     <input
                       type="number"
                       min="1"
+                      max={MAX_LOGGED_AMOUNT}
                       value={amount}
+                      aria-invalid={amountExceedsMaximum}
+                      aria-describedby={amountExceedsMaximum ? "donation-amount-error" : undefined}
                       onChange={(e) => setAmount(e.target.value)}
                       placeholder="0"
                       className="w-full rounded-xl pl-8 pr-4 py-3 text-lg font-semibold focus:outline-none"
@@ -276,6 +288,11 @@ export function DonationLogModal({ projectId, projectTitle, onClose, mode = "don
                       }}
                     />
                   </div>
+                  {amountExceedsMaximum && (
+                    <p id="donation-amount-error" className="mt-2 text-xs font-bold" style={{ color: "var(--coral-primary)" }}>
+                      Enter an amount of {formatCurrency(MAX_LOGGED_AMOUNT)} or less.
+                    </p>
+                  )}
                   {cleanAmount > 0 && (
                     <div className="mt-3 rounded-lg px-3 py-2.5 text-xs leading-relaxed" style={{ background: "rgba(46,204,113,0.07)", border: "1px solid rgba(46,204,113,0.18)", color: "var(--text-secondary)" }}>
                       <p><strong style={{ color: "var(--text-primary)" }}>{formatCurrency(jarUsed)}</strong> will come from this jar.</p>
@@ -306,8 +323,8 @@ export function DonationLogModal({ projectId, projectTitle, onClose, mode = "don
                 </div>
               </div>
               <button
-                onClick={handleLog}
-                disabled={loading || !amount || cleanAmount < 1}
+                onClick={handleLogRequest}
+                disabled={loading || !amount || cleanAmount < 1 || amountExceedsMaximum}
                 className="w-full font-bold py-3.5 rounded-xl transition-all disabled:opacity-60 disabled:cursor-not-allowed"
                 style={{
                   background: "linear-gradient(135deg, var(--coral-primary), var(--coral-dark))",

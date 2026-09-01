@@ -7,9 +7,11 @@ import { useAuthStore } from "@/store/authStore";
 import { useProjects } from "@/hooks/useProjects";
 import { useSkips } from "@/hooks/useSkips";
 import { SKIP_CATEGORIES } from "@/lib/constants/skipCategories";
+import { MAX_LOGGED_AMOUNT } from "@/lib/constants/amountLimits";
 import { formatCurrency } from "@/lib/utils/currency";
+import { needsLargeAmountConfirmation } from "@/lib/utils/largeAmountConfirmation";
 
-type Status = "waiting" | "logging" | "success" | "error";
+type Status = "waiting" | "confirming" | "logging" | "success" | "error";
 
 const SHOPPING_CATEGORY = SKIP_CATEGORIES.find((category) => category.id === "shopping") ?? {
   id: "shopping",
@@ -20,7 +22,7 @@ const SHOPPING_CATEGORY = SKIP_CATEGORIES.find((category) => category.id === "sh
 function parseAmount(value: string | null) {
   if (!value) return null;
   const amount = Number(value.replace(/[$,\s]/g, ""));
-  if (!Number.isFinite(amount) || amount <= 0 || amount > 10000) return null;
+  if (!Number.isFinite(amount) || amount <= 0 || amount > MAX_LOGGED_AMOUNT) return null;
   return Math.round(amount * 100) / 100;
 }
 
@@ -48,6 +50,7 @@ export function ExtensionSkipClient() {
   const submittedRef = useRef(false);
   const [status, setStatus] = useState<Status>("waiting");
   const [message, setMessage] = useState("Preparing your skip...");
+  const [largeAmountConfirmed, setLargeAmountConfirmed] = useState(false);
 
   const amount = useMemo(() => parseAmount(searchParams.get("amount")), [searchParams]);
   const item = useMemo(
@@ -73,6 +76,12 @@ export function ExtensionSkipClient() {
       submittedRef.current = true;
       setStatus("error");
       setMessage("We need a valid amount to log this skip.");
+      return;
+    }
+
+    if (needsLargeAmountConfirmation(amount) && !largeAmountConfirmed) {
+      setStatus("confirming");
+      setMessage(`That’s a big skip—nice! Confirm that you want to log ${formatCurrency(amount)}.`);
       return;
     }
 
@@ -106,10 +115,11 @@ export function ExtensionSkipClient() {
       setMessage(`${formatCurrency(amount)} skipped and added to your jars.`);
       toast.success("Skip logged from Chrome.");
     });
-  }, [activeProject, amount, item, log, profile, projectsLoading, sourceHost, user]);
+  }, [activeProject, amount, item, largeAmountConfirmed, log, profile, projectsLoading, sourceHost, user]);
 
   const isSuccess = status === "success";
   const isError = status === "error";
+  const isConfirming = status === "confirming";
 
   return (
     <div className="min-h-full px-4 py-10 flex items-center justify-center">
@@ -125,7 +135,7 @@ export function ExtensionSkipClient() {
           Chrome extension
         </p>
         <h1 className="mt-2 text-2xl font-black" style={{ color: "var(--text-primary)" }}>
-          {isSuccess ? "Skip logged" : isError ? "Needs a quick fix" : "Logging your skip"}
+          {isSuccess ? "Skip logged" : isError ? "Needs a quick fix" : isConfirming ? "Confirm this skip" : "Logging your skip"}
         </h1>
         <p className="mt-3 text-sm leading-relaxed" style={{ color: "var(--text-secondary)" }}>
           {message}
@@ -152,25 +162,48 @@ export function ExtensionSkipClient() {
         )}
 
         <div className="mt-6 grid grid-cols-1 sm:grid-cols-2 gap-2">
-          <button
-            type="button"
-            onClick={() => router.push("/home")}
-            className="h-11 rounded-full text-sm font-black"
-            style={{ background: "var(--gold-cta)", color: "var(--bg-base)" }}
-          >
-            Go to Home
-          </button>
-          <button
-            type="button"
-            onClick={() => window.close()}
-            className="h-11 rounded-full text-sm font-black"
-            style={{
-              background: "rgba(237,245,240,0.08)",
-              color: "var(--text-secondary)",
-            }}
-          >
-            Close Tab
-          </button>
+          {isConfirming ? (
+            <>
+              <button
+                type="button"
+                onClick={() => setLargeAmountConfirmed(true)}
+                className="h-11 rounded-full text-sm font-black"
+                style={{ background: "var(--gold-cta)", color: "var(--bg-base)" }}
+              >
+                Yes, log {formatCurrency(amount ?? 0)}
+              </button>
+              <button
+                type="button"
+                onClick={() => router.push("/home")}
+                className="h-11 rounded-full text-sm font-black"
+                style={{ background: "rgba(237,245,240,0.08)", color: "var(--text-secondary)" }}
+              >
+                Cancel
+              </button>
+            </>
+          ) : (
+            <>
+              <button
+                type="button"
+                onClick={() => router.push("/home")}
+                className="h-11 rounded-full text-sm font-black"
+                style={{ background: "var(--gold-cta)", color: "var(--bg-base)" }}
+              >
+                Go to Home
+              </button>
+              <button
+                type="button"
+                onClick={() => window.close()}
+                className="h-11 rounded-full text-sm font-black"
+                style={{
+                  background: "rgba(237,245,240,0.08)",
+                  color: "var(--text-secondary)",
+                }}
+              >
+                Close Tab
+              </button>
+            </>
+          )}
         </div>
       </section>
     </div>

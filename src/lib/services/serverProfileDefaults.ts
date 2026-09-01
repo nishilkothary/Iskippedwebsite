@@ -1,4 +1,5 @@
 import { ApiError } from "@/lib/services/apiAuth";
+import { MAX_LOGGED_AMOUNT } from "@/lib/constants/amountLimits";
 import type { Project } from "@/lib/types/models";
 
 export function validateAmount(value: unknown, fieldName = "amount"): number {
@@ -9,6 +10,17 @@ export function validateAmount(value: unknown, fieldName = "amount"): number {
   }
 
   return Math.round(amount * 100) / 100;
+}
+
+/** Applies the per-entry ceiling used only when recording skips and donations. */
+export function validateLoggedAmount(value: unknown, fieldName = "amount"): number {
+  const amount = validateAmount(value, fieldName);
+
+  if (amount > MAX_LOGGED_AMOUNT) {
+    throw new ApiError(400, `${fieldName} cannot exceed $10,000`);
+  }
+
+  return amount;
 }
 
 export function validateNonEmptyString(value: unknown, fieldName: string): string {

@@ -138,6 +138,25 @@ beforeEach(() => {
 });
 
 describe("skip submission receipts", () => {
+  it("accepts the $10,000 per-entry maximum", async () => {
+    const response = await post(10_000);
+
+    expect(response.status).toBe(200);
+    expect(state.txSets.some((entry) => entry.path === "users/alice/skips/auto-1")).toBe(true);
+  });
+
+  it("rejects an amount above $10,000 before making any write", async () => {
+    const response = await post(10_000.01);
+
+    expect(response.status).toBe(400);
+    await expect(response.json()).resolves.toMatchObject({ error: "amount cannot exceed $10,000" });
+    expect(state.txSets).toHaveLength(0);
+    expect(state.txUpdates).toHaveLength(0);
+    expect(state.directSets).toHaveLength(0);
+    expect(state.directUpdates).toHaveLength(0);
+    expect(state.adjustGlobalStats).not.toHaveBeenCalled();
+  });
+
   it("returns the original result on retry without changing any number or side effect twice", async () => {
     const firstResponse = await post();
     const first = await firstResponse.json();

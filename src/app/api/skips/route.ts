@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { FieldValue } from "firebase-admin/firestore";
 import { getAdminDb } from "@/lib/services/firebaseAdmin";
 import { requireUid, ApiError, handleApiError } from "@/lib/services/apiAuth";
-import { validateAmount, validateNonEmptyString } from "@/lib/services/serverProfileDefaults";
+import { validateLoggedAmount, validateNonEmptyString } from "@/lib/services/serverProfileDefaults";
 import { getImpactMessage } from "@/lib/constants/impactMessages";
 import { getActiveSkipTarget } from "@/lib/utils/skipTargets";
 import { xpForSkip, levelForXp, REFERRAL_BONUS_XP } from "@/lib/utils/xp";
@@ -40,7 +40,7 @@ export async function POST(req: NextRequest) {
     const category = validateNonEmptyString(body.category, "category");
     const categoryLabel = validateNonEmptyString(body.categoryLabel, "categoryLabel");
     const categoryEmoji = typeof body.categoryEmoji === "string" ? body.categoryEmoji : "";
-    const amount = validateAmount(body.amount);
+    const amount = validateLoggedAmount(body.amount);
     const projectId: string | null = typeof body.projectId === "string" ? body.projectId : null;
     const projectTitle: string | null = typeof body.projectTitle === "string" ? body.projectTitle : null;
     const projectLocation: string | null = typeof body.projectLocation === "string" ? body.projectLocation : null;
