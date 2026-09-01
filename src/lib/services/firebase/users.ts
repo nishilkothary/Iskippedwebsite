@@ -227,12 +227,9 @@ export async function setChallengeEmailConsent(uid: string, projectId: string, s
   await updateDoc(doc(db, "users", uid), { [`challengeEmailConsents.${projectId}`]: shareEmail });
 }
 
-export async function setUserCauseGoal(uid: string, causeId: string, amount: number, donationBaseline?: number): Promise<void> {
+export async function setUserCauseGoal(uid: string, causeId: string, amount: number): Promise<void> {
   await updateDoc(doc(db, "users", uid), {
     [`causeGoalAmounts.${causeId}`]: amount,
-    ...(donationBaseline !== undefined
-      ? { [`causeGoalDonationBaselines.${causeId}`]: Math.max(0, donationBaseline) }
-      : {}),
   });
 }
 

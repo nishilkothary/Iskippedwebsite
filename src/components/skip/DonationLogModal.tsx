@@ -71,7 +71,6 @@ export function DonationLogModal({ projectId, projectTitle, onClose, mode = "don
   const { remainingGoal } = getPersonalFundraiserGoalProgress(
     personalGoal,
     donatedTowardGoalBeforeLog + cleanAmount,
-    0,
   );
   const donatedAfterLog = donatedTowardGoalBeforeLog + cleanAmount;
   const parsedNewGoal = parseFloat(newGoalAmount);

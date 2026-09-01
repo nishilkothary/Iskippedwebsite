@@ -446,14 +446,9 @@ function JarsPageInner() {
     updateProfile({ activeProjectId: project.id, causeJarBalances: newCauseJarBalances });
   }
 
-  async function handleSetCauseGoal(causeId: string, amount: number, donationBaseline?: number) {
-    await setUserCauseGoal(user!.uid, causeId, amount, donationBaseline);
-    updateProfile({
-      causeGoalAmounts: { ...profile!.causeGoalAmounts, [causeId]: amount },
-      ...(donationBaseline !== undefined
-        ? { causeGoalDonationBaselines: { ...(profile!.causeGoalDonationBaselines ?? {}), [causeId]: donationBaseline } }
-        : {}),
-    });
+  async function handleSetCauseGoal(causeId: string, amount: number) {
+    await setUserCauseGoal(user!.uid, causeId, amount);
+    updateProfile({ causeGoalAmounts: { ...profile!.causeGoalAmounts, [causeId]: amount } });
   }
 
   async function handleAddCause(title: string, sponsor: string, location: string | undefined, goalAmount: number, donationURL?: string, description?: string, tags?: string[]) {
@@ -573,7 +568,6 @@ function JarsPageInner() {
     goalJarBalances: profile.goalJarBalances,
     causeJarBalances: profile.causeJarBalances,
     causeGoalAmounts: profile.causeGoalAmounts,
-    causeGoalDonationBaselines: profile.causeGoalDonationBaselines,
     donations,
     groupProgress,
     onAddGoal: handleAddGoal,
@@ -1514,7 +1508,6 @@ function JarBrowser({
   goalJarBalances,
   causeJarBalances,
   causeGoalAmounts,
-  causeGoalDonationBaselines,
   donations,
   groupProgress,
   onAddGoal,
@@ -1551,7 +1544,6 @@ function JarBrowser({
   goalJarBalances: Record<string, number> | undefined;
   causeJarBalances: Record<string, number> | undefined;
   causeGoalAmounts: Record<string, number> | undefined;
-  causeGoalDonationBaselines: Record<string, number> | undefined;
   donations: DonationEvent[];
   groupProgress: Record<string, number>;
   onAddGoal: (goal: Omit<SpendingGoal, "id">, activate?: boolean) => Promise<string>;
@@ -1563,7 +1555,7 @@ function JarBrowser({
   onPurchase: (amount: number) => Promise<boolean>;
   onSetSkipTarget: (target: SkipAllocationTarget | null) => Promise<void>;
   onAddCause: (title: string, sponsor: string, location: string | undefined, goalAmount: number, donationURL?: string, description?: string, tags?: string[]) => Promise<void>;
-  onSetFundraiserGoal: (fundraiserId: string, amount: number, donationBaseline?: number) => Promise<void>;
+  onSetFundraiserGoal: (fundraiserId: string, amount: number) => Promise<void>;
   onApplySkipBank: (target: SkipAllocationTarget, amount: number) => Promise<number>;
   onReleaseJar: (target: SkipAllocationTarget) => Promise<number>;
   onMoveJarBalance: (source: SkipAllocationTarget, destination: SkipAllocationTarget, amount: number) => Promise<number>;
@@ -1759,7 +1751,6 @@ function JarBrowser({
     return getPersonalFundraiserGoalProgress(
       causeGoalAmounts?.[projectId],
       fundraiserDonationTotal(projectId),
-      causeGoalDonationBaselines?.[projectId],
     ).donatedTowardGoal;
   }
 
@@ -1767,7 +1758,6 @@ function JarBrowser({
     return getPersonalFundraiserGoalProgress(
       causeGoalAmounts?.[project.id],
       fundraiserDonationTotal(project.id),
-      causeGoalDonationBaselines?.[project.id],
     ).remainingGoal;
   }
 

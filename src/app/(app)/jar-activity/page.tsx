@@ -618,11 +618,7 @@ function JarActivityPageInner() {
         .filter((donation) => donation.causeId === id)
         .reduce((sum, donation) => sum + Math.max(0, donation.amount), 0);
       const donated = Math.max(visibleDonationTotal, Math.max(0, profile.causeStats?.[id]?.donated ?? 0));
-      const { donatedTowardGoal, remainingGoal } = getPersonalFundraiserGoalProgress(
-        goalAmount,
-        donated,
-        profile.causeGoalDonationBaselines?.[id],
-      );
+      const { donatedTowardGoal, remainingGoal } = getPersonalFundraiserGoalProgress(goalAmount, donated);
       const active = activeTarget?.type === "fundraiser" && activeTarget.id === id;
       return {
         type: "fundraiser",

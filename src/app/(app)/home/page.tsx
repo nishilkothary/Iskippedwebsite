@@ -1430,10 +1430,7 @@ export default function HomePage() {
   const challengeDonated = activeProject && isActiveGroupFundraiser
     ? Math.max(challengeDonationHistoryTotal, profile.causeStats?.[activeProject.id]?.donated ?? 0)
     : 0;
-  const challengeDonationBaseline = activeProject
-    ? profile.causeGoalDonationBaselines?.[activeProject.id] ?? 0
-    : 0;
-  const personalGoalProgress = getPersonalFundraiserGoalProgress(personalGoal, challengeDonated, challengeDonationBaseline);
+  const personalGoalProgress = getPersonalFundraiserGoalProgress(personalGoal, challengeDonated);
   const challengeDonatedTowardGoal = personalGoalProgress.donatedTowardGoal;
   const personalGoalRemaining = personalGoalProgress.remainingGoal ?? 0;
   const personalFundraiserPercent = personalGoalRemaining > 0
