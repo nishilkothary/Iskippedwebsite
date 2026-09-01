@@ -668,7 +668,7 @@ function buildSocialCardImage({
     <text x="330" y="492" fill="#123B2A" font-family="Arial, sans-serif" font-size="58" font-weight="700" text-anchor="middle">${totalSkips.toLocaleString()}</text>
     <text x="330" y="532" fill="#527262" font-family="Arial, sans-serif" font-size="19" font-weight="700" letter-spacing="3" text-anchor="middle">SKIPS</text>
     <text x="750" y="492" fill="#123B2A" font-family="Arial, sans-serif" font-size="58" font-weight="700" text-anchor="middle">${escape(formatWholeCurrency(raised))}</text>
-    <text x="750" y="532" fill="#527262" font-family="Arial, sans-serif" font-size="19" font-weight="700" letter-spacing="3" text-anchor="middle">PLEDGED</text>
+    <text x="750" y="532" fill="#527262" font-family="Arial, sans-serif" font-size="19" font-weight="700" letter-spacing="3" text-anchor="middle">TOTAL PROGRESS</text>
     <text x="540" y="610" fill="#527262" font-family="Arial, sans-serif" font-size="34" font-weight="700" text-anchor="middle">=</text>
     <text x="540" y="682" fill="#123B2A" font-family="Arial, sans-serif" font-size="58" font-weight="700" text-anchor="middle">${impactText}</text>
     <text x="140" y="${bottomTextY}" fill="#123B2A" font-family="Arial, sans-serif" font-size="23" font-weight="700">${escape(goalText)}</text>
@@ -751,9 +751,9 @@ function buildProgressUpdate({
   const lines = [`${cleanTitle} Progress Update!`, ""];
 
   if (goalAmount > 0) {
-    lines.push(`${totalSkips.toLocaleString()} ${totalSkips === 1 ? "skip has" : "skips have"} been logged, with ${formatCurrency(raised)} raised toward our ${formatCurrency(goalAmount)} goal (${progressPct}%).`);
+    lines.push(`${totalSkips.toLocaleString()} ${totalSkips === 1 ? "skip has" : "skips have"} been logged, with ${formatCurrency(raised)} toward our ${formatCurrency(goalAmount)} goal (${progressPct}%).`);
   } else {
-    lines.push(`${totalSkips.toLocaleString()} ${totalSkips === 1 ? "skip has" : "skips have"} been logged, with ${formatCurrency(raised)} raised so far.`);
+    lines.push(`${totalSkips.toLocaleString()} ${totalSkips === 1 ? "skip has" : "skips have"} been logged, with ${formatCurrency(raised)} in total progress so far.`);
   }
 
   if (unitCost && unitCost > 0 && raised > 0 && (unitDisplay || unitName)) {

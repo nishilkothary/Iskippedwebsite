@@ -188,9 +188,11 @@ function challengeFromProject(project: Project, reconciledTotal?: number): Chall
     skipHelpDetail: skipHelpDetail(project),
     goal,
     goalLine: hasUnits
-      ? `${donatedUnits.toLocaleString()} / ${goalUnits.toLocaleString()} ${unitLabel} donated`
+      ? `${donatedUnits.toLocaleString()} / ${goalUnits.toLocaleString()} ${unitLabel} toward the goal`
       : `${formatCurrency(raised)} / ${formatCurrency(goal)}`,
-    pledgedLine: `${formatCurrency(raised)} donated so far`,
+    pledgedLine: goal > 0
+      ? `${formatCurrency(raised)} toward the goal`
+      : `${formatCurrency(raised)} total progress`,
     progressPct,
     joinedLabel: (project.memberUids?.length ?? 0) > 0 ? `${project.memberUids!.length} joined` : null,
     trustLabel: project.isCustom
@@ -900,7 +902,7 @@ function ChallengeListCard({
           : (challenge.project.totalRaised ?? 0) > 0 || (challenge.project.totalSkips ?? 0) > 0
             ? (
               <p className="text-xs mt-2 font-semibold" style={{ color: "var(--text-muted)" }}>
-                {formatCurrency(challenge.project.totalRaised ?? 0)} raised
+                {formatCurrency(challenge.project.totalRaised ?? 0)} in jars
                 {(challenge.project.totalSkips ?? 0) > 0 ? ` · ${(challenge.project.totalSkips ?? 0).toLocaleString()} skips` : ""}
               </p>
             )
@@ -1627,7 +1629,7 @@ function CreateChallengeWizard({
                 )}
                 {!useImpactUnit && (
                   <p className="text-sm font-semibold" style={{ color: "var(--text-secondary)" }}>
-                    This fundraiser will show dollars raised instead of funded units.
+                    This fundraiser will show dollars toward the goal instead of funded units.
                   </p>
                 )}
               </div>

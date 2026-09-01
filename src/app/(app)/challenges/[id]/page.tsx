@@ -173,7 +173,7 @@ function ProgressBar({ challenge, groupTotal = challenge.raised }: { challenge: 
   return (
     <div>
       <div className="flex justify-between gap-3 text-sm font-black mb-2">
-        <span style={{ color: "var(--green-primary)" }}>Raised {formatCurrency(groupTotal)}</span>
+        <span style={{ color: "var(--green-primary)" }}>{formatCurrency(groupTotal)} toward the goal</span>
         <span style={{ color: "var(--text-muted)" }}>{progressPct}%</span>
       </div>
       <div className="h-3 rounded-full overflow-hidden" style={{ background: "var(--bg-surface-3)" }}>
@@ -685,7 +685,7 @@ export default function ChallengeDetailPage() {
                     )}
                     <div className="text-center">
                       <p className="text-xl font-black" style={{ color: "var(--coral-primary)" }}>{statsReady ? formatCurrency(groupTotal) : "—"}</p>
-                      <p className="text-xs mt-0.5" style={{ color: "var(--text-muted)" }}>raised</p>
+                      <p className="text-xs mt-0.5" style={{ color: "var(--text-muted)" }}>total progress</p>
                     </div>
                   </div>
                 );

@@ -370,7 +370,7 @@ export default function JoinChallengePage() {
                   <div className="flex items-center justify-between gap-3">
                     <div>
                       <p className="text-xs uppercase tracking-wide font-black" style={{ color: "var(--text-muted)" }}>Group progress</p>
-                      <p className="text-lg font-black" style={{ color: "var(--green-primary)" }}>{formatCurrency(displayedRaised)} raised</p>
+                      <p className="text-lg font-black" style={{ color: "var(--green-primary)" }}>{formatCurrency(displayedRaised)} toward the goal</p>
                     </div>
                     <div className="text-right">
                       <p className="text-xs uppercase tracking-wide font-black" style={{ color: "var(--text-muted)" }}>Goal</p>
@@ -398,7 +398,7 @@ export default function JoinChallengePage() {
                   )}
                   <div className="text-center">
                     <p className="text-xl font-black" style={{ color: "var(--coral-primary)" }}>{formatCurrency(displayedRaised)}</p>
-                    <p className="text-xs mt-0.5" style={{ color: "var(--text-muted)" }}>raised</p>
+                    <p className="text-xs mt-0.5" style={{ color: "var(--text-muted)" }}>total progress</p>
                   </div>
                 </div>
               )}
