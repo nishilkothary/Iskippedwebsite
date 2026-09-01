@@ -15,6 +15,8 @@ import { apiRequest } from "./apiClient";
 import { consumeReferralCode, clearReferralCode } from "@/lib/utils/referral";
 import { allowInstallHandoff, clearInstallHandoff, prepareInstallHandoff } from "./installHandoff";
 
+export const EMAIL_PROFILE_SETUP_INCOMPLETE = "iskipped/profile-setup-incomplete";
+
 async function attributeReferralIfNew(isNew: boolean, uid: string): Promise<void> {
   if (!isNew) return;
   const code = consumeReferralCode();
@@ -57,14 +59,29 @@ export async function signUpWithEmail(
   name?: string
 ): Promise<User> {
   const result = await createUserWithEmailAndPassword(auth, email, password);
+  try {
+    return await continueEmailProfileSetup(result.user, name);
+  } catch (cause) {
+    const error = new Error("The login was created, but profile setup did not finish.") as Error & {
+      code: string;
+      cause?: unknown;
+    };
+    error.code = EMAIL_PROFILE_SETUP_INCOMPLETE;
+    error.cause = cause;
+    throw error;
+  }
+}
+
+/** Completes only the post-authentication portion of email signup. Safe to retry. */
+export async function continueEmailProfileSetup(user: User, name?: string): Promise<User> {
   allowInstallHandoff();
   if (name?.trim()) {
-    await updateProfile(result.user, { displayName: name.trim() });
+    await updateProfile(user, { displayName: name.trim() });
   }
-  const isNew = await createOrUpdateUser(result.user);
-  void prepareInstallHandoff(result.user);
-  await attributeReferralIfNew(isNew, result.user.uid);
-  return result.user;
+  const isNew = await createOrUpdateUser(user);
+  void prepareInstallHandoff(user);
+  await attributeReferralIfNew(isNew, user.uid);
+  return user;
 }
 
 export async function signInWithEmail(email: string, password: string): Promise<User> {

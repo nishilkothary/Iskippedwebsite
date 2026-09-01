@@ -3,7 +3,14 @@ import { useEffect, useRef, useState, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { toast } from "sonner";
-import { signInWithGoogle, signUpWithEmail, signInWithEmail, resetPassword } from "@/lib/services/firebase/auth";
+import {
+  continueEmailProfileSetup,
+  EMAIL_PROFILE_SETUP_INCOMPLETE,
+  resetPassword,
+  signInWithEmail,
+  signInWithGoogle,
+  signUpWithEmail,
+} from "@/lib/services/firebase/auth";
 import { useAuthStore } from "@/store/authStore";
 import { safeAuthDestination } from "@/lib/utils/authRedirect";
 
@@ -59,6 +66,8 @@ function friendlyAuthError(e: any): string {
     return "This account has been disabled. Please contact support.";
   if (code === "auth/too-many-requests")
     return "Too many attempts. Please wait a moment and try again.";
+  if (code === EMAIL_PROFILE_SETUP_INCOMPLETE)
+    return "Your login was created, but setup was interrupted. Continue setup to finish.";
   return "We couldn't sign you in. Please try again or reset your password.";
 }
 
@@ -79,6 +88,7 @@ function SignInPage() {
   const [resetLoading, setResetLoading] = useState(false);
   const [resetSent, setResetSent] = useState(false);
   const [emailSignupInProgress, setEmailSignupInProgress] = useState(false);
+  const [emailSetupInterrupted, setEmailSetupInterrupted] = useState(false);
   const navigationStarted = useRef(false);
   const googleRecoveryTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -146,6 +156,7 @@ function SignInPage() {
 
   async function handleEmailSubmit() {
     setError(null);
+    setEmailSetupInterrupted(false);
     if (mode === "signup" && !name.trim()) { setError("Please enter your name."); return; }
     if (!email.trim()) { setError("Please enter your email."); return; }
     if (!password) { setError("Please enter your password."); return; }
@@ -159,7 +170,11 @@ function SignInPage() {
         await signInWithEmail(email.trim(), password);
       }
     } catch (e: any) {
-      setError(friendlyAuthError(e));
+      if (e?.code === EMAIL_PROFILE_SETUP_INCOMPLETE) {
+        setEmailSetupInterrupted(true);
+      } else {
+        setError(friendlyAuthError(e));
+      }
     } finally {
       setEmailLoading(false);
       setEmailSignupInProgress(false);
@@ -180,6 +195,29 @@ function SignInPage() {
     }
   }
 
+  async function handleContinueEmailSetup() {
+    setError(null);
+    if (!user) {
+      setEmailSetupInterrupted(false);
+      setMode("signin");
+      setError("Please sign in with the email and password you just created to finish setup.");
+      return;
+    }
+
+    setEmailLoading(true);
+    setEmailSignupInProgress(true);
+    try {
+      await continueEmailProfileSetup(user, name.trim());
+      toast.success("Account setup complete.");
+      setEmailSetupInterrupted(false);
+    } catch {
+      setError("We still couldn't finish setup. Check your connection and tap Continue setup again.");
+    } finally {
+      setEmailLoading(false);
+      setEmailSignupInProgress(false);
+    }
+  }
+
   function handleKeyDown(e: React.KeyboardEvent) {
     if (e.key !== "Enter") return;
     if (mode === "forgot") handleResetPassword();
@@ -197,10 +235,10 @@ function SignInPage() {
   const authForm = (
     <div className="w-full max-w-sm mx-auto">
       {/* Sign In / Sign Up tabs - hidden in forgot mode */}
-      {mode !== "forgot" && (
+      {mode !== "forgot" && !emailSetupInterrupted && (
         <div className="flex bg-[#F3F4F6] rounded-xl p-1 mb-5">
           <button
-            onClick={() => { setMode("signup"); setError(null); }}
+            onClick={() => { setMode("signup"); setError(null); setEmailSetupInterrupted(false); }}
             className={`flex-1 py-2 rounded-lg text-sm font-semibold transition ${
               mode === "signup" ? "bg-white text-[#3D8B68] shadow-sm" : "text-[#6B7280] hover:text-[#111827]"
             }`}
@@ -208,7 +246,7 @@ function SignInPage() {
             Sign Up
           </button>
           <button
-            onClick={() => { setMode("signin"); setError(null); }}
+            onClick={() => { setMode("signin"); setError(null); setEmailSetupInterrupted(false); }}
             className={`flex-1 py-2 rounded-lg text-sm font-semibold transition ${
               mode === "signin" ? "bg-white text-[#3D8B68] shadow-sm" : "text-[#6B7280] hover:text-[#111827]"
             }`}
@@ -227,7 +265,26 @@ function SignInPage() {
         </div>
       )}
 
-      {mode === "forgot" ? (
+      {emailSetupInterrupted ? (
+        <div
+          className="rounded-xl border border-emerald-200 bg-emerald-50 p-4"
+          role="status"
+          aria-live="polite"
+        >
+          <p className="font-bold text-emerald-900">Your login was created</p>
+          <p className="mt-1 text-sm leading-relaxed text-emerald-800">
+            Your connection interrupted the final setup step. Your fundraiser invitation is still saved.
+          </p>
+          <button
+            type="button"
+            onClick={handleContinueEmailSetup}
+            disabled={emailLoading}
+            className="mt-4 w-full rounded-xl bg-gradient-to-r from-[#3D8B68] to-[#34A87A] px-4 py-3 text-sm font-semibold text-white shadow-md transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-60"
+          >
+            {emailLoading ? "Finishing setup…" : "Continue setup"}
+          </button>
+        </div>
+      ) : mode === "forgot" ? (
         <div className="space-y-3">
           {resetSent ? (
             <div className="p-4 bg-emerald-50 border border-emerald-200 rounded-xl text-sm text-emerald-700 text-center">

@@ -38,7 +38,12 @@ vi.mock("./installHandoff", () => ({
   prepareInstallHandoff: state.prepareInstallHandoff,
 }));
 
-import { signInWithEmail, signUpWithEmail } from "./auth";
+import {
+  continueEmailProfileSetup,
+  EMAIL_PROFILE_SETUP_INCOMPLETE,
+  signInWithEmail,
+  signUpWithEmail,
+} from "./auth";
 
 const user = {
   uid: "alice",
@@ -105,5 +110,28 @@ describe("email authentication profile recovery", () => {
     expect(state.updateProfile.mock.invocationCallOrder[0]).toBeLessThan(
       state.createOrUpdateUser.mock.invocationCallOrder[0],
     );
+  });
+
+  it("marks only a post-authentication setup failure as recoverable", async () => {
+    state.createOrUpdateUser.mockRejectedValueOnce(new Error("offline"));
+
+    await expect(signUpWithEmail("alice@example.com", "password", "Alice")).rejects.toMatchObject({
+      code: EMAIL_PROFILE_SETUP_INCOMPLETE,
+    });
+    expect(state.createUserWithEmailAndPassword).toHaveBeenCalledOnce();
+
+    state.createOrUpdateUser.mockResolvedValueOnce(true);
+    await expect(continueEmailProfileSetup(user as any, "Alice")).resolves.toBe(user);
+    expect(state.createOrUpdateUser).toHaveBeenCalledTimes(2);
+  });
+
+  it("does not label a Firebase account-creation failure as recoverable", async () => {
+    const firebaseError = Object.assign(new Error("email already exists"), {
+      code: "auth/email-already-in-use",
+    });
+    state.createUserWithEmailAndPassword.mockRejectedValueOnce(firebaseError);
+
+    await expect(signUpWithEmail("alice@example.com", "password", "Alice")).rejects.toBe(firebaseError);
+    expect(state.createOrUpdateUser).not.toHaveBeenCalled();
   });
 });
