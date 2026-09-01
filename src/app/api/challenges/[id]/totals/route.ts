@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getAdminAuth, getAdminDb } from "@/lib/services/firebaseAdmin";
-import { getChallengeTotals } from "@/lib/services/challengeTotals";
+import { getCachedChallengeTotals } from "@/lib/services/cachedChallengeTotals";
 
 export async function GET(req: NextRequest, context: { params: Promise<{ id: string }> }) {
   const authHeader = req.headers.get("Authorization") ?? "";
@@ -28,7 +28,11 @@ export async function GET(req: NextRequest, context: { params: Promise<{ id: str
     // private/unlisted visibility flag turn a valid group total into $0 in
     // the card.
 
-    const totals = await getChallengeTotals(db, projectId, typeof project.title === "string" ? project.title : "", project.previousTitles);
+    const totals = await getCachedChallengeTotals(
+      projectId,
+      typeof project.title === "string" ? project.title : "",
+      project.previousTitles,
+    );
 
     return NextResponse.json({
       totalPledged: totals.totalPledged,

@@ -64,11 +64,16 @@ function visibilityLabel(project: Project): ChallengeView["visibilityLabel"] {
     : "Public";
 }
 
+function storedFundraiserTotal(project: Project): number {
+  return Math.max(0, Number(project.totalRaised ?? 0))
+    + Math.max(0, Number(project.totalDonated ?? 0));
+}
+
 function challengeFromProject(project: Project, reconciledTotal?: number): ChallengeView {
   const category = challengeCategory(project);
   const fallback = fallbackForCategory(category);
   const goal = project.goalAmount > 0 ? project.goalAmount : 0;
-  const raised = Math.max(0, reconciledTotal ?? 0);
+  const raised = Math.max(0, reconciledTotal ?? storedFundraiserTotal(project));
   const progressPct = goal > 0 ? Math.min(100, Math.round((raised / goal) * 100)) : 0;
   return {
     project,
@@ -174,7 +179,6 @@ export default function JoinChallengePage() {
   const [projectData, setProjectData] = useState<Project | null>(null);
   const [resolvedChallengeId, setResolvedChallengeId] = useState("");
   const [reconciledTotal, setReconciledTotal] = useState<number | null>(null);
-  const [totalsLoading, setTotalsLoading] = useState(true);
   const [loading, setLoading] = useState(true);
   const [notFound, setNotFound] = useState(false);
 
@@ -190,6 +194,7 @@ export default function JoinChallengePage() {
   useEffect(() => {
     if (!challengeId) { setNotFound(true); setLoading(false); return; }
     let cancelled = false;
+    setReconciledTotal(null);
 
     async function resolveInvite() {
       // New share links carry the immutable project ID. Resolve that one
@@ -253,8 +258,11 @@ export default function JoinChallengePage() {
   useEffect(() => {
     if (!resolvedChallengeId) return;
     let cancelled = false;
-    setTotalsLoading(true);
-    void fetch(`/api/challenges/${encodeURIComponent(resolvedChallengeId)}/public-totals`)
+    const controller = new AbortController();
+    const timeout = window.setTimeout(() => controller.abort(), 5000);
+    void fetch(`/api/challenges/${encodeURIComponent(resolvedChallengeId)}/public-totals`, {
+      signal: controller.signal,
+    })
       .then(async (response) => {
         if (!response.ok) throw new Error("Unable to load fundraiser totals");
         return response.json() as Promise<{ total: number }>;
@@ -264,13 +272,15 @@ export default function JoinChallengePage() {
       })
       .catch(() => {
         if (!cancelled) {
-          const fallback = Math.max(0, Number(projectData?.totalRaised ?? 0))
-            + Math.max(0, Number(projectData?.totalDonated ?? 0));
-          setReconciledTotal(fallback);
+          setReconciledTotal(projectData ? storedFundraiserTotal(projectData) : 0);
         }
       })
-      .finally(() => { if (!cancelled) setTotalsLoading(false); });
-    return () => { cancelled = true; };
+      .finally(() => window.clearTimeout(timeout));
+    return () => {
+      cancelled = true;
+      window.clearTimeout(timeout);
+      controller.abort();
+    };
   }, [resolvedChallengeId, projectData?.totalRaised, projectData?.totalDonated]);
 
   const challenge = useMemo(
@@ -282,7 +292,7 @@ export default function JoinChallengePage() {
   const signUpHref = `/sign-in?mode=signup&redirect=${encodeURIComponent(inviteDestination)}`;
   const signInHref = `/sign-in?mode=signin&redirect=${encodeURIComponent(inviteDestination)}`;
 
-  if (loading || authLoading || (Boolean(resolvedChallengeId) && totalsLoading)) {
+  if (loading || authLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center" style={{ background: "var(--bg-base)" }}>
         <div className="w-8 h-8 border-4 border-t-transparent rounded-full animate-spin" style={{ borderColor: "var(--green-primary)", borderTopColor: "transparent" }} />
