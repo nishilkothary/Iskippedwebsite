@@ -188,15 +188,6 @@ export function SkipModal({ onClose }: Props) {
     const activeGoal = skipAllocationTarget?.type === "goal"
       ? spendingGoals.find((goal) => goal.id === skipAllocationTarget.id) ?? null
       : null;
-    const skipBankBefore = Math.max(
-      0,
-      (profile?.totalSaved ?? 0) - (profile?.totalSpent ?? 0) - (profile?.totalDonated ?? 0)
-    );
-    const projectedSkipBank = Math.max(
-      0,
-      skipBankBefore + amount
-    );
-
     // Pre-compute jar-full state synchronously using same formula as jars page
     const activeTarget = skipAllocationTarget;
     const personalGoal = activeTarget?.type === "goal"
@@ -208,12 +199,6 @@ export function SkipModal({ onClose }: Props) {
         ? profile?.goalJarBalances?.[activeTarget.id] ?? 0
         : 0;
     const expectedJarBal = Math.max(0, currentJarBal) + amount;
-    const willBeFull = activeTarget?.type === "goal" && personalGoal > 0
-      && expectedJarBal >= personalGoal;
-    const nextOverflowCount = willBeFull
-      ? (profile?.causeJarOverflowCounts?.[activeTarget.id] ?? 0) + 1
-      : 0;
-
     const result = await log({
       category: selectedCat.id,
       categoryLabel: customLabel || selectedCat.label,
@@ -232,6 +217,13 @@ export function SkipModal({ onClose }: Props) {
       allocationTarget: skipAllocationTarget,
     });
     if (result) {
+      const confirmedPreviousJarBalance = result.previousTargetBalance ?? currentJarBal;
+      const confirmedJarBalance = result.targetBalance ?? expectedJarBal;
+      const confirmedWillBeFull = activeTarget?.type === "goal" && personalGoal > 0
+        && confirmedJarBalance >= personalGoal;
+      const confirmedNextOverflowCount = confirmedWillBeFull
+        ? (profile?.causeJarOverflowCounts?.[activeTarget.id] ?? 0) + 1
+        : 0;
       if (user && profile?.onboardingCompletedAt === null) {
         try {
           await completeFirstRunOnboarding(user.uid);
@@ -246,26 +238,28 @@ export function SkipModal({ onClose }: Props) {
       setSuccessProjectUnitName(selectedProject?.unitName ?? null);
       setSuccessProjectUnitDisplay(selectedProject?.unitDisplay ?? null);
       setSuccessProjectUnitCost(selectedProject?.unitCost ?? null);
-      setSuccessJarBalance(expectedJarBal);
+      setSuccessJarBalance(confirmedJarBalance);
       setSuccessGroupTotal(selectedProject
         ? Math.max(
             0,
             (selectedProject.totalDonated ?? 0) +
-              (profile?.causeJarBalances?.[selectedProject.id] ?? 0) +
-              amount
+              confirmedJarBalance
           )
         : 0);
       setSuccessLargestSkip(Math.max(amount, ...recentSkips.filter((skip) => skip.projectId === effectiveProjectId).map((skip) => skip.amount)));
-      setSuccessSkipBank(projectedSkipBank);
-      setSuccessLifetimeSaved((profile?.totalSaved ?? 0) + amount);
-      const nextSkipCount = (profile?.totalSkips ?? 0) + 1;
+      setSuccessSkipBank(Math.max(
+        0,
+        result.newTotal - (profile?.totalSpent ?? 0) - (profile?.totalDonated ?? 0),
+      ));
+      setSuccessLifetimeSaved(result.newTotal);
+      const nextSkipCount = result.newTotalSkips ?? (profile?.totalSkips ?? 0) + 1;
       setSuccessSkipCount(nextSkipCount);
       const goalTarget = activeGoal?.targetAmount ?? 0;
       const goalJustReached = goalTarget > 0
-        && currentJarBal < goalTarget
-        && expectedJarBal >= goalTarget;
-      const goalCoverageBefore = goalTarget > 0 ? (Math.max(0, currentJarBal) / goalTarget) * 100 : 0;
-      const goalCoverageAfter = goalTarget > 0 ? (expectedJarBal / goalTarget) * 100 : 0;
+        && confirmedPreviousJarBalance < goalTarget
+        && confirmedJarBalance >= goalTarget;
+      const goalCoverageBefore = goalTarget > 0 ? (Math.max(0, confirmedPreviousJarBalance) / goalTarget) * 100 : 0;
+      const goalCoverageAfter = goalTarget > 0 ? (confirmedJarBalance / goalTarget) * 100 : 0;
       const goalProgressMilestoneHit = [25, 50, 75].some((threshold) =>
         goalCoverageBefore < threshold && goalCoverageAfter >= threshold
       );
@@ -294,8 +288,8 @@ export function SkipModal({ onClose }: Props) {
       } else {
         setSuccessMoment(rotatingMoment);
       }
-      if (willBeFull) {
-        setSuccessOverflowCount(nextOverflowCount);
+      if (confirmedWillBeFull) {
+        setSuccessOverflowCount(confirmedNextOverflowCount);
       }
       if (typeof navigator !== "undefined" && typeof navigator.vibrate === "function") {
         navigator.vibrate([12, 28, 18]);

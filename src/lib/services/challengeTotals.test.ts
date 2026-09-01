@@ -22,4 +22,35 @@ describe("fundraiser totals after editing details", () => {
     expect(before).toEqual({ totalPledged: 0, totalDonated: 100, total: 100 });
     expect(after).toEqual(before);
   });
+
+  it("keeps historical and new totals unchanged when receipts live in a separate subcollection", async () => {
+    const donationRecords = [
+      { causeId: "books", causeTitle: "Books", amount: 10 },
+      { causeId: "books", causeTitle: "Books", amount: 20 },
+    ];
+    const jarProfile = {
+      totalSaved: 50,
+      totalSpent: 0,
+      totalDonated: 0,
+      totalDonatedFromSkips: 0,
+      causeJarBalances: { books: 50 },
+      goalJarBalances: {},
+    };
+    const db = {
+      collection: () => ({ where: () => ({ get: async () => ({ docs: [{ data: () => jarProfile }] }) }) }),
+      collectionGroup: (name: string) => {
+        expect(name).toBe("donations");
+        return { get: async () => ({ docs: donationRecords.map((data, index) => ({
+          get: (key: string) => data[key as keyof typeof data],
+          ref: { path: `users/alice/donations/${index}` },
+        })) }) };
+      },
+    } as unknown as Firestore;
+
+    expect(await getChallengeTotals(db, "books", "Books")).toEqual({
+      totalPledged: 50,
+      totalDonated: 30,
+      total: 80,
+    });
+  });
 });

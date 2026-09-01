@@ -5,8 +5,9 @@ import { toast } from "sonner";
 import { useRouter } from "next/navigation";
 import { useAuthStore } from "@/store/authStore";
 import { useProjects } from "@/hooks/useProjects";
-import { recordDonation, transferJarBalance } from "@/lib/services/firebase/users";
+import { recordDonation, transferJarBalance, type DonationFundingBreakdown } from "@/lib/services/firebase/users";
 import { formatCurrency } from "@/lib/utils/currency";
+import { clearSubmissionId, getOrCreateSubmissionId } from "@/lib/utils/submissionIds";
 import { getChallengeCountdown } from "@/lib/utils/dates";
 import { isChallengeProject } from "@/lib/services/firebase/projects";
 
@@ -76,10 +77,17 @@ export default function JarResolvePage() {
             onResolved={(updates) => {
               updateProfile({ causeJarBalances: { ...jarBalances, ...updates } });
             }}
-            onDonate={(donationBalance) => {
+            onDonate={(funding) => {
+              const previousCauseDonated = profile?.causeStats?.[id]?.donated ?? 0;
               updateProfile({
-                totalDonated: (profile?.totalDonated ?? 0) + donationBalance,
-                causeJarBalances: { ...jarBalances, [id]: 0 },
+                totalDonated: funding.newTotalDonated ?? (profile?.totalDonated ?? 0) + balance,
+                totalDonatedFromSkips: funding.newTotalDonatedFromSkips
+                  ?? (profile?.totalDonatedFromSkips ?? profile?.totalDonated ?? 0) + funding.amountFromSkips,
+                causeStats: {
+                  ...profile?.causeStats,
+                  [id]: { donated: funding.newCauseDonated ?? previousCauseDonated + balance },
+                },
+                causeJarBalances: { ...jarBalances, [id]: funding.causeJarBalance ?? 0 },
               });
             }}
           />
@@ -106,7 +114,7 @@ function ParkedJarCard({
   allProjects: ReturnType<typeof useProjects>["projects"];
   uid: string;
   onResolved: (updates: Record<string, number>) => void;
-  onDonate: (amount: number) => void;
+  onDonate: (funding: DonationFundingBreakdown) => void;
 }) {
   const [donating, setDonating] = useState(false);
   const [donateConfirm, setDonateConfirm] = useState(false);
@@ -131,9 +139,12 @@ function ParkedJarCard({
 
   async function handleMarkDonated() {
     setDonating(true);
+    const submissionPayload = { amount: balance, projectId: jarId, projectTitle: title };
+    const submissionId = getOrCreateSubmissionId("donation", submissionPayload);
     try {
-      await recordDonation(uid, balance, jarId, title);
-      onDonate(balance);
+      const funding = await recordDonation(uid, balance, jarId, title, undefined, submissionId);
+      clearSubmissionId("donation", submissionId);
+      onDonate(funding);
       setResolved(true);
     } catch (err) {
       console.error("recordDonation failed", err);

@@ -10,6 +10,7 @@ import { getImpactMessage } from "@/lib/constants/impactMessages";
 import { xpForSkip, levelForXp } from "@/lib/utils/xp";
 import { Skip, DonationEvent, SkipAllocationTarget, SkipSourceAllocation } from "@/lib/types/models";
 import { getActiveSkipTarget } from "@/lib/utils/skipTargets";
+import { clearSubmissionId, getOrCreateSubmissionId } from "@/lib/utils/submissionIds";
 
 export function useSkips() {
   const { user, profile, updateProfile } = useAuthStore();
@@ -39,6 +40,7 @@ export function useSkips() {
     const causeJarId = allocationTarget?.type === "fundraiser" ? allocationTarget.id : params.projectId ?? "";
     const causeJarBalance = Math.max(0, profile.causeJarBalances?.[causeJarId] ?? 0);
     const causeJarOverflowCount = profile.causeJarOverflowCounts?.[causeJarId] ?? 0;
+    const submissionId = getOrCreateSubmissionId("skip", { ...params, allocationTarget });
     try {
       const result = await logSkip({
         ...params,
@@ -56,8 +58,9 @@ export function useSkips() {
         causeJarBalance,
         causeJarOverflowCount,
         allocationTarget,
-      });
+      }, submissionId);
       if (result) {
+        clearSubmissionId("skip", submissionId);
         const targetedBalanceUpdates: {
           goalJarBalances?: Record<string, number>;
           causeJarBalances?: Record<string, number>;
@@ -65,18 +68,20 @@ export function useSkips() {
         if (allocationTarget?.type === "goal") {
           targetedBalanceUpdates.goalJarBalances = {
             ...(profile.goalJarBalances ?? {}),
-            [allocationTarget.id]: Math.max(0, profile.goalJarBalances?.[allocationTarget.id] ?? 0) + params.amount,
+            [allocationTarget.id]: result.targetBalance
+              ?? Math.max(0, profile.goalJarBalances?.[allocationTarget.id] ?? 0) + params.amount,
           };
         }
         if (allocationTarget?.type === "fundraiser") {
           targetedBalanceUpdates.causeJarBalances = {
             ...(profile.causeJarBalances ?? {}),
-            [allocationTarget.id]: Math.max(0, profile.causeJarBalances?.[allocationTarget.id] ?? 0) + params.amount,
+            [allocationTarget.id]: result.targetBalance
+              ?? Math.max(0, profile.causeJarBalances?.[allocationTarget.id] ?? 0) + params.amount,
           };
         }
         updateProfile({
-          totalSaved: profile.totalSaved + params.amount,
-          totalSkips: profile.totalSkips + 1,
+          totalSaved: result.newTotal,
+          totalSkips: result.newTotalSkips ?? profile.totalSkips + 1,
           xp: result.newXp,
           level: result.newLevel,
           streak: result.newStreak,
@@ -97,14 +102,21 @@ export function useSkips() {
 
   async function donate(amount: number, projectId: string, projectTitle: string, date?: string): Promise<boolean> {
     if (!user || !profile) return false;
+    const submissionPayload = { amount, projectId, projectTitle, date };
+    const submissionId = getOrCreateSubmissionId("donation", submissionPayload);
     try {
-      const funding = await recordDonation(user.uid, amount, projectId, projectTitle, date);
+      const funding = await recordDonation(user.uid, amount, projectId, projectTitle, date, submissionId);
+      clearSubmissionId("donation", submissionId);
       const prevDonated = profile.causeStats?.[projectId]?.donated ?? 0;
       const prevJarBal = Math.max(0, profile.causeJarBalances?.[projectId] ?? 0);
       updateProfile({
-        totalDonated: profile.totalDonated + amount,
-        totalDonatedFromSkips: (profile.totalDonatedFromSkips ?? profile.totalDonated) + funding.amountFromSkips,
-        causeStats: { ...profile.causeStats, [projectId]: { donated: prevDonated + amount } },
+        totalDonated: funding.newTotalDonated ?? profile.totalDonated + amount,
+        totalDonatedFromSkips: funding.newTotalDonatedFromSkips
+          ?? (profile.totalDonatedFromSkips ?? profile.totalDonated) + funding.amountFromSkips,
+        causeStats: {
+          ...profile.causeStats,
+          [projectId]: { donated: funding.newCauseDonated ?? prevDonated + amount },
+        },
         causeJarBalances: {
           ...profile.causeJarBalances,
           [projectId]: funding.causeJarBalance ?? Math.max(0, prevJarBal - funding.jarDecrease),

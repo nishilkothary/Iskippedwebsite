@@ -8,8 +8,21 @@ import { getActiveSkipTarget } from "@/lib/utils/skipTargets";
 import { xpForSkip, levelForXp, REFERRAL_BONUS_XP } from "@/lib/utils/xp";
 import { getConsecutiveWeeklyStreak, getLongestWeeklyStreak, today } from "@/lib/utils/dates";
 import { adjustGlobalStats } from "@/lib/services/globalStats";
+import { parseSubmissionId, replayResult, submissionFingerprint } from "@/lib/services/submissionReceipts";
 import { SkipAllocationTarget, UserProfile } from "@/lib/types/models";
 import { addSkipLot, cloneLots } from "@/lib/utils/skipLedger";
+
+type SkipSubmissionResult = {
+  skipId: string;
+  newTotal: number;
+  newTotalSkips: number;
+  newXp: number;
+  newLevel: number;
+  newStreak: number;
+  newLongestStreak: number;
+  previousTargetBalance: number | null;
+  targetBalance: number | null;
+};
 
 function parseAllocationTarget(raw: unknown): SkipAllocationTarget | null {
   if (!raw || typeof raw !== "object") return null;
@@ -38,14 +51,44 @@ export async function POST(req: NextRequest) {
     const photoURL: string | null | undefined = typeof body.photoURL === "string" ? body.photoURL : undefined;
     const hasRequestedAllocationTarget = Object.prototype.hasOwnProperty.call(body, "allocationTarget");
     const requestedAllocationTarget = parseAllocationTarget(body.allocationTarget);
+    const submissionId = parseSubmissionId(body.submissionId);
+    const fingerprint = submissionId
+      ? submissionFingerprint("skip", {
+          category,
+          categoryLabel,
+          categoryEmoji,
+          amount,
+          projectId,
+          projectTitle,
+          projectLocation,
+          shareWithCommunity,
+          whatSkipped,
+          notes,
+          allocationTarget: hasRequestedAllocationTarget ? requestedAllocationTarget : "profile-default",
+        })
+      : null;
 
     const db = getAdminDb();
     const userRef = db.collection("users").doc(uid);
     const skipRef = userRef.collection("skips").doc();
+    const receiptRef = submissionId
+      ? userRef.collection("submissionReceipts").doc(submissionId)
+      : null;
 
     const todayStr = today();
 
     const result = await db.runTransaction(async (tx) => {
+      if (receiptRef && fingerprint) {
+        const receiptSnap = await tx.get(receiptRef);
+        if (receiptSnap.exists) {
+          return {
+            replayed: true,
+            response: replayResult<SkipSubmissionResult>(receiptSnap.data() as Record<string, unknown>, "skip", fingerprint),
+            allocationTarget: null,
+            message: "",
+          };
+        }
+      }
       const userSnap = await tx.get(userRef);
       if (!userSnap.exists) throw new ApiError(404, "User not found");
       const profile = userSnap.data() as UserProfile;
@@ -69,6 +112,7 @@ export async function POST(req: NextRequest) {
       const newXp = (profile.xp ?? 0) + xpEarned;
       const newLevel = levelForXp(newXp);
       const newTotalSaved = (profile.totalSaved ?? 0) + amount;
+      const newTotalSkips = (profile.totalSkips ?? 0) + 1;
 
       const allSkipDates = [...skipDates, todayStr];
       const newStreak = getConsecutiveWeeklyStreak(allSkipDates, todayStr);
@@ -90,8 +134,26 @@ export async function POST(req: NextRequest) {
         ? db.collection("projects").doc(allocationTarget.id)
         : null;
       if (projectRef) await tx.get(projectRef);
+      const previousTargetBalance = allocationTarget?.type === "goal"
+        ? Math.max(0, profile.goalJarBalances?.[allocationTarget.id] ?? 0)
+        : allocationTarget?.type === "fundraiser"
+          ? Math.max(0, profile.causeJarBalances?.[allocationTarget.id] ?? 0)
+          : null;
+      const targetBalance = previousTargetBalance === null ? null : previousTargetBalance + amount;
       const skipLots = cloneLots(profile);
       addSkipLot(skipLots, skipRef.id, amount, allocationTarget);
+
+      const response: SkipSubmissionResult = {
+        skipId: skipRef.id,
+        newTotal: newTotalSaved,
+        newTotalSkips,
+        newXp,
+        newLevel,
+        newStreak,
+        newLongestStreak,
+        previousTargetBalance,
+        targetBalance,
+      };
 
       tx.set(skipRef, {
         uid,
@@ -123,10 +185,10 @@ export async function POST(req: NextRequest) {
         savedTowardActiveCause: allocationTarget?.type === "fundraiser" ? FieldValue.increment(amount) : (profile.savedTowardActiveCause ?? 0),
       };
       if (allocationTarget?.type === "goal") {
-        userUpdates[`goalJarBalances.${allocationTarget.id}`] = Math.max(0, profile.goalJarBalances?.[allocationTarget.id] ?? 0) + amount;
+        userUpdates[`goalJarBalances.${allocationTarget.id}`] = targetBalance;
       }
       if (allocationTarget?.type === "fundraiser") {
-        userUpdates[`causeJarBalances.${allocationTarget.id}`] = Math.max(0, profile.causeJarBalances?.[allocationTarget.id] ?? 0) + amount;
+        userUpdates[`causeJarBalances.${allocationTarget.id}`] = targetBalance;
       }
       tx.update(userRef, userUpdates);
 
@@ -154,14 +216,24 @@ export async function POST(req: NextRequest) {
         tx.update(referrerRef, firstSkipBonus);
       }
 
-      return { newTotalSaved, newXp, newLevel, newStreak, newLongestStreak, message, allocationTarget };
+      if (receiptRef && fingerprint) {
+        tx.set(receiptRef, {
+          operation: "skip",
+          fingerprint,
+          recordId: skipRef.id,
+          result: response,
+          createdAt: FieldValue.serverTimestamp(),
+        });
+      }
+
+      return { replayed: false, response, message, allocationTarget };
     });
 
     // Global counters in Realtime DB
-    await adjustGlobalStats(amount, 1);
+    if (!result.replayed) await adjustGlobalStats(amount, 1);
 
     // Community/group sharing only applies to fundraiser-targeted skips.
-    if (result.allocationTarget?.type === "fundraiser" && shareWithCommunity) try {
+    if (!result.replayed && result.allocationTarget?.type === "fundraiser" && shareWithCommunity) try {
       const communityFeedRef = db.collection("communityFeed").doc(skipRef.id);
       await communityFeedRef.set({
         uid,
@@ -185,14 +257,7 @@ export async function POST(req: NextRequest) {
       // Non-critical, continue
     }
 
-    return NextResponse.json({
-      skipId: skipRef.id,
-      newTotal: result.newTotalSaved,
-      newXp: result.newXp,
-      newLevel: result.newLevel,
-      newStreak: result.newStreak,
-      newLongestStreak: result.newLongestStreak,
-    });
+    return NextResponse.json(result.response);
   } catch (e) {
     return handleApiError(e);
   }

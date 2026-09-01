@@ -43,8 +43,24 @@ export interface LogSkipParams {
   allocationTarget?: SkipAllocationTarget | null;
 }
 
-export async function logSkip(params: LogSkipParams): Promise<{ skipId: string; newTotal: number; newXp: number; newLevel: number; newStreak: number; newLongestStreak: number; giveJarOverflowCount?: number }> {
-  return apiRequest<{ skipId: string; newTotal: number; newXp: number; newLevel: number; newStreak: number; newLongestStreak: number; giveJarOverflowCount?: number }>("/api/skips", "POST", params);
+export interface LogSkipResult {
+  skipId: string;
+  newTotal: number;
+  newTotalSkips?: number;
+  newXp: number;
+  newLevel: number;
+  newStreak: number;
+  newLongestStreak: number;
+  previousTargetBalance?: number | null;
+  targetBalance?: number | null;
+  giveJarOverflowCount?: number;
+}
+
+export async function logSkip(params: LogSkipParams, submissionId?: string): Promise<LogSkipResult> {
+  return apiRequest<LogSkipResult>("/api/skips", "POST", {
+    ...params,
+    ...(submissionId ? { submissionId } : {}),
+  });
 }
 
 export function subscribeToSkips(uid: string, callback: (skips: Skip[]) => void): Unsubscribe {

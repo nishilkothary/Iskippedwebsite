@@ -3,9 +3,21 @@ import { FieldValue } from "firebase-admin/firestore";
 import { getAdminDb } from "@/lib/services/firebaseAdmin";
 import { requireUid, ApiError, handleApiError } from "@/lib/services/apiAuth";
 import { validateAmount, validateNonEmptyString } from "@/lib/services/serverProfileDefaults";
+import { parseSubmissionId, replayResult, submissionFingerprint } from "@/lib/services/submissionReceipts";
 import { getSkipBalanceSummary } from "@/lib/utils/skipBalances";
 import { UserProfile } from "@/lib/types/models";
 import { balancesFromLots, cloneLots, consumeLots, locationKey } from "@/lib/utils/skipLedger";
+
+type DonationSubmissionResult = {
+  jarDecrease: number;
+  skipBucksDecrease: number;
+  outsideContribution: number;
+  amountFromSkips: number;
+  causeJarBalance: number;
+  newTotalDonated: number;
+  newTotalDonatedFromSkips: number;
+  newCauseDonated: number;
+};
 
 export async function POST(req: NextRequest) {
   try {
@@ -15,12 +27,28 @@ export async function POST(req: NextRequest) {
     const projectId = validateNonEmptyString(body.projectId, "projectId");
     const projectTitle = validateNonEmptyString(body.projectTitle, "projectTitle");
     const date: string | undefined = typeof body.date === "string" ? body.date : undefined;
+    const submissionId = parseSubmissionId(body.submissionId);
+    const fingerprint = submissionId
+      ? submissionFingerprint("donation", { amount, projectId, projectTitle, date })
+      : null;
 
     const db = getAdminDb();
     const userRef = db.collection("users").doc(uid);
     const donationRef = userRef.collection("donations").doc();
+    const receiptRef = submissionId
+      ? userRef.collection("submissionReceipts").doc(submissionId)
+      : null;
 
     const result = await db.runTransaction(async (tx) => {
+      if (receiptRef && fingerprint) {
+        const receiptSnap = await tx.get(receiptRef);
+        if (receiptSnap.exists) {
+          return {
+            replayed: true,
+            response: replayResult<DonationSubmissionResult>(receiptSnap.data() as Record<string, unknown>, "donation", fingerprint),
+          };
+        }
+      }
       const userSnap = await tx.get(userRef);
       const profile = userSnap.data() as UserProfile | undefined;
       if (!profile) throw new ApiError(404, "User not found");
@@ -48,6 +76,22 @@ export async function POST(req: NextRequest) {
       } else {
         delete nextBalances.causeJarBalances[projectId];
       }
+      const causeJarBalance = Math.max(0, nextBalances.causeJarBalances[projectId] ?? 0);
+      const newTotalDonated = Math.max(0, Number(profile.totalDonated ?? 0)) + amount;
+      const newTotalDonatedFromSkips = profile.totalDonatedFromSkips === undefined
+        ? Math.max(0, Number(profile.totalDonated ?? 0)) + amountFromSkips
+        : Math.max(0, Number(profile.totalDonatedFromSkips)) + amountFromSkips;
+      const newCauseDonated = Math.max(0, Number(profile.causeStats?.[projectId]?.donated ?? 0)) + amount;
+      const response: DonationSubmissionResult = {
+        jarDecrease,
+        skipBucksDecrease,
+        outsideContribution,
+        amountFromSkips,
+        causeJarBalance,
+        newTotalDonated,
+        newTotalDonatedFromSkips,
+        newCauseDonated,
+      };
 
       tx.set(donationRef, {
         causeId: projectId,
@@ -79,18 +123,23 @@ export async function POST(req: NextRequest) {
         totalRaised: FieldValue.increment(-jarDecrease),
         totalDonated: FieldValue.increment(amount),
       }, { merge: true });
-      return {
-        jarDecrease,
-        skipBucksDecrease,
-        outsideContribution,
-        amountFromSkips,
-        causeJarBalance: Math.max(0, nextBalances.causeJarBalances[projectId] ?? 0),
-      };
+      if (receiptRef && fingerprint) {
+        tx.set(receiptRef, {
+          operation: "donation",
+          fingerprint,
+          recordId: donationRef.id,
+          result: response,
+          createdAt: FieldValue.serverTimestamp(),
+        });
+      }
+      return { replayed: false, response };
     });
 
-    userRef.update({ lastDonationDate: new Date().toISOString().slice(0, 10) }).catch(() => {});
+    if (!result.replayed) {
+      userRef.update({ lastDonationDate: new Date().toISOString().slice(0, 10) }).catch(() => {});
+    }
 
-    return NextResponse.json(result);
+    return NextResponse.json(result.response);
   } catch (e) {
     return handleApiError(e);
   }

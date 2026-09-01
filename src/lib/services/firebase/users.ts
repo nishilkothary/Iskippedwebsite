@@ -294,11 +294,21 @@ export type DonationFundingBreakdown = {
   amountFromSkips: number;
   /** Authoritative balance of the affected fundraiser jar after the write. */
   causeJarBalance?: number;
+  /** Authoritative totals returned by receipt-aware servers. Optional during rolling deployments. */
+  newTotalDonated?: number;
+  newTotalDonatedFromSkips?: number;
+  newCauseDonated?: number;
 };
 
-export async function recordDonation(uid: string, amount: number, projectId: string, projectTitle: string, date?: string): Promise<DonationFundingBreakdown> {
+export async function recordDonation(uid: string, amount: number, projectId: string, projectTitle: string, date?: string, submissionId?: string): Promise<DonationFundingBreakdown> {
   if (amount <= 0) throw new Error("Donation amount must be greater than zero");
-  return apiRequest<DonationFundingBreakdown>("/api/donations", "POST", { amount, projectId, projectTitle, date });
+  return apiRequest<DonationFundingBreakdown>("/api/donations", "POST", {
+    amount,
+    projectId,
+    projectTitle,
+    date,
+    ...(submissionId ? { submissionId } : {}),
+  });
 }
 
 export type PurchaseFundingBreakdown = {
