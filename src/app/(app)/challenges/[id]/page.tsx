@@ -9,7 +9,7 @@ import { useProjects } from "@/hooks/useProjects";
 import { Project, SkipAllocationTarget, UserProfile } from "@/lib/types/models";
 import { allocateSkipBankToJar, completeFirstRunOnboarding, joinProject, pinProjectToHome, setChallengeEmailConsent, setUserCauseGoal } from "@/lib/services/firebase/users";
 import { isChallengeProject, getProject } from "@/lib/services/firebase/projects";
-import { formatCurrency } from "@/lib/utils/currency";
+import { formatCurrency, formatCurrencyUpToCents } from "@/lib/utils/currency";
 import { getChallengeCountdown } from "@/lib/utils/dates";
 import { appendRefParam, getChallengeSharePath } from "@/lib/utils/share";
 import { getChallengeCausePhrase, getDirectChallengeShareText } from "@/lib/utils/challengeShareCopy";
@@ -173,8 +173,8 @@ function ProgressBar({ challenge, groupTotal = challenge.raised }: { challenge: 
   return (
     <div>
       <div className="flex justify-between gap-3 text-sm font-black mb-2">
-        <span style={{ color: "var(--green-primary)" }}>{formatCurrency(groupTotal)} toward the goal</span>
-        <span style={{ color: "var(--text-muted)" }}>{progressPct}%</span>
+        <span style={{ color: "var(--green-primary)" }}>{formatCurrencyUpToCents(groupTotal)}</span>
+        <span style={{ color: "var(--text-muted)" }}>{formatCurrencyUpToCents(challenge.goal)} goal</span>
       </div>
       <div className="h-3 rounded-full overflow-hidden" style={{ background: "var(--bg-surface-3)" }}>
         <div
@@ -185,9 +185,6 @@ function ProgressBar({ challenge, groupTotal = challenge.raised }: { challenge: 
           }}
         />
       </div>
-      <p className="text-xs font-semibold mt-2 text-right" style={{ color: "var(--text-muted)" }}>
-        Goal {formatCurrency(challenge.goal)}
-      </p>
     </div>
   );
 }

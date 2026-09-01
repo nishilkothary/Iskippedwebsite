@@ -7,7 +7,7 @@ import { auth, db } from "@/lib/services/firebase/config";
 import { getAllProjects, OFFICIAL_PROJECTS } from "@/lib/services/firebase/projects";
 import { useAuthStore } from "@/store/authStore";
 import { Project } from "@/lib/types/models";
-import { formatCurrency } from "@/lib/utils/currency";
+import { formatCurrency, formatCurrencyUpToCents } from "@/lib/utils/currency";
 import { getChallengeCountdown } from "@/lib/utils/dates";
 import { getChallengeCausePhrase } from "@/lib/utils/challengeShareCopy";
 import { captureReferralCode } from "@/lib/utils/referral";
@@ -369,12 +369,10 @@ export default function JoinChallengePage() {
                 <div className="rounded-xl px-4 py-3" style={{ background: "var(--bg-surface-2)", border: "1px solid var(--border-default)" }}>
                   <div className="flex items-center justify-between gap-3">
                     <div>
-                      <p className="text-xs uppercase tracking-wide font-black" style={{ color: "var(--text-muted)" }}>Group progress</p>
-                      <p className="text-lg font-black" style={{ color: "var(--green-primary)" }}>{formatCurrency(displayedRaised)} toward the goal</p>
+                      <p className="text-lg font-black" style={{ color: "var(--green-primary)" }}>{formatCurrencyUpToCents(displayedRaised)}</p>
                     </div>
                     <div className="text-right">
-                      <p className="text-xs uppercase tracking-wide font-black" style={{ color: "var(--text-muted)" }}>Goal</p>
-                      <p className="text-lg font-black" style={{ color: "var(--text-primary)" }}>{formatCurrency(challenge.goal)}</p>
+                      <p className="text-lg font-black" style={{ color: "var(--text-primary)" }}>{formatCurrencyUpToCents(challenge.goal)} goal</p>
                     </div>
                   </div>
                   <div className="mt-3 h-2 rounded-full overflow-hidden" style={{ background: "var(--bg-surface-3)" }}>
