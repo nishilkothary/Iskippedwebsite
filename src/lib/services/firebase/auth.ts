@@ -71,6 +71,12 @@ export async function signInWithEmail(email: string, password: string): Promise<
   const result = await signInWithEmailAndPassword(auth, email, password);
   allowInstallHandoff();
   void prepareInstallHandoff(result.user);
+  // Firebase Authentication can succeed even when an interrupted signup did
+  // not finish creating the matching Firestore profile. This helper is
+  // idempotent: existing profiles are left untouched, while a missing profile
+  // is created before the app continues past the sign-in screen.
+  const isNew = await createOrUpdateUser(result.user);
+  await attributeReferralIfNew(isNew, result.user.uid);
   return result.user;
 }
 
